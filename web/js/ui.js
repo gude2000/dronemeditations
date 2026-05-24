@@ -118,6 +118,9 @@ function renderStrips() {
 // LFO rate range: 0.02–8 Hz, log-scaled.
 const LFO_RATE_MIN = 0.02;
 const LFO_RATE_MAX = 8.0;
+// Reverb decay 0.1–10 s log; delay time 0.02–2 s log.
+const REV_MIN = 0.1, REV_MAX = 10.0;
+const DLY_MIN = 0.02, DLY_MAX = 2.0;
 // Filter cutoff range, log-scaled.
 const FILT_MIN = 20;
 const FILT_MAX = 8000;
@@ -193,6 +196,32 @@ function buildStrip(index) {
       <div class="mini-control">
         <span class="mini-label" data-role="filter-q-label">Q</span>
         <input type="range" min="0" max="1" step="0.0001" data-role="filter-q" />
+      </div>
+    </div>
+    <div class="fx-row" data-role="rev-row">
+      <span class="strip-label">REV</span>
+      <div class="mini-control">
+        <span class="mini-label" data-role="rev-decay-label">DECAY</span>
+        <input type="range" min="0" max="1" step="0.0001" data-role="rev-decay" />
+      </div>
+      <div class="mini-control">
+        <span class="mini-label" data-role="rev-mix-label">MIX</span>
+        <input type="range" min="0" max="1" step="0.001" data-role="rev-mix" />
+      </div>
+    </div>
+    <div class="fx-row" data-role="dly-row">
+      <span class="strip-label">DLY</span>
+      <div class="mini-control">
+        <span class="mini-label" data-role="dly-time-label">TIME</span>
+        <input type="range" min="0" max="1" step="0.0001" data-role="dly-time" />
+      </div>
+      <div class="mini-control">
+        <span class="mini-label" data-role="dly-fb-label">FB</span>
+        <input type="range" min="0" max="0.95" step="0.001" data-role="dly-fb" />
+      </div>
+      <div class="mini-control">
+        <span class="mini-label" data-role="dly-mix-label">MIX</span>
+        <input type="range" min="0" max="1" step="0.001" data-role="dly-mix" />
       </div>
     </div>
     <div class="lfo-rows">
@@ -295,6 +324,27 @@ function buildStrip(index) {
     dispatch.setFilterQ(index, q);
   });
 
+  // Reverb + delay sliders
+  root.querySelector('[data-role="rev-decay"]').addEventListener("input", (e) => {
+    const t = parseFloat(e.target.value);
+    const sec = Math.pow(2, Math.log2(REV_MIN) + t * (Math.log2(REV_MAX) - Math.log2(REV_MIN)));
+    dispatch.setReverbDecay(index, sec);
+  });
+  root.querySelector('[data-role="rev-mix"]').addEventListener("input", (e) => {
+    dispatch.setReverbMix(index, parseFloat(e.target.value));
+  });
+  root.querySelector('[data-role="dly-time"]').addEventListener("input", (e) => {
+    const t = parseFloat(e.target.value);
+    const sec = Math.pow(2, Math.log2(DLY_MIN) + t * (Math.log2(DLY_MAX) - Math.log2(DLY_MIN)));
+    dispatch.setDelayTime(index, sec);
+  });
+  root.querySelector('[data-role="dly-fb"]').addEventListener("input", (e) => {
+    dispatch.setDelayFeedback(index, parseFloat(e.target.value));
+  });
+  root.querySelector('[data-role="dly-mix"]').addEventListener("input", (e) => {
+    dispatch.setDelayMix(index, parseFloat(e.target.value));
+  });
+
   return root;
 }
 
@@ -379,6 +429,40 @@ function syncStrip(index, root) {
   if (document.activeElement !== qSlider) qSlider.value = qT.toFixed(4);
   qSlider.style.setProperty("--fill", `${Math.round(qT * 100)}%`);
   root.querySelector('[data-role="filter-q-label"]').textContent = `Q ${f.q.toFixed(2)}`;
+
+  // Reverb / Delay rows
+  const rv = osc.reverb;
+  const dl = osc.delay;
+  const revActive = rv.mix > 0.001;
+  const dlyActive = dl.mix > 0.001;
+  root.querySelector('[data-role="rev-row"]').classList.toggle("active", revActive);
+  root.querySelector('[data-role="dly-row"]').classList.toggle("active", dlyActive);
+
+  const revT = (Math.log2(Math.max(REV_MIN, rv.decaySec)) - Math.log2(REV_MIN)) / (Math.log2(REV_MAX) - Math.log2(REV_MIN));
+  const revDecaySlider = root.querySelector('[data-role="rev-decay"]');
+  const revMixSlider = root.querySelector('[data-role="rev-mix"]');
+  if (document.activeElement !== revDecaySlider) revDecaySlider.value = revT.toFixed(4);
+  if (document.activeElement !== revMixSlider) revMixSlider.value = rv.mix.toFixed(3);
+  revDecaySlider.style.setProperty("--fill", `${Math.round(revT * 100)}%`);
+  revMixSlider.style.setProperty("--fill", `${Math.round(rv.mix * 100)}%`);
+  root.querySelector('[data-role="rev-decay-label"]').textContent =
+    rv.decaySec < 1 ? `DECAY ${rv.decaySec.toFixed(2)}s` : `DECAY ${rv.decaySec.toFixed(1)}s`;
+  root.querySelector('[data-role="rev-mix-label"]').textContent = `MIX ${Math.round(rv.mix * 100)}`;
+
+  const dlyT = (Math.log2(Math.max(DLY_MIN, dl.timeSec)) - Math.log2(DLY_MIN)) / (Math.log2(DLY_MAX) - Math.log2(DLY_MIN));
+  const dlyTimeSlider = root.querySelector('[data-role="dly-time"]');
+  const dlyFbSlider = root.querySelector('[data-role="dly-fb"]');
+  const dlyMixSlider = root.querySelector('[data-role="dly-mix"]');
+  if (document.activeElement !== dlyTimeSlider) dlyTimeSlider.value = dlyT.toFixed(4);
+  if (document.activeElement !== dlyFbSlider) dlyFbSlider.value = dl.feedback.toFixed(3);
+  if (document.activeElement !== dlyMixSlider) dlyMixSlider.value = dl.mix.toFixed(3);
+  dlyTimeSlider.style.setProperty("--fill", `${Math.round(dlyT * 100)}%`);
+  dlyFbSlider.style.setProperty("--fill", `${Math.round((dl.feedback / 0.95) * 100)}%`);
+  dlyMixSlider.style.setProperty("--fill", `${Math.round(dl.mix * 100)}%`);
+  root.querySelector('[data-role="dly-time-label"]').textContent =
+    dl.timeSec < 1 ? `TIME ${Math.round(dl.timeSec * 1000)}ms` : `TIME ${dl.timeSec.toFixed(2)}s`;
+  root.querySelector('[data-role="dly-fb-label"]').textContent = `FB ${Math.round(dl.feedback * 100)}`;
+  root.querySelector('[data-role="dly-mix-label"]').textContent = `MIX ${Math.round(dl.mix * 100)}`;
 
   // LFO sliders (3 LFOs)
   root.querySelectorAll('.lfo-control').forEach((section) => {

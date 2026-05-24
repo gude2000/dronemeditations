@@ -61,6 +61,12 @@ export class AudioEngine {
       // Sample bus — node created when a sample is loaded for this voice.
       const sampleGain = this.ctx.createGain();
       const filter = this.ctx.createBiquadFilter();
+      // Reverb (ConvolverNode + wet-gain) and Delay (DelayNode + feedback + wet-gain).
+      const reverb = this.ctx.createConvolver();
+      const reverbWet = this.ctx.createGain();
+      const delay = this.ctx.createDelay(2.0);
+      const delayFb = this.ctx.createGain();
+      const delayWet = this.ctx.createGain();
       const pan = this.ctx.createStereoPanner();
       const gain = this.ctx.createGain();
 
@@ -81,19 +87,35 @@ export class AudioEngine {
       oscGain.gain.value = isSample ? 0 : 1;
       sampleGain.gain.value = isSample ? 1 : 0;
 
-      // Routing:  osc → oscGain ─┐
-      //                          ├→ filter → pan → gain → master
-      //   sampleSrc → sampleGain ┘
+      // Initial FX values from state (or defaults).
+      const r = v.reverb || { decaySec: 2.0, mix: 0 };
+      const d = v.delay  || { timeSec: 0.30, feedback: 0.40, mix: 0 };
+      reverb.buffer = buildReverbIR(this.ctx, r.decaySec);
+      reverbWet.gain.value = r.mix;
+      delay.delayTime.value = d.timeSec;
+      delayFb.gain.value = d.feedback;
+      delayWet.gain.value = d.mix;
+
+      // Routing:
+      //   osc/sample → filter
+      //              ─┬→ pan      (dry, unity gain)
+      //               ├→ reverb → reverbWet → pan
+      //               └→ delay  ⟲ feedback   → delayWet → pan
       osc.connect(oscGain);
       oscGain.connect(filter);
       sampleGain.connect(filter);
-      filter.connect(pan);
+      filter.connect(pan);                            // dry
+      filter.connect(reverb).connect(reverbWet).connect(pan);   // reverb wet send
+      filter.connect(delay);
+      delay.connect(delayFb).connect(delay);          // feedback loop
+      delay.connect(delayWet).connect(pan);           // delay wet send
       pan.connect(gain);
       gain.connect(this.master);
       osc.start();
 
       this.voices.push({
         osc, oscGain, sampleGain, filter, pan, gain,
+        reverb, reverbWet, delay, delayFb, delayWet,
         sampleSrc: null,         // AudioBufferSourceNode, created on loadSample
         sampleBuffer: null,      // decoded AudioBuffer
         params: {
@@ -104,6 +126,8 @@ export class AudioEngine {
           muted: v.isMuted,
           soloed: v.isSoloed,
           filter: { ...f },
+          reverb: { ...r },
+          delay: { ...d },
           lfos: (v.lfos || [
             { shape: "sine", target: "pan",    rateHz: 0.25, depth: 0 },
             { shape: "sh",   target: "amp",    rateHz: 0.50, depth: 0 },
@@ -393,6 +417,48 @@ export class AudioEngine {
     v.filter.Q.linearRampToValueAtTime(q, t + RAMP_TIME);
   }
 
+  setReverbDecay(voiceIndex, sec) {
+    const v = this.voices[voiceIndex]; if (!v) return;
+    v.params.reverb.decaySec = sec;
+    if (this.ctx) v.reverb.buffer = buildReverbIR(this.ctx, sec);
+  }
+  setReverbMix(voiceIndex, mix) {
+    const v = this.voices[voiceIndex]; if (!v) return;
+    v.params.reverb.mix = mix;
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    v.reverbWet.gain.cancelScheduledValues(t);
+    v.reverbWet.gain.setValueAtTime(v.reverbWet.gain.value, t);
+    v.reverbWet.gain.linearRampToValueAtTime(mix, t + RAMP_TIME);
+  }
+  setDelayTime(voiceIndex, sec) {
+    const v = this.voices[voiceIndex]; if (!v) return;
+    v.params.delay.timeSec = sec;
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    v.delay.delayTime.cancelScheduledValues(t);
+    v.delay.delayTime.setValueAtTime(v.delay.delayTime.value, t);
+    v.delay.delayTime.linearRampToValueAtTime(sec, t + RAMP_TIME);
+  }
+  setDelayFeedback(voiceIndex, fb) {
+    const v = this.voices[voiceIndex]; if (!v) return;
+    v.params.delay.feedback = fb;
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    v.delayFb.gain.cancelScheduledValues(t);
+    v.delayFb.gain.setValueAtTime(v.delayFb.gain.value, t);
+    v.delayFb.gain.linearRampToValueAtTime(fb, t + RAMP_TIME);
+  }
+  setDelayMix(voiceIndex, mix) {
+    const v = this.voices[voiceIndex]; if (!v) return;
+    v.params.delay.mix = mix;
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    v.delayWet.gain.cancelScheduledValues(t);
+    v.delayWet.gain.setValueAtTime(v.delayWet.gain.value, t);
+    v.delayWet.gain.linearRampToValueAtTime(mix, t + RAMP_TIME);
+  }
+
   // ───── solo / mute resolution ─────────────────────────────
 
   applySoloMuteLogic() {
@@ -413,4 +479,22 @@ export class AudioEngine {
     v.gain.gain.setValueAtTime(v.gain.gain.value, t);
     v.gain.gain.linearRampToValueAtTime(target, t + RAMP_TIME);
   }
+}
+
+/**
+ * Synthesize a stereo impulse response for a reverb of the given decay (seconds).
+ * Exponentially-decaying white noise — cheap and musically plausible.
+ */
+function buildReverbIR(ctx, decaySec) {
+  const sec = Math.max(0.05, Math.min(10, decaySec));
+  const len = Math.max(1, Math.floor(ctx.sampleRate * sec));
+  const ir = ctx.createBuffer(2, len, ctx.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const data = ir.getChannelData(ch);
+    for (let i = 0; i < len; i++) {
+      const env = Math.pow(1 - i / len, 2);
+      data[i] = (Math.random() * 2 - 1) * env;
+    }
+  }
+  return ir;
 }

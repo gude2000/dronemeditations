@@ -168,6 +168,27 @@ final class AudioEngine {
         voices[voiceIndex].filterQ = max(FilterState.qMin, min(FilterState.qMax, q))
     }
 
+    func setReverbDecay(_ sec: Double, for voiceIndex: Int) {
+        guard voices.indices.contains(voiceIndex) else { return }
+        voices[voiceIndex].reverbDecaySec = max(ReverbState.decayMin, min(ReverbState.decayMax, sec))
+    }
+    func setReverbMix(_ mix: Double, for voiceIndex: Int) {
+        guard voices.indices.contains(voiceIndex) else { return }
+        voices[voiceIndex].reverbMix = Float(max(0, min(1, mix)))
+    }
+    func setDelayTime(_ sec: Double, for voiceIndex: Int) {
+        guard voices.indices.contains(voiceIndex) else { return }
+        voices[voiceIndex].delayTimeSec = max(DelayState.timeMin, min(DelayState.timeMax, sec))
+    }
+    func setDelayFeedback(_ fb: Double, for voiceIndex: Int) {
+        guard voices.indices.contains(voiceIndex) else { return }
+        voices[voiceIndex].delayFeedback = Float(max(0, min(DelayState.feedbackMax, fb)))
+    }
+    func setDelayMix(_ mix: Double, for voiceIndex: Int) {
+        guard voices.indices.contains(voiceIndex) else { return }
+        voices[voiceIndex].delayMix = Float(max(0, min(1, mix)))
+    }
+
     /// Load an audio file into a voice's sample slot. The file is decoded with
     /// AVAudioFile, downmixed to mono, and stored as a Float buffer that the
     /// render loop reads with linear interpolation. Throws on decode failure.

@@ -22,13 +22,15 @@ const defaultLfos = () => ([
   { shape: "sine", target: "cutoff", rateHz: 0.30, depth: 0 }
 ]);
 const defaultFilter = () => ({ type: "lowpass", cutoffHz: 4000, q: 0.7 });
+const defaultReverb = () => ({ decaySec: 2.0, mix: 0 });
+const defaultDelay  = () => ({ timeSec: 0.30, feedback: 0.40, mix: 0 });
 
 const state = {
   oscillators: [
-    { id: 0, frequencyHz: 110.00, waveform: "sine", amplitude: 0.6,  pan: -0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), lfos: defaultLfos(), sampleName: null },
-    { id: 1, frequencyHz: 165.00, waveform: "sine", amplitude: 0.6,  pan:  0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), lfos: defaultLfos(), sampleName: null },
-    { id: 2, frequencyHz: 220.00, waveform: "sine", amplitude: 0.55, pan: -0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), lfos: defaultLfos(), sampleName: null },
-    { id: 3, frequencyHz: 277.18, waveform: "sine", amplitude: 0.5,  pan:  0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), lfos: defaultLfos(), sampleName: null }
+    { id: 0, frequencyHz: 110.00, waveform: "sine", amplitude: 0.6,  pan: -0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), sampleName: null },
+    { id: 1, frequencyHz: 165.00, waveform: "sine", amplitude: 0.6,  pan:  0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), sampleName: null },
+    { id: 2, frequencyHz: 220.00, waveform: "sine", amplitude: 0.55, pan: -0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), sampleName: null },
+    { id: 3, frequencyHz: 277.18, waveform: "sine", amplitude: 0.5,  pan:  0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), sampleName: null }
   ],
   keyId: 9,         // A
   octave: 3,
@@ -229,6 +231,37 @@ const actions = {
       console.error("Sample decode failed:", err);
       alert(`Could not decode "${file.name}". Try a different format (mp3/wav/m4a/ogg).`);
     }
+  },
+
+  setReverbDecay(oscIndex, sec) {
+    const clamped = Math.max(0.1, Math.min(10, sec));
+    state.oscillators[oscIndex].reverb.decaySec = clamped;
+    engine.setReverbDecay(oscIndex, clamped);
+    renderAll();
+  },
+  setReverbMix(oscIndex, mix) {
+    const clamped = clamp01(mix);
+    state.oscillators[oscIndex].reverb.mix = clamped;
+    engine.setReverbMix(oscIndex, clamped);
+    renderAll();
+  },
+  setDelayTime(oscIndex, sec) {
+    const clamped = Math.max(0.02, Math.min(2.0, sec));
+    state.oscillators[oscIndex].delay.timeSec = clamped;
+    engine.setDelayTime(oscIndex, clamped);
+    renderAll();
+  },
+  setDelayFeedback(oscIndex, fb) {
+    const clamped = Math.max(0, Math.min(0.95, fb));
+    state.oscillators[oscIndex].delay.feedback = clamped;
+    engine.setDelayFeedback(oscIndex, clamped);
+    renderAll();
+  },
+  setDelayMix(oscIndex, mix) {
+    const clamped = clamp01(mix);
+    state.oscillators[oscIndex].delay.mix = clamped;
+    engine.setDelayMix(oscIndex, clamped);
+    renderAll();
   },
 
   clearSample(oscIndex) {

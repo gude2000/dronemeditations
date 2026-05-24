@@ -130,6 +130,37 @@ final class DroneViewModel: ObservableObject {
         audioEngine.setFilterQ(clamped, for: index)
     }
 
+    func setReverbDecay(_ sec: Double, for index: Int) {
+        guard oscillators.indices.contains(index) else { return }
+        let clamped = max(ReverbState.decayMin, min(ReverbState.decayMax, sec))
+        oscillators[index].reverb.decaySec = clamped
+        audioEngine.setReverbDecay(clamped, for: index)
+    }
+    func setReverbMix(_ mix: Double, for index: Int) {
+        guard oscillators.indices.contains(index) else { return }
+        let clamped = max(0, min(1, mix))
+        oscillators[index].reverb.mix = clamped
+        audioEngine.setReverbMix(clamped, for: index)
+    }
+    func setDelayTime(_ sec: Double, for index: Int) {
+        guard oscillators.indices.contains(index) else { return }
+        let clamped = max(DelayState.timeMin, min(DelayState.timeMax, sec))
+        oscillators[index].delay.timeSec = clamped
+        audioEngine.setDelayTime(clamped, for: index)
+    }
+    func setDelayFeedback(_ fb: Double, for index: Int) {
+        guard oscillators.indices.contains(index) else { return }
+        let clamped = max(0, min(DelayState.feedbackMax, fb))
+        oscillators[index].delay.feedback = clamped
+        audioEngine.setDelayFeedback(clamped, for: index)
+    }
+    func setDelayMix(_ mix: Double, for index: Int) {
+        guard oscillators.indices.contains(index) else { return }
+        let clamped = max(0, min(1, mix))
+        oscillators[index].delay.mix = clamped
+        audioEngine.setDelayMix(clamped, for: index)
+    }
+
     /// Load an audio file from a URL into a voice's sample slot, and switch the
     /// voice's waveform to `.sample` so it plays. Throws if decoding fails.
     func loadSample(from url: URL, for index: Int) throws {
@@ -235,6 +266,11 @@ final class DroneViewModel: ObservableObject {
             audioEngine.setFilterType(osc.filter.type, for: osc.id)
             audioEngine.setFilterCutoff(osc.filter.cutoffHz, for: osc.id)
             audioEngine.setFilterQ(osc.filter.q, for: osc.id)
+            audioEngine.setReverbDecay(osc.reverb.decaySec, for: osc.id)
+            audioEngine.setReverbMix(osc.reverb.mix, for: osc.id)
+            audioEngine.setDelayTime(osc.delay.timeSec, for: osc.id)
+            audioEngine.setDelayFeedback(osc.delay.feedback, for: osc.id)
+            audioEngine.setDelayMix(osc.delay.mix, for: osc.id)
             for (i, lfo) in osc.lfos.enumerated() {
                 audioEngine.setLfoShape(lfo.shape, for: osc.id, lfoIndex: i)
                 audioEngine.setLfoTarget(lfo.target, for: osc.id, lfoIndex: i)

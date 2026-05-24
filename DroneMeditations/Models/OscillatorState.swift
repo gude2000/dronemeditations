@@ -37,6 +37,34 @@ struct LfoState: Equatable, Codable {
     }
 }
 
+/// Per-oscillator reverb (Schroeder design, medium-long decay range).
+struct ReverbState: Equatable, Codable {
+    var decaySec: Double = 2.0   // 0.1 .. 10
+    var mix: Double = 0.0        // 0..1, dry/wet level
+
+    static let decayMin: Double = 0.1
+    static let decayMax: Double = 10.0
+
+    static func defaults() -> ReverbState {
+        ReverbState(decaySec: 2.0, mix: 0)
+    }
+}
+
+/// Per-oscillator delay line with feedback.
+struct DelayState: Equatable, Codable {
+    var timeSec: Double = 0.30   // 0.02 .. 2.0
+    var feedback: Double = 0.40  // 0 .. 0.95
+    var mix: Double = 0.0        // 0..1, dry/wet level
+
+    static let timeMin: Double = 0.02
+    static let timeMax: Double = 2.0
+    static let feedbackMax: Double = 0.95
+
+    static func defaults() -> DelayState {
+        DelayState(timeSec: 0.30, feedback: 0.40, mix: 0)
+    }
+}
+
 /// Per-oscillator biquad filter. Type LP/HP/BP. Modulatable via an LFO targeting `cutoff`.
 struct FilterState: Equatable, Codable {
     enum FilterType: String, Codable, CaseIterable, Identifiable {
@@ -75,6 +103,8 @@ struct OscillatorState: Identifiable, Equatable {
     var isMuted: Bool
     var isSoloed: Bool
     var filter: FilterState
+    var reverb: ReverbState = .defaults()
+    var delay: DelayState = .defaults()
     var lfos: [LfoState]    // exactly 3 — see LfoState above
     var sampleName: String? = nil  // display only; raw audio lives in the engine
 

@@ -49,6 +49,26 @@ final class Voice {
     var sampleNativeRate: Double = 44100
     private var samplePosition: Double = 0
 
+    // Reverb (Schroeder JCRev: 4 parallel combs + 2 series allpasses).
+    var reverbDecaySec: Double = 2.0
+    var reverbMix: Float = 0.0
+    private static let combLengths: [Int] = [1116, 1188, 1277, 1356]
+    private static let allpassLengths: [Int] = [556, 441]
+    private static let allpassFb: Double = 0.5
+    private var combBuffers: [[Float]] = []
+    private var combWriteIdx: [Int] = [0, 0, 0, 0]
+    private var combFb: [Double]      = [0, 0, 0, 0]
+    private var allpassBuffers: [[Float]] = []
+    private var allpassWriteIdx: [Int] = [0, 0]
+
+    // Delay (circular buffer with feedback).
+    var delayTimeSec: Double = 0.30
+    var delayFeedback: Float = 0.40
+    var delayMix: Float = 0.0
+    private var delayBuffer: [Float] = []
+    private var delayBufferSize: Int = 0
+    private var delayWriteIdx: Int = 0
+
     // Render-thread state
     private var phase: Double = 0.0
     private var currentFreq: Double = 220.0
@@ -70,6 +90,12 @@ final class Voice {
         self.freqSlewPerSample = 1.0 / (freqMs * sampleRate)
         self.ampSlewPerSample = Float(1.0 / (levelMs * sampleRate))
         self.panSlewPerSample = Float(1.0 / (levelMs * sampleRate))
+
+        // Allocate reverb + delay buffers.
+        self.combBuffers = Voice.combLengths.map { Array(repeating: 0, count: $0) }
+        self.allpassBuffers = Voice.allpassLengths.map { Array(repeating: 0, count: $0) }
+        self.delayBufferSize = Int(sampleRate * 2.0)
+        self.delayBuffer = Array(repeating: 0, count: delayBufferSize)
     }
 
     /// Render `frameCount` stereo samples, summing into `left` and `right` (output is additive).
@@ -118,6 +144,17 @@ final class Voice {
         // ── Update biquad coefficients with LFO-modulated cutoff.
         let effectiveCutoff = filterCutoffHz * pow(2.0, cutoffOct)
         updateBiquadCoefficients(cutoff: effectiveCutoff)
+
+        // ── Recompute reverb comb feedbacks (cheap, once per buffer).
+        let ln10x3 = 3.0 * 2.302585092994046
+        for k in 0..<4 {
+            combFb[k] = exp(-ln10x3 * Double(Voice.combLengths[k]) / (sampleRate * max(0.1, reverbDecaySec)))
+        }
+        // Resolve delay tap length in samples.
+        let delayTapSamples = max(1, min(delayBufferSize - 1, Int(delayTimeSec * sampleRate)))
+        let revMix = reverbMix
+        let dlyMix = delayMix
+        let dlyFb = delayFeedback
 
         let invSR = 1.0 / sampleRate
 
@@ -169,7 +206,42 @@ final class Voice {
             let y = bqB0 * raw + bqS1
             bqS1 = bqB1 * raw - bqA1 * y + bqS2
             bqS2 = bqB2 * raw - bqA2 * y
-            let voiceOut = Float(y) * a
+            let fxIn = Float(y) * a
+
+            // ── Reverb (Schroeder JCRev): 4 parallel combs + 2 series allpasses.
+            var combSum: Double = 0
+            for k in 0..<4 {
+                let bufLen = Voice.combLengths[k]
+                var wIdx = combWriteIdx[k]
+                let combOut = combBuffers[k][wIdx]
+                combSum += Double(combOut)
+                combBuffers[k][wIdx] = Float(Double(fxIn) + Double(combOut) * combFb[k])
+                wIdx += 1; if wIdx >= bufLen { wIdx = 0 }
+                combWriteIdx[k] = wIdx
+            }
+            var ap = combSum * 0.25
+            for k in 0..<2 {
+                let bufLen = Voice.allpassLengths[k]
+                var wIdx = allpassWriteIdx[k]
+                let bufOut = Double(allpassBuffers[k][wIdx])
+                let result = -ap + bufOut
+                allpassBuffers[k][wIdx] = Float(ap + bufOut * Voice.allpassFb)
+                wIdx += 1; if wIdx >= bufLen { wIdx = 0 }
+                allpassWriteIdx[k] = wIdx
+                ap = result
+            }
+            let revWet = Float(ap)
+
+            // ── Delay (circular buffer + feedback).
+            var rIdx = delayWriteIdx - delayTapSamples
+            if rIdx < 0 { rIdx += delayBufferSize }
+            let delayOut = delayBuffer[rIdx]
+            delayBuffer[delayWriteIdx] = fxIn + delayOut * dlyFb
+            delayWriteIdx += 1
+            if delayWriteIdx >= delayBufferSize { delayWriteIdx = 0 }
+
+            // Combine: dry + wet sends (dry always at unity).
+            let voiceOut = fxIn + revWet * revMix + delayOut * dlyMix
 
             // Equal-power pan: panT in [0, 0.5], gains cos(π·t), sin(π·t).
             let panT = (Double(p) + 1.0) * 0.25

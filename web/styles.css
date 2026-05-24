@@ -521,6 +521,21 @@ input[type="range"]::-moz-range-thumb {
 .seg-tight button { padding: 3px 7px; font-size: 10px; }
 .seg-tight button svg { display: block; }
 
+/* FX rows (REV + DLY) — compact horizontal layout. */
+.fx-row {
+  display: grid;
+  grid-template-columns: 36px 1fr 1fr;
+  gap: 10px;
+  align-items: center;
+  padding-top: 6px;
+  margin-top: 2px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.06);
+  opacity: 0.7;
+  transition: opacity 120ms ease;
+}
+.fx-row.active { opacity: 1; }
+.fx-row[data-role="dly-row"] { grid-template-columns: 36px 1fr 1fr 1fr; }
+
 /* LFO rows — 3 stacked compact LFO sections per strip. */
 .lfo-rows {
   display: flex; flex-direction: column;

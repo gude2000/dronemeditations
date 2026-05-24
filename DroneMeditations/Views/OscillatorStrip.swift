@@ -100,6 +100,10 @@ struct OscillatorStrip: View {
             Divider().background(Color.white.opacity(0.06))
             filterSection
 
+            // Reverb + Delay rows.
+            reverbSection
+            delaySection
+
             // 3 LFO rows.
             VStack(spacing: 6) {
                 lfoSection(0)
@@ -277,6 +281,105 @@ struct OscillatorStrip: View {
                   : String(format: "CUTOFF %.2fk", hz / 1000)
     }
 
+    // MARK: - Reverb row
+
+    @ViewBuilder
+    private var reverbSection: some View {
+        let rv = osc.reverb
+        let active = rv.mix > 0.001
+        HStack(spacing: 8) {
+            Text("REV")
+                .font(.system(size: 9, weight: .heavy))
+                .foregroundStyle(active ? Color.accentColor : .secondary)
+                .frame(width: 36, alignment: .leading)
+
+            VStack(alignment: .leading, spacing: 0) {
+                Text(rv.decaySec < 1
+                     ? String(format: "DECAY %.2fs", rv.decaySec)
+                     : String(format: "DECAY %.1fs", rv.decaySec))
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.secondary)
+                LogScaleSlider(
+                    value: Binding(
+                        get: { rv.decaySec },
+                        set: { vm.setReverbDecay($0, for: index) }
+                    ),
+                    minValue: ReverbState.decayMin,
+                    maxValue: ReverbState.decayMax
+                )
+            }
+
+            VStack(alignment: .leading, spacing: 0) {
+                Text("MIX \(Int(rv.mix * 100))")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.secondary)
+                Slider(
+                    value: Binding(
+                        get: { rv.mix },
+                        set: { vm.setReverbMix($0, for: index) }
+                    ),
+                    in: 0.0...1.0
+                ).tint(.white.opacity(0.7))
+            }
+        }
+        .opacity(active ? 1.0 : 0.7)
+    }
+
+    // MARK: - Delay row
+
+    @ViewBuilder
+    private var delaySection: some View {
+        let dl = osc.delay
+        let active = dl.mix > 0.001
+        HStack(spacing: 8) {
+            Text("DLY")
+                .font(.system(size: 9, weight: .heavy))
+                .foregroundStyle(active ? Color.accentColor : .secondary)
+                .frame(width: 36, alignment: .leading)
+
+            VStack(alignment: .leading, spacing: 0) {
+                Text(dl.timeSec < 1
+                     ? String(format: "TIME %.0fms", dl.timeSec * 1000)
+                     : String(format: "TIME %.2fs", dl.timeSec))
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.secondary)
+                LogScaleSlider(
+                    value: Binding(
+                        get: { dl.timeSec },
+                        set: { vm.setDelayTime($0, for: index) }
+                    ),
+                    minValue: DelayState.timeMin,
+                    maxValue: DelayState.timeMax
+                )
+            }
+            VStack(alignment: .leading, spacing: 0) {
+                Text("FB \(Int(dl.feedback * 100))")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.secondary)
+                Slider(
+                    value: Binding(
+                        get: { dl.feedback },
+                        set: { vm.setDelayFeedback($0, for: index) }
+                    ),
+                    in: 0.0...DelayState.feedbackMax
+                ).tint(.white.opacity(0.7))
+            }
+            VStack(alignment: .leading, spacing: 0) {
+                Text("MIX \(Int(dl.mix * 100))")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.secondary)
+                Slider(
+                    value: Binding(
+                        get: { dl.mix },
+                        set: { vm.setDelayMix($0, for: index) }
+                    ),
+                    in: 0.0...1.0
+                ).tint(.white.opacity(0.7))
+            }
+        }
+        .opacity(active ? 1.0 : 0.7)
+    }
+
     // MARK: - LFO row
 
     @ViewBuilder
@@ -375,6 +478,25 @@ struct OscillatorStrip: View {
             }
             .buttonStyle(.plain)
         }
+    }
+}
+
+/// Generic log-scale slider for an arbitrary range.
+private struct LogScaleSlider: View {
+    @Binding var value: Double
+    let minValue: Double
+    let maxValue: Double
+    var body: some View {
+        let lo = log2(minValue)
+        let hi = log2(maxValue)
+        let binding = Binding<Double>(
+            get: {
+                let v = log2(max(minValue, value))
+                return (v - lo) / (hi - lo)
+            },
+            set: { t in value = pow(2.0, lo + t * (hi - lo)) }
+        )
+        Slider(value: binding, in: 0.0...1.0).tint(.white.opacity(0.7))
     }
 }
 
