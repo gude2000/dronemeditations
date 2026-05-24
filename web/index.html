@@ -14,6 +14,15 @@
   <!-- Tap-to-toggle layer (controls show/hide). Sits beneath the controls. -->
   <div id="tap-layer" aria-hidden="true"></div>
 
+  <!-- Zoom slider for the Chladni background. Mouse-wheel anywhere over the
+       canvas also zooms. Persists per-device in localStorage. -->
+  <div id="zoom-wrap" title="Zoom the Chladni pattern (scroll-wheel also works)">
+    <span>+</span>
+    <input id="zoom-slider" type="range" min="0.25" max="4" step="0.01" value="1" />
+    <span>−</span>
+    <div id="zoom-readout">1.00×</div>
+  </div>
+
   <main id="controls" class="controls">
     <header class="header">
       <div class="title-block">

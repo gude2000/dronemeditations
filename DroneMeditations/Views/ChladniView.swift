@@ -19,6 +19,10 @@ import SwiftUI
 struct ChladniView: View {
     @EnvironmentObject var vm: DroneViewModel
 
+    /// Optional zoom (1.0 = plate fills viewport; >1 zooms in on center;
+    /// <1 shrinks the plate inside the viewport).
+    var zoom: Double = 1.0
+
     /// Resolution of the sampled grid (lower = faster, more abstract; higher = sharper lines).
     /// 140 gives dense classic Chladni geometry on iPhone without dropping frames.
     private let grid: Int = 140
@@ -64,10 +68,17 @@ struct ChladniView: View {
         let cell = CGSize(width: size.width / CGFloat(grid),
                           height: size.height / CGFloat(grid))
 
+        let z = max(0.01, zoom)
         for j in 0..<grid {
             for i in 0..<grid {
-                let x = (Double(i) + 0.5) / Double(grid)
-                let y = (Double(j) + 0.5) / Double(grid)
+                let screenX = (Double(i) + 0.5) / Double(grid)
+                let screenY = (Double(j) + 0.5) / Double(grid)
+                // Inverse zoom transform around plate center. Cells whose
+                // sampled plate position falls outside [0,1]² are off the
+                // plate and skipped (so the plate visibly shrinks at z<1).
+                let x = (screenX - 0.5) / z + 0.5
+                let y = (screenY - 0.5) / z + 0.5
+                guard x >= 0, x <= 1, y >= 0, y <= 1 else { continue }
 
                 var field = 0.0
                 var hueAccum = 0.0

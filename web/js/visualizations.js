@@ -31,11 +31,17 @@ void main() {
 const FS = `
 precision highp float;
 varying vec2 v_uv;
-uniform int  u_modeCount;
-uniform vec3 u_modes[8];   // x=m, y=n, z=weight
-uniform vec3 u_colors[8];  // rgb 0..1 (per-mode color carried from voice)
+uniform int   u_modeCount;
+uniform vec3  u_modes[8];   // x=m, y=n, z=weight
+uniform vec3  u_colors[8];  // rgb 0..1 (per-mode color carried from voice)
+uniform float u_zoom;       // 1.0 = plate fills viewport; >1 zooms in on center
 
 void main() {
+  // Apply zoom around plate center. Plate is defined on [0,1]²; anything
+  // outside is off the plate and discarded so the plate shrinks/grows.
+  vec2 puv = (v_uv - vec2(0.5)) / u_zoom + vec2(0.5);
+  if (puv.x < 0.0 || puv.x > 1.0 || puv.y < 0.0 || puv.y > 1.0) discard;
+
   float field = 0.0;
   vec3  colorAccum = vec3(0.0);
   float weightAccum = 0.0;
@@ -49,8 +55,8 @@ void main() {
     float nPi = n * 3.14159265;
     // Antisymmetric Chladni formula — calibration table only contains
     // (m, n) pairs with m < n, so the formula never vanishes.
-    float term = 0.5 * (cos(mPi * v_uv.x) * cos(nPi * v_uv.y)
-                      - cos(nPi * v_uv.x) * cos(mPi * v_uv.y));
+    float term = 0.5 * (cos(mPi * puv.x) * cos(nPi * puv.y)
+                      - cos(nPi * puv.x) * cos(mPi * puv.y));
     field += term * w;
     colorAccum += u_colors[i] * w;
     weightAccum += w;
@@ -63,7 +69,7 @@ void main() {
   // Center-driver effect: brusspup's plate is driven by a center bolt, so
   // every real frame shows (a) a small sand pile right on the driver and
   // (b) a thin nodal ring at small radius. Add both regardless of frequency.
-  float rCenter = length(v_uv - vec2(0.5, 0.5));
+  float rCenter = length(puv - vec2(0.5, 0.5));
   float centerBlob = smoothstep(0.025, 0.015, rCenter);
   float centerRing = smoothstep(0.012, 0.0, abs(rCenter - 0.075));
   float centerFeature = max(centerBlob * 0.55, centerRing * 0.75);
@@ -89,6 +95,7 @@ export function initVisualizations(state, engineGetter) {
   chladniCanvas = document.getElementById("chladni-canvas");
   bgCtx = bgCanvas.getContext("2d");
   initWebGL();
+  initZoomControls();
   resize();
   window.addEventListener("resize", resize);
   requestAnimationFrame(loop);
@@ -126,6 +133,7 @@ function initWebGL() {
   glUniforms.modeCount = gl.getUniformLocation(glProgram, "u_modeCount");
   glUniforms.modes     = gl.getUniformLocation(glProgram, "u_modes");
   glUniforms.colors    = gl.getUniformLocation(glProgram, "u_colors");
+  glUniforms.zoom      = gl.getUniformLocation(glProgram, "u_zoom");
   // Fullscreen quad (TRIANGLE_STRIP).
   const buf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buf);
@@ -274,10 +282,46 @@ function drawChladniGL() {
   gl.uniform1i(glUniforms.modeCount, modeCount);
   gl.uniform3fv(glUniforms.modes, _modesBuf);
   gl.uniform3fv(glUniforms.colors, _colorsBuf);
+  gl.uniform1f(glUniforms.zoom, zoomLevel);
   gl.enableVertexAttribArray(glAttribs.position);
   gl.vertexAttribPointer(glAttribs.position, 2, gl.FLOAT, false, 0, 0);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 }
+
+// ──────────────────────────────────────────────────
+// Zoom: ghost slider on left edge + scroll-wheel + localStorage persist
+// ──────────────────────────────────────────────────
+let zoomLevel = 1.0;
+const ZOOM_MIN = 0.25, ZOOM_MAX = 4.0;
+let zoomSlider, zoomReadout;
+
+function setZoom(z) {
+  zoomLevel = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
+  if (zoomSlider) zoomSlider.value = zoomLevel.toFixed(3);
+  if (zoomReadout) zoomReadout.textContent = zoomLevel.toFixed(2) + "×";
+  try { localStorage.setItem("chladni-bg-zoom", String(zoomLevel)); } catch {}
+}
+
+function initZoomControls() {
+  zoomSlider = document.getElementById("zoom-slider");
+  zoomReadout = document.getElementById("zoom-readout");
+  if (!zoomSlider) return;
+  // Restore prior zoom; default 1.0.
+  try {
+    const saved = parseFloat(localStorage.getItem("chladni-bg-zoom"));
+    if (Number.isFinite(saved)) setZoom(saved); else setZoom(1.0);
+  } catch { setZoom(1.0); }
+  zoomSlider.addEventListener("input", (e) => setZoom(parseFloat(e.target.value)));
+  // Scroll-wheel zoom, but skip if hovering over the controls panel so the
+  // wheel still scrolls long control lists.
+  window.addEventListener("wheel", (e) => {
+    if (e.target.closest && e.target.closest("#controls, #zoom-wrap")) return;
+    e.preventDefault();
+    const factor = Math.exp(-e.deltaY * 0.0015);
+    setZoom(zoomLevel * factor);
+  }, { passive: false });
+}
+// Run after DOM is in place — initVisualizations is called on load.
 
 function isVoiceSilenced(i, oscs) {
   const anySoloed = oscs.some((o) => o.isSoloed);
