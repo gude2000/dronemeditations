@@ -382,6 +382,20 @@ body:hover #zoom-wrap, #zoom-wrap:hover { opacity: 1; }
 }
 .controls.hidden + .hidden-hint { opacity: 1; }
 
+/* Copyright — tiny, bottom-left, always visible (controls shown or hidden). */
+.copyright {
+  position: fixed;
+  left: calc(env(safe-area-inset-left, 0px) + 12px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", sans-serif;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.35);
+  letter-spacing: 0.01em;
+  pointer-events: none;
+  z-index: 6;
+  user-select: none;
+}
+
 /* Modal sheets. */
 .sheet {
   position: fixed; inset: 0;

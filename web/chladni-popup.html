@@ -205,6 +205,20 @@
       text-align: center; padding: 24px;
     }
     #disconnected.shown { display: flex; }
+
+    /* Copyright — tiny, bottom-left, above the controls strip. */
+    .copyright {
+      position: fixed;
+      left: calc(env(safe-area-inset-left, 0px) + 12px);
+      bottom: calc(env(safe-area-inset-bottom, 0px) + 78px);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.35);
+      letter-spacing: 0.01em;
+      pointer-events: none;
+      z-index: 9;
+      user-select: none;
+    }
   </style>
 </head>
 <body>
@@ -219,6 +233,7 @@
     <div id="zoom-readout">1.00×</div>
   </div>
   <div id="hint">Esc to dismiss · S to snapshot · Synced live with main app</div>
+  <div class="copyright" aria-hidden="true">© 2026 Jose Gude MD · All Rights Reserved</div>
   <div id="disconnected">
     Waiting for the main Drone Meditations window…<br><br>
     <span style="font-size:11px;opacity:0.7">If you closed it, reopen the app and click <em>Pop out Chladni</em> again.</span>

@@ -61,6 +61,8 @@ struct ContentView: View {
             } else {
                 tapHint
             }
+
+            copyrightOverlay
         }
         .background(Color.black.ignoresSafeArea())
         .statusBarHidden(true)
@@ -74,6 +76,24 @@ struct ContentView: View {
                 .foregroundStyle(.white.opacity(0.55))
                 .padding(.bottom, 28)
         }
+    }
+
+    /// Bottom-left copyright notice. Always visible, very faint so it doesn't
+    /// compete with the visuals or controls. Non-interactive.
+    private var copyrightOverlay: some View {
+        VStack {
+            Spacer()
+            HStack {
+                Text("© 2026 Jose Gude MD · All Rights Reserved")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.white.opacity(0.35))
+                    .padding(.leading, 12)
+                    .padding(.bottom, 6)
+                Spacer()
+            }
+        }
+        .allowsHitTesting(false)
+        .ignoresSafeArea(.keyboard)
     }
 }
 
