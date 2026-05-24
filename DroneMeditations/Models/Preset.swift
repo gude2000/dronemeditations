@@ -73,6 +73,8 @@ extension Preset {
                [L(100), R(107.83), C(50), silent]),
         Preset("C-φ (Jose/Alex)",              .naturalResonance, subtitle: "266.67 Hz — the icon-generator frequency",
                [L(133.33), C(266.67), C(266.67), R(533.33)]),
+        Preset("Jose & Alex Phi Augmented Chord", .naturalResonance, subtitle: "C–E–G♯ tuned to 1 : √φ : φ — the Webb triangle",
+               [L(164.81), C(266.67), R(209.64), silent]),
         Preset("OM 136.1 Hz",                  .naturalResonance, subtitle: "Tuned to Earth's year",
                [C(136.1), C(272.2), L(204.15), R(204.15)]),
         Preset("Moon 210.42 Hz",               .naturalResonance, subtitle: "Cosmic-octave moon orbit",
