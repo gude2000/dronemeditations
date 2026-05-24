@@ -15,7 +15,7 @@
     body:hover { cursor: default; }
     canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
     #hint {
-      position: fixed; left: 0; right: 0; bottom: 24px;
+      position: fixed; left: 0; right: 0; bottom: 96px;
       text-align: center;
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", sans-serif;
       font-size: 11px; font-weight: 500;
@@ -25,6 +25,82 @@
       transition: opacity 250ms ease;
     }
     body:hover #hint { opacity: 1; }
+
+    /* Bottom control strip — 4 mini osc strips with freq slider + S/M */
+    #popup-controls {
+      position: fixed;
+      left: 0; right: 0; bottom: 0;
+      display: flex; gap: 6px;
+      padding: 8px 10px calc(env(safe-area-inset-bottom, 0px) + 8px) 10px;
+      background: linear-gradient(180deg, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.55) 30%, rgba(0,0,0,0.75) 100%);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      z-index: 10;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", sans-serif;
+      color: #fff;
+    }
+    .ctrl-strip {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 32px 1fr auto auto;
+      gap: 6px;
+      align-items: center;
+      padding: 6px 8px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.08);
+      font-size: 10px;
+      min-width: 0;
+    }
+    .ctrl-label {
+      font-size: 9px; font-weight: 800; letter-spacing: 0.05em;
+      color: rgba(255,255,255,0.55);
+    }
+    .ctrl-freq-wrap { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .ctrl-freq {
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 10px; color: rgba(255,255,255,0.85);
+    }
+    .ctrl-slider {
+      -webkit-appearance: none; appearance: none;
+      width: 100%; height: 16px; background: transparent;
+    }
+    .ctrl-slider::-webkit-slider-runnable-track {
+      height: 3px; border-radius: 2px;
+      background: linear-gradient(to right, rgba(255,255,255,0.85) var(--fill, 50%), rgba(255,255,255,0.12) var(--fill, 50%));
+    }
+    .ctrl-slider::-moz-range-track {
+      height: 3px; border-radius: 2px; background: rgba(255,255,255,0.12);
+    }
+    .ctrl-slider::-moz-range-progress {
+      height: 3px; border-radius: 2px; background: rgba(255,255,255,0.85);
+    }
+    .ctrl-slider::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none;
+      width: 12px; height: 12px; border-radius: 50%;
+      background: #fff; border: 0; margin-top: -5px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.4);
+    }
+    .ctrl-slider::-moz-range-thumb {
+      width: 12px; height: 12px; border-radius: 50%;
+      background: #fff; border: 0;
+    }
+    .ctrl-btn {
+      width: 22px; height: 22px; border-radius: 50%;
+      background: rgba(255,255,255,0.10); color: #fff;
+      border: 0; padding: 0; cursor: pointer;
+      font-size: 10px; font-weight: 800;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .ctrl-btn.solo.on { background: #f7c948; color: #111; }
+    .ctrl-btn.mute.on { background: #e0524a; color: #fff; }
+    .ctrl-strip.silenced { opacity: 0.5; }
+
+    @media (max-width: 720px) {
+      .ctrl-strip { grid-template-columns: 28px 1fr 22px 22px; gap: 4px; padding: 4px 6px; }
+      .ctrl-label { font-size: 8px; }
+      .ctrl-freq { font-size: 9px; }
+    }
     #disconnected {
       position: fixed; inset: 0;
       display: none; align-items: center; justify-content: center;
@@ -42,6 +118,48 @@
   <div id="disconnected">
     Waiting for the main Drone Meditations window…<br><br>
     <span style="font-size:11px;opacity:0.7">If you closed it, reopen the app and click <em>Pop out Chladni</em> again.</span>
+  </div>
+
+  <!-- Bottom strip: 4 mini-osc controls (freq slider + S/M). Driven by the
+       main window's state via BroadcastChannel; changes here post back as
+       command messages so the main app updates its audio in real time. -->
+  <div id="popup-controls">
+    <div class="ctrl-strip" data-osc="0">
+      <span class="ctrl-label">OSC 1</span>
+      <div class="ctrl-freq-wrap">
+        <span class="ctrl-freq" data-role="freq-readout">— Hz</span>
+        <input type="range" class="ctrl-slider" data-role="freq" min="0" max="1" step="0.0001" />
+      </div>
+      <button class="ctrl-btn solo" data-role="solo" type="button">S</button>
+      <button class="ctrl-btn mute" data-role="mute" type="button">M</button>
+    </div>
+    <div class="ctrl-strip" data-osc="1">
+      <span class="ctrl-label">OSC 2</span>
+      <div class="ctrl-freq-wrap">
+        <span class="ctrl-freq" data-role="freq-readout">— Hz</span>
+        <input type="range" class="ctrl-slider" data-role="freq" min="0" max="1" step="0.0001" />
+      </div>
+      <button class="ctrl-btn solo" data-role="solo" type="button">S</button>
+      <button class="ctrl-btn mute" data-role="mute" type="button">M</button>
+    </div>
+    <div class="ctrl-strip" data-osc="2">
+      <span class="ctrl-label">OSC 3</span>
+      <div class="ctrl-freq-wrap">
+        <span class="ctrl-freq" data-role="freq-readout">— Hz</span>
+        <input type="range" class="ctrl-slider" data-role="freq" min="0" max="1" step="0.0001" />
+      </div>
+      <button class="ctrl-btn solo" data-role="solo" type="button">S</button>
+      <button class="ctrl-btn mute" data-role="mute" type="button">M</button>
+    </div>
+    <div class="ctrl-strip" data-osc="3">
+      <span class="ctrl-label">OSC 4</span>
+      <div class="ctrl-freq-wrap">
+        <span class="ctrl-freq" data-role="freq-readout">— Hz</span>
+        <input type="range" class="ctrl-slider" data-role="freq" min="0" max="1" step="0.0001" />
+      </div>
+      <button class="ctrl-btn solo" data-role="solo" type="button">S</button>
+      <button class="ctrl-btn mute" data-role="mute" type="button">M</button>
+    </div>
   </div>
   <script type="module" src="./js/chladni-popup.js"></script>
 </body>

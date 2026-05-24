@@ -181,6 +181,51 @@ channel.addEventListener("message", (e) => {
   if (disconnected.classList.contains("shown")) {
     disconnected.classList.remove("shown");
   }
+  syncControls(msg.oscillators);
+});
+
+// ──────────────────────────────────────────────────
+// Bottom controls strip
+// ──────────────────────────────────────────────────
+const FREQ_MIN = 20;
+const FREQ_MAX = 2000;
+const LOG_LO = Math.log2(FREQ_MIN);
+const LOG_HI = Math.log2(FREQ_MAX);
+
+function syncControls(oscs) {
+  if (!oscs) return;
+  const anySoloed = oscs.some((o) => o.isSoloed);
+  document.querySelectorAll(".ctrl-strip").forEach((strip, i) => {
+    const o = oscs[i]; if (!o) return;
+    const slider = strip.querySelector('[data-role="freq"]');
+    const readout = strip.querySelector('[data-role="freq-readout"]');
+    const solo = strip.querySelector('[data-role="solo"]');
+    const mute = strip.querySelector('[data-role="mute"]');
+    const t = (Math.log2(Math.max(FREQ_MIN, o.frequencyHz)) - LOG_LO) / (LOG_HI - LOG_LO);
+    if (document.activeElement !== slider) slider.value = t.toFixed(4);
+    slider.style.setProperty("--fill", `${Math.round(t * 100)}%`);
+    readout.textContent = o.frequencyHz.toFixed(2) + " Hz";
+    solo.classList.toggle("on", !!o.isSoloed);
+    mute.classList.toggle("on", !!o.isMuted);
+    const silenced = (anySoloed && !o.isSoloed) || o.isMuted;
+    strip.classList.toggle("silenced", silenced);
+  });
+}
+
+// Post commands back to the main window so it updates audio + state.
+document.querySelectorAll(".ctrl-strip").forEach((strip) => {
+  const i = parseInt(strip.dataset.osc, 10);
+  strip.querySelector('[data-role="freq"]').addEventListener("input", (e) => {
+    const t = parseFloat(e.target.value);
+    const hz = Math.pow(2, LOG_LO + t * (LOG_HI - LOG_LO));
+    channel.postMessage({ type: "command", cmd: "setFrequency", oscIndex: i, value: hz });
+  });
+  strip.querySelector('[data-role="solo"]').addEventListener("click", () => {
+    channel.postMessage({ type: "command", cmd: "toggleSolo", oscIndex: i });
+  });
+  strip.querySelector('[data-role="mute"]').addEventListener("click", () => {
+    channel.postMessage({ type: "command", cmd: "toggleMute", oscIndex: i });
+  });
 });
 
 // Show "disconnected" hint if the main window has been quiet for ~3s

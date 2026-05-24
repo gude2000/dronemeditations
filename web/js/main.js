@@ -486,7 +486,20 @@ function broadcastChladniState() {
 
 if (chladniChannel) {
   chladniChannel.addEventListener("message", (e) => {
-    if (e.data && e.data.type === "request-state") broadcastChladniState();
+    const msg = e.data;
+    if (!msg) return;
+    if (msg.type === "request-state") {
+      broadcastChladniState();
+    } else if (msg.type === "command") {
+      // Commands posted by the pop-out window's mini-controls strip.
+      // Dispatch through the same actions the in-app UI uses so audio + state
+      // stay in sync.
+      switch (msg.cmd) {
+        case "setFrequency": actions.setFrequency(msg.oscIndex, msg.value); break;
+        case "toggleSolo":   actions.toggleSolo(msg.oscIndex);              break;
+        case "toggleMute":   actions.toggleMute(msg.oscIndex);              break;
+      }
+    }
   });
   // Tick at ~15 fps. Lightweight (object copy + serialize, no DOM work).
   setInterval(broadcastChladniState, 66);
