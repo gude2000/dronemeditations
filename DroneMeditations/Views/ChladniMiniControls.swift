@@ -11,14 +11,34 @@ struct ChladniMiniControls: View {
     private let freqMax: Double = 2000
 
     var body: some View {
-        HStack(spacing: 6) {
-            ForEach(Array(vm.oscillators.enumerated()), id: \.element.id) { i, osc in
-                MiniOscRow(index: i, osc: osc, freqMin: freqMin, freqMax: freqMax)
-                    .environmentObject(vm)
+        // 2x2 grid: left column stacks OSC 1 over OSC 2, right column stacks
+        // OSC 3 over OSC 4. Each row gets half the screen width, so the
+        // freq slider has enough throw to be usable. Two short stacked
+        // rows fit the same vertical space the old 4-across single tall row
+        // used while doubling slider precision.
+        let count = vm.oscillators.count
+        HStack(spacing: 8) {
+            if count > 0 {
+                VStack(spacing: 4) {
+                    ForEach(0..<min(2, count), id: \.self) { i in
+                        MiniOscRow(index: i, osc: vm.oscillators[i],
+                                   freqMin: freqMin, freqMax: freqMax)
+                            .environmentObject(vm)
+                    }
+                }
+            }
+            if count > 2 {
+                VStack(spacing: 4) {
+                    ForEach(2..<min(4, count), id: \.self) { i in
+                        MiniOscRow(index: i, osc: vm.oscillators[i],
+                                   freqMin: freqMin, freqMax: freqMax)
+                            .environmentObject(vm)
+                    }
+                }
             }
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .padding(.vertical, 6)
         .padding(.bottom, 4)
         .background(
             LinearGradient(
@@ -55,26 +75,29 @@ private struct MiniOscRow: View {
     }
 
     var body: some View {
+        // Single linear row: label · freq slider (taking all available width)
+        // · S · M. Frequency readout is overlaid above the slider thumb so it
+        // doesn't steal horizontal space.
         HStack(spacing: 6) {
-            Text("OSC \(index + 1)")
-                .font(.system(size: 9, weight: .heavy))
-                .foregroundStyle(.white.opacity(0.55))
-                .frame(width: 32, alignment: .leading)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(String(format: "%.2f Hz", osc.frequencyHz))
-                    .font(.system(size: 10, design: .monospaced))
+            VStack(alignment: .leading, spacing: 0) {
+                Text("OSC \(index + 1)")
+                    .font(.system(size: 8, weight: .heavy))
+                    .foregroundStyle(.white.opacity(0.55))
+                Text(String(format: "%.0f Hz", osc.frequencyHz))
+                    .font(.system(size: 9, design: .monospaced))
                     .foregroundStyle(.white.opacity(0.85))
-                Slider(
-                    value: Binding(
-                        get: { freqT },
-                        set: { vm.setFrequency(freqFromT($0), for: index) }
-                    ),
-                    in: 0...1
-                )
-                .tint(.white)
-                .controlSize(.mini)
             }
+            .frame(width: 44, alignment: .leading)
+
+            Slider(
+                value: Binding(
+                    get: { freqT },
+                    set: { vm.setFrequency(freqFromT($0), for: index) }
+                ),
+                in: 0...1
+            )
+            .tint(.white)
+            .controlSize(.mini)
 
             Button {
                 vm.toggleSolo(index)
@@ -101,7 +124,7 @@ private struct MiniOscRow: View {
             .buttonStyle(.plain)
         }
         .padding(.horizontal, 8)
-        .padding(.vertical, 6)
+        .padding(.vertical, 4)
         .background(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(Color.white.opacity(0.06))

@@ -403,6 +403,55 @@ final class DroneViewModel: ObservableObject {
     /// Available octave range for the key picker.
     static let octaveRange: ClosedRange<Int> = 1...6
 
+    // MARK: - Randomize an oscillator
+
+    /// Randomize this voice's parameters — everything except amplitude/level
+    /// so the voice doesn't suddenly blast or vanish. Mirrors the web
+    /// `randomizeOscillator` action so both apps produce comparable results.
+    func randomizeOscillator(_ index: Int) {
+        guard index >= 0 && index < oscillators.count else { return }
+
+        // Frequency — log-uniform across the meditation drone range.
+        let lo = log2(60.0), hi = log2(800.0)
+        setFrequency(pow(2.0, lo + Double.random(in: 0...1) * (hi - lo)), for: index)
+
+        // Waveform — non-sample so silent slots aren't created accidentally.
+        let waveforms: [Waveform] = [.sine, .triangle, .sawtooth, .square]
+        setWaveform(waveforms.randomElement()!, for: index)
+
+        // Pan — keep slightly inside [-1, 1] so center-clustered presets feel
+        // distinct from full hard-pan ones.
+        oscillators[index].pan = Double.random(in: -0.85...0.85)
+        audioEngine.setPan(oscillators[index].pan, for: index)
+
+        // Filter type + log-uniform cutoff + modest Q.
+        let filterTypes: [FilterState.FilterType] = [.lowpass, .highpass, .bandpass]
+        setFilterType(filterTypes.randomElement()!, for: index)
+        let fLo = log2(200.0), fHi = log2(6000.0)
+        setFilterCutoff(pow(2.0, fLo + Double.random(in: 0...1) * (fHi - fLo)), for: index)
+        setFilterQ(Double.random(in: 0.5...3.0), for: index)
+
+        // Reverb + delay — lush but bounded.
+        setReverbDecay(Double.random(in: 0.5...6.0), for: index)
+        setReverbMix(Double.random(in: 0...0.5), for: index)
+        setDelayTime(Double.random(in: 0.08...0.8), for: index)
+        setDelayFeedback(Double.random(in: 0...0.5), for: index)
+        setDelayMix(Double.random(in: 0...0.4), for: index)
+
+        // LFOs — random shape + target, slow rate, modest depth.
+        let shapes: [LfoState.Shape] = [.sine, .triangle, .square, .sampleAndHold]
+        let targets: [LfoState.Target] = [.pan, .amplitude, .cutoff, .pitch]
+        for lfo in 0..<oscillators[index].lfos.count {
+            setLfoShape(shapes.randomElement()!, for: index, lfoIndex: lfo)
+            setLfoTarget(targets.randomElement()!, for: index, lfoIndex: lfo)
+            setLfoRate(Double.random(in: 0.05...1.5), for: index, lfoIndex: lfo)
+            setLfoDepth(Double.random(in: 0...0.6), for: index, lfoIndex: lfo)
+        }
+
+        // We've drifted away from any preset.
+        activePresetName = nil
+    }
+
     // MARK: - Generative drift mode
 
     /// Per-voice drift state: baseline values captured at toggle-on time,

@@ -95,7 +95,12 @@ input[type="range"]::-moz-range-thumb {
   -webkit-backdrop-filter: blur(8px);
           backdrop-filter: blur(8px);
 }
-body:hover #zoom-wrap, #zoom-wrap:hover { opacity: 1; }
+/* Faded by default. Wake up to full opacity ONLY when the user is in
+   "background Chladni" mode (main controls hidden) or when they're hovering
+   the slider itself — so it stays out of the way when the controls panel
+   is the focus. */
+body:has(.controls.hidden) #zoom-wrap,
+#zoom-wrap:hover { opacity: 1; }
 #zoom-wrap span { letter-spacing: 0.05em; }
 #zoom-slider {
   -webkit-appearance: slider-vertical; appearance: slider-vertical;

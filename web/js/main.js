@@ -446,6 +446,57 @@ const actions = {
     } else {
       startDrift();
     }
+  },
+
+  /// Randomize this oscillator's parameters — everything except level so
+  /// the voice doesn't suddenly blast or vanish. Touches frequency,
+  /// waveform (non-sample), pan, filter type/cutoff/Q, reverb decay/mix,
+  /// delay time/feedback/mix, and all four LFOs (shape/target/rate/depth).
+  randomizeOscillator(index) {
+    const o = state.oscillators[index];
+    if (!o) return;
+
+    const rand = (lo, hi) => lo + Math.random() * (hi - lo);
+    const choose = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+    // Frequency — log-uniform across the meditation drone range (60–800 Hz)
+    // so we don't get harsh top-end or sub-audible bass.
+    const lo = Math.log2(60), hi = Math.log2(800);
+    const newFreq = Math.pow(2, lo + Math.random() * (hi - lo));
+    actions.setFrequency(index, newFreq);
+
+    // Don't randomize to "sample" — most slots have no sample loaded and
+    // it'd just silence the voice.
+    actions.setWaveform(index, choose(["sine", "triangle", "sawtooth", "square"]));
+
+    actions.setPan(index, rand(-0.85, 0.85));
+
+    // Filter — random type, log-uniform cutoff in a musical range.
+    actions.setFilterType(index, choose(["lowpass", "highpass", "bandpass"]));
+    const fLo = Math.log2(200), fHi = Math.log2(6000);
+    actions.setFilterCutoff(index, Math.pow(2, fLo + Math.random() * (fHi - fLo)));
+    actions.setFilterQ(index, rand(0.5, 3.0));
+
+    // Reverb + delay — favor lush but not chaotic settings.
+    actions.setReverbDecay(index, rand(0.5, 6.0));
+    actions.setReverbMix(index, rand(0, 0.5));
+    actions.setDelayTime(index, rand(0.08, 0.8));
+    actions.setDelayFeedback(index, rand(0, 0.5));
+    actions.setDelayMix(index, rand(0, 0.4));
+
+    // LFOs — random shape + target per LFO, slow rate, modest depth.
+    const shapes = ["sine", "triangle", "square", "sh"];
+    const targets = ["pan", "amp", "cutoff", "pitch"];
+    for (let lfo = 0; lfo < o.lfos.length; lfo++) {
+      actions.setLfoShape(index, lfo, choose(shapes));
+      actions.setLfoTarget(index, lfo, choose(targets));
+      actions.setLfoRate(index, lfo, rand(0.05, 1.5));
+      actions.setLfoDepth(index, lfo, rand(0, 0.6));
+    }
+
+    // Clear preset selection — randomization makes us "dirty".
+    state.activePresetName = null;
+    renderAll();
   }
 };
 

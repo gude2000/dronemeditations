@@ -471,6 +471,17 @@ struct OscillatorStrip: View {
     private var soloMuteCluster: some View {
         HStack(spacing: 8) {
             Button {
+                vm.randomizeOscillator(index)
+            } label: {
+                Image(systemName: "dice")
+                    .font(.system(.caption, design: .rounded).weight(.heavy))
+                    .frame(width: 26, height: 26)
+                    .background(Circle().fill(Color.white.opacity(0.10)))
+                    .foregroundStyle(.white)
+            }
+            .buttonStyle(.plain)
+
+            Button {
                 vm.toggleSolo(index)
             } label: {
                 Text("S")

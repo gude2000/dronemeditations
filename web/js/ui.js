@@ -194,6 +194,7 @@ function buildStrip(index) {
       />
       <span class="strip-freq-unit">Hz</span>
       <div class="strip-buttons">
+        <button class="sm-button" data-role="randomize" type="button" title="Randomize this oscillator's parameters (level is preserved)" aria-label="Randomize parameters">⚄</button>
         <button class="sm-button" data-role="solo" type="button">S</button>
         <button class="sm-button" data-role="mute" type="button">M</button>
       </div>
@@ -299,6 +300,7 @@ function buildStrip(index) {
   });
   root.querySelector('[data-role="solo"]').addEventListener("click", () => dispatch.toggleSolo(index));
   root.querySelector('[data-role="mute"]').addEventListener("click", () => dispatch.toggleMute(index));
+  root.querySelector('[data-role="randomize"]').addEventListener("click", () => dispatch.randomizeOscillator(index));
 
   // Editable freq display — commit on Enter / blur; revert on Escape.
   const freqInput = root.querySelector('[data-role="freq-input"]');
