@@ -236,7 +236,12 @@ final class DroneViewModel: ObservableObject {
             setDelayTime(v.delay.timeSec, for: i)
             setDelayFeedback(v.delay.feedback, for: i)
             setDelayMix(v.delay.mix, for: i)
-            for (k, l) in v.lfos.enumerated() where k < 3 {
+            // Pad with default LFO 4 (sine→pitch) for presets saved before LFO 4 existed.
+            var loadedLfos = v.lfos
+            while loadedLfos.count < 4 {
+                loadedLfos.append(LfoState(shape: .sine, target: .pitch, rateHz: 0.30, depth: 0))
+            }
+            for (k, l) in loadedLfos.enumerated() where k < 4 {
                 setLfoShape(l.shape, for: i, lfoIndex: k)
                 setLfoTarget(l.target, for: i, lfoIndex: k)
                 setLfoRate(l.rateHz, for: i, lfoIndex: k)
@@ -276,6 +281,7 @@ final class DroneViewModel: ObservableObject {
         case .pan:       audioEngine.setPan(o.pan, for: index)
         case .amplitude: audioEngine.setAmplitude(o.amplitude, for: index)
         case .cutoff:    audioEngine.setFilterCutoff(o.filter.cutoffHz, for: index)
+        case .pitch:     audioEngine.setFrequency(o.frequencyHz, for: index)
         }
     }
 

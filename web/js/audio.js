@@ -133,11 +133,12 @@ export class AudioEngine {
           lfos: (v.lfos || [
             { shape: "sine", target: "pan",    rateHz: 0.25, depth: 0 },
             { shape: "sh",   target: "amp",    rateHz: 0.50, depth: 0 },
-            { shape: "sine", target: "cutoff", rateHz: 0.30, depth: 0 }
+            { shape: "sine", target: "cutoff", rateHz: 0.30, depth: 0 },
+            { shape: "sine", target: "pitch",  rateHz: 0.30, depth: 0 }
           ]).map((l) => ({ ...l }))
         },
-        _lfoPhase: [0, 0, 0],
-        _lfoHold: [0, 0, 0],
+        _lfoPhase: [0, 0, 0, 0],
+        _lfoHold: [0, 0, 0, 0],
         _audible: true
       });
     }
@@ -148,10 +149,12 @@ export class AudioEngine {
     for (let i = 0; i < 4; i++) this.applyVoiceGain(i);
 
     this._lastTickTime = this.ctx.currentTime;
-    this._rafId = requestAnimationFrame(this._tick);
+    // setInterval (not requestAnimationFrame) — rAF gets throttled to 1Hz when
+    // the tab isn't focused, which would silently freeze LFO modulation while
+    // the user has the window in the background.
+    this._tickIntervalId = setInterval(this._tick, 33);  // ~30 Hz
   }
 
-  // Bound so requestAnimationFrame can call it directly.
   _tick = () => {
     if (!this.ctx) return;
     const now = this.ctx.currentTime;
@@ -160,7 +163,6 @@ export class AudioEngine {
     for (let i = 0; i < this.voices.length; i++) {
       this._applyLfosForVoice(i, dt, now);
     }
-    this._rafId = requestAnimationFrame(this._tick);
   };
 
   _applyLfosForVoice(i, dt, now) {
@@ -168,10 +170,11 @@ export class AudioEngine {
     // Accumulate per-target modulation so multiple LFOs can sum into the same destination.
     let panMod = 0;
     let ampScale = 1.0;
-    let cutoffOct = 0;  // additive octaves of cutoff modulation
-    let anyPan = false, anyAmp = false, anyCutoff = false;
+    let cutoffOct = 0;       // additive octaves of cutoff modulation
+    let pitchSemitones = 0;  // additive semitones of pitch modulation
+    let anyPan = false, anyAmp = false, anyCutoff = false, anyPitch = false;
 
-    for (let k = 0; k < 3; k++) {
+    for (let k = 0; k < 4; k++) {
       const lfo = v.params.lfos[k];
       if (lfo.depth < 0.001) continue;
 
@@ -207,6 +210,10 @@ export class AudioEngine {
         // ±2 octaves swing at depth=1.
         cutoffOct += 2 * lfo.depth * lfoValue;
         anyCutoff = true;
+      } else if (lfo.target === "pitch") {
+        // ±2 semitones swing at depth=1 (musical vibrato range).
+        pitchSemitones += 2 * lfo.depth * lfoValue;
+        anyPitch = true;
       }
     }
 
@@ -229,6 +236,22 @@ export class AudioEngine {
       v.filter.frequency.setValueAtTime(v.filter.frequency.value, now);
       v.filter.frequency.linearRampToValueAtTime(cutoffEff, now + LFO_SMOOTH);
     }
+    if (anyPitch) {
+      const pitchMult = Math.pow(2, pitchSemitones / 12);
+      // Apply to synth oscillator frequency.
+      const freqEff = Math.max(0.01, v.params.freq * pitchMult);
+      v.osc.frequency.cancelScheduledValues(now);
+      v.osc.frequency.setValueAtTime(v.osc.frequency.value, now);
+      v.osc.frequency.linearRampToValueAtTime(freqEff, now + LFO_SMOOTH);
+      // Apply to sample playback rate too, so loaded samples vibrato along.
+      if (v.sampleSrc) {
+        const rateBase = Math.max(0.05, Math.min(20, v.params.freq / 220));
+        const rateEff = Math.max(0.05, Math.min(20, rateBase * pitchMult));
+        v.sampleSrc.playbackRate.cancelScheduledValues(now);
+        v.sampleSrc.playbackRate.setValueAtTime(v.sampleSrc.playbackRate.value, now);
+        v.sampleSrc.playbackRate.linearRampToValueAtTime(rateEff, now + LFO_SMOOTH);
+      }
+    }
   }
 
   /** Suspend audio (e.g. on Pause). */
@@ -244,7 +267,7 @@ export class AudioEngine {
   /** Tear down and release the AudioContext. */
   async stop() {
     if (!this.ctx) return;
-    if (this._rafId) { cancelAnimationFrame(this._rafId); this._rafId = null; }
+    if (this._tickIntervalId) { clearInterval(this._tickIntervalId); this._tickIntervalId = null; }
     // Ramp master to 0 then close, to avoid a tail click.
     const t = this.ctx.currentTime;
     this.master.gain.cancelScheduledValues(t);

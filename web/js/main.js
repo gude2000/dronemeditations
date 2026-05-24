@@ -15,15 +15,17 @@ import {
 // ──────────────────────────────────────────────────
 // State.
 // ──────────────────────────────────────────────────
-// Each oscillator has 3 LFOs and 1 filter.
+// Each oscillator has 4 LFOs and 1 filter.
 //   Default LFO 1: sine  → pan
 //   Default LFO 2: S&H   → amp
 //   Default LFO 3: sine  → cutoff
+//   Default LFO 4: sine  → pitch (vibrato)
 // `shape` and `target` are user-editable per LFO; `depth: 0` disables the LFO.
 const defaultLfos = () => ([
   { shape: "sine", target: "pan",    rateHz: 0.25, depth: 0 },
   { shape: "sh",   target: "amp",    rateHz: 0.50, depth: 0 },
-  { shape: "sine", target: "cutoff", rateHz: 0.30, depth: 0 }
+  { shape: "sine", target: "cutoff", rateHz: 0.30, depth: 0 },
+  { shape: "sine", target: "pitch",  rateHz: 0.30, depth: 0 }
 ]);
 const defaultFilter = () => ({ type: "lowpass", cutoffHz: 4000, q: 0.7 });
 const defaultReverb = () => ({ decaySec: 2.0, mix: 0 });
@@ -346,11 +348,14 @@ const actions = {
       actions.setDelayTime(i, o.delay.timeSec);
       actions.setDelayFeedback(i, o.delay.feedback);
       actions.setDelayMix(i, o.delay.mix);
-      for (let k = 0; k < 3; k++) {
-        actions.setLfoShape(i, k, o.lfos[k].shape);
-        actions.setLfoTarget(i, k, o.lfos[k].target);
-        actions.setLfoRate(i, k, o.lfos[k].rateHz);
-        actions.setLfoDepth(i, k, o.lfos[k].depth);
+      // Pad with default LFO 4 (sine→pitch) for presets saved before LFO 4 existed.
+      const lfos = o.lfos.slice();
+      while (lfos.length < 4) lfos.push({ shape: "sine", target: "pitch", rateHz: 0.30, depth: 0 });
+      for (let k = 0; k < 4; k++) {
+        actions.setLfoShape(i, k, lfos[k].shape);
+        actions.setLfoTarget(i, k, lfos[k].target);
+        actions.setLfoRate(i, k, lfos[k].rateHz);
+        actions.setLfoDepth(i, k, lfos[k].depth);
       }
       actions.clearSample(i);
       if (o.sampleRef && o.sampleRef.id) {
@@ -392,9 +397,10 @@ const actions = {
 
 function restoreLfoTargetBase(oscIndex, target) {
   const o = state.oscillators[oscIndex];
-  if (target === "pan")    engine.setPan(oscIndex, o.pan);
+  if (target === "pan")         engine.setPan(oscIndex, o.pan);
   else if (target === "amp")    engine.setAmplitude(oscIndex, o.amplitude);
   else if (target === "cutoff") engine.setFilterCutoff(oscIndex, o.filter.cutoffHz);
+  else if (target === "pitch")  engine.setFrequency(oscIndex, o.frequencyHz);
 }
 
 // ──────────────────────────────────────────────────

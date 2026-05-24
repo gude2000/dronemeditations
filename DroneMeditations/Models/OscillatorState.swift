@@ -22,13 +22,14 @@ struct LfoState: Equatable, Codable {
         }
     }
     enum Target: String, Codable, CaseIterable, Identifiable {
-        case pan, amplitude, cutoff
+        case pan, amplitude, cutoff, pitch
         var id: String { rawValue }
         var shortLabel: String {
             switch self {
             case .pan: return "pan"
             case .amplitude: return "amp"
             case .cutoff: return "cut"
+            case .pitch: return "pitch"
             }
         }
     }
@@ -45,7 +46,8 @@ struct LfoState: Equatable, Codable {
         [
             LfoState(shape: .sine,          target: .pan,       rateHz: 0.25, depth: 0),
             LfoState(shape: .sampleAndHold, target: .amplitude, rateHz: 0.50, depth: 0),
-            LfoState(shape: .sine,          target: .cutoff,    rateHz: 0.30, depth: 0)
+            LfoState(shape: .sine,          target: .cutoff,    rateHz: 0.30, depth: 0),
+            LfoState(shape: .sine,          target: .pitch,     rateHz: 0.30, depth: 0)
         ]
     }
 }

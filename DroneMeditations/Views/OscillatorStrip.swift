@@ -109,6 +109,7 @@ struct OscillatorStrip: View {
                 lfoSection(0)
                 lfoSection(1)
                 lfoSection(2)
+                lfoSection(3)
             }
             .padding(.top, 2)
         }
@@ -404,17 +405,31 @@ struct OscillatorStrip: View {
             .pickerStyle(.segmented)
             .frame(width: 96)
 
-            // Target picker
-            Picker("Target", selection: Binding(
+            // Target picker — dropdown menu so all 4 options fit cleanly
+            // regardless of how cramped the strip gets.
+            Picker(selection: Binding(
                 get: { lfo.target },
                 set: { vm.setLfoTarget($0, for: index, lfoIndex: lfoIndex) }
             )) {
                 ForEach(LfoState.Target.allCases) { t in
                     Text(t.shortLabel).tag(t)
                 }
+            } label: {
+                HStack(spacing: 3) {
+                    Text("→").font(.system(size: 10, weight: .bold))
+                    Text(lfo.target.shortLabel)
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 8).padding(.vertical, 5)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.white.opacity(0.10))
+                )
             }
-            .pickerStyle(.segmented)
-            .frame(width: 120)
+            .pickerStyle(.menu)
+            .menuStyle(.borderlessButton)
+            .frame(width: 80, alignment: .leading)
 
             VStack(alignment: .leading, spacing: 0) {
                 Text(rateLabel(lfo.rateHz))

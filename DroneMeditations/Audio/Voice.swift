@@ -23,13 +23,13 @@ final class Voice {
     /// after applying the global solo rule.
     var effectiveEnabled: Bool = true
 
-    // 3 LFOs with user-editable shape + target. Mirror of LfoState.
-    var lfoShapes: [LfoState.Shape]   = [.sine, .sampleAndHold, .sine]
-    var lfoTargets: [LfoState.Target] = [.pan, .amplitude, .cutoff]
-    var lfoRatesHz: [Double]          = [0.25, 0.50, 0.30]
-    var lfoDepths: [Double]           = [0.0, 0.0, 0.0]
-    private var lfoPhases: [Double]   = [0.0, 0.0, 0.0]
-    private var lfoHolds: [Double]    = [0.0, 0.0, 0.0]
+    // 4 LFOs with user-editable shape + target. Mirror of LfoState.
+    var lfoShapes: [LfoState.Shape]   = [.sine, .sampleAndHold, .sine, .sine]
+    var lfoTargets: [LfoState.Target] = [.pan, .amplitude, .cutoff, .pitch]
+    var lfoRatesHz: [Double]          = [0.25, 0.50, 0.30, 0.30]
+    var lfoDepths: [Double]           = [0.0, 0.0, 0.0, 0.0]
+    private var lfoPhases: [Double]   = [0.0, 0.0, 0.0, 0.0]
+    private var lfoHolds: [Double]    = [0.0, 0.0, 0.0, 0.0]
 
     // Biquad filter (LP / HP / BP). UI-writable targets + coefficients computed per render.
     var filterType: FilterState.FilterType = .lowpass
@@ -101,7 +101,6 @@ final class Voice {
     /// Render `frameCount` stereo samples, summing into `left` and `right` (output is additive).
     @inline(__always)
     func render(frameCount: Int, left: UnsafeMutablePointer<Float>, right: UnsafeMutablePointer<Float>) {
-        let targetFreq = targetFrequencyHz
         // If solo/mute disables this voice, ramp amp toward 0 instead of cutting hard.
         let baseAmp: Float = effectiveEnabled && !isMuted ? targetAmplitude : 0
         let basePan: Float = targetPan
@@ -112,7 +111,8 @@ final class Voice {
         var panMod: Double = 0
         var ampScale: Double = 1.0
         var cutoffOct: Double = 0
-        for k in 0..<3 {
+        var pitchSemitones: Double = 0
+        for k in 0..<4 {
             let depth = lfoDepths[k]
             if depth < 0.001 { continue }
             lfoPhases[k] += lfoRatesHz[k] * bufferSeconds
@@ -134,14 +134,18 @@ final class Voice {
                 value = lfoHolds[k]
             }
             switch lfoTargets[k] {
-            case .pan:       panMod    += depth * value
-            case .amplitude: ampScale  *= (1.0 + 0.6 * depth * value)
-            case .cutoff:    cutoffOct += 2.0 * depth * value
+            case .pan:       panMod         += depth * value
+            case .amplitude: ampScale       *= (1.0 + 0.6 * depth * value)
+            case .cutoff:    cutoffOct      += 2.0 * depth * value
+            case .pitch:     pitchSemitones += 2.0 * depth * value
             }
         }
 
         let panTarget = Float(max(-1.0, min(1.0, Double(basePan) + panMod)))
         let ampTarget = Float(max(0.0, min(1.0, Double(baseAmp) * ampScale)))
+        // Pitch-modulated frequency target — slew loop tracks this rather than
+        // the raw targetFrequencyHz when an LFO is routed to pitch.
+        let effectiveFreqTarget = targetFrequencyHz * pow(2.0, pitchSemitones / 12.0)
 
         // ── Update biquad coefficients with LFO-modulated cutoff.
         let effectiveCutoff = filterCutoffHz * pow(2.0, cutoffOct)
@@ -172,15 +176,16 @@ final class Voice {
 
         // For sample mode: precompute per-buffer pitch ratio + sample-frame increment.
         // 220 Hz = unity playback; chord intervals translate to pitch shifts of the sample.
+        // Uses the effective (pitch-LFO-modulated) freq so vibrato applies to samples too.
         let isSampleMode = (wave == .sample) && (sampleData?.isEmpty == false)
         let sampleIncrement: Double = isSampleMode
-            ? max(0.05, min(20.0, targetFreq / 220.0)) * (sampleNativeRate / sampleRate)
+            ? max(0.05, min(20.0, effectiveFreqTarget / 220.0)) * (sampleNativeRate / sampleRate)
             : 0
         // Snapshot the array's storage pointer outside the loop to avoid per-sample ARC.
         let sampleCount = sampleData?.count ?? 0
 
         for i in 0..<frameCount {
-            f += (targetFreq - f) * fStep
+            f += (effectiveFreqTarget - f) * fStep
             a += Float((Double(ampTarget) - Double(a)) * aStep)
             p += Float((Double(panTarget) - Double(p)) * pStep)
 

@@ -155,7 +155,12 @@ const LFO_ICON_SVG = {
   sh:     '<svg viewBox="0 0 24 12" width="20" height="10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M1 9h4V3h5v6h4V5h4v4h4"/></svg>'
 };
 const LFO_SHAPES  = [{id: "sine", label: "sine"}, {id: "square", label: "square"}, {id: "sh", label: "S&H"}];
-const LFO_TARGETS = [{id: "pan", label: "pan"}, {id: "amp", label: "amp"}, {id: "cutoff", label: "cut"}];
+const LFO_TARGETS = [
+  {id: "pan",    label: "pan"},
+  {id: "amp",    label: "amp"},
+  {id: "cutoff", label: "cut"},
+  {id: "pitch",  label: "pitch"}
+];
 const FILTER_TYPES = [
   {id: "lowpass",  label: "LP"},
   {id: "highpass", label: "HP"},
@@ -248,7 +253,7 @@ function buildStrip(index) {
       </div>
     </div>
     <div class="lfo-rows">
-      ${[0, 1, 2].map((k) => `
+      ${[0, 1, 2, 3].map((k) => `
         <div class="lfo-control" data-lfo="${k}">
           <span class="lfo-label">LFO ${k + 1}</span>
           <div class="seg seg-tight" data-role="lfo-shape">
