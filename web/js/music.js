@@ -196,6 +196,7 @@ export const PRESETS = [
 
   // Natural resonance
   { id: "earth",  name: "Earth (Schumann fundamental)",   category: "Natural Resonance", sub: "7.83 Hz",                 voices: [L(100), R(107.83), C(50), SILENT] },
+  { id: "c_phi",  name: "C-φ (Jose/Alex)",                category: "Natural Resonance", sub: "266.67 Hz — the icon-generator frequency", voices: [L(133.33), C(266.67), C(266.67), R(533.33)] },
   { id: "om",     name: "OM 136.1 Hz",                    category: "Natural Resonance", sub: "Tuned to Earth's year",   voices: [C(136.1), C(272.2), L(204.15), R(204.15)] },
   { id: "moon",   name: "Moon 210.42 Hz",                 category: "Natural Resonance", sub: "Cosmic-octave moon orbit",voices: [C(210.42), L(105.21), R(315.63), C(420.84)] },
   { id: "sun",    name: "Sun 126.22 Hz",                  category: "Natural Resonance", sub: "Cosmic-octave solar",     voices: [C(126.22), L(63.11), R(189.33), C(252.44)] },
