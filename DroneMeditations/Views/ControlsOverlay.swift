@@ -26,7 +26,17 @@ struct ControlsOverlay: View {
                 .padding(.horizontal, 12)
                 .padding(.bottom, 12)
         }
-        .background(Color.black.opacity(0.20).ignoresSafeArea())
+        .background(
+            // Background catches taps on empty panel space and hides the
+            // controls. SwiftUI's Button gestures consume taps before they
+            // reach this, so the play/pause/sliders/pickers still work.
+            Color.black.opacity(0.20)
+                .ignoresSafeArea()
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    withAnimation(.easeInOut(duration: 0.22)) { vm.showControls = false }
+                }
+        )
         .sheet(isPresented: $showingChordSheet) {
             ChordPickerView()
                 .environmentObject(vm)

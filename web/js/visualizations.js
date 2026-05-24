@@ -9,9 +9,9 @@ let isShowingChladni = true;
 let lastSize = { w: 0, h: 0, dpr: 1 };
 
 // Sampled grid resolution. Higher = finer detail but more work per frame.
-// At 128 on a typical desktop the patterns show classic Chladni geometry
-// (crosses, grids, multi-pointed stars) instead of coarse blocks.
-const CHLADNI_GRID = 128;
+// 160 gives dense Chladni geometry on a desktop without dropping frames at
+// the 12 fps render cap.
+const CHLADNI_GRID = 160;
 
 export function initVisualizations(state) {
   getState = state;
@@ -112,15 +112,16 @@ function drawChladni(t) {
   if (audible.length === 0) return;
 
   // Map each audible voice to a (m, n) mode pair.
-  // Bumped to 2–10 so even low-frequency drones produce rich nodal patterns.
-  // A wider per-voice spread (i+1) gives each voice a distinct geometry that
-  // interferes interestingly with the others.
+  // m scales with frequency (3..14). n is hard-mapped per voice so each one
+  // contributes a distinct geometry that interferes interestingly with
+  // the others.
+  const VOICE_N = [4, 6, 9, 11];
   const modes = audible.map((osc, i) => {
     const logF = Math.log2(Math.max(osc.frequencyHz, 20));
     const lo = Math.log2(20), hi = Math.log2(2000);
     const tt = (logF - lo) / (hi - lo);
-    const m = Math.max(2, Math.round(2 + tt * 8));
-    const n = Math.max(2, m + ((i + 1) % 4) - 2);
+    const m = Math.max(3, Math.round(3 + tt * 11));
+    const n = VOICE_N[i % VOICE_N.length];
     return { m, n, weight: osc.amplitude, hue: frequencyHue(osc.frequencyHz) };
   });
 

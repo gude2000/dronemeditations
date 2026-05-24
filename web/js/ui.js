@@ -65,6 +65,14 @@ export function initUI(state, actions) {
   document.getElementById("duration-button").addEventListener("click", openDurationMenu);
 
   document.getElementById("tap-layer").addEventListener("click", () => dispatch.toggleControls());
+
+  // Hide controls when the user clicks on empty space within the panel
+  // (not on a button, slider, input, or open modal sheet).
+  document.getElementById("controls").addEventListener("click", (e) => {
+    if (e.target.closest("button, input, select, textarea, label, [role='button']")) return;
+    if (e.target.closest(".sheet")) return;
+    dispatch.toggleControls();
+  });
 }
 
 // ──────────────────────────────────────────────────

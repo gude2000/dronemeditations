@@ -10,9 +10,8 @@ struct ChladniView: View {
     @EnvironmentObject var vm: DroneViewModel
 
     /// Resolution of the sampled grid (lower = faster, more abstract; higher = sharper lines).
-    /// 112 gives classic Chladni geometry on iPhone without the SwiftUI Canvas
-    /// dropping frames.
-    private let grid: Int = 112
+    /// 140 gives dense classic Chladni geometry on iPhone without dropping frames.
+    private let grid: Int = 140
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 12.0)) { _ in
@@ -32,14 +31,15 @@ struct ChladniView: View {
 
         // Map each voice's frequency to integer mode numbers (m, n) in a small range.
         // Using log-spacing across 20..2000 Hz -> 1..6 mode index.
+        let voiceN = [4, 6, 9, 11]
         let modes: [(m: Int, n: Int, weight: Double, hue: Double)] = voices.map { osc in
             let logF = log2(max(osc.frequencyHz, 20.0))
             let lo = log2(20.0), hi = log2(2000.0)
             let t = (logF - lo) / (hi - lo)
-            // Mode range 2..10 (richer geometry than 1..6, especially at low freqs).
-            let m = max(2, Int((2.0 + t * 8.0).rounded()))
-            // Wider per-voice spread so each voice's pattern is distinguishable.
-            let n = max(2, m + ((osc.id + 1) % 4) - 2)
+            // m scales with frequency (3..14). n is hard-mapped per voice so
+            // each one contributes a visibly different geometry.
+            let m = max(3, Int((3.0 + t * 11.0).rounded()))
+            let n = voiceN[osc.id % voiceN.count]
             return (m, n, osc.amplitude, osc.hue)
         }
 
