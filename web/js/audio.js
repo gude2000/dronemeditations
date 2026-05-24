@@ -57,6 +57,13 @@ export class AudioEngine {
     this.master.connect(this.limiter);
     this.limiter.connect(this.ctx.destination);
 
+    // Recording tap — same signal that hits the speakers also flows into a
+    // MediaStreamAudioDestinationNode so MediaRecorder can capture sessions
+    // to a downloadable WebM/Opus file. Created lazily on first recording.
+    this.recordDest = null;
+    this.mediaRecorder = null;
+    this.recordChunks = [];
+
     for (let i = 0; i < 4; i++) {
       const v = initialVoiceState[i];
       // Synth oscillator + its gain (selectable waveforms sine/tri/saw/sq).
@@ -171,6 +178,54 @@ export class AudioEngine {
     this.master.gain.cancelScheduledValues(t);
     this.master.gain.setValueAtTime(this.master.gain.value, t);
     this.master.gain.linearRampToValueAtTime(this.masterTarget, t + seconds);
+  }
+
+  // ─── Recording ──────────────────────────────────────────────────
+  // Tap the post-limiter signal into a MediaStreamAudioDestinationNode and
+  // run MediaRecorder on it. Output is WebM/Opus by default — universally
+  // supported in modern browsers, small file size, no encode latency.
+  startRecording() {
+    if (!this.ctx || this.mediaRecorder) return false;
+    if (!this.recordDest) {
+      this.recordDest = this.ctx.createMediaStreamDestination();
+      this.limiter.connect(this.recordDest);
+    }
+    const stream = this.recordDest.stream;
+    // Prefer opus@128kbps when supported; fall back to the browser default.
+    const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+      ? "audio/webm;codecs=opus"
+      : MediaRecorder.isTypeSupported("audio/webm")
+        ? "audio/webm"
+        : "";
+    const opts = mime ? { mimeType: mime, audioBitsPerSecond: 128000 } : {};
+    this.recordChunks = [];
+    this.mediaRecorder = new MediaRecorder(stream, opts);
+    this.mediaRecorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) this.recordChunks.push(e.data);
+    };
+    this.mediaRecorder.start(1000);  // flush a chunk every second
+    return true;
+  }
+
+  /// Stops recording, returning a Promise that resolves to a Blob (the
+  /// captured WebM/Opus file) or null if nothing was recorded.
+  stopRecording() {
+    return new Promise((resolve) => {
+      if (!this.mediaRecorder) return resolve(null);
+      const rec = this.mediaRecorder;
+      const mime = rec.mimeType || "audio/webm";
+      rec.onstop = () => {
+        const blob = new Blob(this.recordChunks, { type: mime });
+        this.recordChunks = [];
+        this.mediaRecorder = null;
+        resolve(blob);
+      };
+      rec.stop();
+    });
+  }
+
+  isRecording() {
+    return !!(this.mediaRecorder && this.mediaRecorder.state === "recording");
   }
 
   /// Smoothly ramp master to silence over `seconds`, then resolve. Used by

@@ -108,6 +108,55 @@ final class AudioEngine {
         }
     }
 
+    // MARK: - Recording
+
+    /// Output URL of the currently active recording, if any.
+    private(set) var recordingURL: URL?
+    private var recordingFile: AVAudioFile?
+
+    /// Install a tap on the main mixer and write each render block to a CAF
+    /// file in the Documents directory. Returns the URL of the file being
+    /// captured, or nil if recording couldn't start.
+    @discardableResult
+    func startRecording() -> URL? {
+        guard recordingFile == nil else { return recordingURL }
+        let mixer = engine.mainMixerNode
+        let format = mixer.outputFormat(forBus: 0)
+
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd_HHmmss"
+        let url = docs.appendingPathComponent("drone-meditations-\(df.string(from: Date())).caf")
+
+        do {
+            let file = try AVAudioFile(forWriting: url, settings: format.settings)
+            recordingFile = file
+            recordingURL = url
+        } catch {
+            return nil
+        }
+
+        mixer.installTap(onBus: 0, bufferSize: 4096, format: format) { [weak self] buffer, _ in
+            guard let file = self?.recordingFile else { return }
+            do { try file.write(from: buffer) } catch { /* drop on error */ }
+        }
+        return url
+    }
+
+    /// Remove the tap and close the file. Returns the URL of the captured
+    /// recording (caller can hand it to a share sheet).
+    @discardableResult
+    func stopRecording() -> URL? {
+        guard recordingFile != nil else { return nil }
+        engine.mainMixerNode.removeTap(onBus: 0)
+        recordingFile = nil  // closes the file via AVAudioFile deinit
+        let url = recordingURL
+        recordingURL = nil
+        return url
+    }
+
+    var isRecording: Bool { recordingFile != nil }
+
     /// Gently ramp master output up to `masterTarget` over `seconds`. Used by
     /// DroneController on play to avoid a hard cut-in.
     func fadeInMaster(seconds: Double = 3.0) {

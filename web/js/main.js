@@ -51,6 +51,7 @@ const state = {
   transportState: "stopped",  // "stopped" | "playing" | "paused"
   sessionDuration: 15 * 60,   // 0 means open
   elapsed: 0,
+  isRecording: false,         // mirrors engine.isRecording() for the UI
 
   // User-saved presets
   userPresets: loadUserPresets()
@@ -163,8 +164,46 @@ const actions = {
     state.elapsed = 0;
     stopTicker();
     renderAll();
+    // If a recording is in progress, stop it before tearing down audio so
+    // the captured fade-out is included in the final file.
+    if (engine.isRecording && engine.isRecording()) {
+      await actions.toggleRecord();
+    }
     await engine.fadeOutMaster(8.0);
     await engine.stop();
+  },
+
+  /// Toggles session recording. On start: spins up the MediaRecorder and
+  /// flashes the record button. On stop: gathers the captured blob and
+  /// prompts a download with a timestamped filename.
+  async toggleRecord() {
+    if (!engine.ctx) return;  // audio not initialized yet
+    if (engine.isRecording()) {
+      const blob = await engine.stopRecording();
+      state.isRecording = false;
+      renderAll();
+      if (blob && blob.size > 0) {
+        const ext = blob.type.includes("webm") ? "webm"
+                  : blob.type.includes("ogg")  ? "ogg"
+                  : "audio";
+        const now = new Date();
+        const stamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}_${String(now.getHours()).padStart(2,"0")}${String(now.getMinutes()).padStart(2,"0")}${String(now.getSeconds()).padStart(2,"0")}`;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `drone-meditations-${stamp}.${ext}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+    } else {
+      const ok = engine.startRecording();
+      if (ok) {
+        state.isRecording = true;
+        renderAll();
+      }
+    }
   },
 
   setDuration(seconds) {

@@ -67,10 +67,43 @@ final class DroneController: ObservableObject {
         elapsed = 0
         lastTickDate = nil
         state = .stopped
+        // If recording is active, finalize the file first so the captured
+        // fade-out is part of the export. The completed URL is held in
+        // `lastRecordingURL` for the UI to surface via the share sheet.
+        if engine.isRecording {
+            lastRecordingURL = engine.stopRecording()
+            isRecording = false
+        }
         // UI updates immediately; audio fades over 8 seconds, then engine tears down.
         Task { @MainActor in
             await engine.fadeOutMaster(seconds: 8.0)
             engine.stop()
+        }
+    }
+
+    // MARK: - Recording
+
+    /// Whether a session recording is currently being captured to disk.
+    @Published private(set) var isRecording: Bool = false
+    /// URL of the most recently finished recording. The UI clears it once
+    /// it has been presented (e.g. via a share sheet).
+    @Published var lastRecordingURL: URL?
+
+    /// Toggle recording on/off. Recording only works while the engine is
+    /// running, so a recording started while playing will capture from now
+    /// until either toggleRecord() is called again or the user hits Stop
+    /// (which finalizes automatically).
+    func toggleRecord() {
+        if engine.isRecording {
+            lastRecordingURL = engine.stopRecording()
+            isRecording = false
+        } else {
+            // Make sure the engine is actually running before tapping it.
+            if state != .playing {
+                play()
+            }
+            _ = engine.startRecording()
+            isRecording = true
         }
     }
 

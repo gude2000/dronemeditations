@@ -27,6 +27,7 @@ struct TransportView: View {
                 Spacer()
                 playPauseButton(size: 72, iconSize: 32)
                 stopButton(size: 56, iconSize: 22)
+                recordButton(size: 56, iconSize: 20)
                 Spacer()
             }
 
@@ -40,12 +41,16 @@ struct TransportView: View {
                 durationMenu
             }
         }
+        .sheet(item: shareItemBinding) { item in
+            ShareSheet(items: [item.url])
+        }
     }
 
     private var compactBody: some View {
         HStack(spacing: 12) {
             playPauseButton(size: 44, iconSize: 20)
             stopButton(size: 36, iconSize: 14)
+            recordButton(size: 36, iconSize: 14)
 
             Text(timeLabel)
                 .font(.system(.subheadline, design: .monospaced))
@@ -54,6 +59,9 @@ struct TransportView: View {
             Spacer()
 
             durationMenu
+        }
+        .sheet(item: shareItemBinding) { item in
+            ShareSheet(items: [item.url])
         }
     }
 
@@ -82,6 +90,44 @@ struct TransportView: View {
         }
         .buttonStyle(.plain)
         .disabled(controller.state == .stopped)
+    }
+
+    private func recordButton(size: CGFloat, iconSize: CGFloat) -> some View {
+        Button {
+            controller.toggleRecord()
+        } label: {
+            Image(systemName: controller.isRecording ? "record.circle.fill" : "record.circle")
+                .font(.system(size: iconSize, weight: .bold))
+                .frame(width: size, height: size)
+                .background(
+                    Circle().fill(
+                        controller.isRecording
+                            ? Color(red: 0.85, green: 0.25, blue: 0.25)
+                            : Color.white.opacity(0.15)
+                    )
+                )
+                .foregroundStyle(.white)
+        }
+        .buttonStyle(.plain)
+        .disabled(controller.state == .stopped && !controller.isRecording)
+    }
+
+    // Drives the share sheet. Wraps the URL in an Identifiable so SwiftUI's
+    // .sheet(item:) presents whenever a recording finishes and clears it
+    // afterward so the sheet doesn't reappear.
+    private struct ShareItem: Identifiable {
+        let id = UUID()
+        let url: URL
+    }
+    private var shareItemBinding: Binding<ShareItem?> {
+        Binding(
+            get: {
+                controller.lastRecordingURL.map { ShareItem(url: $0) }
+            },
+            set: { newValue in
+                if newValue == nil { controller.lastRecordingURL = nil }
+            }
+        )
     }
 
     private var durationMenu: some View {

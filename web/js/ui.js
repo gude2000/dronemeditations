@@ -57,6 +57,7 @@ export function initUI(state, actions) {
 
   document.getElementById("play-pause").addEventListener("click", () => dispatch.togglePlay());
   document.getElementById("stop").addEventListener("click", () => dispatch.stop());
+  document.getElementById("record").addEventListener("click", () => dispatch.toggleRecord());
 
   document.getElementById("chladni-toggle").addEventListener("click", () => {
     dispatch.toggleChladni();
@@ -670,6 +671,15 @@ function syncTransport() {
 
   const stopBtn = document.getElementById("stop");
   stopBtn.disabled = s.transportState === "stopped";
+
+  const recordBtn = document.getElementById("record");
+  // Recording is only available once audio context has been started by play.
+  recordBtn.disabled = s.transportState === "stopped";
+  recordBtn.classList.toggle("recording", !!s.isRecording);
+  recordBtn.setAttribute(
+    "aria-label",
+    s.isRecording ? "Stop recording (will download the file)" : "Record session to file"
+  );
 
   const fmt = (sec) => {
     const total = Math.round(sec);
