@@ -146,6 +146,56 @@
     body:hover #sand-toggle { opacity: 1; }
     #sand-toggle:hover { background: rgba(255,255,255,0.15); color: #fff; }
     #sand-toggle.active { background: rgba(255,225,180,0.60); color: #221; border-color: rgba(255,225,180,0.80); }
+
+    /* Zoom slider — vertical, ghost until hovered. Sits on the left edge
+       so it doesn't crowd the snapshot/sand buttons on the right. */
+    #zoom-wrap {
+      position: fixed; top: 50%; left: 16px;
+      transform: translateY(-50%);
+      z-index: 11;
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      padding: 12px 8px;
+      background: rgba(0,0,0,0.45);
+      border: 1px solid rgba(255,255,255,0.20);
+      border-radius: 16px;
+      color: rgba(255,255,255,0.65);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+      font-size: 10px; font-weight: 600;
+      opacity: 0.30;
+      transition: opacity 200ms ease;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    body:hover #zoom-wrap { opacity: 1; }
+    #zoom-wrap span { letter-spacing: 0.05em; }
+    /* Vertical slider via rotation; thumb on top = zoom in. */
+    #zoom-slider {
+      -webkit-appearance: slider-vertical; appearance: slider-vertical;
+      writing-mode: vertical-lr; direction: rtl;
+      width: 18px; height: 180px;
+      background: transparent;
+    }
+    #zoom-slider::-webkit-slider-runnable-track {
+      width: 3px; background: rgba(255,255,255,0.18); border-radius: 2px;
+    }
+    #zoom-slider::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none;
+      width: 14px; height: 14px; border-radius: 50%;
+      background: #fff; border: 0;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    }
+    #zoom-slider::-moz-range-track {
+      width: 3px; background: rgba(255,255,255,0.18); border-radius: 2px;
+    }
+    #zoom-slider::-moz-range-thumb {
+      width: 14px; height: 14px; border-radius: 50%;
+      background: #fff; border: 0;
+    }
+    #zoom-readout {
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+      font-size: 10px; color: rgba(255,255,255,0.85);
+      min-width: 32px; text-align: center;
+    }
     #disconnected {
       position: fixed; inset: 0;
       display: none; align-items: center; justify-content: center;
@@ -162,6 +212,12 @@
   <canvas id="sand"></canvas>
   <button id="snapshot-btn" type="button" title="Download a PNG of the current pattern (S)">↓ Snapshot</button>
   <button id="sand-toggle" type="button" title="Toggle sand grain simulation (G)">G</button>
+  <div id="zoom-wrap" title="Zoom the Chladni plate in/out (scroll-wheel also works)">
+    <span>+</span>
+    <input id="zoom-slider" type="range" min="0.25" max="4" step="0.01" value="1" />
+    <span>−</span>
+    <div id="zoom-readout">1.00×</div>
+  </div>
   <div id="hint">Esc to dismiss · S to snapshot · Synced live with main app</div>
   <div id="disconnected">
     Waiting for the main Drone Meditations window…<br><br>

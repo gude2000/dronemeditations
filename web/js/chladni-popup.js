@@ -27,11 +27,17 @@ void main() {
 const FS = `
 precision highp float;
 varying vec2 v_uv;
-uniform int  u_modeCount;
-uniform vec3 u_modes[8];
-uniform vec3 u_colors[8];
+uniform int   u_modeCount;
+uniform vec3  u_modes[8];
+uniform vec3  u_colors[8];
+uniform float u_zoom;       // 1.0 = plate fills viewport; >1 zooms in on center; <1 shrinks plate
 
 void main() {
+  // Apply zoom around plate center. Plate is defined on [0,1]²; anything
+  // outside is off the plate (rendered black so the plate visibly shrinks).
+  vec2 puv = (v_uv - vec2(0.5)) / u_zoom + vec2(0.5);
+  if (puv.x < 0.0 || puv.x > 1.0 || puv.y < 0.0 || puv.y > 1.0) discard;
+
   float field = 0.0;
   vec3  colorAccum = vec3(0.0);
   float weightAccum = 0.0;
@@ -43,8 +49,8 @@ void main() {
     float mPi = m * 3.14159265;
     float nPi = n * 3.14159265;
     // Antisymmetric Chladni — table only contains m < n pairs.
-    float term = 0.5 * (cos(mPi * v_uv.x) * cos(nPi * v_uv.y)
-                      - cos(nPi * v_uv.x) * cos(mPi * v_uv.y));
+    float term = 0.5 * (cos(mPi * puv.x) * cos(nPi * puv.y)
+                      - cos(nPi * puv.x) * cos(mPi * puv.y));
     field += term * w;
     colorAccum += u_colors[i] * w;
     weightAccum += w;
@@ -53,7 +59,7 @@ void main() {
   float node = max(0.0, 1.0 - mag * 9.0);
 
   // Center-driver bolt: ever-present small sand pile + thin nodal ring.
-  float rCenter = length(v_uv - vec2(0.5, 0.5));
+  float rCenter = length(puv - vec2(0.5, 0.5));
   float centerBlob = smoothstep(0.025, 0.015, rCenter);
   float centerRing = smoothstep(0.012, 0.0, abs(rCenter - 0.075));
   node = max(node, max(centerBlob * 0.55, centerRing * 0.75));
@@ -97,6 +103,7 @@ function initWebGL() {
   glUniforms.modeCount = gl.getUniformLocation(glProgram, "u_modeCount");
   glUniforms.modes     = gl.getUniformLocation(glProgram, "u_modes");
   glUniforms.colors    = gl.getUniformLocation(glProgram, "u_colors");
+  glUniforms.zoom      = gl.getUniformLocation(glProgram, "u_zoom");
   const buf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buf);
   gl.bufferData(gl.ARRAY_BUFFER,
@@ -192,6 +199,7 @@ function render() {
     gl.uniform1i(glUniforms.modeCount, modeCount);
     gl.uniform3fv(glUniforms.modes, _modesBuf);
     gl.uniform3fv(glUniforms.colors, _colorsBuf);
+    gl.uniform1f(glUniforms.zoom, zoomLevel);
     gl.enableVertexAttribArray(glAttribs.position);
     gl.vertexAttribPointer(glAttribs.position, 2, gl.FLOAT, false, 0, 0);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -274,15 +282,18 @@ function updateAndDrawSand(modes) {
     particles[ix + 3] = vy;
   }
 
-  // Draw all grains in one fillStyle change — warm pale sand.
+  // Draw all grains in one fillStyle change — warm pale sand. Particles
+  // live in plate coords [0,1]; project to screen via the zoom transform
+  // so they ride the same scaling as the WebGL field underneath.
   sandCtx.fillStyle = "rgba(255, 240, 215, 0.9)";
+  const z = zoomLevel;
+  const sizePx = Math.max(0.7, 1.4 * Math.sqrt(z));  // bigger grains when zoomed in
   for (let i = 0; i < PARTICLE_COUNT; i++) {
     const ix = i * 4;
-    sandCtx.fillRect(
-      particles[ix + 0] * w - 0.5,
-      particles[ix + 1] * h - 0.5,
-      1.4, 1.4
-    );
+    const sx = (particles[ix + 0] - 0.5) * z + 0.5;
+    const sy = (particles[ix + 1] - 0.5) * z + 0.5;
+    if (sx < 0 || sx > 1 || sy < 0 || sy > 1) continue;  // off the plate
+    sandCtx.fillRect(sx * w - sizePx * 0.5, sy * h - sizePx * 0.5, sizePx, sizePx);
   }
 }
 
@@ -413,5 +424,37 @@ function setSandEnabled(on) {
 }
 sandToggleBtn.addEventListener("click", () => setSandEnabled(!sandEnabled));
 setSandEnabled(true);
+
+// ──────────────────────────────────────────────────
+// Zoom: vertical slider + scroll-wheel + persist
+// ──────────────────────────────────────────────────
+let zoomLevel = 1.0;
+const ZOOM_MIN = 0.25, ZOOM_MAX = 4.0;
+const zoomSlider = document.getElementById("zoom-slider");
+const zoomReadout = document.getElementById("zoom-readout");
+
+function setZoom(z) {
+  zoomLevel = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
+  zoomSlider.value = zoomLevel.toFixed(3);
+  zoomReadout.textContent = zoomLevel.toFixed(2) + "×";
+  try { localStorage.setItem("chladni-popup-zoom", String(zoomLevel)); } catch {}
+}
+
+// Restore prior zoom; default 1.0.
+try {
+  const saved = parseFloat(localStorage.getItem("chladni-popup-zoom"));
+  if (Number.isFinite(saved)) setZoom(saved); else setZoom(1.0);
+} catch { setZoom(1.0); }
+
+zoomSlider.addEventListener("input", (e) => setZoom(parseFloat(e.target.value)));
+
+// Scroll-wheel zoom — multiplicative so it feels even at any current zoom.
+window.addEventListener("wheel", (e) => {
+  // Ignore if hovering over the controls strip so wheel doesn't fight scrolling.
+  if (e.target.closest && e.target.closest("#popup-controls")) return;
+  e.preventDefault();
+  const factor = Math.exp(-e.deltaY * 0.0015);
+  setZoom(zoomLevel * factor);
+}, { passive: false });
 
 render();
