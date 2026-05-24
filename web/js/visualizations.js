@@ -8,7 +8,10 @@ let getState;
 let isShowingChladni = true;
 let lastSize = { w: 0, h: 0, dpr: 1 };
 
-const CHLADNI_GRID = 64;  // sampled grid resolution
+// Sampled grid resolution. Higher = finer detail but more work per frame.
+// At 128 on a typical desktop the patterns show classic Chladni geometry
+// (crosses, grids, multi-pointed stars) instead of coarse blocks.
+const CHLADNI_GRID = 128;
 
 export function initVisualizations(state) {
   getState = state;
@@ -109,12 +112,15 @@ function drawChladni(t) {
   if (audible.length === 0) return;
 
   // Map each audible voice to a (m, n) mode pair.
+  // Bumped to 2–10 so even low-frequency drones produce rich nodal patterns.
+  // A wider per-voice spread (i+1) gives each voice a distinct geometry that
+  // interferes interestingly with the others.
   const modes = audible.map((osc, i) => {
     const logF = Math.log2(Math.max(osc.frequencyHz, 20));
     const lo = Math.log2(20), hi = Math.log2(2000);
     const tt = (logF - lo) / (hi - lo);
-    const m = Math.max(1, Math.round(1 + tt * 5));
-    const n = Math.max(1, m + (i % 3) - 1);
+    const m = Math.max(2, Math.round(2 + tt * 8));
+    const n = Math.max(2, m + ((i + 1) % 4) - 2);
     return { m, n, weight: osc.amplitude, hue: frequencyHue(osc.frequencyHz) };
   });
 
@@ -137,11 +143,12 @@ function drawChladni(t) {
         wA += v.weight;
       }
       const mag = Math.abs(field);
-      const node = Math.max(0, 1 - mag * 3.5);
-      if (node <= 0.05) continue;
+      // Tighter threshold = thinner, sharper nodal lines.
+      const node = Math.max(0, 1 - mag * 6.0);
+      if (node <= 0.04) continue;
 
       const hue = wA > 0 ? hueA / wA : 0.5;
-      ctx.fillStyle = `hsla(${Math.round(hue * 360)}, 25%, 95%, ${node * 0.7})`;
+      ctx.fillStyle = `hsla(${Math.round(hue * 360)}, 25%, 95%, ${node * 0.85})`;
       ctx.fillRect(i * cellW, j * cellH, cellW + 0.5, cellH + 0.5);
     }
   }

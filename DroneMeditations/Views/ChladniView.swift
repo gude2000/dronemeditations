@@ -10,7 +10,9 @@ struct ChladniView: View {
     @EnvironmentObject var vm: DroneViewModel
 
     /// Resolution of the sampled grid (lower = faster, more abstract; higher = sharper lines).
-    private let grid: Int = 72
+    /// 112 gives classic Chladni geometry on iPhone without the SwiftUI Canvas
+    /// dropping frames.
+    private let grid: Int = 112
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 12.0)) { _ in
@@ -34,10 +36,10 @@ struct ChladniView: View {
             let logF = log2(max(osc.frequencyHz, 20.0))
             let lo = log2(20.0), hi = log2(2000.0)
             let t = (logF - lo) / (hi - lo)
-            let mFloat = 1.0 + t * 5.0
-            let m = max(1, Int(mFloat.rounded()))
-            // Pair with an offset so m != n (more interesting patterns).
-            let n = max(1, m + (osc.id % 3) - 1)
+            // Mode range 2..10 (richer geometry than 1..6, especially at low freqs).
+            let m = max(2, Int((2.0 + t * 8.0).rounded()))
+            // Wider per-voice spread so each voice's pattern is distinguishable.
+            let n = max(2, m + ((osc.id + 1) % 4) - 2)
             return (m, n, osc.amplitude, osc.hue)
         }
 
@@ -60,16 +62,16 @@ struct ChladniView: View {
                     weightAccum += v.weight
                 }
                 let mag = abs(field)
-                // Nodal lines are where mag is near zero — those are the "sand" lines.
-                let nodeStrength = max(0.0, 1.0 - mag * 3.5)
-                guard nodeStrength > 0.05 else { continue }
+                // Tighter threshold → thinner, sharper nodal lines.
+                let nodeStrength = max(0.0, 1.0 - mag * 6.0)
+                guard nodeStrength > 0.04 else { continue }
 
                 let hue = weightAccum > 0 ? (hueAccum / weightAccum) : 0.5
                 let color = Color(
                     hue: hue,
                     saturation: 0.25,
                     brightness: 0.95,
-                    opacity: nodeStrength * 0.7
+                    opacity: nodeStrength * 0.85
                 )
                 let rect = CGRect(
                     x: CGFloat(i) * cell.width,
