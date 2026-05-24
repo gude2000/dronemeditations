@@ -4,9 +4,22 @@ import Foundation
 /// Shape and target are both user-editable. depth=0 effectively disables the LFO.
 struct LfoState: Equatable, Codable {
     enum Shape: String, Codable, CaseIterable, Identifiable {
-        case sine, sampleAndHold
+        case sine, square, sampleAndHold
         var id: String { rawValue }
-        var displayName: String { self == .sine ? "Sine" : "S&H" }
+        var displayName: String {
+            switch self {
+            case .sine: return "Sine"
+            case .square: return "Square"
+            case .sampleAndHold: return "S&H"
+            }
+        }
+        var sfSymbol: String {
+            switch self {
+            case .sine: return "waveform.path"
+            case .square: return "square"
+            case .sampleAndHold: return "square.split.bottomrightquarter"
+            }
+        }
     }
     enum Target: String, Codable, CaseIterable, Identifiable {
         case pan, amplitude, cutoff

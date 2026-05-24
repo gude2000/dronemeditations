@@ -40,7 +40,7 @@ const state = {
   octave: 3,
   chordId: "maj",
   tuningId: "equal12",
-  masterVolume: 0.65,
+  masterVolume: 0.30,
   showControls: true,
   showChladni: true,
   activePresetName: null,

@@ -16,7 +16,7 @@ final class DroneViewModel: ObservableObject {
     @Published var currentTuning: TuningSystem = .equal12
 
     // MARK: - Master + UI
-    @Published var masterVolume: Double = 0.65
+    @Published var masterVolume: Double = 0.30
     @Published var showControls: Bool = true
     @Published var activePresetName: String? = nil
     /// True if Chladni overlay is drawn over the blob background.

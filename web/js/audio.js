@@ -19,7 +19,9 @@ export class AudioEngine {
     this.started = false;
 
     // The user-visible volume target (0..1). Applied after solo/mute logic resolves.
-    this.masterTarget = 0.65;
+    // Default 0.30 — with 4 voices + reverb/delay wet sends, anything higher
+    // can push the limiter and audibly compress.
+    this.masterTarget = 0.30;
 
     this._rafId = null;
     this._lastTickTime = 0;
@@ -182,7 +184,12 @@ export class AudioEngine {
       let lfoValue;
       if (lfo.shape === "sine") {
         lfoValue = Math.sin(v._lfoPhase[k] * 2 * Math.PI);
+      } else if (lfo.shape === "square") {
+        // Square wave: +1 first half of the cycle, -1 second half. Abrupt
+        // transitions — useful as a gate/tremolo when routed to amp.
+        lfoValue = v._lfoPhase[k] < 0.5 ? 1 : -1;
       } else {
+        // sample-and-hold
         if (stepped || v._lfoHold[k] == null || v._lfoHold[k] === 0) {
           v._lfoHold[k] = Math.random() * 2 - 1;
         }

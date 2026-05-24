@@ -133,10 +133,11 @@ const Q_MIN = 0.3;
 const Q_MAX = 20;
 
 const LFO_ICON_SVG = {
-  sine: '<svg viewBox="0 0 24 12" width="20" height="10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M1 6c2-5 4-5 6 0s4 5 6 0 4-5 6 0 4 5 4 0"/></svg>',
-  sh:   '<svg viewBox="0 0 24 12" width="20" height="10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M1 9h4V3h5v6h4V5h4v4h4"/></svg>'
+  sine:   '<svg viewBox="0 0 24 12" width="20" height="10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M1 6c2-5 4-5 6 0s4 5 6 0 4-5 6 0 4 5 4 0"/></svg>',
+  square: '<svg viewBox="0 0 24 12" width="20" height="10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M1 10h5V2h6v8h6V2h5"/></svg>',
+  sh:     '<svg viewBox="0 0 24 12" width="20" height="10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M1 9h4V3h5v6h4V5h4v4h4"/></svg>'
 };
-const LFO_SHAPES  = [{id: "sine", label: "sine"}, {id: "sh", label: "S&H"}];
+const LFO_SHAPES  = [{id: "sine", label: "sine"}, {id: "square", label: "square"}, {id: "sh", label: "S&H"}];
 const LFO_TARGETS = [{id: "pan", label: "pan"}, {id: "amp", label: "amp"}, {id: "cutoff", label: "cut"}];
 const FILTER_TYPES = [
   {id: "lowpass",  label: "LP"},

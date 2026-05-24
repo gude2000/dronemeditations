@@ -125,6 +125,8 @@ final class Voice {
             switch lfoShapes[k] {
             case .sine:
                 value = sin(lfoPhases[k] * 2.0 * .pi)
+            case .square:
+                value = lfoPhases[k] < 0.5 ? 1.0 : -1.0
             case .sampleAndHold:
                 if stepped || lfoHolds[k] == 0 {
                     lfoHolds[k] = Double.random(in: -1.0 ... 1.0)

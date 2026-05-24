@@ -398,11 +398,11 @@ struct OscillatorStrip: View {
                 set: { vm.setLfoShape($0, for: index, lfoIndex: lfoIndex) }
             )) {
                 ForEach(LfoState.Shape.allCases) { s in
-                    Image(systemName: s == .sine ? "waveform.path" : "square.split.bottomrightquarter").tag(s)
+                    Image(systemName: s.sfSymbol).tag(s)
                 }
             }
             .pickerStyle(.segmented)
-            .frame(width: 70)
+            .frame(width: 96)
 
             // Target picker
             Picker("Target", selection: Binding(

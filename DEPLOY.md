@@ -1,67 +1,78 @@
-# Deployment — dronemeditations.com on Vercel + Namecheap
+# Deployment — dronemeditations.com on GitHub Pages + Namecheap
 
 The web app at `web/` is the deployable target. Native iOS lives alongside
 but doesn't deploy here.
 
+## How it works
+
+The repo includes a GitHub Actions workflow at
+[`.github/workflows/deploy-pages.yml`](.github/workflows/deploy-pages.yml)
+that runs on every push to `main` (when files in `web/` change). It
+uploads the entire `web/` directory as a Pages artifact and publishes it,
+so the live site always matches what's in the `web/` folder on `main`.
+
+The custom domain `dronemeditations.com` is wired through the
+[`web/CNAME`](web/CNAME) file, which Pages reads to know which domain
+to associate with the deployment.
+
 ## One-time setup
 
-### 1. Connect the GitHub repo to Vercel
+### 1. Enable Pages on the repo
 
-1. Sign in to [vercel.com](https://vercel.com) with your **GitHub** account
-   (`gude2000`). Free Hobby tier is enough.
-2. Click **Add New… → Project**.
-3. Select **`gude2000/dronemeditations`** from the import list.
-4. On the *Configure* screen, set:
-   - **Root Directory**: `web`  ← important; `vercel.json` lives there
-   - **Framework Preset**: *Other* (auto-detect should pick "Other")
-   - **Build Command**: leave empty
-   - **Output Directory**: `.` (single dot — same folder as index.html)
-5. Click **Deploy**. First deploy takes ~30s.
+1. Go to **https://github.com/gude2000/dronemeditations/settings/pages**.
+2. Under **Build and deployment → Source**, choose **GitHub Actions**.
+   (Don't pick "Deploy from branch" — we use the workflow.)
+3. Don't add a custom domain through this UI yet; the `CNAME` file
+   already declares it. Once DNS resolves Pages will pick it up.
 
-You should land on `https://dronemeditations.vercel.app` (or a similar
-auto-generated subdomain) with the app running.
+### 2. Trigger the first deploy
 
-### 2. Add the custom domain
+Either:
+- Push any change under `web/` (or this `DEPLOY.md`); the workflow runs
+  automatically, or
+- Open **Actions** tab → **Deploy web to GitHub Pages** →
+  **Run workflow** button (manual dispatch).
 
-In the Vercel project dashboard:
-1. **Settings → Domains**.
-2. Type `dronemeditations.com` and click **Add**.
-3. Vercel will show DNS instructions. Use these:
+When the workflow completes (~30s) Pages will be live at:
+`https://gude2000.github.io/dronemeditations/` — and once DNS is in
+place, `https://dronemeditations.com`.
 
-#### Apex domain (`dronemeditations.com`)
+### 3. Namecheap DNS
+
+In Namecheap **Domain List → Manage → Advanced DNS**, delete any
+default parking / URL-redirect records on `@` or `www`, then add:
+
+#### Apex `dronemeditations.com` — 4 A records
 | Type | Host | Value | TTL |
 |---|---|---|---|
-| **A** | `@` | `76.76.21.21` | Automatic |
+| **A** | `@` | `185.199.108.153` | Automatic |
+| **A** | `@` | `185.199.109.153` | Automatic |
+| **A** | `@` | `185.199.110.153` | Automatic |
+| **A** | `@` | `185.199.111.153` | Automatic |
 
-#### `www` subdomain
+#### `www` subdomain — CNAME
 | Type | Host | Value | TTL |
 |---|---|---|---|
-| **CNAME** | `www` | `cname.vercel-dns.com.` | Automatic |
+| **CNAME** | `www` | `gude2000.github.io.` | Automatic |
 
-### 3. Update DNS in Namecheap
+(Keep the trailing dot on the CNAME value when Namecheap accepts it.)
 
-1. Log into [Namecheap](https://www.namecheap.com).
-2. **Domain List → Manage** next to `dronemeditations.com`.
-3. **Advanced DNS** tab.
-4. Delete any default parking / URL-redirect records that already exist
-   on `@` or `www`.
-5. **Add New Record** twice — one **A Record** for `@` pointing to
-   `76.76.21.21`, one **CNAME Record** for `www` pointing to
-   `cname.vercel-dns.com.` (keep the trailing dot when entering).
-6. Click the green **✓** to save each row.
+Click the green ✓ to save each row.
 
-Propagation typically takes 5–15 minutes; can take up to a few hours.
-Vercel automatically provisions a Let's Encrypt SSL certificate once
-the DNS resolves.
+### 4. Wait & verify
 
-You should be able to hit **https://dronemeditations.com** as soon as
-DNS propagates and the cert finishes issuing.
+- DNS propagation: usually 5–30 min, can take a few hours.
+- GitHub Pages issues a Let's Encrypt cert automatically once DNS
+  resolves; this can take an extra ~15 min after DNS propagates.
+- Check status at **Settings → Pages**. When it says "Your site is
+  live at https://dronemeditations.com" with a green check on
+  HTTPS, you're done.
 
 ## Subsequent deploys
 
-Vercel watches the `main` branch. Every `git push origin main` triggers
-a new build + deploy automatically. Preview deploys are created for any
-non-main branches too (handy for staging new features).
+`git push origin main` triggers the workflow automatically when `web/`
+files change. The Actions tab shows build status; the Environments
+panel shows the most-recent successful deploy URL.
 
 ## Local development
 
@@ -70,4 +81,4 @@ cd web
 npm start          # → http://localhost:5173
 ```
 
-Nothing about the local workflow changes when Vercel is hooked up.
+(`npm start` runs `npx serve .` — no build step required.)

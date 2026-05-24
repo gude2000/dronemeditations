@@ -25,8 +25,9 @@ final class AudioEngine {
         self.sampleRate = sr
         self.voices = (0..<4).map { Voice(id: $0, sampleRate: sr) }
         attachSourceNode()
-        // Reasonable default headroom so a fortissimo chord doesn't clip.
-        engine.mainMixerNode.outputVolume = 0.65
+        // Default 0.30 — with 4 voices + reverb/delay wet sends, anything higher
+        // can hit the soft-limiter and audibly compress.
+        engine.mainMixerNode.outputVolume = 0.30
     }
 
     private func attachSourceNode() {
