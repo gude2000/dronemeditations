@@ -1,11 +1,14 @@
 // Canvas backdrops — blob field (2D Canvas) + Chladni nodal pattern (WebGL).
 //
-// The Chladni overlay used to be a coarse Canvas grid (160×160 fillRect cells)
-// which looked pixelated and forced a tradeoff between detail and CPU. A
-// fragment shader evaluating the field at every pixel removes both problems:
-// modes can run as high as we want, and output is smooth at native DPR.
+// Chladni rendering is calibrated against 17 brusspup demo frames:
+//   f(m, n) ≈ 18.6 · (m² + n²)
+// Mode pairs come from the eigenmode table in chladni-modes.js; the shader
+// crossfades between the two adjacent (m,n) pairs that bracket each voice's
+// live frequency, so vibrato breathes between physical modes instead of
+// snapping or sliding along arbitrary continuous-m curves.
 
 import { frequencyHue } from "./music.js";
+import { modePairForFreq } from "./chladni-modes.js";
 
 let bgCanvas, chladniCanvas, bgCtx;
 let gl;                  // WebGL context for chladniCanvas (no 2D fallback used)
@@ -24,26 +27,30 @@ void main() {
 }
 `;
 
+// Up to 8 modes — 4 voices × 2 crossfading eigenmodes per voice.
 const FS = `
 precision highp float;
 varying vec2 v_uv;
-uniform int  u_voiceCount;
-uniform vec3 u_modes[4];   // x=m, y=n, z=weight
-uniform vec3 u_colors[4];  // rgb 0..1
+uniform int  u_modeCount;
+uniform vec3 u_modes[8];   // x=m, y=n, z=weight
+uniform vec3 u_colors[8];  // rgb 0..1 (per-mode color carried from voice)
 
 void main() {
   float field = 0.0;
   vec3  colorAccum = vec3(0.0);
   float weightAccum = 0.0;
 
-  // Constant index loop required by WebGL 1; mask via uniform count.
-  for (int i = 0; i < 4; i++) {
-    if (i >= u_voiceCount) break;
+  for (int i = 0; i < 8; i++) {
+    if (i >= u_modeCount) break;
     float m = u_modes[i].x;
     float n = u_modes[i].y;
     float w = u_modes[i].z;
-    float term = cos(m * 3.14159265 * v_uv.x) * cos(n * 3.14159265 * v_uv.y)
-               - cos(n * 3.14159265 * v_uv.x) * cos(m * 3.14159265 * v_uv.y);
+    float mPi = m * 3.14159265;
+    float nPi = n * 3.14159265;
+    // Antisymmetric Chladni formula — calibration table only contains
+    // (m, n) pairs with m < n, so the formula never vanishes.
+    float term = 0.5 * (cos(mPi * v_uv.x) * cos(nPi * v_uv.y)
+                      - cos(nPi * v_uv.x) * cos(mPi * v_uv.y));
     field += term * w;
     colorAccum += u_colors[i] * w;
     weightAccum += w;
@@ -52,6 +59,16 @@ void main() {
   float mag = abs(field);
   // Tight threshold on |field| -> the nodal lines stand out as thin curves.
   float node = max(0.0, 1.0 - mag * 9.0);
+
+  // Center-driver effect: brusspup's plate is driven by a center bolt, so
+  // every real frame shows (a) a small sand pile right on the driver and
+  // (b) a thin nodal ring at small radius. Add both regardless of frequency.
+  float rCenter = length(v_uv - vec2(0.5, 0.5));
+  float centerBlob = smoothstep(0.025, 0.015, rCenter);
+  float centerRing = smoothstep(0.012, 0.0, abs(rCenter - 0.075));
+  float centerFeature = max(centerBlob * 0.55, centerRing * 0.75);
+  node = max(node, centerFeature);
+
   if (node <= 0.04) discard;
 
   vec3 baseColor = weightAccum > 0.0 ? colorAccum / weightAccum : vec3(0.85);
@@ -105,10 +122,10 @@ function initWebGL() {
     chladniCanvas.style.display = "none";
     return;
   }
-  glAttribs.position    = gl.getAttribLocation(glProgram, "a_position");
-  glUniforms.voiceCount = gl.getUniformLocation(glProgram, "u_voiceCount");
-  glUniforms.modes      = gl.getUniformLocation(glProgram, "u_modes");
-  glUniforms.colors     = gl.getUniformLocation(glProgram, "u_colors");
+  glAttribs.position   = gl.getAttribLocation(glProgram, "a_position");
+  glUniforms.modeCount = gl.getUniformLocation(glProgram, "u_modeCount");
+  glUniforms.modes     = gl.getUniformLocation(glProgram, "u_modes");
+  glUniforms.colors    = gl.getUniformLocation(glProgram, "u_colors");
   // Fullscreen quad (TRIANGLE_STRIP).
   const buf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buf);
@@ -206,8 +223,9 @@ function drawBlobs(t) {
 // Chladni (WebGL fragment shader, smooth at any DPR)
 // ──────────────────────────────────────────────────
 
-// Distinct n per voice so each voice contributes a different geometry.
-const VOICE_N = [8, 12, 16, 20];
+// Reusable buffers — up to 4 voices × 2 crossfading modes per voice = 8.
+const _modesBuf  = new Float32Array(24);
+const _colorsBuf = new Float32Array(24);
 
 function drawChladniGL() {
   const oscs = getState().oscillators;
@@ -219,44 +237,43 @@ function drawChladniGL() {
 
   if (audible.length === 0) return;
 
-  const count = Math.min(4, audible.length);
-  const modes  = new Float32Array(12);
-  const colors = new Float32Array(12);
-
   // Use the engine's live (pitch-LFO-modulated) freq when available, so the
   // pattern morphs in real time as vibrato plays.
   const engine = getEngine ? getEngine() : null;
   const audibleIndices = [];
   oscs.forEach((o, i) => { if (!isVoiceSilenced(i, oscs)) audibleIndices.push(i); });
 
-  for (let i = 0; i < count; i++) {
+  const voiceCount = Math.min(4, audible.length);
+  let modeCount = 0;
+
+  for (let i = 0; i < voiceCount; i++) {
     const oscIdx = audibleIndices[i];
     const osc = oscs[oscIdx];
     const liveFreq = (engine && engine.voices && engine.voices[oscIdx] && engine.voices[oscIdx]._effectiveFreq)
       ? engine.voices[oscIdx]._effectiveFreq
       : osc.frequencyHz;
-    const logF = Math.log2(Math.max(liveFreq, 20));
-    const lo = Math.log2(20), hi = Math.log2(2000);
-    const tt = (logF - lo) / (hi - lo);
-    // m as a continuous float (no Math.round) so the shader morphs smoothly
-    // between integer modes as pitch LFOs play — vibrato becomes a gentle
-    // breathing of the pattern instead of jumps every time tt crosses a
-    // half-integer threshold.
-    const m = Math.max(3, 6 + tt * 16);
-    const n = VOICE_N[i % VOICE_N.length];
-    modes[i * 3 + 0] = m;
-    modes[i * 3 + 1] = n;
-    modes[i * 3 + 2] = osc.amplitude;
-    const [r, g, b] = hslToRgb(frequencyHue(liveFreq), 0.30, 0.85);
-    colors[i * 3 + 0] = r;
-    colors[i * 3 + 1] = g;
-    colors[i * 3 + 2] = b;
+
+    const [a, b] = modePairForFreq(liveFreq);
+    const [r, g, bcol] = hslToRgb(frequencyHue(liveFreq), 0.30, 0.85);
+
+    // Each voice contributes 2 modes (a and b), scaled by voice amplitude.
+    // Skip near-zero weights so we don't burn a uniform slot on nothing.
+    for (const mode of [a, b]) {
+      if (mode.weight < 0.001 || modeCount >= 8) continue;
+      _modesBuf[modeCount * 3 + 0] = mode.m;
+      _modesBuf[modeCount * 3 + 1] = mode.n;
+      _modesBuf[modeCount * 3 + 2] = mode.weight * osc.amplitude;
+      _colorsBuf[modeCount * 3 + 0] = r;
+      _colorsBuf[modeCount * 3 + 1] = g;
+      _colorsBuf[modeCount * 3 + 2] = bcol;
+      modeCount++;
+    }
   }
 
   gl.useProgram(glProgram);
-  gl.uniform1i(glUniforms.voiceCount, count);
-  gl.uniform3fv(glUniforms.modes, modes);
-  gl.uniform3fv(glUniforms.colors, colors);
+  gl.uniform1i(glUniforms.modeCount, modeCount);
+  gl.uniform3fv(glUniforms.modes, _modesBuf);
+  gl.uniform3fv(glUniforms.colors, _colorsBuf);
   gl.enableVertexAttribArray(glAttribs.position);
   gl.vertexAttribPointer(glAttribs.position, 2, gl.FLOAT, false, 0, 0);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);

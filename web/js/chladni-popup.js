@@ -1,10 +1,12 @@
 // Pop-out Chladni window.
 //
-// Runs the same WebGL fragment shader as the main app's visualizations.js,
-// but renders fullscreen. State (oscillators array) arrives via a
-// BroadcastChannel that the main app posts to on every change.
+// Runs the same WebGL fragment shader as the main app's visualizations.js
+// (same physically-calibrated f→(m,n) mapping from chladni-modes.js), plus a
+// 3000-grain sand particle simulation on top. Fullscreen, with bidirectional
+// state sync to the main window via BroadcastChannel.
 
 import { frequencyHue } from "./music.js";
+import { modePairForFreq, chladniField } from "./chladni-modes.js";
 
 const canvas = document.getElementById("chladni");
 const disconnected = document.getElementById("disconnected");
@@ -20,39 +22,48 @@ void main() {
 }
 `;
 
+// Up to 8 modes — 4 voices × 2 crossfading eigenmodes per voice. Same
+// math as visualizations.js so the pop-out looks identical to the main app.
 const FS = `
 precision highp float;
 varying vec2 v_uv;
-uniform int  u_voiceCount;
-uniform vec3 u_modes[4];
-uniform vec3 u_colors[4];
+uniform int  u_modeCount;
+uniform vec3 u_modes[8];
+uniform vec3 u_colors[8];
 
 void main() {
   float field = 0.0;
   vec3  colorAccum = vec3(0.0);
   float weightAccum = 0.0;
-  for (int i = 0; i < 4; i++) {
-    if (i >= u_voiceCount) break;
+  for (int i = 0; i < 8; i++) {
+    if (i >= u_modeCount) break;
     float m = u_modes[i].x;
     float n = u_modes[i].y;
     float w = u_modes[i].z;
-    float term = cos(m * 3.14159265 * v_uv.x) * cos(n * 3.14159265 * v_uv.y)
-               - cos(n * 3.14159265 * v_uv.x) * cos(m * 3.14159265 * v_uv.y);
+    float mPi = m * 3.14159265;
+    float nPi = n * 3.14159265;
+    // Antisymmetric Chladni — table only contains m < n pairs.
+    float term = 0.5 * (cos(mPi * v_uv.x) * cos(nPi * v_uv.y)
+                      - cos(nPi * v_uv.x) * cos(mPi * v_uv.y));
     field += term * w;
     colorAccum += u_colors[i] * w;
     weightAccum += w;
   }
   float mag = abs(field);
   float node = max(0.0, 1.0 - mag * 9.0);
+
+  // Center-driver bolt: ever-present small sand pile + thin nodal ring.
+  float rCenter = length(v_uv - vec2(0.5, 0.5));
+  float centerBlob = smoothstep(0.025, 0.015, rCenter);
+  float centerRing = smoothstep(0.012, 0.0, abs(rCenter - 0.075));
+  node = max(node, max(centerBlob * 0.55, centerRing * 0.75));
+
   if (node <= 0.04) discard;
   vec3 baseColor = weightAccum > 0.0 ? colorAccum / weightAccum : vec3(0.85);
   vec3 finalColor = mix(vec3(0.95), baseColor, 0.30);
   gl_FragColor = vec4(finalColor, node * 0.85);
 }
 `;
-
-// Same per-voice n table as the main app for visual continuity.
-const VOICE_N = [8, 12, 16, 20];
 
 // Latest snapshot of the main app's state. Updated by BroadcastChannel
 // messages; rendered every animation frame.
@@ -82,10 +93,10 @@ function initWebGL() {
     console.error(gl.getProgramInfoLog(glProgram));
     return;
   }
-  glAttribs.position    = gl.getAttribLocation(glProgram, "a_position");
-  glUniforms.voiceCount = gl.getUniformLocation(glProgram, "u_voiceCount");
-  glUniforms.modes      = gl.getUniformLocation(glProgram, "u_modes");
-  glUniforms.colors     = gl.getUniformLocation(glProgram, "u_colors");
+  glAttribs.position   = gl.getAttribLocation(glProgram, "a_position");
+  glUniforms.modeCount = gl.getUniformLocation(glProgram, "u_modeCount");
+  glUniforms.modes     = gl.getUniformLocation(glProgram, "u_modes");
+  glUniforms.colors    = gl.getUniformLocation(glProgram, "u_colors");
   const buf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buf);
   gl.bufferData(gl.ARRAY_BUFFER,
@@ -138,49 +149,56 @@ function hslToRgb(h, s, l) {
   return [r + m, g + m, b + m];
 }
 
+// Reusable buffers — up to 4 voices × 2 crossfading modes per voice = 8.
+const _modesBuf  = new Float32Array(24);
+const _colorsBuf = new Float32Array(24);
+// Mode objects parsed back out for the sand-sim's CPU field evaluation.
+const _activeModes = [];
+
 function render() {
   requestAnimationFrame(render);
   if (!gl) return;
 
   // Resolve current modes (shared between WebGL shader and sand particle sim).
-  let count = 0;
-  const modes = new Float32Array(12);
-  const colors = new Float32Array(12);
+  let modeCount = 0;
+  _activeModes.length = 0;
   if (latestOscillators && latestOscillators.length > 0) {
     const audible = latestOscillators.filter((_, i) => !isVoiceSilenced(i, latestOscillators));
-    count = Math.min(4, audible.length);
-    for (let i = 0; i < count; i++) {
+    const voiceCount = Math.min(4, audible.length);
+    for (let i = 0; i < voiceCount; i++) {
       const osc = audible[i];
-      const logF = Math.log2(Math.max(osc.frequencyHz, 20));
-      const lo = Math.log2(20), hi = Math.log2(2000);
-      const tt = (logF - lo) / (hi - lo);
-      const m = Math.max(3, 6 + tt * 16);
-      const n = VOICE_N[i % VOICE_N.length];
-      modes[i * 3 + 0] = m;
-      modes[i * 3 + 1] = n;
-      modes[i * 3 + 2] = osc.amplitude;
-      const [r, g, b] = hslToRgb(frequencyHue(osc.frequencyHz), 0.30, 0.85);
-      colors[i * 3 + 0] = r;
-      colors[i * 3 + 1] = g;
-      colors[i * 3 + 2] = b;
+      const [a, b] = modePairForFreq(osc.frequencyHz);
+      const [r, g, bcol] = hslToRgb(frequencyHue(osc.frequencyHz), 0.30, 0.85);
+      for (const mode of [a, b]) {
+        if (mode.weight < 0.001 || modeCount >= 8) continue;
+        const w = mode.weight * osc.amplitude;
+        _modesBuf[modeCount * 3 + 0] = mode.m;
+        _modesBuf[modeCount * 3 + 1] = mode.n;
+        _modesBuf[modeCount * 3 + 2] = w;
+        _colorsBuf[modeCount * 3 + 0] = r;
+        _colorsBuf[modeCount * 3 + 1] = g;
+        _colorsBuf[modeCount * 3 + 2] = bcol;
+        _activeModes.push({ m: mode.m, n: mode.n, weight: w });
+        modeCount++;
+      }
     }
   }
 
   // ── 1. WebGL Chladni field ──
   gl.clearColor(0, 0, 0, 1);
   gl.clear(gl.COLOR_BUFFER_BIT);
-  if (count > 0) {
+  if (modeCount > 0) {
     gl.useProgram(glProgram);
-    gl.uniform1i(glUniforms.voiceCount, count);
-    gl.uniform3fv(glUniforms.modes, modes);
-    gl.uniform3fv(glUniforms.colors, colors);
+    gl.uniform1i(glUniforms.modeCount, modeCount);
+    gl.uniform3fv(glUniforms.modes, _modesBuf);
+    gl.uniform3fv(glUniforms.colors, _colorsBuf);
     gl.enableVertexAttribArray(glAttribs.position);
     gl.vertexAttribPointer(glAttribs.position, 2, gl.FLOAT, false, 0, 0);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
 
   // ── 2. Sand particles ──
-  if (sandEnabled) updateAndDrawSand(modes, count);
+  if (sandEnabled) updateAndDrawSand(_activeModes);
 }
 
 // ──────────────────────────────────────────────────
@@ -206,21 +224,7 @@ function initSand() {
   }
 }
 
-function chladniField(x, y, modesArr, count) {
-  let f = 0;
-  for (let i = 0; i < count; i++) {
-    const m = modesArr[i * 3 + 0];
-    const n = modesArr[i * 3 + 1];
-    const w = modesArr[i * 3 + 2];
-    const mPi = m * Math.PI;
-    const nPi = n * Math.PI;
-    f += (Math.cos(mPi * x) * Math.cos(nPi * y) -
-          Math.cos(nPi * x) * Math.cos(mPi * y)) * w;
-  }
-  return f;
-}
-
-function updateAndDrawSand(modesArr, count) {
+function updateAndDrawSand(modes) {
   if (!sandCtx) return;
   const w = sandCanvas.width;
   const h = sandCanvas.height;
@@ -231,7 +235,7 @@ function updateAndDrawSand(modesArr, count) {
   sandCtx.fillRect(0, 0, w, h);
   sandCtx.globalCompositeOperation = "source-over";
 
-  if (count === 0) return;
+  if (modes.length === 0) return;
 
   // Tunable physics constants.
   const eps = 0.004;             // finite-diff step for gradient
@@ -248,9 +252,9 @@ function updateAndDrawSand(modesArr, count) {
 
     // Gradient of |field|: sign(field) * gradient(field). Move opposite the
     // gradient → toward lower |field| → toward nodal lines.
-    const f = chladniField(x, y, modesArr, count);
-    const fdx = (chladniField(x + eps, y, modesArr, count) - f) / eps;
-    const fdy = (chladniField(x, y + eps, modesArr, count) - f) / eps;
+    const f = chladniField(x, y, modes);
+    const fdx = (chladniField(x + eps, y, modes) - f) / eps;
+    const fdy = (chladniField(x, y + eps, modes) - f) / eps;
     const s = f > 0 ? 1 : -1;
     vx -= fdx * s * attraction;
     vy -= fdy * s * attraction;
