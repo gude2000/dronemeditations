@@ -41,6 +41,7 @@ export function initUI(state, actions) {
   // Wire static event handlers.
   document.getElementById("chord-pill").addEventListener("click", () => openSheet("chord-sheet"));
   document.getElementById("preset-pill").addEventListener("click", () => openSheet("preset-sheet"));
+  document.getElementById("drift-pill").addEventListener("click", () => dispatch.toggleDrift());
   document.querySelectorAll(".sheet-done").forEach((b) =>
     b.addEventListener("click", () => closeSheet(b.dataset.close))
   );
@@ -94,6 +95,9 @@ export function renderAll() {
   document.getElementById("chord-pill-value").textContent =
     `${PITCH_CLASSES[s.keyId].name} ${CHORDS.find((c) => c.id === s.chordId).name}`;
   document.getElementById("preset-pill-value").textContent = s.activePresetName || "—";
+  const driftPill = document.getElementById("drift-pill");
+  document.getElementById("drift-pill-value").textContent = s.driftEnabled ? "On" : "Off";
+  driftPill.classList.toggle("active", !!s.driftEnabled);
 
   document.getElementById("master-volume").value = s.masterVolume;
   document.getElementById("master-volume").style.setProperty("--fill", `${Math.round(s.masterVolume * 100)}%`);

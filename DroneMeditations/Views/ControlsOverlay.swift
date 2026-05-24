@@ -92,10 +92,44 @@ struct ControlsOverlay: View {
                     pillLabel(title: "Preset", value: vm.activePresetName ?? "—", system: "sparkles")
                 }
                 .buttonStyle(.plain)
+
+                Button {
+                    vm.toggleDrift()
+                } label: {
+                    driftPill
+                }
+                .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 14)
         .padding(.top, 6)
+    }
+
+    /// Tinted-when-on "DRIFT" pill that toggles generative slow-drift mode.
+    private var driftPill: some View {
+        let on = vm.isDriftEnabled
+        return HStack(spacing: 6) {
+            Image(systemName: on ? "wind.circle.fill" : "wind.circle")
+                .font(.caption.weight(.semibold))
+            VStack(alignment: .leading, spacing: 0) {
+                Text("DRIFT")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(on ? Color(red: 0.55, green: 0.76, blue: 1.0) : .white.opacity(0.6))
+                Text(on ? "On" : "Off")
+                    .font(.system(.footnote, design: .rounded).weight(.semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(
+            Capsule().fill(on ? Color(red: 0.55, green: 0.76, blue: 1.0).opacity(0.22) : Color.white.opacity(0.10))
+        )
+        .overlay(
+            Capsule().stroke(on ? Color(red: 0.55, green: 0.76, blue: 1.0).opacity(0.40) : .clear, lineWidth: 1)
+        )
+        .foregroundStyle(.white)
     }
 
     // MARK: - Compact header (iPhone landscape)

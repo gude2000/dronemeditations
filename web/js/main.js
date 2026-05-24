@@ -52,6 +52,7 @@ const state = {
   sessionDuration: 15 * 60,   // 0 means open
   elapsed: 0,
   isRecording: false,         // mirrors engine.isRecording() for the UI
+  driftEnabled: false,        // generative slow-drift mode
 
   // User-saved presets
   userPresets: loadUserPresets()
@@ -437,8 +438,87 @@ const actions = {
     }
     if (state.activePresetName === preset.name) state.activePresetName = null;
     renderAll();
+  },
+
+  toggleDrift() {
+    if (state.driftEnabled) {
+      stopDrift();
+    } else {
+      startDrift();
+    }
   }
 };
+
+// ──────────────────────────────────────────────────
+// Generative drift — bounded random walks on freq/pan/amp over minutes.
+// Snapshots baselines at start so the wander stays musically close to
+// where the user left things. Lerp + slow retargeting → meditative, not
+// chaotic.
+// ──────────────────────────────────────────────────
+let driftIntervalId = null;
+const driftVoices = [];   // per-osc {baseFreq, basePan, baseAmp, freqTarget, panTarget, ampTarget, nextRetargetAt}
+
+function startDrift() {
+  if (state.driftEnabled) return;
+  driftVoices.length = 0;
+  for (const o of state.oscillators) {
+    driftVoices.push({
+      baseFreq: o.frequencyHz,
+      basePan: o.pan,
+      baseAmp: o.amplitude,
+      freqTarget: o.frequencyHz,
+      panTarget: o.pan,
+      ampTarget: o.amplitude,
+      nextRetargetAt: 0
+    });
+  }
+  state.driftEnabled = true;
+  driftIntervalId = setInterval(driftTick, 1000);
+  renderAll();
+}
+
+function stopDrift() {
+  state.driftEnabled = false;
+  if (driftIntervalId) clearInterval(driftIntervalId);
+  driftIntervalId = null;
+  renderAll();
+}
+
+function driftTick() {
+  const now = Date.now();
+  // Lerp coefficient — small → glacial, smooth motion.
+  const lerp = 0.05;
+  for (let i = 0; i < driftVoices.length; i++) {
+    const v = driftVoices[i];
+    const osc = state.oscillators[i];
+    if (!v || !osc) continue;
+
+    if (now >= v.nextRetargetAt) {
+      // Wander ±half-semitone from baseline; ±0.3 pan; ±0.15 amp.
+      const cents = (Math.random() - 0.5) * 100;          // ±50 cents
+      v.freqTarget = v.baseFreq * Math.pow(2, cents / 1200);
+      v.panTarget  = Math.max(-1, Math.min(1, v.basePan + (Math.random() - 0.5) * 0.6));
+      v.ampTarget  = Math.max(0.1, Math.min(1, v.baseAmp + (Math.random() - 0.5) * 0.3));
+      // 30–60s until next retarget — keeps motion patient.
+      v.nextRetargetAt = now + 30000 + Math.random() * 30000;
+    }
+
+    const newFreq = osc.frequencyHz + (v.freqTarget - osc.frequencyHz) * lerp;
+    const newPan  = osc.pan         + (v.panTarget  - osc.pan)         * lerp;
+    const newAmp  = osc.amplitude   + (v.ampTarget  - osc.amplitude)   * lerp;
+
+    // Use the engine setters directly (skip actions.setFrequency etc) so we
+    // don't clear activePresetName or trigger full renderAll on every tick.
+    osc.frequencyHz = newFreq;
+    osc.pan = newPan;
+    osc.amplitude = newAmp;
+    engine.setFrequency(i, newFreq);
+    engine.setPan(i, newPan);
+    engine.setAmplitude(i, newAmp);
+  }
+  // One UI sync per tick for slider readouts; lightweight.
+  renderAll();
+}
 
 function restoreLfoTargetBase(oscIndex, target) {
   const o = state.oscillators[oscIndex];
