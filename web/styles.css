@@ -75,20 +75,21 @@ input[type="range"]::-moz-range-thumb {
 }
 #chladni-canvas { mix-blend-mode: plus-lighter; opacity: 0.55; }
 
-/* Zoom slider — vertical, ghost until hovered. Sits on the left edge
-   above the controls panel; visible whether controls are shown or hidden. */
+/* Zoom slider — vertical, tucked into the bottom-left corner just above
+   the copyright notice so it doesn't sit on top of the main controls. */
 #zoom-wrap {
-  position: fixed; top: 50%; left: 12px;
-  transform: translateY(-50%);
+  position: fixed;
+  left: calc(env(safe-area-inset-left, 0px) + 8px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 28px);
   z-index: 15;
-  display: flex; flex-direction: column; align-items: center; gap: 6px;
-  padding: 10px 6px;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 6px 4px;
   background: rgba(0,0,0,0.40);
   border: 1px solid rgba(255,255,255,0.18);
-  border-radius: 14px;
+  border-radius: 12px;
   color: rgba(255,255,255,0.55);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
-  font-size: 10px; font-weight: 600;
+  font-size: 9px; font-weight: 600;
   opacity: 0.20;
   transition: opacity 200ms ease;
   -webkit-backdrop-filter: blur(8px);
@@ -99,7 +100,7 @@ body:hover #zoom-wrap, #zoom-wrap:hover { opacity: 1; }
 #zoom-slider {
   -webkit-appearance: slider-vertical; appearance: slider-vertical;
   writing-mode: vertical-lr; direction: rtl;
-  width: 16px; height: 140px;
+  width: 14px; height: 90px;
   background: transparent;
 }
 #zoom-slider::-webkit-slider-runnable-track {
@@ -123,10 +124,10 @@ body:hover #zoom-wrap, #zoom-wrap:hover { opacity: 1; }
   font-size: 9px; color: rgba(255,255,255,0.80);
   min-width: 28px; text-align: center;
 }
-/* On narrow phones, shrink to avoid stealing screen edge for thumbs. */
+/* On narrow phones, shrink so the corner stays uncluttered. */
 @media (max-width: 540px) {
-  #zoom-wrap { padding: 8px 4px; left: 6px; }
-  #zoom-slider { height: 110px; }
+  #zoom-wrap { padding: 4px 3px; left: 6px; bottom: calc(env(safe-area-inset-bottom, 0px) + 24px); }
+  #zoom-slider { height: 70px; }
 }
 
 #tap-layer {
