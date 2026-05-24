@@ -73,12 +73,13 @@ struct ChladniView: View {
             for i in 0..<grid {
                 let screenX = (Double(i) + 0.5) / Double(grid)
                 let screenY = (Double(j) + 0.5) / Double(grid)
-                // Inverse zoom transform around plate center. Cells whose
-                // sampled plate position falls outside [0,1]² are off the
-                // plate and skipped (so the plate visibly shrinks at z<1).
+                // Inverse zoom transform around plate center. We do NOT
+                // clip outside [0,1]² — the Chladni cos math is naturally
+                // periodic, so the pattern tiles to fill the screen at
+                // every zoom level (z<1 shows several copies, z>1 zooms
+                // into a single copy).
                 let x = (screenX - 0.5) / z + 0.5
                 let y = (screenY - 0.5) / z + 0.5
-                guard x >= 0, x <= 1, y >= 0, y <= 1 else { continue }
 
                 var field = 0.0
                 var hueAccum = 0.0

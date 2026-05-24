@@ -37,10 +37,11 @@ uniform vec3  u_colors[8];  // rgb 0..1 (per-mode color carried from voice)
 uniform float u_zoom;       // 1.0 = plate fills viewport; >1 zooms in on center
 
 void main() {
-  // Apply zoom around plate center. Plate is defined on [0,1]²; anything
-  // outside is off the plate and discarded so the plate shrinks/grows.
+  // Apply zoom around plate center. We DON'T clip outside [0,1]² — the
+  // Chladni cos math is naturally periodic, so the pattern tiles to fill
+  // the viewport at any zoom level (z<1 shows several copies; z>1 zooms
+  // into a single copy). User always sees a full-screen pattern.
   vec2 puv = (v_uv - vec2(0.5)) / u_zoom + vec2(0.5);
-  if (puv.x < 0.0 || puv.x > 1.0 || puv.y < 0.0 || puv.y > 1.0) discard;
 
   float field = 0.0;
   vec3  colorAccum = vec3(0.0);
