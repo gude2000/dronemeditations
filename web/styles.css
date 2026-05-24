@@ -305,6 +305,16 @@ input[type="range"]::-moz-range-thumb {
   font-size: 11px;
   color: var(--dim);
 }
+.tap-hint-sep { margin: 0 6px; opacity: 0.5; }
+.tap-hint-action {
+  background: none; border: 0; padding: 0;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.tap-hint-action:hover { color: #fff; }
 .hidden-hint {
   position: fixed; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 24px);
   text-align: center;

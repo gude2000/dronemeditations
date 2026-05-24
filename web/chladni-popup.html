@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#000000" />
+  <title>Chladni — Drone Meditations</title>
+  <style>
+    html, body {
+      margin: 0; padding: 0; height: 100%; width: 100%;
+      background: #000; overflow: hidden;
+      -webkit-user-select: none; user-select: none;
+      cursor: none;
+    }
+    body:hover { cursor: default; }
+    canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+    #hint {
+      position: fixed; left: 0; right: 0; bottom: 24px;
+      text-align: center;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", sans-serif;
+      font-size: 11px; font-weight: 500;
+      color: rgba(255,255,255,0.30);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 250ms ease;
+    }
+    body:hover #hint { opacity: 1; }
+    #disconnected {
+      position: fixed; inset: 0;
+      display: none; align-items: center; justify-content: center;
+      color: rgba(255,255,255,0.55);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+      font-size: 13px;
+      text-align: center; padding: 24px;
+    }
+    #disconnected.shown { display: flex; }
+  </style>
+</head>
+<body>
+  <canvas id="chladni"></canvas>
+  <div id="hint">Esc or close window to dismiss · Synced live with main app</div>
+  <div id="disconnected">
+    Waiting for the main Drone Meditations window…<br><br>
+    <span style="font-size:11px;opacity:0.7">If you closed it, reopen the app and click <em>Pop out Chladni</em> again.</span>
+  </div>
+  <script type="module" src="./js/chladni-popup.js"></script>
+</body>
+</html>

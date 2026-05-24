@@ -446,3 +446,45 @@ renderAll();
 // Debug handle — read-only inspection from devtools / preview_eval.
 // Safe to leave in; no UI/audio behavior depends on it.
 window.__drone = { state, engine, actions };
+
+// ──────────────────────────────────────────────────
+// Pop-out Chladni window sync
+// Broadcast the minimal visualization-relevant slice of state at ~15 fps so
+// the popup window (if open) tracks live changes without coupling to our
+// internal mutation paths. Also reply to "request-state" messages so the
+// popup can resync immediately on open.
+// ──────────────────────────────────────────────────
+const chladniChannel = typeof BroadcastChannel !== "undefined"
+  ? new BroadcastChannel("drone-meditations-chladni")
+  : null;
+
+function broadcastChladniState() {
+  if (!chladniChannel) return;
+  chladniChannel.postMessage({
+    type: "state",
+    oscillators: state.oscillators.map((o) => ({
+      frequencyHz: o.frequencyHz,
+      amplitude: o.amplitude,
+      isMuted: o.isMuted,
+      isSoloed: o.isSoloed
+    }))
+  });
+}
+
+if (chladniChannel) {
+  chladniChannel.addEventListener("message", (e) => {
+    if (e.data && e.data.type === "request-state") broadcastChladniState();
+  });
+  // Tick at ~15 fps. Lightweight (object copy + serialize, no DOM work).
+  setInterval(broadcastChladniState, 66);
+}
+
+// Expose the "open popup" action for the UI to wire up.
+window.__drone.popOutChladni = () => {
+  const features = "popup=1,width=900,height=900,scrollbars=no,location=no,menubar=no,toolbar=no,status=no";
+  const w = window.open("chladni-popup.html", "drone-chladni-popup", features);
+  if (w) w.focus();
+  // Send state immediately so the new window has data on first paint.
+  setTimeout(broadcastChladniState, 200);
+  setTimeout(broadcastChladniState, 600);
+};
