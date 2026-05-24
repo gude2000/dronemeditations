@@ -7,24 +7,30 @@ struct ControlsOverlay: View {
     @State private var showingChordSheet = false
     @State private var showingPresetSheet = false
 
+    // iPhone landscape reports verticalSizeClass == .compact. iPad and iPhone
+    // portrait both report .regular. Use this to switch to space-efficient
+    // single-row layouts on iPhone landscape where vertical space is scarce.
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
+    private var isCompact: Bool { verticalSizeClass == .compact }
+
     var body: some View {
-        VStack(spacing: 12) {
-            header
+        VStack(spacing: isCompact ? 6 : 12) {
+            if isCompact { compactHeader } else { header }
 
             ScrollView {
-                VStack(spacing: 10) {
+                VStack(spacing: isCompact ? 6 : 10) {
                     ForEach(0..<4, id: \.self) { i in
                         OscillatorStrip(index: i)
                     }
                     masterRow
                 }
-                .padding(.horizontal, 12)
-                .padding(.bottom, 10)
+                .padding(.horizontal, isCompact ? 10 : 12)
+                .padding(.bottom, isCompact ? 6 : 10)
             }
 
             TransportView(controller: vm.controller)
-                .padding(.horizontal, 12)
-                .padding(.bottom, 12)
+                .padding(.horizontal, isCompact ? 10 : 12)
+                .padding(.bottom, isCompact ? 6 : 12)
         }
         .background(
             // Background catches taps on empty panel space and hides the
@@ -92,6 +98,46 @@ struct ControlsOverlay: View {
         .padding(.top, 6)
     }
 
+    // MARK: - Compact header (iPhone landscape)
+
+    /// Single-row header: title (small) + chord pill + preset pill + chladni
+    /// toggle. Saves ~40-50px of vertical space vs. the full header.
+    private var compactHeader: some View {
+        HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Drone Meditations")
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white)
+                Text(currentDescription)
+                    .font(.system(size: 9))
+                    .foregroundStyle(.white.opacity(0.6))
+            }
+
+            Spacer(minLength: 6)
+
+            Button { showingChordSheet = true } label: {
+                pillLabel(title: "Chord", value: "\(vm.currentKey.displayName) \(vm.currentChord.name)", system: "music.note.list")
+            }
+            .buttonStyle(.plain)
+
+            Button { showingPresetSheet = true } label: {
+                pillLabel(title: "Preset", value: vm.activePresetName ?? "—", system: "sparkles")
+            }
+            .buttonStyle(.plain)
+
+            Button { vm.showChladni.toggle() } label: {
+                Image(systemName: vm.showChladni ? "circles.hexagongrid.fill" : "circles.hexagongrid")
+                    .font(.system(size: 14, weight: .semibold))
+                    .frame(width: 30, height: 30)
+                    .background(Circle().fill(Color.white.opacity(0.10)))
+                    .foregroundStyle(.white)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, 4)
+    }
+
     private var currentDescription: String {
         return "\(vm.currentTuning.displayName) · Oct \(vm.currentOctave)"
     }
@@ -137,8 +183,8 @@ struct ControlsOverlay: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 32, alignment: .trailing)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.horizontal, isCompact ? 12 : 14)
+        .padding(.vertical, isCompact ? 5 : 10)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(.ultraThinMaterial)

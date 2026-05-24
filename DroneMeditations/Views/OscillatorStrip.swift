@@ -10,6 +10,9 @@ struct OscillatorStrip: View {
     @State private var showingFilePicker = false
     @State private var loadError: String? = nil
 
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
+    private var isCompact: Bool { verticalSizeClass == .compact }
+
     private var osc: OscillatorState { vm.oscillators[index] }
 
     var body: some View {
@@ -113,8 +116,8 @@ struct OscillatorStrip: View {
             }
             .padding(.top, 2)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.horizontal, isCompact ? 10 : 14)
+        .padding(.vertical, isCompact ? 6 : 10)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(.ultraThinMaterial)
