@@ -63,7 +63,9 @@ function initWebGL() {
   gl = canvas.getContext("webgl", {
     premultipliedAlpha: false,
     antialias: true,
-    alpha: false
+    alpha: false,
+    // Keep last-drawn frame readable for toBlob snapshots; tiny perf hit only.
+    preserveDrawingBuffer: true
   });
   if (!gl) {
     disconnected.textContent = "WebGL not available in this browser.";
@@ -240,10 +242,36 @@ setInterval(() => {
 // nothing's changing. Ask it to send the current state.
 channel.postMessage({ type: "request-state" });
 
-// ESC closes the window
+// ESC closes the window, S snapshots the pattern
 window.addEventListener("keydown", (e) => {
   if (e.key === "Escape") window.close();
+  else if (e.key === "s" || e.key === "S") snapshot();
 });
+
+document.getElementById("snapshot-btn").addEventListener("click", snapshot);
+
+function snapshot() {
+  // toBlob produces a real PNG asynchronously, no base64 string in memory.
+  // Force a render call right before capture so the latest frame is on-screen.
+  if (gl) {
+    // WebGL canvases can be cleared between frames so render synchronously
+    // into the back buffer right before reading.
+    render();
+  }
+  canvas.toBlob((blob) => {
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const now = new Date();
+    const stamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}_${String(now.getHours()).padStart(2,"0")}${String(now.getMinutes()).padStart(2,"0")}${String(now.getSeconds()).padStart(2,"0")}`;
+    a.download = `chladni-${stamp}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 500);
+  }, "image/png");
+}
 
 initWebGL();
 resize();

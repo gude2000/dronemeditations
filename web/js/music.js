@@ -171,6 +171,7 @@ export const PRESET_CATEGORIES = [
   "Binaural — 3 tone",
   "Binaural — 4 tone",
   "Natural Resonance",
+  "Cymatics",
   "Solfeggio",
   "Mystic & Composers"
 ];
@@ -203,15 +204,25 @@ export const PRESETS = [
   { id: "om",     name: "OM 136.1 Hz",                    category: "Natural Resonance", sub: "Tuned to Earth's year",   voices: [C(136.1), C(272.2), L(204.15), R(204.15)] },
   { id: "moon",   name: "Moon 210.42 Hz",                 category: "Natural Resonance", sub: "Cosmic-octave moon orbit",voices: [C(210.42), L(105.21), R(315.63), C(420.84)] },
   { id: "sun",    name: "Sun 126.22 Hz",                  category: "Natural Resonance", sub: "Cosmic-octave solar",     voices: [C(126.22), L(63.11), R(189.33), C(252.44)] },
-  { id: "hypogeum",   name: "Hypogeum 111 Hz",             category: "Natural Resonance", sub: "Maltese megalithic chamber resonance", voices: [L(55.5), C(111), R(222), SILENT] },
-  { id: "harmonic_series", name: "Harmonic Series 1:2:3:4",category: "Natural Resonance", sub: "100·200·300·400 Hz — clean lattice cymatics", voices: [L(100), C(200), C(300), R(400)] },
-  { id: "just_major",     name: "Just Major Triad 4:5:6",  category: "Natural Resonance", sub: "C-E-G+C in pure intonation — most symmetric chord", voices: [L(264), C(330), C(396), R(528)] },
+
+  // Cymatics — frequency combinations known for highly symmetric / striking nodal patterns.
+  { id: "hypogeum",        name: "Hypogeum 111 Hz",          category: "Cymatics", sub: "Maltese megalithic chamber — single-tone radial symmetry", voices: [L(55.5), C(111), R(222), SILENT] },
+  { id: "harmonic_series", name: "Harmonic Series 1:2:3:4",  category: "Cymatics", sub: "100·200·300·400 Hz — clean orthogonal grid", voices: [L(100), C(200), C(300), R(400)] },
+  { id: "just_major",      name: "Just Major Triad 4:5:6",   category: "Cymatics", sub: "C-E-G+C in pure intonation — 5-fold floral pattern", voices: [L(264), C(330), C(396), R(528)] },
+  { id: "octave_stack",    name: "Octave Stack 1:2:4:8",     category: "Cymatics", sub: "75·150·300·600 Hz — pure-doubling lattice", voices: [L(75), C(150), C(300), R(600)] },
+  { id: "fifths_stack",    name: "Perfect Fifths 2:3:9/2:27/4", category: "Cymatics", sub: "100·150·225·337.5 Hz — recursive triangular symmetries", voices: [L(100), C(150), C(225), R(337.5)] },
+  { id: "fibonacci_quartet",name: "Fibonacci Quartet",        category: "Cymatics", sub: "100·162·262·424 Hz — φ-progression spiral patterns", voices: [L(100), C(162), C(262), R(424)] },
 
   // Mystic & Composers — Scriabin's Mystic Chord (Prometheus): C-F♯-B♭-E-A-D
   // Four-note voicings drawn from the six-note chord.
   { id: "scriabin_1", name: "Scriabin 1 — Mystic Core",  category: "Mystic & Composers", sub: "C–F♯–B♭–E (lower 4 of the mystic chord)", voices: [L(130.81), C(185.00), C(233.08), R(329.63)] },
   { id: "scriabin_2", name: "Scriabin 2 — Mystic Upper", category: "Mystic & Composers", sub: "F♯–B♭–E–A (upper 4 of the mystic chord)", voices: [L(185.00), C(233.08), C(329.63), R(440.00)] },
   { id: "scriabin_3", name: "Scriabin 3 — Wide Mystic",  category: "Mystic & Composers", sub: "C–B♭–A–D (spread voicing, dropped F♯/E)",  voices: [L(130.81), C(233.08), C(440.00), R(587.33)] },
+
+  // Ligeti — Atmosphères-style chromatic micropolyphony clusters
+  { id: "ligeti_1", name: "Ligeti 1 — Chromatic Cluster", category: "Mystic & Composers", sub: "C-C♯-D-D♯ tight semitone wash (Atmosphères opening)",   voices: [L(130.81), C(138.59), C(146.83), R(155.56)] },
+  { id: "ligeti_2", name: "Ligeti 2 — Whole-Tone Cluster",category: "Mystic & Composers", sub: "C-D-E-F♯ whole-tone fragment, shimmering",            voices: [L(130.81), C(146.83), C(164.81), R(185.00)] },
+  { id: "ligeti_3", name: "Ligeti 3 — Microtone Cluster", category: "Mystic & Composers", sub: "Quartertone cluster around A3 — 215·220·225·230 Hz",   voices: [L(215), C(220), C(225), R(230)] },
 
   // Solfeggio
   { id: "solf_396", name: "Solfeggio 396 Hz", category: "Solfeggio", sub: "Liberating guilt",     voices: [C(396), L(198),   R(594),    SILENT] },

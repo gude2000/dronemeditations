@@ -41,7 +41,9 @@ export class AudioEngine {
     this.ctx = new AC({ latencyHint: "interactive" });
 
     this.master = this.ctx.createGain();
-    this.master.gain.value = this.masterTarget;
+    // Start silent; fade-in handled by ensureStartedWithFade below so play
+    // begins gently instead of cutting in at full volume.
+    this.master.gain.value = 0;
 
     // Brickwall-ish limiter at -0.1 dB so peaks never clip the destination.
     // High ratio + tiny knee + fast attack approximates a true limiter.
@@ -158,6 +160,28 @@ export class AudioEngine {
     // the tab isn't focused, which would silently freeze LFO modulation while
     // the user has the window in the background.
     this._tickIntervalId = setInterval(this._tick, 33);  // ~30 Hz
+    // Fade in is initiated by togglePlay, not here — that way the same engine
+    // can be created by sample-loading code without auto-starting audio.
+  }
+
+  /// Smoothly ramp master from current value to the user's volume target.
+  fadeInMaster(seconds = 3.0) {
+    if (!this.ctx || !this.master) return;
+    const t = this.ctx.currentTime;
+    this.master.gain.cancelScheduledValues(t);
+    this.master.gain.setValueAtTime(this.master.gain.value, t);
+    this.master.gain.linearRampToValueAtTime(this.masterTarget, t + seconds);
+  }
+
+  /// Smoothly ramp master to silence over `seconds`, then resolve. Used by
+  /// stop() and session auto-end so playback ends gently.
+  async fadeOutMaster(seconds = 8.0) {
+    if (!this.ctx || !this.master) return;
+    const t = this.ctx.currentTime;
+    this.master.gain.cancelScheduledValues(t);
+    this.master.gain.setValueAtTime(this.master.gain.value, t);
+    this.master.gain.linearRampToValueAtTime(0, t + seconds);
+    await new Promise((r) => setTimeout(r, seconds * 1000 + 60));
   }
 
   _tick = () => {
@@ -192,6 +216,10 @@ export class AudioEngine {
       let lfoValue;
       if (lfo.shape === "sine") {
         lfoValue = Math.sin(v._lfoPhase[k] * 2 * Math.PI);
+      } else if (lfo.shape === "triangle") {
+        // Linear ↗↘ — smoother than square, less rounded than sine.
+        const p = v._lfoPhase[k];
+        lfoValue = p < 0.5 ? (4 * p - 1) : (3 - 4 * p);
       } else if (lfo.shape === "square") {
         // Square wave: +1 first half of the cycle, -1 second half. Abrupt
         // transitions — useful as a gate/tremolo when routed to amp.

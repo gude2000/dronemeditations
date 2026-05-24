@@ -20,6 +20,7 @@ struct Preset: Identifiable, Hashable {
         case binaural3 = "Binaural — 3 tone"
         case binaural4 = "Binaural — 4 tone"
         case naturalResonance = "Natural Resonance"
+        case cymatics = "Cymatics"
         case solfeggio = "Solfeggio"
         case mysticComposers = "Mystic & Composers"
     }
@@ -84,12 +85,20 @@ extension Preset {
                [C(210.42), L(105.21), R(315.63), C(420.84)]),
         Preset("Sun 126.22 Hz",                .naturalResonance, subtitle: "Cosmic-octave solar",
                [C(126.22), L(63.11), R(189.33), C(252.44)]),
-        Preset("Hypogeum 111 Hz",              .naturalResonance, subtitle: "Maltese megalithic chamber resonance",
+
+        // MARK: Cymatics — patterns chosen for striking symmetric nodal geometries.
+        Preset("Hypogeum 111 Hz",          .cymatics, subtitle: "Maltese megalithic chamber — single-tone radial symmetry",
                [L(55.5), C(111), R(222), silent]),
-        Preset("Harmonic Series 1:2:3:4",      .naturalResonance, subtitle: "100·200·300·400 Hz — clean lattice cymatics",
+        Preset("Harmonic Series 1:2:3:4",  .cymatics, subtitle: "100·200·300·400 Hz — clean orthogonal grid",
                [L(100), C(200), C(300), R(400)]),
-        Preset("Just Major Triad 4:5:6",       .naturalResonance, subtitle: "C-E-G+C in pure intonation — most symmetric chord",
+        Preset("Just Major Triad 4:5:6",   .cymatics, subtitle: "C-E-G+C in pure intonation — 5-fold floral pattern",
                [L(264), C(330), C(396), R(528)]),
+        Preset("Octave Stack 1:2:4:8",     .cymatics, subtitle: "75·150·300·600 Hz — pure-doubling lattice",
+               [L(75), C(150), C(300), R(600)]),
+        Preset("Perfect Fifths 2:3:9/2:27/4", .cymatics, subtitle: "100·150·225·337.5 Hz — recursive triangular symmetries",
+               [L(100), C(150), C(225), R(337.5)]),
+        Preset("Fibonacci Quartet",        .cymatics, subtitle: "100·162·262·424 Hz — φ-progression spiral patterns",
+               [L(100), C(162), C(262), R(424)]),
 
         // MARK: Mystic & Composers — Scriabin's Mystic Chord (Prometheus): C-F♯-B♭-E-A-D
         Preset("Scriabin 1 — Mystic Core",  .mysticComposers, subtitle: "C–F♯–B♭–E (lower 4 of the mystic chord)",
@@ -98,6 +107,14 @@ extension Preset {
                [L(185.00), C(233.08), C(329.63), R(440.00)]),
         Preset("Scriabin 3 — Wide Mystic",  .mysticComposers, subtitle: "C–B♭–A–D (spread voicing, dropped F♯/E)",
                [L(130.81), C(233.08), C(440.00), R(587.33)]),
+
+        // Ligeti — Atmosphères-style chromatic micropolyphony clusters
+        Preset("Ligeti 1 — Chromatic Cluster", .mysticComposers, subtitle: "C-C♯-D-D♯ tight semitone wash (Atmosphères opening)",
+               [L(130.81), C(138.59), C(146.83), R(155.56)]),
+        Preset("Ligeti 2 — Whole-Tone Cluster", .mysticComposers, subtitle: "C-D-E-F♯ whole-tone fragment, shimmering",
+               [L(130.81), C(146.83), C(164.81), R(185.00)]),
+        Preset("Ligeti 3 — Microtone Cluster", .mysticComposers, subtitle: "Quartertone cluster around A3 — 215·220·225·230 Hz",
+               [L(215), C(220), C(225), R(230)]),
 
         // MARK: Solfeggio
         Preset("Solfeggio 396 Hz", .solfeggio, subtitle: "Liberating guilt",        [C(396), L(198), R(594), silent]),

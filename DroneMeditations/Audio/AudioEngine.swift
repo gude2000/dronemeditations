@@ -9,11 +9,20 @@ final class AudioEngine {
     let voices: [Voice]
     let sampleRate: Double
 
-    /// Master output level (0..1). Settable from UI; the engine's main mixer holds the value.
+    /// Master output level (0..1). Setting cancels any in-progress fade and
+    /// snaps to the new value; also remembers it as the target for the next
+    /// fade-in (so play after volume change resumes to the right level).
     var masterVolume: Float {
         get { engine.mainMixerNode.outputVolume }
-        set { engine.mainMixerNode.outputVolume = max(0, min(1, newValue)) }
+        set {
+            let clamped = max(0, min(1, newValue))
+            masterTarget = clamped
+            cancelFade()
+            engine.mainMixerNode.outputVolume = clamped
+        }
     }
+    private var masterTarget: Float = 0.30
+    private var fadeTimer: Timer?
 
     private var sourceNode: AVAudioSourceNode!
     private var isSessionConfigured = false
@@ -26,8 +35,10 @@ final class AudioEngine {
         self.voices = (0..<4).map { Voice(id: $0, sampleRate: sr) }
         attachSourceNode()
         // Default 0.30 — with 4 voices + reverb/delay wet sends, anything higher
-        // can hit the soft-limiter and audibly compress.
-        engine.mainMixerNode.outputVolume = 0.30
+        // can hit the soft-limiter and audibly compress. Remember as the fade
+        // target; actual outputVolume starts at 0 and is ramped by play().
+        masterTarget = 0.30
+        engine.mainMixerNode.outputVolume = 0
     }
 
     private func attachSourceNode() {
@@ -94,6 +105,47 @@ final class AudioEngine {
     func stop() {
         if engine.isRunning {
             engine.stop()
+        }
+    }
+
+    /// Gently ramp master output up to `masterTarget` over `seconds`. Used by
+    /// DroneController on play to avoid a hard cut-in.
+    func fadeInMaster(seconds: Double = 3.0) {
+        rampMaster(to: masterTarget, over: seconds)
+    }
+
+    /// Gently ramp master output to silence over `seconds`. Awaits completion
+    /// so callers can `engine.stop()` cleanly after.
+    func fadeOutMaster(seconds: Double = 8.0) async {
+        rampMaster(to: 0, over: seconds)
+        try? await Task.sleep(nanoseconds: UInt64((seconds + 0.05) * 1_000_000_000))
+    }
+
+    /// Cancel any in-progress fade (without snapping volume).
+    private func cancelFade() {
+        fadeTimer?.invalidate()
+        fadeTimer = nil
+    }
+
+    private func rampMaster(to target: Float, over duration: Double) {
+        cancelFade()
+        guard duration > 0 else {
+            engine.mainMixerNode.outputVolume = target
+            return
+        }
+        let startVolume = engine.mainMixerNode.outputVolume
+        let startDate = Date()
+        // ~30 fps tick is smooth enough for multi-second meditation fades
+        // and well under any audible zipper rate.
+        let mixer = engine.mainMixerNode
+        fadeTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] timer in
+            let elapsed = Date().timeIntervalSince(startDate)
+            let t = min(1.0, elapsed / duration)
+            mixer.outputVolume = startVolume + (target - startVolume) * Float(t)
+            if t >= 1.0 {
+                timer.invalidate()
+                self?.fadeTimer = nil
+            }
         }
     }
 

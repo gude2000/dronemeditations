@@ -101,6 +101,25 @@
       .ctrl-label { font-size: 8px; }
       .ctrl-freq { font-size: 9px; }
     }
+
+    /* Snapshot button — top-right corner, ghost until hovered */
+    #snapshot-btn {
+      position: fixed; top: 16px; right: 16px;
+      z-index: 11;
+      padding: 7px 12px;
+      background: rgba(0,0,0,0.45);
+      border: 1px solid rgba(255,255,255,0.20);
+      border-radius: 8px;
+      color: rgba(255,255,255,0.65);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+      font-size: 12px; font-weight: 500;
+      cursor: pointer;
+      opacity: 0.30;
+      transition: opacity 200ms ease, background 150ms ease, color 150ms ease;
+      backdrop-filter: blur(10px);
+    }
+    body:hover #snapshot-btn { opacity: 1; }
+    #snapshot-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
     #disconnected {
       position: fixed; inset: 0;
       display: none; align-items: center; justify-content: center;
@@ -114,7 +133,8 @@
 </head>
 <body>
   <canvas id="chladni"></canvas>
-  <div id="hint">Esc or close window to dismiss · Synced live with main app</div>
+  <button id="snapshot-btn" type="button" title="Download a PNG of the current pattern (S)">↓ Snapshot</button>
+  <div id="hint">Esc to dismiss · S to snapshot · Synced live with main app</div>
   <div id="disconnected">
     Waiting for the main Drone Meditations window…<br><br>
     <span style="font-size:11px;opacity:0.7">If you closed it, reopen the app and click <em>Pop out Chladni</em> again.</span>

@@ -131,6 +131,10 @@ final class Voice {
             switch lfoShapes[k] {
             case .sine:
                 value = sin(lfoPhases[k] * 2.0 * .pi)
+            case .triangle:
+                // Linear ↗↘ — smoother than square, sharper than sine.
+                let p = lfoPhases[k]
+                value = p < 0.5 ? (4.0 * p - 1.0) : (3.0 - 4.0 * p)
             case .square:
                 value = lfoPhases[k] < 0.5 ? 1.0 : -1.0
             case .sampleAndHold:

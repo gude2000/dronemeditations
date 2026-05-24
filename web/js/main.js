@@ -130,14 +130,17 @@ const actions = {
 
   togglePlay() {
     if (state.transportState === "playing") {
+      // Quick fade-down on pause so the suspend doesn't click.
+      engine.fadeOutMaster(0.4);
+      setTimeout(() => engine.suspend(), 500);
       state.transportState = "paused";
-      engine.suspend();
       stopTicker();
     } else {
-      // Start (or resume) audio.
+      // Resume from "stopped" gets a full 3s meditation-fade; resume from
+      // "paused" gets a snappier 1s ramp.
+      const fromStopped = state.transportState === "stopped";
       engine.ensureStarted(state.oscillators);
       engine.resume();
-      // Re-push state in case it was modified before audio existed.
       for (let i = 0; i < 4; i++) {
         engine.setFrequency(i, state.oscillators[i].frequencyHz);
         engine.setAmplitude(i, state.oscillators[i].amplitude);
@@ -146,7 +149,7 @@ const actions = {
         engine.setMute(i, state.oscillators[i].isMuted);
         engine.setSolo(i, state.oscillators[i].isSoloed);
       }
-      engine.setMasterVolume(state.masterVolume);
+      engine.fadeInMaster(fromStopped ? 3.0 : 1.0);
       state.transportState = "playing";
       startTicker();
     }
@@ -154,11 +157,14 @@ const actions = {
   },
 
   async stop() {
-    stopTicker();
+    if (state.transportState === "stopped") return;
+    // Update UI state immediately; audio fades over 8s, then tears down.
     state.transportState = "stopped";
     state.elapsed = 0;
-    await engine.stop();
+    stopTicker();
     renderAll();
+    await engine.fadeOutMaster(8.0);
+    await engine.stop();
   },
 
   setDuration(seconds) {

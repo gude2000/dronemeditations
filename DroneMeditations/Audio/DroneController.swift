@@ -35,6 +35,7 @@ final class DroneController: ObservableObject {
     }
 
     func play() {
+        let fromStopped = (state == .stopped)
         do {
             try engine.start()
         } catch {
@@ -42,6 +43,8 @@ final class DroneController: ObservableObject {
             return
         }
         if state != .playing {
+            // Fresh start gets a 3s meditation-fade; resume from pause is 1s.
+            engine.fadeInMaster(seconds: fromStopped ? 3.0 : 1.0)
             lastTickDate = Date()
             startTicker()
             state = .playing
@@ -51,16 +54,24 @@ final class DroneController: ObservableObject {
     func pause() {
         guard state == .playing else { return }
         stopTicker()
-        engine.stop()
         state = .paused
+        // Short fade down before suspending so we don't click.
+        Task { @MainActor in
+            await engine.fadeOutMaster(seconds: 0.4)
+            engine.stop()
+        }
     }
 
     func stop() {
         stopTicker()
-        engine.stop()
         elapsed = 0
         lastTickDate = nil
         state = .stopped
+        // UI updates immediately; audio fades over 8 seconds, then engine tears down.
+        Task { @MainActor in
+            await engine.fadeOutMaster(seconds: 8.0)
+            engine.stop()
+        }
     }
 
     private func startTicker() {
