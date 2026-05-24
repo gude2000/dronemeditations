@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#000000" />
+  <title>Drone Meditations</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <canvas id="bg-canvas" aria-hidden="true"></canvas>
+  <canvas id="chladni-canvas" aria-hidden="true"></canvas>
+
+  <!-- Tap-to-toggle layer (controls show/hide). Sits beneath the controls. -->
+  <div id="tap-layer" aria-hidden="true"></div>
+
+  <main id="controls" class="controls">
+    <header class="header">
+      <div class="title-block">
+        <h1>Drone Meditations</h1>
+        <p id="header-subtitle" class="header-subtitle">12-TET · Oct 3</p>
+      </div>
+      <button id="chladni-toggle" class="icon-button" title="Toggle Chladni overlay" aria-label="Toggle Chladni overlay">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+          <path d="M12 2l9 5.2v9.6L12 22l-9-5.2V7.2L12 2zm0 2.3L5 8.3v7.4l7 4 7-4V8.3l-7-4z"/>
+        </svg>
+      </button>
+    </header>
+
+    <div class="pill-row">
+      <button id="chord-pill" class="pill" type="button">
+        <span class="pill-label">CHORD</span>
+        <span id="chord-pill-value" class="pill-value">A Major</span>
+      </button>
+      <button id="preset-pill" class="pill" type="button">
+        <span class="pill-label">PRESET</span>
+        <span id="preset-pill-value" class="pill-value">—</span>
+      </button>
+    </div>
+
+    <section id="oscillator-strips" class="strips" aria-label="Oscillators"></section>
+
+    <section class="master-row">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 00-2.5-4v8a4.5 4.5 0 002.5-4zm-2.5-7v2a7 7 0 010 14v2a9 9 0 000-18z"/>
+      </svg>
+      <input id="master-volume" type="range" min="0" max="1" step="0.001" value="0.65" />
+      <span id="master-volume-readout" class="master-readout">65</span>
+    </section>
+
+    <section class="transport">
+      <div class="transport-buttons">
+        <button id="play-pause" class="transport-primary" type="button" aria-label="Play">
+          <svg id="play-icon" viewBox="0 0 24 24" width="30" height="30" fill="currentColor" aria-hidden="true">
+            <path d="M8 5v14l11-7L8 5z"/>
+          </svg>
+          <svg id="pause-icon" viewBox="0 0 24 24" width="30" height="30" fill="currentColor" aria-hidden="true" style="display:none">
+            <path d="M6 5h4v14H6V5zm8 0h4v14h-4V5z"/>
+          </svg>
+        </button>
+        <button id="stop" class="transport-secondary" type="button" aria-label="Stop" disabled>
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
+            <path d="M6 6h12v12H6V6z"/>
+          </svg>
+        </button>
+      </div>
+      <div class="transport-meta">
+        <span id="time-readout" class="time-readout">00:00 / 15:00</span>
+        <button id="duration-button" class="duration-button" type="button">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true" style="margin-right:4px">
+            <path d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 11h-5v-2h3V7h2v6z"/>
+          </svg>
+          <span id="duration-label">15 min</span>
+          <span class="chev">▾</span>
+        </button>
+      </div>
+    </section>
+
+    <p class="tap-hint">Tap empty space to hide controls</p>
+  </main>
+
+  <div id="hidden-hint" class="hidden-hint" aria-hidden="true">Tap to show controls</div>
+
+  <!-- Modal sheets -->
+  <div id="chord-sheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="chord-sheet-title" hidden>
+    <div class="sheet-panel">
+      <header class="sheet-header">
+        <h2 id="chord-sheet-title">Chord &amp; Tuning</h2>
+        <button class="sheet-done" data-close="chord-sheet" type="button">Done</button>
+      </header>
+      <div class="sheet-scroll">
+        <section class="sheet-section">
+          <h3>KEY</h3>
+          <div id="key-grid" class="key-grid"></div>
+        </section>
+        <section class="sheet-section">
+          <h3>OCTAVE</h3>
+          <div class="octave-row">
+            <button id="octave-down" class="step-button" type="button" aria-label="Lower octave">−</button>
+            <span id="octave-readout" class="octave-readout">3</span>
+            <button id="octave-up" class="step-button" type="button" aria-label="Raise octave">+</button>
+          </div>
+        </section>
+        <section class="sheet-section">
+          <h3>TUNING SYSTEM</h3>
+          <div id="tuning-grid" class="two-col-grid"></div>
+        </section>
+        <section class="sheet-section">
+          <h3>CHORD</h3>
+          <div id="chord-list" class="chord-list"></div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <div id="preset-sheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="preset-sheet-title" hidden>
+    <div class="sheet-panel">
+      <header class="sheet-header">
+        <h2 id="preset-sheet-title">Presets</h2>
+        <button class="sheet-done" data-close="preset-sheet" type="button">Done</button>
+      </header>
+      <div class="sheet-scroll">
+        <p class="preset-disclaimer">
+          Binaural beats require headphones (one tone in each ear) to take effect.
+        </p>
+        <div id="preset-list" class="preset-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>

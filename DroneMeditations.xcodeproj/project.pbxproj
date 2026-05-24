@@ -1,0 +1,443 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		B00000000000000000000001 /* DroneMeditationsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000001 /* DroneMeditationsApp.swift */; };
+		B00000000000000000000002 /* Waveform.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000002 /* Waveform.swift */; };
+		B00000000000000000000003 /* Note.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000003 /* Note.swift */; };
+		B00000000000000000000004 /* TuningSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000004 /* TuningSystem.swift */; };
+		B00000000000000000000005 /* Chord.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000005 /* Chord.swift */; };
+		B00000000000000000000006 /* OscillatorState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000006 /* OscillatorState.swift */; };
+		B00000000000000000000007 /* Preset.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000007 /* Preset.swift */; };
+		B00000000000000000000008 /* Voice.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000008 /* Voice.swift */; };
+		B00000000000000000000009 /* AudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000009 /* AudioEngine.swift */; };
+		B0000000000000000000000A /* DroneController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0000000000000000000000A /* DroneController.swift */; };
+		B0000000000000000000000B /* DroneViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0000000000000000000000B /* DroneViewModel.swift */; };
+		B0000000000000000000000C /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0000000000000000000000C /* ContentView.swift */; };
+		B0000000000000000000000D /* ControlsOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0000000000000000000000D /* ControlsOverlay.swift */; };
+		B0000000000000000000000E /* OscillatorStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0000000000000000000000E /* OscillatorStrip.swift */; };
+		B0000000000000000000000F /* ChordPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0000000000000000000000F /* ChordPickerView.swift */; };
+		B00000000000000000000010 /* PresetPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000010 /* PresetPickerView.swift */; };
+		B00000000000000000000011 /* TransportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000011 /* TransportView.swift */; };
+		B00000000000000000000012 /* BlobBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000012 /* BlobBackground.swift */; };
+		B00000000000000000000013 /* ChladniView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000013 /* ChladniView.swift */; };
+		B00000000000000000000014 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000014 /* Assets.xcassets */; };
+		B00000000000000000000016 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000016 /* Preview Assets.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		AAA00000000000000PRODUCT /* DroneMeditations.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DroneMeditations.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F00000000000000000000001 /* DroneMeditationsApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DroneMeditationsApp.swift; sourceTree = "<group>"; };
+		F00000000000000000000002 /* Waveform.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Waveform.swift; sourceTree = "<group>"; };
+		F00000000000000000000003 /* Note.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Note.swift; sourceTree = "<group>"; };
+		F00000000000000000000004 /* TuningSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TuningSystem.swift; sourceTree = "<group>"; };
+		F00000000000000000000005 /* Chord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Chord.swift; sourceTree = "<group>"; };
+		F00000000000000000000006 /* OscillatorState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OscillatorState.swift; sourceTree = "<group>"; };
+		F00000000000000000000007 /* Preset.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Preset.swift; sourceTree = "<group>"; };
+		F00000000000000000000008 /* Voice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Voice.swift; sourceTree = "<group>"; };
+		F00000000000000000000009 /* AudioEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioEngine.swift; sourceTree = "<group>"; };
+		F0000000000000000000000A /* DroneController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DroneController.swift; sourceTree = "<group>"; };
+		F0000000000000000000000B /* DroneViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DroneViewModel.swift; sourceTree = "<group>"; };
+		F0000000000000000000000C /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		F0000000000000000000000D /* ControlsOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControlsOverlay.swift; sourceTree = "<group>"; };
+		F0000000000000000000000E /* OscillatorStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OscillatorStrip.swift; sourceTree = "<group>"; };
+		F0000000000000000000000F /* ChordPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChordPickerView.swift; sourceTree = "<group>"; };
+		F00000000000000000000010 /* PresetPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresetPickerView.swift; sourceTree = "<group>"; };
+		F00000000000000000000011 /* TransportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransportView.swift; sourceTree = "<group>"; };
+		F00000000000000000000012 /* BlobBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlobBackground.swift; sourceTree = "<group>"; };
+		F00000000000000000000013 /* ChladniView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChladniView.swift; sourceTree = "<group>"; };
+		F00000000000000000000014 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		F00000000000000000000015 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		F00000000000000000000016 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		11000000000000000FRM0001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		G00000000000000000000001 /* Workspace */ = {
+			isa = PBXGroup;
+			children = (
+				G00000000000000000000002 /* DroneMeditations */,
+				G00000000000000000000008 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		G00000000000000000000002 /* DroneMeditations */ = {
+			isa = PBXGroup;
+			children = (
+				F00000000000000000000001 /* DroneMeditationsApp.swift */,
+				G00000000000000000000003 /* Models */,
+				G00000000000000000000004 /* Audio */,
+				G00000000000000000000005 /* ViewModels */,
+				G00000000000000000000006 /* Views */,
+				F00000000000000000000014 /* Assets.xcassets */,
+				G00000000000000000000007 /* Preview Content */,
+				F00000000000000000000015 /* Info.plist */,
+			);
+			path = DroneMeditations;
+			sourceTree = "<group>";
+		};
+		G00000000000000000000003 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				F00000000000000000000002 /* Waveform.swift */,
+				F00000000000000000000003 /* Note.swift */,
+				F00000000000000000000004 /* TuningSystem.swift */,
+				F00000000000000000000005 /* Chord.swift */,
+				F00000000000000000000006 /* OscillatorState.swift */,
+				F00000000000000000000007 /* Preset.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		G00000000000000000000004 /* Audio */ = {
+			isa = PBXGroup;
+			children = (
+				F00000000000000000000008 /* Voice.swift */,
+				F00000000000000000000009 /* AudioEngine.swift */,
+				F0000000000000000000000A /* DroneController.swift */,
+			);
+			path = Audio;
+			sourceTree = "<group>";
+		};
+		G00000000000000000000005 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				F0000000000000000000000B /* DroneViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		G00000000000000000000006 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				F0000000000000000000000C /* ContentView.swift */,
+				F0000000000000000000000D /* ControlsOverlay.swift */,
+				F0000000000000000000000E /* OscillatorStrip.swift */,
+				F0000000000000000000000F /* ChordPickerView.swift */,
+				F00000000000000000000010 /* PresetPickerView.swift */,
+				F00000000000000000000011 /* TransportView.swift */,
+				F00000000000000000000012 /* BlobBackground.swift */,
+				F00000000000000000000013 /* ChladniView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		G00000000000000000000007 /* Preview Content */ = {
+			isa = PBXGroup;
+			children = (
+				F00000000000000000000016 /* Preview Assets.xcassets */,
+			);
+			path = "Preview Content";
+			sourceTree = "<group>";
+		};
+		G00000000000000000000008 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				AAA00000000000000PRODUCT /* DroneMeditations.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		11000000000000000TGT0001 /* DroneMeditations */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 11000000000000TGTCFG0001 /* Build configuration list for PBXNativeTarget "DroneMeditations" */;
+			buildPhases = (
+				11000000000000000SRC0001 /* Sources */,
+				11000000000000000FRM0001 /* Frameworks */,
+				11000000000000000RES0001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DroneMeditations;
+			productName = DroneMeditations;
+			productReference = AAA00000000000000PRODUCT /* DroneMeditations.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		11000000000000000PRJ0001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					11000000000000000TGT0001 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = 11000000000000PRJCFG0001 /* Build configuration list for PBXProject "DroneMeditations" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = G00000000000000000000001;
+			productRefGroup = G00000000000000000000008 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				11000000000000000TGT0001 /* DroneMeditations */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		11000000000000000RES0001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B00000000000000000000016 /* Preview Assets.xcassets in Resources */,
+				B00000000000000000000014 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		11000000000000000SRC0001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B00000000000000000000001 /* DroneMeditationsApp.swift in Sources */,
+				B00000000000000000000002 /* Waveform.swift in Sources */,
+				B00000000000000000000003 /* Note.swift in Sources */,
+				B00000000000000000000004 /* TuningSystem.swift in Sources */,
+				B00000000000000000000005 /* Chord.swift in Sources */,
+				B00000000000000000000006 /* OscillatorState.swift in Sources */,
+				B00000000000000000000007 /* Preset.swift in Sources */,
+				B00000000000000000000008 /* Voice.swift in Sources */,
+				B00000000000000000000009 /* AudioEngine.swift in Sources */,
+				B0000000000000000000000A /* DroneController.swift in Sources */,
+				B0000000000000000000000B /* DroneViewModel.swift in Sources */,
+				B0000000000000000000000C /* ContentView.swift in Sources */,
+				B0000000000000000000000D /* ControlsOverlay.swift in Sources */,
+				B0000000000000000000000E /* OscillatorStrip.swift in Sources */,
+				B0000000000000000000000F /* ChordPickerView.swift in Sources */,
+				B00000000000000000000010 /* PresetPickerView.swift in Sources */,
+				B00000000000000000000011 /* TransportView.swift in Sources */,
+				B00000000000000000000012 /* BlobBackground.swift in Sources */,
+				B00000000000000000000013 /* ChladniView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		11000000000000PRJDBG0001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		11000000000000PRJREL0001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		11000000000000TGTDBG0001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"DroneMeditations/Preview Content\"";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = DroneMeditations/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.gudemedia.dronemeditations;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		11000000000000TGTREL0001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"DroneMeditations/Preview Content\"";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = DroneMeditations/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.gudemedia.dronemeditations;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		11000000000000PRJCFG0001 /* Build configuration list for PBXProject "DroneMeditations" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				11000000000000PRJDBG0001 /* Debug */,
+				11000000000000PRJREL0001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		11000000000000TGTCFG0001 /* Build configuration list for PBXNativeTarget "DroneMeditations" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				11000000000000TGTDBG0001 /* Debug */,
+				11000000000000TGTREL0001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 11000000000000000PRJ0001 /* Project object */;
+}

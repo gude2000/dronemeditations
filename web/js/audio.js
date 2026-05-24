@@ -1,0 +1,351 @@
+// Web Audio engine — 4 OscillatorNodes routed through per-voice pan + gain into a master.
+// Mirrors the native Voice/AudioEngine architecture.
+//
+// LFOs are driven from JS via requestAnimationFrame (~60 Hz updates). At sub-audio rates
+// (0.02–8 Hz) this is plenty smooth; we write the modulated pan/amp values directly to
+// the corresponding AudioParam each frame.
+
+const RAMP_TIME = 0.040;  // 40ms parameter ramps to avoid clicks/zipper noise.
+const LFO_SMOOTH = 0.008; // ms-scale ramp on each LFO write — kills DC clicks on S&H steps.
+
+export class AudioEngine {
+  constructor() {
+    /** @type {AudioContext|null} */
+    this.ctx = null;
+    /** @type {Array<{osc: OscillatorNode, pan: StereoPannerNode, gain: GainNode, params: object}>} */
+    this.voices = [];
+    /** @type {GainNode|null} */
+    this.master = null;
+    this.started = false;
+
+    // The user-visible volume target (0..1). Applied after solo/mute logic resolves.
+    this.masterTarget = 0.65;
+
+    this._rafId = null;
+    this._lastTickTime = 0;
+  }
+
+  /**
+   * Lazily create the AudioContext. Must be called inside a user gesture handler
+   * (click/tap) — browsers won't let us start audio otherwise.
+   */
+  ensureStarted(initialVoiceState) {
+    if (this.ctx) {
+      if (this.ctx.state === "suspended") this.ctx.resume();
+      return;
+    }
+
+    const AC = window.AudioContext || window.webkitAudioContext;
+    this.ctx = new AC({ latencyHint: "interactive" });
+
+    this.master = this.ctx.createGain();
+    this.master.gain.value = this.masterTarget;
+
+    // Brickwall-ish limiter at -0.1 dB so peaks never clip the destination.
+    // High ratio + tiny knee + fast attack approximates a true limiter.
+    this.limiter = this.ctx.createDynamicsCompressor();
+    this.limiter.threshold.value = -0.1;
+    this.limiter.knee.value = 0;
+    this.limiter.ratio.value = 20;
+    this.limiter.attack.value = 0.001;
+    this.limiter.release.value = 0.05;
+
+    this.master.connect(this.limiter);
+    this.limiter.connect(this.ctx.destination);
+
+    for (let i = 0; i < 4; i++) {
+      const v = initialVoiceState[i];
+      const osc = this.ctx.createOscillator();
+      const filter = this.ctx.createBiquadFilter();
+      const pan = this.ctx.createStereoPanner();
+      const gain = this.ctx.createGain();
+
+      osc.type = v.waveform;
+      osc.frequency.value = v.frequencyHz;
+
+      const f = v.filter || { type: "lowpass", cutoffHz: 4000, q: 0.7 };
+      filter.type = f.type;
+      filter.frequency.value = f.cutoffHz;
+      filter.Q.value = f.q;
+
+      pan.pan.value = v.pan;
+      gain.gain.value = 0;  // fade in via setVoiceState
+
+      // Routing: osc → filter → pan → gain → master
+      osc.connect(filter);
+      filter.connect(pan);
+      pan.connect(gain);
+      gain.connect(this.master);
+      osc.start();
+
+      this.voices.push({
+        osc, filter, pan, gain,
+        params: {
+          freq: v.frequencyHz,
+          amp: v.amplitude,
+          pan: v.pan,
+          waveform: v.waveform,
+          muted: v.isMuted,
+          soloed: v.isSoloed,
+          filter: { ...f },
+          // Mirror of the LFO state. Updated via setLfo*.
+          lfos: (v.lfos || [
+            { shape: "sine", target: "pan",    rateHz: 0.25, depth: 0 },
+            { shape: "sh",   target: "amp",    rateHz: 0.50, depth: 0 },
+            { shape: "sine", target: "cutoff", rateHz: 0.30, depth: 0 }
+          ]).map((l) => ({ ...l }))
+        },
+        _lfoPhase: [0, 0, 0],
+        _lfoHold: [0, 0, 0],
+        _audible: true
+      });
+    }
+
+    this.started = true;
+    // Apply initial state so the gains ramp from 0 to their targets cleanly.
+    this.applySoloMuteLogic();
+    for (let i = 0; i < 4; i++) this.applyVoiceGain(i);
+
+    this._lastTickTime = this.ctx.currentTime;
+    this._rafId = requestAnimationFrame(this._tick);
+  }
+
+  // Bound so requestAnimationFrame can call it directly.
+  _tick = () => {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    const dt = Math.max(0, now - this._lastTickTime);
+    this._lastTickTime = now;
+    for (let i = 0; i < this.voices.length; i++) {
+      this._applyLfosForVoice(i, dt, now);
+    }
+    this._rafId = requestAnimationFrame(this._tick);
+  };
+
+  _applyLfosForVoice(i, dt, now) {
+    const v = this.voices[i];
+    // Accumulate per-target modulation so multiple LFOs can sum into the same destination.
+    let panMod = 0;
+    let ampScale = 1.0;
+    let cutoffOct = 0;  // additive octaves of cutoff modulation
+    let anyPan = false, anyAmp = false, anyCutoff = false;
+
+    for (let k = 0; k < 3; k++) {
+      const lfo = v.params.lfos[k];
+      if (lfo.depth < 0.001) continue;
+
+      v._lfoPhase[k] += lfo.rateHz * dt;
+      let stepped = false;
+      if (v._lfoPhase[k] >= 1) {
+        v._lfoPhase[k] -= Math.floor(v._lfoPhase[k]);
+        stepped = true;
+      }
+      let lfoValue;
+      if (lfo.shape === "sine") {
+        lfoValue = Math.sin(v._lfoPhase[k] * 2 * Math.PI);
+      } else {
+        if (stepped || v._lfoHold[k] == null || v._lfoHold[k] === 0) {
+          v._lfoHold[k] = Math.random() * 2 - 1;
+        }
+        lfoValue = v._lfoHold[k];
+      }
+
+      if (lfo.target === "pan") {
+        panMod += lfo.depth * lfoValue;
+        anyPan = true;
+      } else if (lfo.target === "amp") {
+        // Tremolo: ±60% swing at depth=1, multiplicative.
+        ampScale *= (1 + 0.6 * lfo.depth * lfoValue);
+        anyAmp = true;
+      } else if (lfo.target === "cutoff") {
+        // ±2 octaves swing at depth=1.
+        cutoffOct += 2 * lfo.depth * lfoValue;
+        anyCutoff = true;
+      }
+    }
+
+    if (anyPan) {
+      const panEff = Math.max(-1, Math.min(1, v.params.pan + panMod));
+      v.pan.pan.cancelScheduledValues(now);
+      v.pan.pan.setValueAtTime(v.pan.pan.value, now);
+      v.pan.pan.linearRampToValueAtTime(panEff, now + LFO_SMOOTH);
+    }
+    if (anyAmp) {
+      const base = v._audible === false ? 0 : v.params.amp;
+      const ampEff = Math.max(0, Math.min(1, base * ampScale));
+      v.gain.gain.cancelScheduledValues(now);
+      v.gain.gain.setValueAtTime(v.gain.gain.value, now);
+      v.gain.gain.linearRampToValueAtTime(ampEff, now + LFO_SMOOTH);
+    }
+    if (anyCutoff) {
+      const cutoffEff = Math.max(20, Math.min(8000, v.params.filter.cutoffHz * Math.pow(2, cutoffOct)));
+      v.filter.frequency.cancelScheduledValues(now);
+      v.filter.frequency.setValueAtTime(v.filter.frequency.value, now);
+      v.filter.frequency.linearRampToValueAtTime(cutoffEff, now + LFO_SMOOTH);
+    }
+  }
+
+  /** Suspend audio (e.g. on Pause). */
+  suspend() {
+    if (this.ctx && this.ctx.state === "running") this.ctx.suspend();
+  }
+
+  /** Resume after suspend. */
+  resume() {
+    if (this.ctx && this.ctx.state === "suspended") this.ctx.resume();
+  }
+
+  /** Tear down and release the AudioContext. */
+  async stop() {
+    if (!this.ctx) return;
+    if (this._rafId) { cancelAnimationFrame(this._rafId); this._rafId = null; }
+    // Ramp master to 0 then close, to avoid a tail click.
+    const t = this.ctx.currentTime;
+    this.master.gain.cancelScheduledValues(t);
+    this.master.gain.setValueAtTime(this.master.gain.value, t);
+    this.master.gain.linearRampToValueAtTime(0, t + 0.060);
+    await new Promise((r) => setTimeout(r, 80));
+    try {
+      for (const v of this.voices) {
+        v.osc.stop();
+        v.osc.disconnect();
+      }
+      await this.ctx.close();
+    } catch {}
+    this.ctx = null;
+    this.master = null;
+    this.voices = [];
+    this.started = false;
+  }
+
+  // ───── per-voice setters ─────────────────────────────────
+
+  setFrequency(index, hz) {
+    const v = this.voices[index]; if (!v) return;
+    v.params.freq = hz;
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    v.osc.frequency.cancelScheduledValues(t);
+    v.osc.frequency.setValueAtTime(v.osc.frequency.value, t);
+    v.osc.frequency.exponentialRampToValueAtTime(Math.max(0.01, hz), t + RAMP_TIME);
+  }
+
+  setAmplitude(index, amp) {
+    const v = this.voices[index]; if (!v) return;
+    v.params.amp = amp;
+    this.applyVoiceGain(index);
+  }
+
+  setPan(index, pan) {
+    const v = this.voices[index]; if (!v) return;
+    v.params.pan = pan;
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    v.pan.pan.cancelScheduledValues(t);
+    v.pan.pan.setValueAtTime(v.pan.pan.value, t);
+    v.pan.pan.linearRampToValueAtTime(pan, t + RAMP_TIME);
+  }
+
+  setWaveform(index, waveform) {
+    const v = this.voices[index]; if (!v) return;
+    v.params.waveform = waveform;
+    if (!this.ctx) return;
+    // Setting .type causes a phase reset, which can click on loud voices.
+    // Brief dip on the gain envelope hides it.
+    const t = this.ctx.currentTime;
+    const target = v.gain.gain.value;
+    v.gain.gain.cancelScheduledValues(t);
+    v.gain.gain.setValueAtTime(target, t);
+    v.gain.gain.linearRampToValueAtTime(target * 0.5, t + 0.008);
+    v.osc.type = waveform;
+    v.gain.gain.linearRampToValueAtTime(target, t + 0.024);
+  }
+
+  setMute(index, muted) {
+    const v = this.voices[index]; if (!v) return;
+    v.params.muted = muted;
+    this.applySoloMuteLogic();
+  }
+
+  setSolo(index, soloed) {
+    const v = this.voices[index]; if (!v) return;
+    v.params.soloed = soloed;
+    this.applySoloMuteLogic();
+  }
+
+  setMasterVolume(v) {
+    this.masterTarget = v;
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.master.gain.cancelScheduledValues(t);
+    this.master.gain.setValueAtTime(this.master.gain.value, t);
+    this.master.gain.linearRampToValueAtTime(v, t + RAMP_TIME);
+  }
+
+  setLfoRate(voiceIndex, lfoIndex, rateHz) {
+    const v = this.voices[voiceIndex]; if (!v) return;
+    v.params.lfos[lfoIndex].rateHz = rateHz;
+  }
+
+  setLfoDepth(voiceIndex, lfoIndex, depth) {
+    const v = this.voices[voiceIndex]; if (!v) return;
+    v.params.lfos[lfoIndex].depth = depth;
+  }
+
+  setLfoShape(voiceIndex, lfoIndex, shape) {
+    const v = this.voices[voiceIndex]; if (!v) return;
+    v.params.lfos[lfoIndex].shape = shape;
+  }
+
+  setLfoTarget(voiceIndex, lfoIndex, target) {
+    const v = this.voices[voiceIndex]; if (!v) return;
+    v.params.lfos[lfoIndex].target = target;
+  }
+
+  setFilterType(voiceIndex, type) {
+    const v = this.voices[voiceIndex]; if (!v) return;
+    v.params.filter.type = type;
+    if (this.ctx) v.filter.type = type;
+  }
+
+  setFilterCutoff(voiceIndex, hz) {
+    const v = this.voices[voiceIndex]; if (!v) return;
+    v.params.filter.cutoffHz = hz;
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    v.filter.frequency.cancelScheduledValues(t);
+    v.filter.frequency.setValueAtTime(v.filter.frequency.value, t);
+    v.filter.frequency.linearRampToValueAtTime(hz, t + RAMP_TIME);
+  }
+
+  setFilterQ(voiceIndex, q) {
+    const v = this.voices[voiceIndex]; if (!v) return;
+    v.params.filter.q = q;
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    v.filter.Q.cancelScheduledValues(t);
+    v.filter.Q.setValueAtTime(v.filter.Q.value, t);
+    v.filter.Q.linearRampToValueAtTime(q, t + RAMP_TIME);
+  }
+
+  // ───── solo / mute resolution ─────────────────────────────
+
+  applySoloMuteLogic() {
+    const anySoloed = this.voices.some((v) => v.params.soloed);
+    for (let i = 0; i < this.voices.length; i++) {
+      const v = this.voices[i];
+      const audible = (anySoloed ? v.params.soloed : true) && !v.params.muted;
+      v._audible = audible;
+      this.applyVoiceGain(i);
+    }
+  }
+
+  applyVoiceGain(index) {
+    const v = this.voices[index]; if (!v || !this.ctx) return;
+    const target = v._audible === false ? 0 : v.params.amp;
+    const t = this.ctx.currentTime;
+    v.gain.gain.cancelScheduledValues(t);
+    v.gain.gain.setValueAtTime(v.gain.gain.value, t);
+    v.gain.gain.linearRampToValueAtTime(target, t + RAMP_TIME);
+  }
+}
