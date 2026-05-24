@@ -22,6 +22,8 @@ final class DroneViewModel: ObservableObject {
     /// True if Chladni overlay is drawn over the blob background.
     @Published var showChladni: Bool = true
 
+    @Published var userPresets: [UserPreset] = UserPresetStore.load()
+
     let audioEngine: AudioEngine
     let controller: DroneController
 
@@ -162,14 +164,16 @@ final class DroneViewModel: ObservableObject {
     }
 
     /// Load an audio file from a URL into a voice's sample slot, and switch the
-    /// voice's waveform to `.sample` so it plays. Throws if decoding fails.
+    /// voice's waveform to `.sample` so it plays. Also persists the file into
+    /// `Documents/DroneSamples/` so it can be referenced by future preset
+    /// saves and reloaded across launches. Throws if decoding fails.
     func loadSample(from url: URL, for index: Int) throws {
         guard oscillators.indices.contains(index) else { return }
-        // Need access to the file even if the picker returned a security-scoped URL.
-        let didStart = url.startAccessingSecurityScopedResource()
-        defer { if didStart { url.stopAccessingSecurityScopedResource() } }
-        try audioEngine.loadSample(from: url, for: index)
+        let storedName = try UserPresetStore.persistSample(from: url)
+        let storedURL = UserPresetStore.samplesDirectory.appendingPathComponent(storedName)
+        try audioEngine.loadSample(from: storedURL, for: index)
         oscillators[index].sampleName = url.lastPathComponent
+        oscillators[index].sampleStoredFilename = storedName
         oscillators[index].waveform = .sample
         audioEngine.setWaveform(.sample, for: index)
     }
@@ -178,10 +182,92 @@ final class DroneViewModel: ObservableObject {
         guard oscillators.indices.contains(index) else { return }
         audioEngine.clearSample(for: index)
         oscillators[index].sampleName = nil
+        oscillators[index].sampleStoredFilename = nil
         if oscillators[index].waveform == .sample {
             oscillators[index].waveform = .sine
             audioEngine.setWaveform(.sine, for: index)
         }
+    }
+
+    // MARK: - User presets
+
+    func saveCurrentAsUserPreset(named name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        let voices = oscillators.map { o in
+            UserPreset.Voice(
+                frequencyHz: o.frequencyHz, waveform: o.waveform,
+                amplitude: o.amplitude, pan: o.pan,
+                isMuted: o.isMuted, isSoloed: o.isSoloed,
+                filter: o.filter, reverb: o.reverb, delay: o.delay,
+                lfos: o.lfos, sampleStoredFilename: o.sampleStoredFilename
+            )
+        }
+        let preset = UserPreset(
+            id: UserPreset.newId(), name: trimmed, createdAt: Date(),
+            keyId: currentKey.rawValue, octave: currentOctave,
+            chordId: currentChord.id, tuningId: currentTuning.id,
+            masterVolume: masterVolume,
+            oscillators: voices
+        )
+        userPresets.insert(preset, at: 0)
+        UserPresetStore.save(userPresets)
+        activePresetName = preset.name
+    }
+
+    func loadUserPreset(id: String) {
+        guard let preset = userPresets.first(where: { $0.id == id }) else { return }
+        if let key = PitchClass(rawValue: preset.keyId) { currentKey = key }
+        currentOctave = preset.octave
+        if let chord = ChordType.all.first(where: { $0.id == preset.chordId }) { currentChord = chord }
+        if let tuning = TuningSystem(rawValue: preset.tuningId) { currentTuning = tuning }
+        setMasterVolume(preset.masterVolume)
+        for (i, v) in preset.oscillators.enumerated() where i < 4 {
+            setFrequency(v.frequencyHz, for: i)
+            setAmplitude(v.amplitude, for: i)
+            setPan(v.pan, for: i)
+            if oscillators[i].isMuted != v.isMuted { toggleMute(i) }
+            if oscillators[i].isSoloed != v.isSoloed { toggleSolo(i) }
+            setFilterType(v.filter.type, for: i)
+            setFilterCutoff(v.filter.cutoffHz, for: i)
+            setFilterQ(v.filter.q, for: i)
+            setReverbDecay(v.reverb.decaySec, for: i)
+            setReverbMix(v.reverb.mix, for: i)
+            setDelayTime(v.delay.timeSec, for: i)
+            setDelayFeedback(v.delay.feedback, for: i)
+            setDelayMix(v.delay.mix, for: i)
+            for (k, l) in v.lfos.enumerated() where k < 3 {
+                setLfoShape(l.shape, for: i, lfoIndex: k)
+                setLfoTarget(l.target, for: i, lfoIndex: k)
+                setLfoRate(l.rateHz, for: i, lfoIndex: k)
+                setLfoDepth(l.depth, for: i, lfoIndex: k)
+            }
+            clearSample(for: i)
+            if let stored = v.sampleStoredFilename,
+               let url = UserPresetStore.url(forStoredSample: stored) {
+                do {
+                    try audioEngine.loadSample(from: url, for: i)
+                    oscillators[i].sampleName = stored
+                    oscillators[i].sampleStoredFilename = stored
+                    oscillators[i].waveform = .sample
+                    audioEngine.setWaveform(.sample, for: i)
+                } catch {
+                    print("Couldn't reload sample for preset: \(error)")
+                }
+            } else if v.waveform != .sample {
+                setWaveform(v.waveform, for: i)
+            }
+        }
+        activePresetName = preset.name
+    }
+
+    func deleteUserPreset(id: String) {
+        guard let preset = userPresets.first(where: { $0.id == id }) else { return }
+        let storedNames = preset.oscillators.compactMap { $0.sampleStoredFilename }
+        userPresets.removeAll { $0.id == id }
+        UserPresetStore.save(userPresets)
+        for n in storedNames { UserPresetStore.deleteSampleIfUnused(n, presets: userPresets) }
+        if activePresetName == preset.name { activePresetName = nil }
     }
 
     private func restoreLfoBase(for index: Int, target: LfoState.Target) {

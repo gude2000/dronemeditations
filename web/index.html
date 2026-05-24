@@ -117,12 +117,16 @@
     <div class="sheet-panel">
       <header class="sheet-header">
         <h2 id="preset-sheet-title">Presets</h2>
-        <button class="sheet-done" data-close="preset-sheet" type="button">Done</button>
+        <div class="sheet-header-actions">
+          <button id="save-preset-button" class="sheet-save" type="button">Save current…</button>
+          <button class="sheet-done" data-close="preset-sheet" type="button">Done</button>
+        </div>
       </header>
       <div class="sheet-scroll">
         <p class="preset-disclaimer">
           Binaural beats require headphones (one tone in each ear) to take effect.
         </p>
+        <div id="user-preset-list" class="preset-list"></div>
         <div id="preset-list" class="preset-list"></div>
       </div>
     </div>

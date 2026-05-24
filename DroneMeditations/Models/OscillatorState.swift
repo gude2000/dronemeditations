@@ -106,7 +106,8 @@ struct OscillatorState: Identifiable, Equatable {
     var reverb: ReverbState = .defaults()
     var delay: DelayState = .defaults()
     var lfos: [LfoState]    // exactly 3 — see LfoState above
-    var sampleName: String? = nil  // display only; raw audio lives in the engine
+    var sampleName: String? = nil           // user-visible filename
+    var sampleStoredFilename: String? = nil // relative path under DroneSamples/ (for preset persistence)
 
     static let minFrequency: Double = 20.0
     static let maxFrequency: Double = 2000.0

@@ -7,6 +7,10 @@ import {
 import { AudioEngine } from "./audio.js";
 import { initUI, renderAll } from "./ui.js";
 import { initVisualizations, setChladniVisible } from "./visualizations.js";
+import {
+  loadUserPresets, saveUserPresets, newPresetId, newSampleId,
+  putSample, getSample, deleteSample
+} from "./storage.js";
 
 // ──────────────────────────────────────────────────
 // State.
@@ -44,8 +48,14 @@ const state = {
   // Transport
   transportState: "stopped",  // "stopped" | "playing" | "paused"
   sessionDuration: 15 * 60,   // 0 means open
-  elapsed: 0
+  elapsed: 0,
+
+  // User-saved presets
+  userPresets: loadUserPresets()
 };
+
+// Per-voice in-memory cache of loaded sample blobs (for save-current-as-preset).
+const sampleCache = [null, null, null, null];  // each: { id, name, blob, type } | null
 
 const engine = new AudioEngine();
 let tickTimer = null;
@@ -215,17 +225,23 @@ const actions = {
 
   async loadSampleFile(oscIndex, file) {
     if (!file) return;
-    // Audio needs to be started before decodeAudioData has a context.
     engine.ensureStarted(state.oscillators);
     engine.resume();
     try {
       const arrayBuffer = await file.arrayBuffer();
-      const audioBuffer = await engine.ctx.decodeAudioData(arrayBuffer);
+      // decodeAudioData consumes the buffer; clone for re-persistence later.
+      const audioBuffer = await engine.ctx.decodeAudioData(arrayBuffer.slice(0));
       engine.loadSample(oscIndex, audioBuffer);
       state.oscillators[oscIndex].sampleName = file.name;
-      // Auto-switch waveform to "sample" so the user hears it.
       state.oscillators[oscIndex].waveform = "sample";
       engine.setWaveform(oscIndex, "sample");
+      // Cache the raw blob so saveCurrentAsUserPreset can persist it.
+      sampleCache[oscIndex] = {
+        id: null,
+        name: file.name,
+        blob: new Blob([arrayBuffer], { type: file.type || "audio/*" }),
+        type: file.type || "audio/*"
+      };
       renderAll();
     } catch (err) {
       console.error("Sample decode failed:", err);
@@ -267,11 +283,109 @@ const actions = {
   clearSample(oscIndex) {
     engine.clearSample(oscIndex);
     state.oscillators[oscIndex].sampleName = null;
-    // If the voice was on "sample", fall back to sine.
+    sampleCache[oscIndex] = null;
     if (state.oscillators[oscIndex].waveform === "sample") {
       state.oscillators[oscIndex].waveform = "sine";
       engine.setWaveform(oscIndex, "sine");
     }
+    renderAll();
+  },
+
+  async saveCurrentAsUserPreset(name) {
+    const trimmed = (name || "").trim();
+    if (!trimmed) return;
+    const oscillators = await Promise.all(state.oscillators.map(async (o, i) => {
+      let sampleRef = null;
+      if (o.sampleName && sampleCache[i]) {
+        if (!sampleCache[i].id) sampleCache[i].id = newSampleId();
+        await putSample(sampleCache[i].id, sampleCache[i].blob, sampleCache[i].name, sampleCache[i].type);
+        sampleRef = { id: sampleCache[i].id, name: sampleCache[i].name };
+      }
+      return {
+        frequencyHz: o.frequencyHz, waveform: o.waveform, amplitude: o.amplitude,
+        pan: o.pan, isMuted: o.isMuted, isSoloed: o.isSoloed,
+        filter: { ...o.filter }, reverb: { ...o.reverb }, delay: { ...o.delay },
+        lfos: o.lfos.map((l) => ({ ...l })),
+        sampleRef
+      };
+    }));
+    const preset = {
+      id: newPresetId(), name: trimmed, createdAt: new Date().toISOString(),
+      keyId: state.keyId, octave: state.octave, chordId: state.chordId,
+      tuningId: state.tuningId, masterVolume: state.masterVolume,
+      oscillators
+    };
+    state.userPresets = [preset, ...state.userPresets];
+    saveUserPresets(state.userPresets);
+    state.activePresetName = preset.name;
+    renderAll();
+  },
+
+  async loadUserPreset(id) {
+    const preset = state.userPresets.find((p) => p.id === id);
+    if (!preset) return;
+    engine.ensureStarted(state.oscillators);
+    engine.resume();
+    state.keyId = preset.keyId ?? state.keyId;
+    state.octave = preset.octave ?? state.octave;
+    state.chordId = preset.chordId ?? state.chordId;
+    state.tuningId = preset.tuningId ?? state.tuningId;
+    if (preset.masterVolume != null) actions.setMasterVolume(preset.masterVolume);
+    for (let i = 0; i < 4; i++) {
+      const o = preset.oscillators[i]; if (!o) continue;
+      actions.setFrequency(i, o.frequencyHz);
+      actions.setAmplitude(i, o.amplitude);
+      actions.setPan(i, o.pan);
+      if (state.oscillators[i].isMuted !== o.isMuted)   actions.toggleMute(i);
+      if (state.oscillators[i].isSoloed !== o.isSoloed) actions.toggleSolo(i);
+      actions.setFilterType(i, o.filter.type);
+      actions.setFilterCutoff(i, o.filter.cutoffHz);
+      actions.setFilterQ(i, o.filter.q);
+      actions.setReverbDecay(i, o.reverb.decaySec);
+      actions.setReverbMix(i, o.reverb.mix);
+      actions.setDelayTime(i, o.delay.timeSec);
+      actions.setDelayFeedback(i, o.delay.feedback);
+      actions.setDelayMix(i, o.delay.mix);
+      for (let k = 0; k < 3; k++) {
+        actions.setLfoShape(i, k, o.lfos[k].shape);
+        actions.setLfoTarget(i, k, o.lfos[k].target);
+        actions.setLfoRate(i, k, o.lfos[k].rateHz);
+        actions.setLfoDepth(i, k, o.lfos[k].depth);
+      }
+      actions.clearSample(i);
+      if (o.sampleRef && o.sampleRef.id) {
+        const rec = await getSample(o.sampleRef.id);
+        if (rec && rec.blob) {
+          try {
+            const ab = await rec.blob.arrayBuffer();
+            const audioBuffer = await engine.ctx.decodeAudioData(ab.slice(0));
+            engine.loadSample(i, audioBuffer);
+            state.oscillators[i].sampleName = rec.name || o.sampleRef.name;
+            state.oscillators[i].waveform = "sample";
+            engine.setWaveform(i, "sample");
+            sampleCache[i] = { id: o.sampleRef.id, name: rec.name, blob: rec.blob, type: rec.type || "audio/*" };
+          } catch (e) { console.error("Failed to reload sample", e); }
+        }
+      } else if (o.waveform !== "sample") {
+        actions.setWaveform(i, o.waveform);
+      }
+    }
+    state.activePresetName = preset.name;
+    renderAll();
+  },
+
+  async deleteUserPreset(id) {
+    const preset = state.userPresets.find((p) => p.id === id);
+    if (!preset) return;
+    const sampleIds = preset.oscillators.map((o) => o.sampleRef?.id).filter(Boolean);
+    state.userPresets = state.userPresets.filter((p) => p.id !== id);
+    saveUserPresets(state.userPresets);
+    const stillUsed = new Set(state.userPresets.flatMap((p) =>
+      p.oscillators.map((o) => o.sampleRef?.id).filter(Boolean)));
+    for (const sid of sampleIds) {
+      if (!stillUsed.has(sid)) { try { await deleteSample(sid); } catch {} }
+    }
+    if (state.activePresetName === preset.name) state.activePresetName = null;
     renderAll();
   }
 };

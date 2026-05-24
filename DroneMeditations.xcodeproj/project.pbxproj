@@ -28,6 +28,8 @@
 		B00000000000000000000013 /* ChladniView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000013 /* ChladniView.swift */; };
 		B00000000000000000000014 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000014 /* Assets.xcassets */; };
 		B00000000000000000000016 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000016 /* Preview Assets.xcassets */; };
+		B00000000000000000000017 /* UserPreset.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000017 /* UserPreset.swift */; };
+		B00000000000000000000018 /* UserPresetStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000018 /* UserPresetStore.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -54,6 +56,8 @@
 		F00000000000000000000014 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F00000000000000000000015 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		F00000000000000000000016 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		F00000000000000000000017 /* UserPreset.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserPreset.swift; sourceTree = "<group>"; };
+		F00000000000000000000018 /* UserPresetStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserPresetStore.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -99,6 +103,7 @@
 				F00000000000000000000005 /* Chord.swift */,
 				F00000000000000000000006 /* OscillatorState.swift */,
 				F00000000000000000000007 /* Preset.swift */,
+				F00000000000000000000017 /* UserPreset.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -109,6 +114,7 @@
 				F00000000000000000000008 /* Voice.swift */,
 				F00000000000000000000009 /* AudioEngine.swift */,
 				F0000000000000000000000A /* DroneController.swift */,
+				F00000000000000000000018 /* UserPresetStore.swift */,
 			);
 			path = Audio;
 			sourceTree = "<group>";
@@ -241,6 +247,8 @@
 				B00000000000000000000011 /* TransportView.swift in Sources */,
 				B00000000000000000000012 /* BlobBackground.swift in Sources */,
 				B00000000000000000000013 /* ChladniView.swift in Sources */,
+				B00000000000000000000017 /* UserPreset.swift in Sources */,
+				B00000000000000000000018 /* UserPresetStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

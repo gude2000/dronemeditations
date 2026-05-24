@@ -33,6 +33,10 @@ export function initUI(state, actions) {
   buildTuningGrid();
   buildChordList();
   buildPresetList();
+  document.getElementById("save-preset-button").addEventListener("click", () => {
+    const name = window.prompt("Name this preset:", "");
+    if (name) dispatch.saveCurrentAsUserPreset(name);
+  });
 
   // Wire static event handlers.
   document.getElementById("chord-pill").addEventListener("click", () => openSheet("chord-sheet"));
@@ -84,6 +88,7 @@ export function renderAll() {
   syncTuningGrid();
   syncChordList();
   syncPresetList();
+  syncUserPresetList();
   document.getElementById("octave-readout").textContent = s.octave;
 
   // Strips
@@ -578,6 +583,52 @@ function syncPresetList() {
     const preset = PRESETS.find((p) => p.id === id);
     b.classList.toggle("selected", preset && preset.name === name);
   });
+}
+
+function syncUserPresetList() {
+  const list = document.getElementById("user-preset-list");
+  const userPresets = getState().userPresets || [];
+  const activeName = getState().activePresetName;
+  if (!userPresets.length) {
+    list.innerHTML = "";
+    return;
+  }
+  list.innerHTML = `
+    <div class="preset-category" data-cat="Your Presets">
+      <h4>Your Presets</h4>
+      <div>
+        ${userPresets.map((p) => `
+          <div class="user-preset-row${p.name === activeName ? ' selected' : ''}">
+            <button class="preset-item" type="button" data-user-preset="${p.id}">
+              <span class="name">${escapeHtml(p.name)}</span>
+              <span class="sub">${new Date(p.createdAt).toLocaleString()}</span>
+            </button>
+            <button class="user-preset-delete" type="button" data-delete-preset="${p.id}" title="Delete preset">✕</button>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+  list.querySelectorAll("[data-user-preset]").forEach((b) => {
+    b.addEventListener("click", () => {
+      dispatch.loadUserPreset(b.dataset.userPreset);
+      document.getElementById("preset-sheet").hidden = true;
+    });
+  });
+  list.querySelectorAll("[data-delete-preset]").forEach((b) => {
+    b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (window.confirm("Delete this preset?")) {
+        dispatch.deleteUserPreset(b.dataset.deletePreset);
+      }
+    });
+  });
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
 }
 
 // ───────── transport ─────────
