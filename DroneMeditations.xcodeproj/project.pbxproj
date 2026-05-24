@@ -26,6 +26,7 @@
 		B00000000000000000000011 /* TransportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000011 /* TransportView.swift */; };
 		B00000000000000000000012 /* BlobBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000012 /* BlobBackground.swift */; };
 		B00000000000000000000013 /* ChladniView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000013 /* ChladniView.swift */; };
+		B00000000000000000000019 /* ChladniMiniControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000019 /* ChladniMiniControls.swift */; };
 		B00000000000000000000014 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000014 /* Assets.xcassets */; };
 		B00000000000000000000016 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000016 /* Preview Assets.xcassets */; };
 		B00000000000000000000017 /* UserPreset.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000017 /* UserPreset.swift */; };
@@ -53,6 +54,7 @@
 		F00000000000000000000011 /* TransportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransportView.swift; sourceTree = "<group>"; };
 		F00000000000000000000012 /* BlobBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlobBackground.swift; sourceTree = "<group>"; };
 		F00000000000000000000013 /* ChladniView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChladniView.swift; sourceTree = "<group>"; };
+		F00000000000000000000019 /* ChladniMiniControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChladniMiniControls.swift; sourceTree = "<group>"; };
 		F00000000000000000000014 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F00000000000000000000015 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		F00000000000000000000016 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
@@ -138,6 +140,7 @@
 				F00000000000000000000011 /* TransportView.swift */,
 				F00000000000000000000012 /* BlobBackground.swift */,
 				F00000000000000000000013 /* ChladniView.swift */,
+				F00000000000000000000019 /* ChladniMiniControls.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -247,6 +250,7 @@
 				B00000000000000000000011 /* TransportView.swift in Sources */,
 				B00000000000000000000012 /* BlobBackground.swift in Sources */,
 				B00000000000000000000013 /* ChladniView.swift in Sources */,
+				B00000000000000000000019 /* ChladniMiniControls.swift in Sources */,
 				B00000000000000000000017 /* UserPreset.swift in Sources */,
 				B00000000000000000000018 /* UserPresetStore.swift in Sources */,
 			);

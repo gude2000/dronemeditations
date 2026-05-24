@@ -30,27 +30,27 @@ struct ContentView: View {
             }
 
             // Tap layer (always present, beneath the controls so the controls'
-            // buttons win). Hosts both the tap-to-toggle-controls gesture and
-            // pinch-to-zoom the Chladni plate, simultaneously so neither blocks
-            // the other.
+            // buttons win). Tap toggles the main controls; a separately-attached
+            // simultaneous magnification gesture handles pinch-to-zoom. Using
+            // the .simultaneousGesture *modifier* (rather than the
+            // SimultaneousGesture type composed inside .gesture) is the
+            // reliable SwiftUI pattern for tap+pinch on the same view.
             Color.clear
                 .contentShape(Rectangle())
-                .gesture(
-                    SimultaneousGesture(
-                        TapGesture().onEnded {
-                            withAnimation(.easeInOut(duration: 0.22)) {
-                                vm.showControls.toggle()
-                            }
-                        },
-                        MagnificationGesture()
-                            .updating($pinchScale) { value, state, _ in
-                                state = value
-                            }
-                            .onEnded { value in
-                                let raw = chladniZoom * Double(value)
-                                chladniZoom = min(zoomMax, max(zoomMin, raw))
-                            }
-                    )
+                .onTapGesture {
+                    withAnimation(.easeInOut(duration: 0.22)) {
+                        vm.showControls.toggle()
+                    }
+                }
+                .simultaneousGesture(
+                    MagnificationGesture()
+                        .updating($pinchScale) { value, state, _ in
+                            state = value
+                        }
+                        .onEnded { value in
+                            let raw = chladniZoom * Double(value)
+                            chladniZoom = min(zoomMax, max(zoomMin, raw))
+                        }
                 )
                 .ignoresSafeArea()
 
@@ -59,7 +59,17 @@ struct ContentView: View {
                     .environmentObject(vm)
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
             } else {
-                tapHint
+                // When the full controls panel is hidden, show a slim bottom
+                // strip (matches the web pop-out's #popup-controls) so the
+                // user can still adjust freq / Solo / Mute while watching
+                // the Chladni full-screen.
+                VStack(spacing: 0) {
+                    Spacer()
+                    tapHint
+                    ChladniMiniControls()
+                        .environmentObject(vm)
+                }
+                .transition(.opacity)
             }
 
             copyrightOverlay
@@ -69,13 +79,11 @@ struct ContentView: View {
     }
 
     private var tapHint: some View {
-        VStack {
-            Spacer()
-            Text("Tap to show controls")
-                .font(.footnote)
-                .foregroundStyle(.white.opacity(0.55))
-                .padding(.bottom, 28)
-        }
+        Text("Tap to show controls")
+            .font(.footnote)
+            .foregroundStyle(.white.opacity(0.55))
+            .padding(.bottom, 10)
+            .allowsHitTesting(false)
     }
 
     /// Bottom-left copyright notice. Always visible, very faint so it doesn't
