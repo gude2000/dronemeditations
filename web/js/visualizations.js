@@ -238,9 +238,11 @@ function drawChladniGL() {
     const logF = Math.log2(Math.max(liveFreq, 20));
     const lo = Math.log2(20), hi = Math.log2(2000);
     const tt = (logF - lo) / (hi - lo);
-    // m scales with (live) frequency: 6..22. Vibrato visibly shifts the mode
-    // numbers up and down within this range.
-    const m = Math.max(3, Math.round(6 + tt * 16));
+    // m as a continuous float (no Math.round) so the shader morphs smoothly
+    // between integer modes as pitch LFOs play — vibrato becomes a gentle
+    // breathing of the pattern instead of jumps every time tt crosses a
+    // half-integer threshold.
+    const m = Math.max(3, 6 + tt * 16);
     const n = VOICE_N[i % VOICE_N.length];
     modes[i * 3 + 0] = m;
     modes[i * 3 + 1] = n;

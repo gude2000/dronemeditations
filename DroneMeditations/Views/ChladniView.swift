@@ -29,11 +29,12 @@ struct ChladniView: View {
 
     private func drawChladni(in context: GraphicsContext, size: CGSize) {
         // Read live (slewed + pitch-LFO-modulated) frequency from the engine
-        // so the nodal pattern morphs in real time as vibrato plays. Falls
-        // back to the UI-state base freq if the engine voice index doesn't
-        // line up (defensive).
+        // so the nodal pattern morphs in real time as vibrato plays. m is a
+        // continuous Double (not rounded to Int) so the pattern breathes
+        // smoothly with pitch instead of snapping every time the rounded
+        // value crosses an integer.
         let voiceN = [4, 6, 9, 11]
-        var modes: [(m: Int, n: Int, weight: Double, hue: Double)] = []
+        var modes: [(m: Double, n: Int, weight: Double, hue: Double)] = []
         for (i, osc) in vm.oscillators.enumerated() {
             guard !osc.isMuted else { continue }
             let liveFreq = vm.audioEngine.voices.indices.contains(i)
@@ -42,9 +43,8 @@ struct ChladniView: View {
             let logF = log2(max(liveFreq, 20.0))
             let lo = log2(20.0), hi = log2(2000.0)
             let t = (logF - lo) / (hi - lo)
-            let m = max(3, Int((3.0 + t * 11.0).rounded()))
+            let m = max(3.0, 3.0 + t * 11.0)
             let n = voiceN[osc.id % voiceN.count]
-            // Hue follows live freq too so vibrato shifts color subtly.
             let liveHue = frequencyHueFromHz(liveFreq)
             modes.append((m, n, osc.amplitude, liveHue))
         }
@@ -61,7 +61,7 @@ struct ChladniView: View {
                 var hueAccum = 0.0
                 var weightAccum = 0.0
                 for v in modes {
-                    let mPi = Double(v.m) * .pi
+                    let mPi = v.m * .pi
                     let nPi = Double(v.n) * .pi
                     let term = cos(mPi * x) * cos(nPi * y) - cos(nPi * x) * cos(mPi * y)
                     field += term * v.weight

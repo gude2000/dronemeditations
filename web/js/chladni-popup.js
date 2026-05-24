@@ -111,6 +111,12 @@ function resize() {
   canvas.style.width = window.innerWidth + "px";
   canvas.style.height = window.innerHeight + "px";
   if (gl) gl.viewport(0, 0, canvas.width, canvas.height);
+  if (sandCanvas) {
+    sandCanvas.width = canvas.width;
+    sandCanvas.height = canvas.height;
+    sandCanvas.style.width = canvas.style.width;
+    sandCanvas.style.height = canvas.style.height;
+  }
 }
 
 function isVoiceSilenced(i, oscs) {
@@ -135,39 +141,145 @@ function hslToRgb(h, s, l) {
 function render() {
   requestAnimationFrame(render);
   if (!gl) return;
-  gl.clearColor(0, 0, 0, 1);
-  gl.clear(gl.COLOR_BUFFER_BIT);
-  if (!latestOscillators || latestOscillators.length === 0) return;
 
-  const audible = latestOscillators.filter((_, i) => !isVoiceSilenced(i, latestOscillators));
-  if (audible.length === 0) return;
-
-  const count = Math.min(4, audible.length);
+  // Resolve current modes (shared between WebGL shader and sand particle sim).
+  let count = 0;
   const modes = new Float32Array(12);
   const colors = new Float32Array(12);
-  for (let i = 0; i < count; i++) {
-    const osc = audible[i];
-    const logF = Math.log2(Math.max(osc.frequencyHz, 20));
-    const lo = Math.log2(20), hi = Math.log2(2000);
-    const tt = (logF - lo) / (hi - lo);
-    const m = Math.max(3, Math.round(6 + tt * 16));
-    const n = VOICE_N[i % VOICE_N.length];
-    modes[i * 3 + 0] = m;
-    modes[i * 3 + 1] = n;
-    modes[i * 3 + 2] = osc.amplitude;
-    const [r, g, b] = hslToRgb(frequencyHue(osc.frequencyHz), 0.30, 0.85);
-    colors[i * 3 + 0] = r;
-    colors[i * 3 + 1] = g;
-    colors[i * 3 + 2] = b;
+  if (latestOscillators && latestOscillators.length > 0) {
+    const audible = latestOscillators.filter((_, i) => !isVoiceSilenced(i, latestOscillators));
+    count = Math.min(4, audible.length);
+    for (let i = 0; i < count; i++) {
+      const osc = audible[i];
+      const logF = Math.log2(Math.max(osc.frequencyHz, 20));
+      const lo = Math.log2(20), hi = Math.log2(2000);
+      const tt = (logF - lo) / (hi - lo);
+      const m = Math.max(3, 6 + tt * 16);
+      const n = VOICE_N[i % VOICE_N.length];
+      modes[i * 3 + 0] = m;
+      modes[i * 3 + 1] = n;
+      modes[i * 3 + 2] = osc.amplitude;
+      const [r, g, b] = hslToRgb(frequencyHue(osc.frequencyHz), 0.30, 0.85);
+      colors[i * 3 + 0] = r;
+      colors[i * 3 + 1] = g;
+      colors[i * 3 + 2] = b;
+    }
   }
 
-  gl.useProgram(glProgram);
-  gl.uniform1i(glUniforms.voiceCount, count);
-  gl.uniform3fv(glUniforms.modes, modes);
-  gl.uniform3fv(glUniforms.colors, colors);
-  gl.enableVertexAttribArray(glAttribs.position);
-  gl.vertexAttribPointer(glAttribs.position, 2, gl.FLOAT, false, 0, 0);
-  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  // ── 1. WebGL Chladni field ──
+  gl.clearColor(0, 0, 0, 1);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  if (count > 0) {
+    gl.useProgram(glProgram);
+    gl.uniform1i(glUniforms.voiceCount, count);
+    gl.uniform3fv(glUniforms.modes, modes);
+    gl.uniform3fv(glUniforms.colors, colors);
+    gl.enableVertexAttribArray(glAttribs.position);
+    gl.vertexAttribPointer(glAttribs.position, 2, gl.FLOAT, false, 0, 0);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  }
+
+  // ── 2. Sand particles ──
+  if (sandEnabled) updateAndDrawSand(modes, count);
+}
+
+// ──────────────────────────────────────────────────
+// Sand particle simulation
+// 3000 grains attracted to wherever |field| ≈ 0 (the nodal lines), with
+// damping + tiny Brownian jitter. When frequency changes, particles
+// physically migrate from old nodal positions to new ones because the
+// gradient pulls them out of the now-antinodal regions they used to sit in.
+// ──────────────────────────────────────────────────
+let sandCanvas, sandCtx;
+let sandEnabled = true;
+const PARTICLE_COUNT = 3000;
+const particles = new Float32Array(PARTICLE_COUNT * 4);  // x, y, vx, vy per particle
+
+function initSand() {
+  sandCanvas = document.getElementById("sand");
+  sandCtx = sandCanvas.getContext("2d");
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    particles[i * 4 + 0] = Math.random();          // x
+    particles[i * 4 + 1] = Math.random();          // y
+    particles[i * 4 + 2] = 0;                      // vx
+    particles[i * 4 + 3] = 0;                      // vy
+  }
+}
+
+function chladniField(x, y, modesArr, count) {
+  let f = 0;
+  for (let i = 0; i < count; i++) {
+    const m = modesArr[i * 3 + 0];
+    const n = modesArr[i * 3 + 1];
+    const w = modesArr[i * 3 + 2];
+    const mPi = m * Math.PI;
+    const nPi = n * Math.PI;
+    f += (Math.cos(mPi * x) * Math.cos(nPi * y) -
+          Math.cos(nPi * x) * Math.cos(mPi * y)) * w;
+  }
+  return f;
+}
+
+function updateAndDrawSand(modesArr, count) {
+  if (!sandCtx) return;
+  const w = sandCanvas.width;
+  const h = sandCanvas.height;
+
+  // Soft trail fade — grains leave a faint shimmer as they move.
+  sandCtx.globalCompositeOperation = "destination-out";
+  sandCtx.fillStyle = "rgba(0,0,0,0.12)";
+  sandCtx.fillRect(0, 0, w, h);
+  sandCtx.globalCompositeOperation = "source-over";
+
+  if (count === 0) return;
+
+  // Tunable physics constants.
+  const eps = 0.004;             // finite-diff step for gradient
+  const attraction = 0.0010;     // strength of pull toward nodes
+  const damping = 0.87;          // velocity decay each frame
+  const jitter = 0.0006;         // Brownian motion
+
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    const ix = i * 4;
+    let x = particles[ix + 0];
+    let y = particles[ix + 1];
+    let vx = particles[ix + 2];
+    let vy = particles[ix + 3];
+
+    // Gradient of |field|: sign(field) * gradient(field). Move opposite the
+    // gradient → toward lower |field| → toward nodal lines.
+    const f = chladniField(x, y, modesArr, count);
+    const fdx = (chladniField(x + eps, y, modesArr, count) - f) / eps;
+    const fdy = (chladniField(x, y + eps, modesArr, count) - f) / eps;
+    const s = f > 0 ? 1 : -1;
+    vx -= fdx * s * attraction;
+    vy -= fdy * s * attraction;
+    vx *= damping;
+    vy *= damping;
+    vx += (Math.random() - 0.5) * jitter;
+    vy += (Math.random() - 0.5) * jitter;
+    x += vx;
+    y += vy;
+    // Wrap at edges so grains can drift across the plate.
+    if (x < 0) x += 1; else if (x > 1) x -= 1;
+    if (y < 0) y += 1; else if (y > 1) y -= 1;
+
+    particles[ix + 0] = x;
+    particles[ix + 1] = y;
+    particles[ix + 2] = vx;
+    particles[ix + 3] = vy;
+  }
+
+  // Draw all grains in one fillStyle change — warm pale sand.
+  sandCtx.fillStyle = "rgba(255, 240, 215, 0.9)";
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    const ix = i * 4;
+    sandCtx.fillRect(
+      particles[ix + 0] * w - 0.5,
+      particles[ix + 1] * h - 0.5,
+      1.4, 1.4
+    );
+  }
 }
 
 // ──────────────────────────────────────────────────
@@ -242,23 +354,33 @@ setInterval(() => {
 // nothing's changing. Ask it to send the current state.
 channel.postMessage({ type: "request-state" });
 
-// ESC closes the window, S snapshots the pattern
+// ESC closes the window, S snapshots the pattern, G toggles sand layer
 window.addEventListener("keydown", (e) => {
   if (e.key === "Escape") window.close();
   else if (e.key === "s" || e.key === "S") snapshot();
+  else if (e.key === "g" || e.key === "G") setSandEnabled(!sandEnabled);
 });
 
 document.getElementById("snapshot-btn").addEventListener("click", snapshot);
 
 function snapshot() {
-  // toBlob produces a real PNG asynchronously, no base64 string in memory.
-  // Force a render call right before capture so the latest frame is on-screen.
-  if (gl) {
-    // WebGL canvases can be cleared between frames so render synchronously
-    // into the back buffer right before reading.
-    render();
+  // Snapshot the composite (WebGL field + sand layer screen-blended) into a
+  // temporary canvas, then PNG-export from that.
+  if (gl) render();
+  const w = canvas.width, h = canvas.height;
+  const composite = document.createElement("canvas");
+  composite.width = w;
+  composite.height = h;
+  const ctx = composite.getContext("2d");
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, w, h);
+  ctx.drawImage(canvas, 0, 0);
+  if (sandEnabled && sandCanvas) {
+    ctx.globalCompositeOperation = "screen";
+    ctx.drawImage(sandCanvas, 0, 0);
+    ctx.globalCompositeOperation = "source-over";
   }
-  canvas.toBlob((blob) => {
+  composite.toBlob((blob) => {
     if (!blob) return;
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -274,6 +396,18 @@ function snapshot() {
 }
 
 initWebGL();
+initSand();
 resize();
 window.addEventListener("resize", resize);
+
+// Sand-layer toggle button + G shortcut.
+const sandToggleBtn = document.getElementById("sand-toggle");
+function setSandEnabled(on) {
+  sandEnabled = on;
+  sandToggleBtn.classList.toggle("active", on);
+  if (!on && sandCtx) sandCtx.clearRect(0, 0, sandCanvas.width, sandCanvas.height);
+}
+sandToggleBtn.addEventListener("click", () => setSandEnabled(!sandEnabled));
+setSandEnabled(true);
+
 render();
