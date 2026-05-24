@@ -66,13 +66,11 @@ export function initUI(state, actions) {
 
   document.getElementById("tap-layer").addEventListener("click", () => dispatch.toggleControls());
 
-  // Pop out Chladni into a separate window. Stop propagation so the
-  // background tap-to-hide handler doesn't also fire.
+  // The "Pop out Chladni" link uses target="_blank" so the browser handles
+  // it natively (no popup-blocker headaches). We only stop event propagation
+  // so the background tap-to-hide handler on .controls doesn't also fire.
   document.getElementById("pop-out-chladni").addEventListener("click", (e) => {
     e.stopPropagation();
-    if (window.__drone && typeof window.__drone.popOutChladni === "function") {
-      window.__drone.popOutChladni();
-    }
   });
 
   // Hide controls when the user clicks on empty space within the panel
