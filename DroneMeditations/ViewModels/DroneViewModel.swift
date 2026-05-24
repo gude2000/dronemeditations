@@ -27,6 +27,12 @@ final class DroneViewModel: ObservableObject {
     let audioEngine: AudioEngine
     let controller: DroneController
 
+    /// Bridges to MPNowPlayingInfoCenter + MPRemoteCommandCenter so the
+    /// lock screen, Control Center, and EarPods/AirPods buttons can drive
+    /// transport. Created in init; refresh() called from didChange Combine
+    /// pipelines below.
+    private(set) var nowPlaying: NowPlayingBridge!
+
     private var cancellables = Set<AnyCancellable>()
 
     init() {
@@ -35,6 +41,21 @@ final class DroneViewModel: ObservableObject {
         self.controller = DroneController(engine: engine)
         pushAllOscillatorsToEngine()
         audioEngine.masterVolume = Float(masterVolume)
+        self.nowPlaying = NowPlayingBridge(controller: controller, vm: self)
+
+        // Mirror transport + preset changes into Now Playing.
+        controller.$state.sink { [weak self] _ in
+            Task { @MainActor in self?.nowPlaying.refresh() }
+        }.store(in: &cancellables)
+        controller.$elapsed.sink { [weak self] _ in
+            Task { @MainActor in self?.nowPlaying.refresh() }
+        }.store(in: &cancellables)
+        controller.$sessionDuration.sink { [weak self] _ in
+            Task { @MainActor in self?.nowPlaying.refresh() }
+        }.store(in: &cancellables)
+        $activePresetName.sink { [weak self] _ in
+            Task { @MainActor in self?.nowPlaying.refresh() }
+        }.store(in: &cancellables)
     }
 
     // MARK: - Per-oscillator mutators
