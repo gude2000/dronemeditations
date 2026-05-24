@@ -20,3 +20,9 @@ Package.resolved
 
 ## CocoaPods (not used, but just in case)
 Pods/
+
+## Claude Code — keep shared launch + settings, but settings.local.json
+## is per-machine (simulator IDs, personal paths, accumulated allowlists)
+.claude/settings.local.json
+.claude/cache/
+
