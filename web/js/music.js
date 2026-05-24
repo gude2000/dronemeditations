@@ -203,6 +203,9 @@ export const PRESETS = [
   { id: "om",     name: "OM 136.1 Hz",                    category: "Natural Resonance", sub: "Tuned to Earth's year",   voices: [C(136.1), C(272.2), L(204.15), R(204.15)] },
   { id: "moon",   name: "Moon 210.42 Hz",                 category: "Natural Resonance", sub: "Cosmic-octave moon orbit",voices: [C(210.42), L(105.21), R(315.63), C(420.84)] },
   { id: "sun",    name: "Sun 126.22 Hz",                  category: "Natural Resonance", sub: "Cosmic-octave solar",     voices: [C(126.22), L(63.11), R(189.33), C(252.44)] },
+  { id: "hypogeum",   name: "Hypogeum 111 Hz",             category: "Natural Resonance", sub: "Maltese megalithic chamber resonance", voices: [L(55.5), C(111), R(222), SILENT] },
+  { id: "harmonic_series", name: "Harmonic Series 1:2:3:4",category: "Natural Resonance", sub: "100·200·300·400 Hz — clean lattice cymatics", voices: [L(100), C(200), C(300), R(400)] },
+  { id: "just_major",     name: "Just Major Triad 4:5:6",  category: "Natural Resonance", sub: "C-E-G+C in pure intonation — most symmetric chord", voices: [L(264), C(330), C(396), R(528)] },
 
   // Mystic & Composers — Scriabin's Mystic Chord (Prometheus): C-F♯-B♭-E-A-D
   // Four-note voicings drawn from the six-note chord.
@@ -216,7 +219,13 @@ export const PRESETS = [
   { id: "solf_528", name: "Solfeggio 528 Hz", category: "Solfeggio", sub: "Repair / DNA",         voices: [C(528), L(264),   R(792),    SILENT] },
   { id: "solf_639", name: "Solfeggio 639 Hz", category: "Solfeggio", sub: "Connection",           voices: [C(639), L(319.5), R(958.5),  SILENT] },
   { id: "solf_741", name: "Solfeggio 741 Hz", category: "Solfeggio", sub: "Awakening intuition",  voices: [C(741), L(370.5), R(1111.5), SILENT] },
-  { id: "solf_852", name: "Solfeggio 852 Hz", category: "Solfeggio", sub: "Returning to order",   voices: [C(852), L(426),   R(1278),   SILENT] }
+  { id: "solf_852", name: "Solfeggio 852 Hz", category: "Solfeggio", sub: "Returning to order",   voices: [C(852), L(426),   R(1278),   SILENT] },
+
+  // Extended Solfeggio set + Verdi 432
+  { id: "solf_174", name: "Solfeggio 174 Hz",         category: "Solfeggio", sub: "Pain relief / grounding",         voices: [C(174), L(87),    R(348),  SILENT] },
+  { id: "solf_285", name: "Solfeggio 285 Hz",         category: "Solfeggio", sub: "Tissue regeneration",             voices: [C(285), L(142.5), R(570),  SILENT] },
+  { id: "solf_432", name: "Solfeggio 432 Hz (Verdi)", category: "Solfeggio", sub: "Alternative natural-tuning A",    voices: [C(432), L(216),   R(864),  SILENT] },
+  { id: "solf_963", name: "Solfeggio 963 Hz",         category: "Solfeggio", sub: "Crown / pineal",                  voices: [C(963), L(481.5), R(1926), SILENT] }
 ];
 
 // ────────────────────────────────────────────────────────────

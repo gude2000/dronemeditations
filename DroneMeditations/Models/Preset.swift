@@ -84,6 +84,12 @@ extension Preset {
                [C(210.42), L(105.21), R(315.63), C(420.84)]),
         Preset("Sun 126.22 Hz",                .naturalResonance, subtitle: "Cosmic-octave solar",
                [C(126.22), L(63.11), R(189.33), C(252.44)]),
+        Preset("Hypogeum 111 Hz",              .naturalResonance, subtitle: "Maltese megalithic chamber resonance",
+               [L(55.5), C(111), R(222), silent]),
+        Preset("Harmonic Series 1:2:3:4",      .naturalResonance, subtitle: "100·200·300·400 Hz — clean lattice cymatics",
+               [L(100), C(200), C(300), R(400)]),
+        Preset("Just Major Triad 4:5:6",       .naturalResonance, subtitle: "C-E-G+C in pure intonation — most symmetric chord",
+               [L(264), C(330), C(396), R(528)]),
 
         // MARK: Mystic & Composers — Scriabin's Mystic Chord (Prometheus): C-F♯-B♭-E-A-D
         Preset("Scriabin 1 — Mystic Core",  .mysticComposers, subtitle: "C–F♯–B♭–E (lower 4 of the mystic chord)",
@@ -100,6 +106,12 @@ extension Preset {
         Preset("Solfeggio 639 Hz", .solfeggio, subtitle: "Connection",              [C(639), L(319.5), R(958.5), silent]),
         Preset("Solfeggio 741 Hz", .solfeggio, subtitle: "Awakening intuition",     [C(741), L(370.5), R(1111.5), silent]),
         Preset("Solfeggio 852 Hz", .solfeggio, subtitle: "Returning to order",      [C(852), L(426), R(1278), silent]),
+
+        // Extended Solfeggio set + Verdi 432
+        Preset("Solfeggio 174 Hz",         .solfeggio, subtitle: "Pain relief / grounding",     [C(174), L(87),    R(348),  silent]),
+        Preset("Solfeggio 285 Hz",         .solfeggio, subtitle: "Tissue regeneration",         [C(285), L(142.5), R(570),  silent]),
+        Preset("Solfeggio 432 Hz (Verdi)", .solfeggio, subtitle: "Alternative natural-tuning A",[C(432), L(216),   R(864),  silent]),
+        Preset("Solfeggio 963 Hz",         .solfeggio, subtitle: "Crown / pineal",              [C(963), L(481.5), R(1926), silent])
     ]
 
     static let byCategory: [Category: [Preset]] = {
