@@ -49,6 +49,10 @@
         <span class="pill-label">DRIFT</span>
         <span id="drift-pill-value" class="pill-value">Off</span>
       </button>
+      <button id="listen-pill" class="pill" type="button" title="Listen via mic and tune the chord root to a pitch in the room">
+        <span class="pill-label">LISTEN</span>
+        <span id="listen-pill-value" class="pill-value">Tune to room</span>
+      </button>
     </div>
 
     <section id="oscillator-strips" class="strips" aria-label="Oscillators"></section>
@@ -156,6 +160,31 @@
         </p>
         <div id="user-preset-list" class="preset-list"></div>
         <div id="preset-list" class="preset-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Listen / tune-to-room sheet — opens via the LISTEN pill. -->
+  <div id="listen-sheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="listen-sheet-title" hidden>
+    <div class="sheet-panel listen-panel">
+      <header class="sheet-header">
+        <h2 id="listen-sheet-title">Tune to Room</h2>
+        <button class="sheet-done" data-close="listen-sheet" type="button">Done</button>
+      </header>
+      <div class="sheet-scroll">
+        <div id="listen-status" class="listen-status">Requesting microphone…</div>
+        <div class="listen-readout">
+          <div id="listen-note" class="listen-note">—</div>
+          <div id="listen-hz" class="listen-hz">— Hz</div>
+          <div id="listen-cents" class="listen-cents">— cents</div>
+        </div>
+        <button id="listen-apply" class="sheet-save listen-apply" type="button" disabled>
+          Set as Root
+        </button>
+        <p class="listen-hint">
+          Hold a steady tone — voice, instrument, tuning fork. We'll detect the
+          nearest note and snap the chord generator's root key to match.
+        </p>
       </div>
     </div>
   </div>

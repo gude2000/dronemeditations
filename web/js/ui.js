@@ -6,6 +6,7 @@ import {
   CHORDS, CHORD_CATEGORIES, PRESETS, PRESET_CATEGORIES,
   FREQ_MIN, FREQ_MAX, frequencyHue
 } from "./music.js";
+import { startListening, stopListening, freqToNote } from "./pitch-detect.js";
 
 const WAVEFORM_SVG = {
   sine:     '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12c3-7 7-7 10 0s7 7 10 0"/></svg>',
@@ -42,12 +43,14 @@ export function initUI(state, actions) {
   document.getElementById("chord-pill").addEventListener("click", () => openSheet("chord-sheet"));
   document.getElementById("preset-pill").addEventListener("click", () => openSheet("preset-sheet"));
   document.getElementById("drift-pill").addEventListener("click", () => dispatch.toggleDrift());
+  document.getElementById("listen-pill").addEventListener("click", openListenSheet);
   document.querySelectorAll(".sheet-done").forEach((b) =>
     b.addEventListener("click", () => closeSheet(b.dataset.close))
   );
   document.querySelectorAll(".sheet").forEach((s) =>
     s.addEventListener("click", (e) => { if (e.target === s) closeSheet(s.id); })
   );
+  document.getElementById("listen-apply").addEventListener("click", applyDetectedRoot);
 
   document.getElementById("octave-down").addEventListener("click", () => dispatch.setOctave(getState().octave - 1));
   document.getElementById("octave-up").addEventListener("click", () => dispatch.setOctave(getState().octave + 1));
@@ -535,6 +538,77 @@ function openSheet(id) {
 }
 function closeSheet(id) {
   document.getElementById(id).hidden = true;
+  // Stopping mic when the listen sheet closes is critical — leaving the
+  // audio stream open would keep the browser's mic indicator on.
+  if (id === "listen-sheet") stopListeningCleanup();
+}
+
+// ───────── tune to room (mic pitch detection) ─────────
+
+let lastDetectedPitch = null;  // last stable Hz, or null if quiet/aperiodic
+// Smooth the displayed pitch a touch — autocorrelation jitters frame-to-frame.
+let displayHz = 0;
+
+async function openListenSheet() {
+  openSheet("listen-sheet");
+  const status = document.getElementById("listen-status");
+  const applyBtn = document.getElementById("listen-apply");
+  applyBtn.disabled = true;
+  status.textContent = "Requesting microphone…";
+  resetReadout();
+  document.getElementById("listen-pill").classList.add("listening");
+  try {
+    await startListening(onPitchTick);
+    status.textContent = "Listening — hold a steady tone";
+  } catch (err) {
+    status.textContent = "Microphone unavailable — " + (err && err.message ? err.message : "permission denied");
+    document.getElementById("listen-pill").classList.remove("listening");
+  }
+}
+
+function onPitchTick(hz) {
+  if (!hz) {
+    // Decay the displayed value toward 0 so it doesn't freeze on the last
+    // captured note when the room goes quiet.
+    displayHz *= 0.85;
+    if (displayHz < 5) {
+      lastDetectedPitch = null;
+      resetReadout();
+      document.getElementById("listen-apply").disabled = true;
+    }
+    return;
+  }
+  // Light smoothing on a stable pitch.
+  displayHz = displayHz > 0 ? displayHz * 0.6 + hz * 0.4 : hz;
+  lastDetectedPitch = displayHz;
+  const note = freqToNote(displayHz);
+  document.getElementById("listen-note").textContent = `${note.name}${note.octave}`;
+  document.getElementById("listen-hz").textContent = `${displayHz.toFixed(2)} Hz`;
+  document.getElementById("listen-cents").textContent =
+    `${note.cents >= 0 ? "+" : ""}${note.cents.toFixed(0)} cents`;
+  document.getElementById("listen-apply").disabled = false;
+}
+
+function applyDetectedRoot() {
+  if (!lastDetectedPitch) return;
+  const note = freqToNote(lastDetectedPitch);
+  // Map detected MIDI note → key (0..11) + octave that the chord generator expects.
+  dispatch.setKey(note.pitchClassId);
+  dispatch.setOctave(Math.max(1, Math.min(6, note.octave)));
+  closeSheet("listen-sheet");
+}
+
+function resetReadout() {
+  document.getElementById("listen-note").textContent = "—";
+  document.getElementById("listen-hz").textContent = "— Hz";
+  document.getElementById("listen-cents").textContent = "— cents";
+}
+
+function stopListeningCleanup() {
+  try { stopListening(); } catch {}
+  lastDetectedPitch = null;
+  displayHz = 0;
+  document.getElementById("listen-pill").classList.remove("listening");
 }
 
 function buildKeyGrid() {
