@@ -76,6 +76,7 @@ struct OscillatorState: Identifiable, Equatable {
     var isSoloed: Bool
     var filter: FilterState
     var lfos: [LfoState]    // exactly 3 — see LfoState above
+    var sampleName: String? = nil  // display only; raw audio lives in the engine
 
     static let minFrequency: Double = 20.0
     static let maxFrequency: Double = 2000.0

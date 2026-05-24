@@ -25,10 +25,10 @@ const defaultFilter = () => ({ type: "lowpass", cutoffHz: 4000, q: 0.7 });
 
 const state = {
   oscillators: [
-    { id: 0, frequencyHz: 110.00, waveform: "sine", amplitude: 0.6,  pan: -0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), lfos: defaultLfos() },
-    { id: 1, frequencyHz: 165.00, waveform: "sine", amplitude: 0.6,  pan:  0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), lfos: defaultLfos() },
-    { id: 2, frequencyHz: 220.00, waveform: "sine", amplitude: 0.55, pan: -0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), lfos: defaultLfos() },
-    { id: 3, frequencyHz: 277.18, waveform: "sine", amplitude: 0.5,  pan:  0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), lfos: defaultLfos() }
+    { id: 0, frequencyHz: 110.00, waveform: "sine", amplitude: 0.6,  pan: -0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), lfos: defaultLfos(), sampleName: null },
+    { id: 1, frequencyHz: 165.00, waveform: "sine", amplitude: 0.6,  pan:  0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), lfos: defaultLfos(), sampleName: null },
+    { id: 2, frequencyHz: 220.00, waveform: "sine", amplitude: 0.55, pan: -0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), lfos: defaultLfos(), sampleName: null },
+    { id: 3, frequencyHz: 277.18, waveform: "sine", amplitude: 0.5,  pan:  0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), lfos: defaultLfos(), sampleName: null }
   ],
   keyId: 9,         // A
   octave: 3,
@@ -208,6 +208,37 @@ const actions = {
     const clamped = Math.max(0.3, Math.min(20, q));
     state.oscillators[oscIndex].filter.q = clamped;
     engine.setFilterQ(oscIndex, clamped);
+    renderAll();
+  },
+
+  async loadSampleFile(oscIndex, file) {
+    if (!file) return;
+    // Audio needs to be started before decodeAudioData has a context.
+    engine.ensureStarted(state.oscillators);
+    engine.resume();
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const audioBuffer = await engine.ctx.decodeAudioData(arrayBuffer);
+      engine.loadSample(oscIndex, audioBuffer);
+      state.oscillators[oscIndex].sampleName = file.name;
+      // Auto-switch waveform to "sample" so the user hears it.
+      state.oscillators[oscIndex].waveform = "sample";
+      engine.setWaveform(oscIndex, "sample");
+      renderAll();
+    } catch (err) {
+      console.error("Sample decode failed:", err);
+      alert(`Could not decode "${file.name}". Try a different format (mp3/wav/m4a/ogg).`);
+    }
+  },
+
+  clearSample(oscIndex) {
+    engine.clearSample(oscIndex);
+    state.oscillators[oscIndex].sampleName = null;
+    // If the voice was on "sample", fall back to sine.
+    if (state.oscillators[oscIndex].waveform === "sample") {
+      state.oscillators[oscIndex].waveform = "sine";
+      engine.setWaveform(oscIndex, "sine");
+    }
     renderAll();
   }
 };

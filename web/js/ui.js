@@ -11,7 +11,8 @@ const WAVEFORM_SVG = {
   sine:     '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12c3-7 7-7 10 0s7 7 10 0"/></svg>',
   triangle: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M2 20l5-16 5 16 5-16 5 16"/></svg>',
   sawtooth: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M2 20l5-16v16l5-16v16l5-16v16"/></svg>',
-  square:   '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M2 18V8h6v10h6V8h6v10"/></svg>'
+  square:   '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M2 18V8h6v10h6V8h6v10"/></svg>',
+  sample:   '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14l4-8 4 12 3-9 3 6 4-4"/></svg>'
 };
 
 let dispatch;
@@ -173,6 +174,13 @@ function buildStrip(index) {
         <input type="range" min="0" max="1" step="0.001" data-role="level" />
       </div>
     </div>
+    <div class="sample-row" data-role="sample-row" hidden>
+      <span class="strip-label">SAMPLE</span>
+      <input type="file" accept="audio/*" data-role="sample-input" hidden />
+      <button type="button" class="sample-button" data-role="sample-load">Load file…</button>
+      <span class="sample-name" data-role="sample-name" title="">—</span>
+      <button type="button" class="sample-clear" data-role="sample-clear" hidden>Clear</button>
+    </div>
     <div class="filter-row">
       <span class="strip-label">FILT</span>
       <div class="seg" data-role="filter-type">
@@ -263,6 +271,16 @@ function buildStrip(index) {
     );
   });
 
+  // Sample row wiring
+  const sampleInput = root.querySelector('[data-role="sample-input"]');
+  root.querySelector('[data-role="sample-load"]').addEventListener("click", () => sampleInput.click());
+  sampleInput.addEventListener("change", (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (file) dispatch.loadSampleFile(index, file);
+    sampleInput.value = "";  // allow re-selecting the same file later
+  });
+  root.querySelector('[data-role="sample-clear"]').addEventListener("click", () => dispatch.clearSample(index));
+
   root.querySelectorAll('[data-filter-type]').forEach((btn) => {
     btn.addEventListener("click", () => dispatch.setFilterType(index, btn.dataset.filterType));
   });
@@ -325,6 +343,20 @@ function syncStrip(index, root) {
   root.querySelectorAll('[data-waveform]').forEach((btn) => {
     btn.classList.toggle("selected", btn.dataset.waveform === osc.waveform);
   });
+
+  // Sample row visible only when "Sample" is the selected waveform.
+  const sampleRow = root.querySelector('[data-role="sample-row"]');
+  const sampleVisible = osc.waveform === "sample";
+  sampleRow.hidden = !sampleVisible;
+  if (sampleVisible) {
+    const name = osc.sampleName || "no file loaded";
+    const nameEl = root.querySelector('[data-role="sample-name"]');
+    nameEl.textContent = name;
+    nameEl.title = name;
+    root.querySelector('[data-role="sample-clear"]').hidden = !osc.sampleName;
+    root.querySelector('[data-role="sample-load"]').textContent =
+      osc.sampleName ? "Replace…" : "Load file…";
+  }
 
   // Filter row
   const f = osc.filter;

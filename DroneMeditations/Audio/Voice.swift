@@ -44,6 +44,11 @@ final class Voice {
     private var bqS1: Double = 0.0
     private var bqS2: Double = 0.0
 
+    // Loaded sample buffer (mono float, -1..1) + native sample rate.
+    var sampleData: [Float]? = nil
+    var sampleNativeRate: Double = 44100
+    private var samplePosition: Double = 0
+
     // Render-thread state
     private var phase: Double = 0.0
     private var currentFreq: Double = 220.0
@@ -126,16 +131,40 @@ final class Voice {
         let aStep = Double(ampSlewPerSample)
         let pStep = Double(panSlewPerSample)
 
+        // For sample mode: precompute per-buffer pitch ratio + sample-frame increment.
+        // 220 Hz = unity playback; chord intervals translate to pitch shifts of the sample.
+        let isSampleMode = (wave == .sample) && (sampleData?.isEmpty == false)
+        let sampleIncrement: Double = isSampleMode
+            ? max(0.05, min(20.0, targetFreq / 220.0)) * (sampleNativeRate / sampleRate)
+            : 0
+        // Snapshot the array's storage pointer outside the loop to avoid per-sample ARC.
+        let sampleCount = sampleData?.count ?? 0
+
         for i in 0..<frameCount {
             f += (targetFreq - f) * fStep
             a += Float((Double(ampTarget) - Double(a)) * aStep)
             p += Float((Double(panTarget) - Double(p)) * pStep)
 
-            // Advance phase (cycles per sample).
-            ph += f * invSR
-            if ph >= 1.0 { ph -= floor(ph) }
+            let raw: Double
+            if isSampleMode, sampleCount > 0 {
+                let pos = samplePosition
+                let i0 = Int(pos) % sampleCount
+                let i1 = (i0 + 1) % sampleCount
+                let frac = pos - floor(pos)
+                let s0 = Double(sampleData![i0])
+                let s1 = Double(sampleData![i1])
+                raw = s0 * (1.0 - frac) + s1 * frac
+                samplePosition += sampleIncrement
+                if samplePosition >= Double(sampleCount) {
+                    samplePosition -= Double(sampleCount)
+                }
+            } else {
+                // Synth oscillator: advance phase + sample the waveform formula.
+                ph += f * invSR
+                if ph >= 1.0 { ph -= floor(ph) }
+                raw = wave.sample(phase: ph)
+            }
 
-            let raw = wave.sample(phase: ph)
             // Biquad Direct Form II Transposed.
             let y = bqB0 * raw + bqS1
             bqS1 = bqB1 * raw - bqA1 * y + bqS2

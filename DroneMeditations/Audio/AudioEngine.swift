@@ -167,4 +167,46 @@ final class AudioEngine {
         guard voices.indices.contains(voiceIndex) else { return }
         voices[voiceIndex].filterQ = max(FilterState.qMin, min(FilterState.qMax, q))
     }
+
+    /// Load an audio file into a voice's sample slot. The file is decoded with
+    /// AVAudioFile, downmixed to mono, and stored as a Float buffer that the
+    /// render loop reads with linear interpolation. Throws on decode failure.
+    func loadSample(from url: URL, for voiceIndex: Int) throws {
+        guard voices.indices.contains(voiceIndex) else { return }
+        let file = try AVAudioFile(forReading: url)
+        let format = file.processingFormat
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: format,
+                                            frameCapacity: AVAudioFrameCount(file.length)) else {
+            throw NSError(domain: "DroneMeditations.loadSample", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "Could not allocate buffer"])
+        }
+        try file.read(into: buffer)
+
+        let frameCount = Int(buffer.frameLength)
+        guard frameCount > 0, let chData = buffer.floatChannelData else {
+            throw NSError(domain: "DroneMeditations.loadSample", code: 2,
+                          userInfo: [NSLocalizedDescriptionKey: "Empty audio buffer"])
+        }
+        let channelCount = Int(buffer.format.channelCount)
+        var mono = [Float]()
+        mono.reserveCapacity(frameCount)
+        if channelCount == 1 {
+            for i in 0..<frameCount { mono.append(chData[0][i]) }
+        } else {
+            // Downmix by simple average.
+            let inv = Float(1.0) / Float(channelCount)
+            for i in 0..<frameCount {
+                var sum: Float = 0
+                for c in 0..<channelCount { sum += chData[c][i] }
+                mono.append(sum * inv)
+            }
+        }
+        voices[voiceIndex].sampleData = mono
+        voices[voiceIndex].sampleNativeRate = format.sampleRate
+    }
+
+    func clearSample(for voiceIndex: Int) {
+        guard voices.indices.contains(voiceIndex) else { return }
+        voices[voiceIndex].sampleData = nil
+    }
 }

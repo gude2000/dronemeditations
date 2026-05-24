@@ -5,6 +5,7 @@ enum Waveform: String, CaseIterable, Identifiable, Codable {
     case triangle
     case sawtooth
     case square
+    case sample   // plays a user-loaded audio file; frequency acts as pitch shift
 
     var id: String { rawValue }
 
@@ -14,6 +15,7 @@ enum Waveform: String, CaseIterable, Identifiable, Codable {
         case .triangle: return "Triangle"
         case .sawtooth: return "Sawtooth"
         case .square: return "Square"
+        case .sample: return "Sample"
         }
     }
 
@@ -23,11 +25,12 @@ enum Waveform: String, CaseIterable, Identifiable, Codable {
         case .triangle: return "triangle"
         case .sawtooth: return "scribble.variable"
         case .square: return "square"
+        case .sample: return "waveform"
         }
     }
 
     /// Sample the waveform at a normalized phase in [0, 1).
-    /// Returns a value in [-1, 1].
+    /// Returns a value in [-1, 1]. `sample` (file) returns 0 — Voice reads buffer directly.
     @inline(__always)
     func sample(phase: Double) -> Double {
         switch self {
@@ -40,6 +43,8 @@ enum Waveform: String, CaseIterable, Identifiable, Codable {
             return 2.0 * phase - 1.0
         case .square:
             return phase < 0.5 ? 1.0 : -1.0
+        case .sample:
+            return 0
         }
     }
 }

@@ -8,8 +8,13 @@ export const WAVEFORMS = [
   { id: "sine",     name: "Sine",     symbol: "sine" },
   { id: "triangle", name: "Triangle", symbol: "triangle" },
   { id: "sawtooth", name: "Saw",      symbol: "saw" },
-  { id: "square",   name: "Square",   symbol: "square" }
+  { id: "square",   name: "Square",   symbol: "square" },
+  { id: "sample",   name: "Sample",   symbol: "sample" }
 ];
+
+/// Reference frequency used as the "unity pitch" anchor when a sample is loaded.
+/// At this frequency the sample plays at 1.0× its native rate.
+export const SAMPLE_REFERENCE_HZ = 220;
 
 // ────────────────────────────────────────────────────────────
 // Pitch classes (C, C♯, D, ..., B) and helpers.

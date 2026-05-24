@@ -130,6 +130,29 @@ final class DroneViewModel: ObservableObject {
         audioEngine.setFilterQ(clamped, for: index)
     }
 
+    /// Load an audio file from a URL into a voice's sample slot, and switch the
+    /// voice's waveform to `.sample` so it plays. Throws if decoding fails.
+    func loadSample(from url: URL, for index: Int) throws {
+        guard oscillators.indices.contains(index) else { return }
+        // Need access to the file even if the picker returned a security-scoped URL.
+        let didStart = url.startAccessingSecurityScopedResource()
+        defer { if didStart { url.stopAccessingSecurityScopedResource() } }
+        try audioEngine.loadSample(from: url, for: index)
+        oscillators[index].sampleName = url.lastPathComponent
+        oscillators[index].waveform = .sample
+        audioEngine.setWaveform(.sample, for: index)
+    }
+
+    func clearSample(for index: Int) {
+        guard oscillators.indices.contains(index) else { return }
+        audioEngine.clearSample(for: index)
+        oscillators[index].sampleName = nil
+        if oscillators[index].waveform == .sample {
+            oscillators[index].waveform = .sine
+            audioEngine.setWaveform(.sine, for: index)
+        }
+    }
+
     private func restoreLfoBase(for index: Int, target: LfoState.Target) {
         let o = oscillators[index]
         switch target {

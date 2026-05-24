@@ -55,12 +55,17 @@ export class AudioEngine {
 
     for (let i = 0; i < 4; i++) {
       const v = initialVoiceState[i];
+      // Synth oscillator + its gain (selectable waveforms sine/tri/saw/sq).
       const osc = this.ctx.createOscillator();
+      const oscGain = this.ctx.createGain();
+      // Sample bus — node created when a sample is loaded for this voice.
+      const sampleGain = this.ctx.createGain();
       const filter = this.ctx.createBiquadFilter();
       const pan = this.ctx.createStereoPanner();
       const gain = this.ctx.createGain();
 
-      osc.type = v.waveform;
+      const synthWaveform = v.waveform === "sample" ? "sine" : v.waveform;
+      osc.type = synthWaveform;
       osc.frequency.value = v.frequencyHz;
 
       const f = v.filter || { type: "lowpass", cutoffHz: 4000, q: 0.7 };
@@ -71,15 +76,26 @@ export class AudioEngine {
       pan.pan.value = v.pan;
       gain.gain.value = 0;  // fade in via setVoiceState
 
-      // Routing: osc → filter → pan → gain → master
-      osc.connect(filter);
+      // Crossfade: when waveform === "sample", oscGain → 0, sampleGain → 1.
+      const isSample = v.waveform === "sample";
+      oscGain.gain.value = isSample ? 0 : 1;
+      sampleGain.gain.value = isSample ? 1 : 0;
+
+      // Routing:  osc → oscGain ─┐
+      //                          ├→ filter → pan → gain → master
+      //   sampleSrc → sampleGain ┘
+      osc.connect(oscGain);
+      oscGain.connect(filter);
+      sampleGain.connect(filter);
       filter.connect(pan);
       pan.connect(gain);
       gain.connect(this.master);
       osc.start();
 
       this.voices.push({
-        osc, filter, pan, gain,
+        osc, oscGain, sampleGain, filter, pan, gain,
+        sampleSrc: null,         // AudioBufferSourceNode, created on loadSample
+        sampleBuffer: null,      // decoded AudioBuffer
         params: {
           freq: v.frequencyHz,
           amp: v.amplitude,
@@ -88,7 +104,6 @@ export class AudioEngine {
           muted: v.isMuted,
           soloed: v.isSoloed,
           filter: { ...f },
-          // Mirror of the LFO state. Updated via setLfo*.
           lfos: (v.lfos || [
             { shape: "sine", target: "pan",    rateHz: 0.25, depth: 0 },
             { shape: "sh",   target: "amp",    rateHz: 0.50, depth: 0 },
@@ -228,6 +243,13 @@ export class AudioEngine {
     v.osc.frequency.cancelScheduledValues(t);
     v.osc.frequency.setValueAtTime(v.osc.frequency.value, t);
     v.osc.frequency.exponentialRampToValueAtTime(Math.max(0.01, hz), t + RAMP_TIME);
+    // When a sample is loaded, freq acts as the pitch shifter (220 Hz = unity).
+    if (v.sampleSrc) {
+      const rate = Math.max(0.05, Math.min(20, hz / 220));
+      v.sampleSrc.playbackRate.cancelScheduledValues(t);
+      v.sampleSrc.playbackRate.setValueAtTime(v.sampleSrc.playbackRate.value, t);
+      v.sampleSrc.playbackRate.linearRampToValueAtTime(rate, t + RAMP_TIME);
+    }
   }
 
   setAmplitude(index, amp) {
@@ -250,15 +272,58 @@ export class AudioEngine {
     const v = this.voices[index]; if (!v) return;
     v.params.waveform = waveform;
     if (!this.ctx) return;
-    // Setting .type causes a phase reset, which can click on loud voices.
-    // Brief dip on the gain envelope hides it.
     const t = this.ctx.currentTime;
-    const target = v.gain.gain.value;
-    v.gain.gain.cancelScheduledValues(t);
-    v.gain.gain.setValueAtTime(target, t);
-    v.gain.gain.linearRampToValueAtTime(target * 0.5, t + 0.008);
-    v.osc.type = waveform;
-    v.gain.gain.linearRampToValueAtTime(target, t + 0.024);
+
+    // Crossfade between synth-osc bus and sample bus.
+    const oscTarget = waveform === "sample" ? 0 : 1;
+    const sampTarget = waveform === "sample" ? 1 : 0;
+    v.oscGain.gain.cancelScheduledValues(t);
+    v.oscGain.gain.setValueAtTime(v.oscGain.gain.value, t);
+    v.oscGain.gain.linearRampToValueAtTime(oscTarget, t + 0.020);
+    v.sampleGain.gain.cancelScheduledValues(t);
+    v.sampleGain.gain.setValueAtTime(v.sampleGain.gain.value, t);
+    v.sampleGain.gain.linearRampToValueAtTime(sampTarget, t + 0.020);
+
+    if (waveform !== "sample") {
+      // Brief dip on the master gain to hide the synth osc's phase-reset click.
+      const target = v.gain.gain.value;
+      v.gain.gain.cancelScheduledValues(t);
+      v.gain.gain.setValueAtTime(target, t);
+      v.gain.gain.linearRampToValueAtTime(target * 0.5, t + 0.008);
+      v.osc.type = waveform;
+      v.gain.gain.linearRampToValueAtTime(target, t + 0.024);
+    }
+  }
+
+  /// Load (or replace) the sample for a voice. `audioBuffer` is a decoded AudioBuffer.
+  loadSample(index, audioBuffer) {
+    const v = this.voices[index]; if (!v || !this.ctx) return;
+    // Stop and disconnect the previous sample source, if any.
+    if (v.sampleSrc) {
+      try { v.sampleSrc.stop(); } catch {}
+      try { v.sampleSrc.disconnect(); } catch {}
+    }
+    v.sampleBuffer = audioBuffer;
+    const src = this.ctx.createBufferSource();
+    src.buffer = audioBuffer;
+    src.loop = true;
+    src.loopStart = 0;
+    src.loopEnd = audioBuffer.duration;
+    src.playbackRate.value = Math.max(0.05, Math.min(20, v.params.freq / 220));
+    src.connect(v.sampleGain);
+    src.start();
+    v.sampleSrc = src;
+  }
+
+  /// Clear the loaded sample.
+  clearSample(index) {
+    const v = this.voices[index]; if (!v) return;
+    if (v.sampleSrc) {
+      try { v.sampleSrc.stop(); } catch {}
+      try { v.sampleSrc.disconnect(); } catch {}
+      v.sampleSrc = null;
+    }
+    v.sampleBuffer = null;
   }
 
   setMute(index, muted) {

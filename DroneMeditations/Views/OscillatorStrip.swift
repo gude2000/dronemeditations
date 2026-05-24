@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct OscillatorStrip: View {
     @EnvironmentObject var vm: DroneViewModel
@@ -6,6 +7,8 @@ struct OscillatorStrip: View {
 
     @State private var showingFreqEditor = false
     @State private var freqInput = ""
+    @State private var showingFilePicker = false
+    @State private var loadError: String? = nil
 
     private var osc: OscillatorState { vm.oscillators[index] }
 
@@ -87,6 +90,12 @@ struct OscillatorStrip: View {
                 }
             }
 
+            // Sample row, only visible when waveform == .sample.
+            if osc.waveform == .sample {
+                Divider().background(Color.white.opacity(0.06))
+                sampleSection
+            }
+
             // Filter row.
             Divider().background(Color.white.opacity(0.06))
             filterSection
@@ -110,6 +119,28 @@ struct OscillatorStrip: View {
                 .stroke(Color(hue: osc.hue, saturation: 0.4, brightness: 0.9, opacity: 0.35), lineWidth: 1)
         )
         .opacity(opacityForMuteState)
+        .fileImporter(
+            isPresented: $showingFilePicker,
+            allowedContentTypes: [.audio, .mp3, .mpeg4Audio, .wav, .aiff],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                guard let url = urls.first else { return }
+                do { try vm.loadSample(from: url, for: index) }
+                catch { loadError = error.localizedDescription }
+            case .failure(let error):
+                loadError = error.localizedDescription
+            }
+        }
+        .alert("Couldn't load sample", isPresented: Binding(
+            get: { loadError != nil },
+            set: { if !$0 { loadError = nil } }
+        )) {
+            Button("OK", role: .cancel) { loadError = nil }
+        } message: {
+            Text(loadError ?? "")
+        }
         .alert("OSC \(index + 1) Frequency", isPresented: $showingFreqEditor) {
             TextField("Hz", text: $freqInput)
                 .keyboardType(.decimalPad)
@@ -141,6 +172,55 @@ struct OscillatorStrip: View {
         if abs(p) < 0.02 { return "C" }
         let pct = Int((abs(p) * 100).rounded())
         return p < 0 ? "L\(pct)" : "R\(pct)"
+    }
+
+    // MARK: - Sample row
+
+    @ViewBuilder
+    private var sampleSection: some View {
+        HStack(spacing: 10) {
+            Text("SAMPLE")
+                .font(.system(size: 9, weight: .heavy))
+                .foregroundStyle(.secondary)
+                .frame(width: 56, alignment: .leading)
+
+            Button {
+                showingFilePicker = true
+            } label: {
+                Text(osc.sampleName == nil ? "Load file…" : "Replace…")
+                    .font(.system(size: 12, weight: .semibold))
+                    .padding(.horizontal, 12).padding(.vertical, 6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 7)
+                            .fill(Color.white.opacity(0.12))
+                    )
+                    .foregroundStyle(.white)
+            }
+            .buttonStyle(.plain)
+
+            Text(osc.sampleName ?? "no file loaded")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            if osc.sampleName != nil {
+                Button {
+                    vm.clearSample(for: index)
+                } label: {
+                    Text("Clear")
+                        .font(.system(size: 12, weight: .semibold))
+                        .padding(.horizontal, 10).padding(.vertical, 6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 7)
+                                .fill(Color.red.opacity(0.20))
+                        )
+                        .foregroundStyle(Color(red: 1, green: 0.75, blue: 0.72))
+                }
+                .buttonStyle(.plain)
+            }
+        }
     }
 
     // MARK: - Filter row
