@@ -171,7 +171,8 @@ export const PRESET_CATEGORIES = [
   "Binaural — 3 tone",
   "Binaural — 4 tone",
   "Natural Resonance",
-  "Solfeggio"
+  "Solfeggio",
+  "Mystic & Composers"
 ];
 
 export const PRESETS = [
@@ -198,9 +199,16 @@ export const PRESETS = [
   { id: "earth",  name: "Earth (Schumann fundamental)",   category: "Natural Resonance", sub: "7.83 Hz",                 voices: [L(100), R(107.83), C(50), SILENT] },
   { id: "c_phi",  name: "C-φ (Jose/Alex)",                category: "Natural Resonance", sub: "266.67 Hz — the icon-generator frequency", voices: [L(133.33), C(266.67), C(266.67), R(533.33)] },
   { id: "phi_aug", name: "Jose & Alex Phi Augmented Chord", category: "Natural Resonance", sub: "C–E–G♯ tuned to 1 : √φ : φ — the Webb triangle", voices: [L(164.81), C(266.67), R(209.64), SILENT] },
+  { id: "sable",   name: "Sable's Chord",                    category: "Natural Resonance", sub: "C–E–G♯ phi-rotated UP from the C-φ root (Numen p.75)", voices: [L(266.67), C(339.21), R(431.40), SILENT] },
   { id: "om",     name: "OM 136.1 Hz",                    category: "Natural Resonance", sub: "Tuned to Earth's year",   voices: [C(136.1), C(272.2), L(204.15), R(204.15)] },
   { id: "moon",   name: "Moon 210.42 Hz",                 category: "Natural Resonance", sub: "Cosmic-octave moon orbit",voices: [C(210.42), L(105.21), R(315.63), C(420.84)] },
   { id: "sun",    name: "Sun 126.22 Hz",                  category: "Natural Resonance", sub: "Cosmic-octave solar",     voices: [C(126.22), L(63.11), R(189.33), C(252.44)] },
+
+  // Mystic & Composers — Scriabin's Mystic Chord (Prometheus): C-F♯-B♭-E-A-D
+  // Four-note voicings drawn from the six-note chord.
+  { id: "scriabin_1", name: "Scriabin 1 — Mystic Core",  category: "Mystic & Composers", sub: "C–F♯–B♭–E (lower 4 of the mystic chord)", voices: [L(130.81), C(185.00), C(233.08), R(329.63)] },
+  { id: "scriabin_2", name: "Scriabin 2 — Mystic Upper", category: "Mystic & Composers", sub: "F♯–B♭–E–A (upper 4 of the mystic chord)", voices: [L(185.00), C(233.08), C(329.63), R(440.00)] },
+  { id: "scriabin_3", name: "Scriabin 3 — Wide Mystic",  category: "Mystic & Composers", sub: "C–B♭–A–D (spread voicing, dropped F♯/E)",  voices: [L(130.81), C(233.08), C(440.00), R(587.33)] },
 
   // Solfeggio
   { id: "solf_396", name: "Solfeggio 396 Hz", category: "Solfeggio", sub: "Liberating guilt",     voices: [C(396), L(198),   R(594),    SILENT] },

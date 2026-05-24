@@ -11,6 +11,7 @@ let bgCanvas, chladniCanvas, bgCtx;
 let gl;                  // WebGL context for chladniCanvas (no 2D fallback used)
 let glProgram, glAttribs = {}, glUniforms = {};
 let getState;
+let getEngine;           // optional — returns AudioEngine for live (pitch-LFO-modulated) freqs
 let isShowingChladni = true;
 let lastSize = { w: 0, h: 0, dpr: 1 };
 
@@ -64,8 +65,9 @@ void main() {
 // Init / lifecycle
 // ──────────────────────────────────────────────────
 
-export function initVisualizations(state) {
+export function initVisualizations(state, engineGetter) {
   getState = state;
+  getEngine = engineGetter || null;
   bgCanvas = document.getElementById("bg-canvas");
   chladniCanvas = document.getElementById("chladni-canvas");
   bgCtx = bgCanvas.getContext("2d");
@@ -221,18 +223,29 @@ function drawChladniGL() {
   const modes  = new Float32Array(12);
   const colors = new Float32Array(12);
 
+  // Use the engine's live (pitch-LFO-modulated) freq when available, so the
+  // pattern morphs in real time as vibrato plays.
+  const engine = getEngine ? getEngine() : null;
+  const audibleIndices = [];
+  oscs.forEach((o, i) => { if (!isVoiceSilenced(i, oscs)) audibleIndices.push(i); });
+
   for (let i = 0; i < count; i++) {
-    const osc = audible[i];
-    const logF = Math.log2(Math.max(osc.frequencyHz, 20));
+    const oscIdx = audibleIndices[i];
+    const osc = oscs[oscIdx];
+    const liveFreq = (engine && engine.voices && engine.voices[oscIdx] && engine.voices[oscIdx]._effectiveFreq)
+      ? engine.voices[oscIdx]._effectiveFreq
+      : osc.frequencyHz;
+    const logF = Math.log2(Math.max(liveFreq, 20));
     const lo = Math.log2(20), hi = Math.log2(2000);
     const tt = (logF - lo) / (hi - lo);
-    // m scales with frequency: 6..22. Even a low drone produces dense patterns.
+    // m scales with (live) frequency: 6..22. Vibrato visibly shifts the mode
+    // numbers up and down within this range.
     const m = Math.max(3, Math.round(6 + tt * 16));
     const n = VOICE_N[i % VOICE_N.length];
     modes[i * 3 + 0] = m;
     modes[i * 3 + 1] = n;
     modes[i * 3 + 2] = osc.amplitude;
-    const [r, g, b] = hslToRgb(frequencyHue(osc.frequencyHz), 0.30, 0.85);
+    const [r, g, b] = hslToRgb(frequencyHue(liveFreq), 0.30, 0.85);
     colors[i * 3 + 0] = r;
     colors[i * 3 + 1] = g;
     colors[i * 3 + 2] = b;

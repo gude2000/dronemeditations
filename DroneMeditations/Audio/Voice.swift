@@ -75,6 +75,12 @@ final class Voice {
     private var currentAmp: Float = 0.0
     private var currentPan: Float = 0.0
 
+    /// The currently playing (slewed + LFO-modulated) frequency, in Hz.
+    /// Visualizations read this to morph in real time as pitch LFOs play.
+    /// Updated on the audio render thread; safe-enough to read from the UI
+    /// thread since aligned Double writes are tear-free on Apple Silicon.
+    var liveFrequencyHz: Double { currentFreq }
+
     // Slew constants (computed once at init from sample rate).
     private let freqSlewPerSample: Double
     private let ampSlewPerSample: Float

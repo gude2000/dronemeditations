@@ -120,6 +120,11 @@ export class AudioEngine {
         reverb, reverbWet, delay, delayFb, delayWet,
         sampleSrc: null,         // AudioBufferSourceNode, created on loadSample
         sampleBuffer: null,      // decoded AudioBuffer
+        // _effectiveFreq tracks the current playing frequency including pitch-LFO
+        // modulation. Visualizations read this so the Chladni overlay morphs in
+        // real time as vibrato plays. Initialized to the base freq; updated by
+        // _applyLfosForVoice every tick.
+        _effectiveFreq: v.frequencyHz,
         params: {
           freq: v.frequencyHz,
           amp: v.amplitude,
@@ -216,6 +221,10 @@ export class AudioEngine {
         anyPitch = true;
       }
     }
+
+    // Always recompute effective freq, even when no pitch LFO is active —
+    // visualizations read this and need it to track UI freq changes too.
+    v._effectiveFreq = v.params.freq * Math.pow(2, pitchSemitones / 12);
 
     if (anyPan) {
       const panEff = Math.max(-1, Math.min(1, v.params.pan + panMod));

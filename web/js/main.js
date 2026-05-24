@@ -446,7 +446,7 @@ function clamp01(v) { return Math.max(0, Math.min(1, v)); }
 // ──────────────────────────────────────────────────
 function getState() { return state; }
 initUI(getState, actions);
-initVisualizations(getState);
+initVisualizations(getState, () => engine);
 renderAll();
 
 // Debug handle — read-only inspection from devtools / preview_eval.
@@ -468,12 +468,19 @@ function broadcastChladniState() {
   if (!chladniChannel) return;
   chladniChannel.postMessage({
     type: "state",
-    oscillators: state.oscillators.map((o) => ({
-      frequencyHz: o.frequencyHz,
-      amplitude: o.amplitude,
-      isMuted: o.isMuted,
-      isSoloed: o.isSoloed
-    }))
+    oscillators: state.oscillators.map((o, i) => {
+      // Use the engine's live (pitch-LFO-modulated) freq when available so
+      // the pop-out window shows real-time vibrato just like the main canvas.
+      const liveFreq = (engine.voices && engine.voices[i] && engine.voices[i]._effectiveFreq)
+        ? engine.voices[i]._effectiveFreq
+        : o.frequencyHz;
+      return {
+        frequencyHz: liveFreq,
+        amplitude: o.amplitude,
+        isMuted: o.isMuted,
+        isSoloed: o.isSoloed
+      };
+    })
   });
 }
 

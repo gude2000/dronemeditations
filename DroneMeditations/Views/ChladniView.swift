@@ -14,7 +14,9 @@ struct ChladniView: View {
     private let grid: Int = 140
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 12.0)) { _ in
+        // 24 fps so vibrato (pitch-LFO mod) is visibly smooth in the pattern.
+        // Heavier than 12 fps but still well within iPhone budget at 140-grid.
+        TimelineView(.animation(minimumInterval: 1.0 / 24.0)) { _ in
             Canvas { context, size in
                 drawChladni(in: context, size: size)
             }
@@ -26,22 +28,27 @@ struct ChladniView: View {
     }
 
     private func drawChladni(in context: GraphicsContext, size: CGSize) {
-        let voices = vm.oscillators.filter { !$0.isMuted }
-        guard !voices.isEmpty else { return }
-
-        // Map each voice's frequency to integer mode numbers (m, n) in a small range.
-        // Using log-spacing across 20..2000 Hz -> 1..6 mode index.
+        // Read live (slewed + pitch-LFO-modulated) frequency from the engine
+        // so the nodal pattern morphs in real time as vibrato plays. Falls
+        // back to the UI-state base freq if the engine voice index doesn't
+        // line up (defensive).
         let voiceN = [4, 6, 9, 11]
-        let modes: [(m: Int, n: Int, weight: Double, hue: Double)] = voices.map { osc in
-            let logF = log2(max(osc.frequencyHz, 20.0))
+        var modes: [(m: Int, n: Int, weight: Double, hue: Double)] = []
+        for (i, osc) in vm.oscillators.enumerated() {
+            guard !osc.isMuted else { continue }
+            let liveFreq = vm.audioEngine.voices.indices.contains(i)
+                ? vm.audioEngine.voices[i].liveFrequencyHz
+                : osc.frequencyHz
+            let logF = log2(max(liveFreq, 20.0))
             let lo = log2(20.0), hi = log2(2000.0)
             let t = (logF - lo) / (hi - lo)
-            // m scales with frequency (3..14). n is hard-mapped per voice so
-            // each one contributes a visibly different geometry.
             let m = max(3, Int((3.0 + t * 11.0).rounded()))
             let n = voiceN[osc.id % voiceN.count]
-            return (m, n, osc.amplitude, osc.hue)
+            // Hue follows live freq too so vibrato shifts color subtly.
+            let liveHue = frequencyHueFromHz(liveFreq)
+            modes.append((m, n, osc.amplitude, liveHue))
         }
+        guard !modes.isEmpty else { return }
 
         let cell = CGSize(width: size.width / CGFloat(grid), height: size.height / CGFloat(grid))
 
@@ -82,5 +89,15 @@ struct ChladniView: View {
                 context.fill(Path(rect), with: .color(color))
             }
         }
+    }
+
+    /// Same hue math as OscillatorState.hue but takes a raw Hz value so we
+    /// can color by the live pitch-LFO-modulated frequency.
+    private func frequencyHueFromHz(_ hz: Double) -> Double {
+        let logF = log2(max(hz, 20.0))
+        let lo = log2(20.0)
+        let hi = log2(2000.0)
+        let t = (logF - lo) / (hi - lo)
+        return 0.05 + (0.6 * t)
     }
 }

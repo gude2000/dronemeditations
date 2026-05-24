@@ -21,6 +21,7 @@ struct Preset: Identifiable, Hashable {
         case binaural4 = "Binaural — 4 tone"
         case naturalResonance = "Natural Resonance"
         case solfeggio = "Solfeggio"
+        case mysticComposers = "Mystic & Composers"
     }
 
     init(_ name: String, _ category: Category, subtitle: String? = nil, _ voices: [Voice]) {
@@ -75,12 +76,22 @@ extension Preset {
                [L(133.33), C(266.67), C(266.67), R(533.33)]),
         Preset("Jose & Alex Phi Augmented Chord", .naturalResonance, subtitle: "C–E–G♯ tuned to 1 : √φ : φ — the Webb triangle",
                [L(164.81), C(266.67), R(209.64), silent]),
+        Preset("Sable's Chord",                .naturalResonance, subtitle: "C–E–G♯ phi-rotated UP from the C-φ root (Numen p.75)",
+               [L(266.67), C(339.21), R(431.40), silent]),
         Preset("OM 136.1 Hz",                  .naturalResonance, subtitle: "Tuned to Earth's year",
                [C(136.1), C(272.2), L(204.15), R(204.15)]),
         Preset("Moon 210.42 Hz",               .naturalResonance, subtitle: "Cosmic-octave moon orbit",
                [C(210.42), L(105.21), R(315.63), C(420.84)]),
         Preset("Sun 126.22 Hz",                .naturalResonance, subtitle: "Cosmic-octave solar",
                [C(126.22), L(63.11), R(189.33), C(252.44)]),
+
+        // MARK: Mystic & Composers — Scriabin's Mystic Chord (Prometheus): C-F♯-B♭-E-A-D
+        Preset("Scriabin 1 — Mystic Core",  .mysticComposers, subtitle: "C–F♯–B♭–E (lower 4 of the mystic chord)",
+               [L(130.81), C(185.00), C(233.08), R(329.63)]),
+        Preset("Scriabin 2 — Mystic Upper", .mysticComposers, subtitle: "F♯–B♭–E–A (upper 4 of the mystic chord)",
+               [L(185.00), C(233.08), C(329.63), R(440.00)]),
+        Preset("Scriabin 3 — Wide Mystic",  .mysticComposers, subtitle: "C–B♭–A–D (spread voicing, dropped F♯/E)",
+               [L(130.81), C(233.08), C(440.00), R(587.33)]),
 
         // MARK: Solfeggio
         Preset("Solfeggio 396 Hz", .solfeggio, subtitle: "Liberating guilt",        [C(396), L(198), R(594), silent]),
