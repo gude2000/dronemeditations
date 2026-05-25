@@ -283,6 +283,13 @@ struct ControlsOverlay: View {
             // All pills in a horizontal scroll so they fit on narrow
             // landscape screens — previously only Chord + Preset were
             // visible; Drift/Listen/Perform were cut off.
+            // Pill row in a horizontal scroll. NOTE: do NOT use
+            // .scrollClipDisabled() here — it disables clipping on BOTH
+            // axes, which lets the rightmost pill overflow past the
+            // scroll bounds and overlap the icon buttons on the right
+            // edge of the header. SwiftUI Menus open in the system
+            // overlay (not the parent view), so we don't need
+            // scroll-clip-disabled for that anyway.
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     Button { showingChordSheet = true } label: {
@@ -326,13 +333,19 @@ struct ControlsOverlay: View {
                     Button { showingJourneySheet = true } label: { journeyPill }
                         .buttonStyle(.plain)
                 }
+                .padding(.trailing, 4)
             }
-            .scrollClipDisabled()  // let menus open beyond the scroll bounds
+            // Lower layout priority than the icon group → ScrollView only
+            // takes the leftover width after the icons claim their fixed
+            // space, so pills can never expand into the icon area.
+            .layoutPriority(0)
 
             // Same icon order as the portrait header so the structure stays
             // consistent across orientations: camera (snapshot) → spectrum
-            // toggle → Chladni toggle. Keeping Chladni adjacent to spectrum
-            // makes the visualization-toggle pair visually grouped.
+            // toggle → Chladni toggle. Grouped in their own HStack with a
+            // higher layoutPriority so they always render fully on the
+            // right edge, never crowded by the scrolling pill row.
+            HStack(spacing: 6) {
             Button { captureSnapshot() } label: {
                 Image(systemName: "camera.fill")
                     .font(.system(size: 12, weight: .semibold))
@@ -359,6 +372,8 @@ struct ControlsOverlay: View {
                     .foregroundStyle(.white)
             }
             .buttonStyle(.plain)
+            }
+            .layoutPriority(1)  // icons reserve their fixed width first
         }
         .padding(.horizontal, 14)
         .padding(.top, 4)
