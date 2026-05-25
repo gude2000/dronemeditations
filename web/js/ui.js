@@ -18,6 +18,10 @@ const WAVEFORM_SVG = {
   triangle: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M2 20l5-16 5 16 5-16 5 16"/></svg>',
   sawtooth: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M2 20l5-16v16l5-16v16l5-16v16"/></svg>',
   square:   '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M2 18V8h6v10h6V8h6v10"/></svg>',
+  // White noise — dense random verticals (visually noise).
+  whiteNoise: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2 17l1-7 1 5 1-9 1 8 1-4 1 6 1-7 1 9 1-5 1 7 1-8 1 4 1-6 1 8 1-9 1 5 1-7 1 6 1-4 1 7"/></svg>',
+  // Pink noise — softer, lower-frequency hill silhouette.
+  pinkNoise:  '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 16q3-4 5-1t3 3 3-6 4 4 5-2"/></svg>',
   sample:   '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14l4-8 4 12 3-9 3 6 4-4"/></svg>'
 };
 

@@ -555,7 +555,12 @@ body.performance:hover { cursor: default; }
 }
 
 .strip-controls {
-  display: grid; grid-template-columns: minmax(150px, 200px) 1fr 1fr;
+  display: grid;
+  /* 7 waveform buttons (sine / triangle / saw / square / white / pink /
+     sample) need more room than the original 5 did — widen the first
+     column so the icons sit on their own without crowding the PAN label
+     that lives in column 2. */
+  grid-template-columns: minmax(220px, 260px) 1fr 1fr;
   gap: 12px; align-items: end;
 }
 .waveform-group {
