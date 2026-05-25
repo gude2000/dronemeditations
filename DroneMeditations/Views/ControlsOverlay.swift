@@ -8,6 +8,7 @@ struct ControlsOverlay: View {
     @State private var showingPresetSheet = false
     @State private var showingListenSheet = false
     @State private var showingJourneySheet = false
+    @State private var showingMorphSheet = false
 
     /// Transient banner shown after a snapshot save attempt — "Saved to Photos"
     /// on success, error string on failure. Auto-clears after 2 seconds.
@@ -67,6 +68,10 @@ struct ControlsOverlay: View {
         }
         .sheet(isPresented: $showingJourneySheet) {
             JourneyPickerView()
+                .environmentObject(vm)
+        }
+        .sheet(isPresented: $showingMorphSheet) {
+            MorphSheetView()
                 .environmentObject(vm)
         }
         .modifier(SnapshotToastModifier(
@@ -174,6 +179,9 @@ struct ControlsOverlay: View {
 
                 Button { showingJourneySheet = true } label: { journeyPill }
                     .buttonStyle(.plain)
+
+                Button { showingMorphSheet = true } label: { morphPill }
+                    .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 14)
@@ -212,6 +220,38 @@ struct ControlsOverlay: View {
         )
         .overlay(
             Capsule().stroke(active ? Color(red: 1.0, green: 0.85, blue: 0.55).opacity(0.40) : .clear, lineWidth: 1)
+        )
+        .foregroundStyle(.white)
+    }
+
+    /// Pill that opens the morph sheet. Tinted purple when a morph is
+    /// active (both From and To picked); shows the current percentage.
+    private var morphPill: some View {
+        let active = (vm.morphFromName != nil) && (vm.morphToName != nil)
+        let value = active
+            ? "\(Int((vm.morphAmount * 100).rounded()))%"
+            : "Off"
+        let purple = Color(red: 0.81, green: 0.71, blue: 0.92)
+        return HStack(spacing: 6) {
+            Image(systemName: active ? "arrow.left.arrow.right.circle.fill" : "arrow.left.arrow.right.circle")
+                .font(.caption.weight(.semibold))
+            VStack(alignment: .leading, spacing: 0) {
+                Text("MORPH")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(active ? purple : .white.opacity(0.6))
+                Text(value)
+                    .font(.system(.footnote, design: .rounded).weight(.semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(
+            Capsule().fill(active ? purple.opacity(0.20) : Color.white.opacity(0.10))
+        )
+        .overlay(
+            Capsule().stroke(active ? purple.opacity(0.40) : .clear, lineWidth: 1)
         )
         .foregroundStyle(.white)
     }
@@ -331,6 +371,9 @@ struct ControlsOverlay: View {
                     .buttonStyle(.plain)
 
                     Button { showingJourneySheet = true } label: { journeyPill }
+                        .buttonStyle(.plain)
+
+                    Button { showingMorphSheet = true } label: { morphPill }
                         .buttonStyle(.plain)
                 }
                 .padding(.trailing, 4)

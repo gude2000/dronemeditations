@@ -79,6 +79,14 @@ final class DroneViewModel: ObservableObject {
     /// `Journey.all` at startJourney lookup time.
     @Published var userJourneys: [UserJourney] = UserJourneyStore.load()
 
+    // ─── Morph between two presets ─────────────────────────────
+    /// Pick a "From" preset and a "To" preset, then drag the slider to
+    /// interpolate every per-voice parameter continuously between them.
+    /// Lookups are by Preset.name (matches the picker UI). nil = no morph.
+    @Published var morphFromName: String? = nil
+    @Published var morphToName: String? = nil
+    @Published var morphAmount: Double = 0
+
     /// A scene is the per-voice drift assignment for all four oscillators.
     /// Scenes are *templates* — picking one bulk-copies its voice configs
     /// into the per-oscillator state. Users can then customize any voice
@@ -847,6 +855,125 @@ final class DroneViewModel: ObservableObject {
         journeyTimer = Timer.scheduledTimer(withTimeInterval: stage.durationSec, repeats: false) { [weak self] _ in
             Task { @MainActor in self?.advanceJourneyStage() }
         }
+    }
+
+    // MARK: - Morph
+
+    func setMorphFrom(_ name: String?) {
+        morphFromName = name?.isEmpty == false ? name : nil
+        if morphFromName != nil, morphToName != nil { applyMorph(morphAmount) }
+    }
+    func setMorphTo(_ name: String?) {
+        morphToName = name?.isEmpty == false ? name : nil
+        if morphFromName != nil, morphToName != nil { applyMorph(morphAmount) }
+    }
+    func setMorphAmount(_ t: Double) {
+        morphAmount = max(0, min(1, t))
+        if morphFromName != nil, morphToName != nil { applyMorph(morphAmount) }
+    }
+    func clearMorph() {
+        morphFromName = nil
+        morphToName = nil
+        morphAmount = 0
+    }
+
+    /// Interpolate every per-voice parameter between morphFromName and
+    /// morphToName at amount `t` ∈ [0, 1] and apply to the engine. Same
+    /// interpolation rules as the web version (log on hz / cutoff / decay /
+    /// time / rate, linear on mix / depth / pan / drive, discrete swap at
+    /// the midpoint for waveform / filter type / delay mode / FM source /
+    /// LFO shape + target).
+    private func applyMorph(_ t: Double) {
+        guard
+            let aName = morphFromName,
+            let bName = morphToName,
+            let A = Preset.all.first(where: { $0.name == aName }),
+            let B = Preset.all.first(where: { $0.name == bName })
+        else { return }
+        let u = max(0, min(1, t))
+        func lerp(_ a: Double, _ b: Double) -> Double { a + (b - a) * u }
+        func logLerp(_ a: Double, _ b: Double) -> Double {
+            (a > 0 && b > 0) ? exp(lerp(log(a), log(b))) : lerp(a, b)
+        }
+        func pick<T>(_ a: T, _ b: T) -> T { u < 0.5 ? a : b }
+
+        for i in 0..<4 {
+            guard i < A.voices.count, i < B.voices.count else { continue }
+            let va = A.voices[i]
+            let vb = B.voices[i]
+            let o = oscillators[i]
+
+            let aHz   = va.hz, bHz = vb.hz
+            let aPan  = va.pan, bPan = vb.pan
+            let aWave = va.wave ?? o.waveform
+            let bWave = vb.wave ?? o.waveform
+            let aAmp  = va.amp ?? o.amplitude
+            let bAmp  = vb.amp ?? o.amplitude
+            let aDrv  = va.drive ?? o.drive
+            let bDrv  = vb.drive ?? o.drive
+
+            setFrequency(logLerp(aHz, bHz), for: i)
+            setPan(lerp(aPan, bPan), for: i)
+            setAmplitude(lerp(aAmp, bAmp), for: i)
+            setDrive(lerp(aDrv, bDrv), for: i)
+            let wantWave = pick(aWave, bWave)
+            if o.waveform != wantWave { setWaveform(wantWave, for: i) }
+
+            // Filter
+            let aF = va.filter ?? o.filter
+            let bF = vb.filter ?? o.filter
+            let wantType = pick(aF.type, bF.type)
+            if o.filter.type != wantType { setFilterType(wantType, for: i) }
+            setFilterCutoff(logLerp(aF.cutoffHz, bF.cutoffHz), for: i)
+            setFilterQ(logLerp(aF.q, bF.q), for: i)
+
+            // Reverb
+            let aR = va.reverb ?? o.reverb
+            let bR = vb.reverb ?? o.reverb
+            setReverbDecay(logLerp(aR.decaySec, bR.decaySec), for: i)
+            setReverbMix(lerp(aR.mix, bR.mix), for: i)
+
+            // Delay
+            let aD = va.delay ?? o.delay
+            let bD = vb.delay ?? o.delay
+            setDelayTime(logLerp(aD.timeSec, bD.timeSec), for: i)
+            setDelayFeedback(lerp(aD.feedback, bD.feedback), for: i)
+            setDelayMix(lerp(aD.mix, bD.mix), for: i)
+            let wantDly = pick(aD.mode, bD.mode)
+            if o.delay.mode != wantDly { setDelayMode(wantDly, for: i) }
+
+            // Chorus
+            let aC = va.chorus ?? o.chorus
+            let bC = vb.chorus ?? o.chorus
+            setChorusRate(logLerp(aC.rateHz, bC.rateHz), for: i)
+            setChorusDepth(lerp(aC.depth, bC.depth), for: i)
+            setChorusWidth(lerp(aC.width, bC.width), for: i)
+            setChorusMix(lerp(aC.mix, bC.mix), for: i)
+
+            // FM
+            let aFm = va.fm ?? o.fm
+            let bFm = vb.fm ?? o.fm
+            let wantFmSrc = pick(aFm.sourceIndex, bFm.sourceIndex)
+            if o.fm.sourceIndex != wantFmSrc { setFMSource(wantFmSrc, for: i) }
+            let idx = (aFm.index > 1 && bFm.index > 1) ? logLerp(aFm.index, bFm.index) : lerp(aFm.index, bFm.index)
+            setFMIndex(idx, for: i)
+
+            // LFOs — interpolate rate (log) + depth (linear); discrete
+            // shape + target swap at midpoint.
+            let aLfos = va.lfos ?? []
+            let bLfos = vb.lfos ?? []
+            for k in 0..<4 where k < o.lfos.count {
+                let al = (k < aLfos.count ? aLfos[k] : nil) ?? o.lfos[k]
+                let bl = (k < bLfos.count ? bLfos[k] : nil) ?? o.lfos[k]
+                setLfoRate(logLerp(al.rateHz, bl.rateHz), for: i, lfoIndex: k)
+                setLfoDepth(lerp(al.depth, bl.depth), for: i, lfoIndex: k)
+                let wantShape = pick(al.shape, bl.shape)
+                if o.lfos[k].shape != wantShape { setLfoShape(wantShape, for: i, lfoIndex: k) }
+                let wantTarget = pick(al.target, bl.target)
+                if o.lfos[k].target != wantTarget { setLfoTarget(wantTarget, for: i, lfoIndex: k) }
+            }
+        }
+        activePresetName = "\(A.name) → \(B.name) (\(Int(u * 100))%)"
     }
 
     // MARK: - Master
