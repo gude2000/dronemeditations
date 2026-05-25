@@ -186,6 +186,11 @@
           <div id="listen-hz" class="listen-hz">— Hz</div>
           <div id="listen-cents" class="listen-cents">— cents</div>
         </div>
+        <!-- Live audio-level meter so it's obvious the mic is being heard
+             even when the room is too quiet/aperiodic for a stable pitch. -->
+        <div class="listen-meter" aria-label="Live audio input level">
+          <div id="listen-meter-fill" class="listen-meter-fill"></div>
+        </div>
         <button id="listen-apply" class="sheet-save listen-apply" type="button" disabled>
           Set as Root
         </button>

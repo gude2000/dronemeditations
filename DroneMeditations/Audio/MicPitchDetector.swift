@@ -13,14 +13,15 @@ import Combine
 final class MicPitchDetector: ObservableObject {
     /// Currently detected pitch in Hz, or nil when quiet/aperiodic.
     @Published private(set) var detectedHz: Double?
+    /// Live input RMS [0..1] so the UI can show a level meter and the user
+    /// can confirm the mic is actually being heard even before a pitch lands.
+    @Published private(set) var inputLevel: Float = 0
     /// True while the mic tap is active.
     @Published private(set) var isListening: Bool = false
     /// Last error message from session/tap setup, surfaced in the UI.
     @Published var lastError: String?
 
     private let engine: AudioEngine
-    /// Light exponential smoothing on the detected pitch so the displayed
-    /// note doesn't jitter from autocorrelation frame-to-frame noise.
     private var smoothHz: Double = 0
 
     init(engine: AudioEngine) {
@@ -31,28 +32,54 @@ final class MicPitchDetector: ObservableObject {
         guard !isListening else { return }
         lastError = nil
 
+        // 1. Explicitly request mic permission. iOS won't prompt just from
+        //    changing AVAudioSession category — without this, the session
+        //    quietly fails to record and we get silent buffers.
+        let granted: Bool = await withCheckedContinuation { cont in
+            AVAudioSession.sharedInstance().requestRecordPermission { ok in
+                cont.resume(returning: ok)
+            }
+        }
+        guard granted else {
+            lastError = "Microphone permission denied. Enable it in Settings → Drone Meditations."
+            return
+        }
+
+        // 2. Stop the engine before reconfiguring the session — switching
+        //    category live can leave the inputNode in a stale state where
+        //    its format reports channelCount = 0 and the tap silently drops.
+        let wasRunning = engine.engine.isRunning
+        if wasRunning { engine.engine.stop() }
+
         do {
-            // Reconfigure session for input + playback. Keep .mixWithOthers
-            // so we don't interrupt the user's other audio.
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(
                 .playAndRecord,
-                mode: .default,
+                mode: .measurement,        // disables AGC/echo cancellation
                 options: [.mixWithOthers, .defaultToSpeaker, .allowBluetoothA2DP]
             )
             try session.setActive(true, options: [])
-            // Make sure engine is running so the input node delivers frames.
-            try engine.start()
         } catch {
-            lastError = error.localizedDescription
+            lastError = "Couldn't switch audio session: \(error.localizedDescription)"
+            if wasRunning { try? engine.engine.start() }
+            return
+        }
+
+        // 3. Restart engine so the inputNode picks up the new session config.
+        do { try engine.engine.start() } catch {
+            lastError = "Couldn't start engine for input: \(error.localizedDescription)"
             return
         }
 
         let bus = 0
         let input = engine.engine.inputNode
-        let format = input.outputFormat(forBus: bus)
-        // Reject zero-channel format (happens momentarily during session
-        // transitions on some devices).
+        // outputFormat after a session switch needs a brief moment on some
+        // devices; if channelCount is 0 we wait one runloop and try again.
+        var format = input.outputFormat(forBus: bus)
+        if format.channelCount == 0 || format.sampleRate <= 0 {
+            try? await Task.sleep(nanoseconds: 100_000_000)
+            format = input.outputFormat(forBus: bus)
+        }
         guard format.sampleRate > 0, format.channelCount > 0 else {
             lastError = "Microphone format unavailable — try again in a moment."
             return
@@ -62,8 +89,20 @@ final class MicPitchDetector: ObservableObject {
             guard let self = self else { return }
             guard let ch = buffer.floatChannelData?[0] else { return }
             let frameCount = Int(buffer.frameLength)
+
+            // RMS for the level meter.
+            var sumSq: Double = 0
+            for i in 0..<frameCount {
+                let v = Double(ch[i])
+                sumSq += v * v
+            }
+            let rms = Float((sumSq / Double(max(1, frameCount))).squareRoot())
+
             let hz = autocorrelate(samples: ch, count: frameCount, sampleRate: format.sampleRate)
-            Task { @MainActor in self.consumePitch(hz) }
+            Task { @MainActor in
+                self.inputLevel = rms
+                self.consumePitch(hz)
+            }
         }
         isListening = true
     }
@@ -74,22 +113,25 @@ final class MicPitchDetector: ObservableObject {
         isListening = false
         detectedHz = nil
         smoothHz = 0
+        inputLevel = 0
 
-        // Restore the playback-only session so we don't keep the mic
-        // indicator hot when the user moves on.
+        // Restore the playback-only session so the mic indicator goes away.
+        // Stop/restart engine across the switch for the same reason we
+        // do on the way in.
+        let wasRunning = engine.engine.isRunning
+        if wasRunning { engine.engine.stop() }
         do {
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
             try session.setActive(true, options: [])
         } catch {
-            // Non-fatal: the next play() call will retry session setup.
             lastError = error.localizedDescription
         }
+        if wasRunning { try? engine.engine.start() }
     }
 
     private func consumePitch(_ hz: Double) {
         if hz <= 0 {
-            // Decay smoothed value so the readout doesn't freeze on silence.
             smoothHz *= 0.85
             if smoothHz < 5 {
                 detectedHz = nil

@@ -40,6 +40,10 @@ struct ListenSheetView: View {
                 }
                 .padding(.vertical, 14)
 
+                // Live audio-level meter so the user can confirm the mic
+                // is being heard even when no stable pitch is detected.
+                levelMeter
+
                 Button {
                     applyDetectedRoot()
                 } label: {
@@ -81,6 +85,36 @@ struct ListenSheetView: View {
         // Refresh whenever the detector publishes a new pitch (or an error).
         .onReceive(vm.micPitch.$detectedHz) { _ in /* triggers redraw */ }
         .onReceive(vm.micPitch.$lastError) { _ in /* triggers redraw */ }
+    }
+
+    private var levelMeter: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(Color.white.opacity(0.10))
+                let pct = levelPercent
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color(red: 0.55, green: 0.76, blue: 1.0),
+                                     Color(red: 0.78, green: 0.55, blue: 1.0)],
+                            startPoint: .leading, endPoint: .trailing
+                        )
+                    )
+                    .frame(width: max(0, geo.size.width * CGFloat(pct)))
+                    .animation(.linear(duration: 0.07), value: pct)
+            }
+        }
+        .frame(height: 8)
+        .padding(.vertical, 4)
+    }
+
+    /// 0…1 mic level mapped logarithmically (−60 dB → 0, 0 dB → 1).
+    private var levelPercent: Double {
+        let l = Double(vm.micPitch.inputLevel)
+        if l <= 0 { return 0 }
+        let dB = 20.0 * log10(l)
+        return min(1, max(0, (dB + 60.0) / 60.0))
     }
 
     private var statusLine: String {

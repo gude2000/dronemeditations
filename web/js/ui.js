@@ -569,15 +569,26 @@ async function openListenSheet() {
     await startListening(onPitchTick);
     status.textContent = "Listening — hold a steady tone";
   } catch (err) {
-    status.textContent = "Microphone unavailable — " + (err && err.message ? err.message : "permission denied");
+    const msg = err && err.message ? err.message : "permission denied";
+    status.textContent = "Microphone unavailable — " + msg;
     document.getElementById("listen-pill").classList.remove("listening");
+    console.warn("[listen] getUserMedia failed:", err);
   }
 }
 
-function onPitchTick(hz) {
+function onPitchTick({ hz, level }) {
+  // Drive the live level meter (logarithmic so quiet sounds register).
+  const meter = document.getElementById("listen-meter-fill");
+  if (meter) {
+    // Map ~−60 dB → 0%, 0 dB → 100%. Floor at -60 dB.
+    const dB = level > 0 ? 20 * Math.log10(level) : -100;
+    const pct = Math.max(0, Math.min(100, ((dB + 60) / 60) * 100));
+    meter.style.width = pct + "%";
+  }
+
   if (!hz) {
-    // Decay the displayed value toward 0 so it doesn't freeze on the last
-    // captured note when the room goes quiet.
+    // Decay displayed value toward 0 so the note doesn't freeze on the
+    // last captured pitch when the room goes quiet.
     displayHz *= 0.85;
     if (displayHz < 5) {
       lastDetectedPitch = null;
@@ -610,6 +621,8 @@ function resetReadout() {
   document.getElementById("listen-note").textContent = "—";
   document.getElementById("listen-hz").textContent = "— Hz";
   document.getElementById("listen-cents").textContent = "— cents";
+  const meter = document.getElementById("listen-meter-fill");
+  if (meter) meter.style.width = "0%";
 }
 
 function stopListeningCleanup() {

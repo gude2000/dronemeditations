@@ -10,7 +10,8 @@
 
 const MIN_FREQ = 70;
 const MAX_FREQ = 2000;
-const RMS_FLOOR = 0.005;     // below this the buffer is treated as silence
+const RMS_FLOOR = 0.002;     // dropped from 0.005 so quiet/whispered sounds
+                              // still register the autocorrelation pass
 const PEAK_THRESH = 0.85;    // autocorrelation peak must be ≥ this fraction
                               // of best-found peak for confident detection
 
@@ -20,7 +21,13 @@ let analyser = null;
 let buf = null;
 let rafId = null;
 
-export async function startListening(onPitch) {
+/**
+ * Start listening on the default microphone. `onUpdate` fires every animation
+ * frame with `{ hz, level }` where hz is detected pitch (or null when no
+ * stable pitch) and level is the buffer RMS [0..1] for a live audio-level
+ * indicator so the user can see the mic is alive even before a pitch lands.
+ */
+export async function startListening(onUpdate) {
   if (micStream) return;
   micStream = await navigator.mediaDevices.getUserMedia({
     audio: {
@@ -31,9 +38,16 @@ export async function startListening(onPitch) {
   });
   const AC = window.AudioContext || window.webkitAudioContext;
   micCtx = new AC();
+  // Critical: AudioContext often spawns suspended in modern browsers
+  // (Chrome/Safari autoplay policy). Without resume() the AnalyserNode
+  // never receives data → pitch detection silently fails.
+  if (micCtx.state === "suspended") {
+    try { await micCtx.resume(); } catch {}
+  }
   const source = micCtx.createMediaStreamSource(micStream);
   analyser = micCtx.createAnalyser();
   analyser.fftSize = 4096;     // ~93 ms window @ 44.1k — good for low pitches
+  analyser.smoothingTimeConstant = 0;  // we want raw time-domain data
   buf = new Float32Array(analyser.fftSize);
   source.connect(analyser);
   // (Don't connect analyser to destination — we don't want to hear the mic.)
@@ -41,8 +55,13 @@ export async function startListening(onPitch) {
   const tick = () => {
     rafId = requestAnimationFrame(tick);
     analyser.getFloatTimeDomainData(buf);
+    // RMS for the live level meter — always emit so UI can show activity
+    // even when no clean pitch can be extracted.
+    let sumSq = 0;
+    for (let i = 0; i < buf.length; i++) sumSq += buf[i] * buf[i];
+    const rms = Math.sqrt(sumSq / buf.length);
     const hz = autocorrelate(buf, micCtx.sampleRate);
-    onPitch(hz > 0 ? hz : null);
+    onUpdate({ hz: hz > 0 ? hz : null, level: rms });
   };
   tick();
 }
