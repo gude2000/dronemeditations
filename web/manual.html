@@ -272,7 +272,7 @@
     <li><a href="#chord">Chord, key, octave</a></li>
     <li><a href="#tuning">Tuning systems</a></li>
     <li><a href="#presets">Presets &amp; voice presets</a></li>
-    <li><a href="#fx">Per-voice FX (filter, delay, reverb)</a></li>
+    <li><a href="#fx">Per-voice FX (filter, FM, chorus, delay, reverb)</a></li>
     <li><a href="#lfos">The 4 LFOs</a></li>
     <li><a href="#samples">Samples</a></li>
     <li><a href="#pills">Drift · Listen · Perform · Journey · Gallery</a></li>
@@ -479,13 +479,21 @@
 
 <!-- ───────────────── FX ───────────────── -->
 <section id="fx">
-  <h2><span class="num">7</span>Per-voice FX — filter, delay, reverb</h2>
-  <p class="lede">Each oscillator has its own filter, delay, and reverb so voices can sit in very different spaces.</p>
+  <h2><span class="num">7</span>Per-voice FX — filter, FM, chorus, delay, reverb</h2>
+  <p class="lede">Each oscillator has its own filter and FX chain — vertical order on the strip is <strong>FM → Chorus → Delay → Reverb</strong> so voices can sit in very different spaces.</p>
 
   <div class="grid-2">
     <div class="card">
       <h4>Filter</h4>
       <p>Mode (LP / HP / BP), cutoff, resonance. LFO 2 by default modulates cutoff. Use BP + high Q for "vowel" sweeps; LP + low Q for warm pads.</p>
+    </div>
+    <div class="card">
+      <h4>FM (cross-oscillator)</h4>
+      <p>Pick one of the <em>other</em> three voices as the modulator from the <strong>source</strong> dropdown, then dial <strong>index</strong> (0–800 Hz, log). The modulator's raw oscillator signal is scaled by index and added to the carrier's frequency — small values give vibrato, mid values give chime-like timbres, large values give bell or FM-bass character. Set source to <em>Off</em> to disable.</p>
+    </div>
+    <div class="card">
+      <h4>Chorus (stereo)</h4>
+      <p>Two short delay lines fed by the post-filter signal, modulated by a sine LFO whose L/R phases are offset by <strong>width × π</strong>. <strong>Rate</strong> 0.05–6 Hz, <strong>depth</strong> 0–1 (±12 ms swing at depth = 1), <strong>width</strong> 0–1 (full counter-phase at 1.0), <strong>mix</strong> 0–1. The chorus's stereo width persists regardless of pan position.</p>
     </div>
     <div class="card">
       <h4>Reverb</h4>
@@ -582,6 +590,8 @@
     <li><strong>Body Scan</strong>, <strong>Cathedral</strong>, <strong>Mountain Climb</strong>, <strong>Vespers</strong>, <strong>Crystal Cave</strong>, <strong>Phi Spiral</strong>, <strong>Quartz</strong>, <strong>Lullaby</strong>, <strong>Tibetan Bowl</strong>, <strong>Storm Front</strong>, <strong>Centering</strong>, <strong>Spiral Descent</strong>.</li>
   </ul>
   <p>The session timer auto-sets to the journey total. <strong>Stop</strong> halts both the journey scheduler and the transport.</p>
+
+  <p><strong>Compose your own.</strong> The "＋ Create your own journey" button at the top of the Journey sheet opens a composer where you name a journey and add any number of stages — each one a preset + drift scene + duration (0.5–90 minutes). User journeys are saved locally and appear in a "Your journeys" section above the curated list, with pencil (edit) and × (delete) controls.</p>
 
   <h3>GALLERY — cymatics snapshots (web)</h3>
   <p>Every snapshot you save in the pop-out Chladni window is mirrored here. Tap a thumbnail to re-download; the <strong>×</strong> button removes it from the gallery only — already-downloaded PNGs aren't touched. Capped at 200 to keep localStorage healthy.</p>
