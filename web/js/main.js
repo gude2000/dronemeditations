@@ -52,7 +52,7 @@ const state = {
   sessionDuration: 15 * 60,   // 0 means open
   elapsed: 0,
   isRecording: false,         // mirrors engine.isRecording() for the UI
-  driftEnabled: false,        // generative slow-drift mode
+  driftMode: "off",           // "off" | "glacial" | "down" | "up" | "downup" | "updown"
 
   // User-saved presets
   userPresets: loadUserPresets()
@@ -444,11 +444,12 @@ const actions = {
     renderAll();
   },
 
-  toggleDrift() {
-    if (state.driftEnabled) {
+  setDriftMode(mode) {
+    if (state.driftMode === mode) return;
+    if (mode === "off") {
       stopDrift();
     } else {
-      startDrift();
+      startDrift(mode);
     }
   },
 
@@ -505,16 +506,29 @@ const actions = {
 };
 
 // ──────────────────────────────────────────────────
-// Generative drift — bounded random walks on freq/pan/amp over minutes.
-// Snapshots baselines at start so the wander stays musically close to
-// where the user left things. Lerp + slow retargeting → meditative, not
-// chaotic.
+// Drift modes
+//
+//   off      — disabled
+//   glacial  — bounded random walks on freq/pan/amp; targets re-roll
+//              every 30–60 s, lerped slowly. Wandering, not chaotic.
+//   down     — every voice slides smoothly to baseFreq/2 over sessionDur
+//   up       — every voice slides to baseFreq*2 over sessionDur
+//   downup   — V journey: down to baseFreq/2 by session mid, back to base
+//   updown   — ^ journey: up to baseFreq*2 by session mid, back to base
+//
+// All deterministic modes use sessionDuration (or 15 min if Open). When
+// progress reaches 1.0 the journey is complete; the voices simply hold at
+// their final value (which is the baseline for V/^ shapes, or ±1 oct for
+// linear up/down).
 // ──────────────────────────────────────────────────
 let driftIntervalId = null;
+let driftStartMs = 0;
 const driftVoices = [];   // per-osc {baseFreq, basePan, baseAmp, freqTarget, panTarget, ampTarget, nextRetargetAt}
 
-function startDrift() {
-  if (state.driftEnabled) return;
+function startDrift(mode) {
+  // Restarting from a new mode → snapshot fresh baselines from current
+  // oscillator values. (If the user was already in a journey, their current
+  // values become the new "base" — we don't jump back to a remembered one.)
   driftVoices.length = 0;
   for (const o of state.oscillators) {
     driftVoices.push({
@@ -527,21 +541,35 @@ function startDrift() {
       nextRetargetAt: 0
     });
   }
-  state.driftEnabled = true;
+  state.driftMode = mode;
+  driftStartMs = Date.now();
+  if (driftIntervalId) clearInterval(driftIntervalId);
   driftIntervalId = setInterval(driftTick, 1000);
   renderAll();
 }
 
 function stopDrift() {
-  state.driftEnabled = false;
+  state.driftMode = "off";
+  driftVoices.length = 0;
   if (driftIntervalId) clearInterval(driftIntervalId);
   driftIntervalId = null;
   renderAll();
 }
 
 function driftTick() {
+  const mode = state.driftMode;
+  if (mode === "off") return;
+
+  if (mode === "glacial") {
+    glacialTick();
+  } else {
+    journeyTick(mode);
+  }
+  renderAll();
+}
+
+function glacialTick() {
   const now = Date.now();
-  // Lerp coefficient — small → glacial, smooth motion.
   const lerp = 0.05;
   for (let i = 0; i < driftVoices.length; i++) {
     const v = driftVoices[i];
@@ -549,12 +577,10 @@ function driftTick() {
     if (!v || !osc) continue;
 
     if (now >= v.nextRetargetAt) {
-      // Wander ±half-semitone from baseline; ±0.3 pan; ±0.15 amp.
       const cents = (Math.random() - 0.5) * 100;          // ±50 cents
       v.freqTarget = v.baseFreq * Math.pow(2, cents / 1200);
       v.panTarget  = Math.max(-1, Math.min(1, v.basePan + (Math.random() - 0.5) * 0.6));
       v.ampTarget  = Math.max(0.1, Math.min(1, v.baseAmp + (Math.random() - 0.5) * 0.3));
-      // 30–60s until next retarget — keeps motion patient.
       v.nextRetargetAt = now + 30000 + Math.random() * 30000;
     }
 
@@ -562,8 +588,6 @@ function driftTick() {
     const newPan  = osc.pan         + (v.panTarget  - osc.pan)         * lerp;
     const newAmp  = osc.amplitude   + (v.ampTarget  - osc.amplitude)   * lerp;
 
-    // Use the engine setters directly (skip actions.setFrequency etc) so we
-    // don't clear activePresetName or trigger full renderAll on every tick.
     osc.frequencyHz = newFreq;
     osc.pan = newPan;
     osc.amplitude = newAmp;
@@ -571,8 +595,32 @@ function driftTick() {
     engine.setPan(i, newPan);
     engine.setAmplitude(i, newAmp);
   }
-  // One UI sync per tick for slider readouts; lightweight.
-  renderAll();
+}
+
+// Deterministic ±1-octave pitch journeys over sessionDuration.
+function journeyTick(mode) {
+  const sessionSec = state.sessionDuration > 0 ? state.sessionDuration : 15 * 60;
+  const progress = Math.min(1, Math.max(0, (Date.now() - driftStartMs) / (sessionSec * 1000)));
+
+  let octaveOffset = 0;
+  switch (mode) {
+    case "down":   octaveOffset = -progress; break;
+    case "up":     octaveOffset =  progress; break;
+    case "downup": octaveOffset = progress < 0.5 ? -progress * 2          : -1 + (progress - 0.5) * 2; break;
+    case "updown": octaveOffset = progress < 0.5 ?  progress * 2          :  1 - (progress - 0.5) * 2; break;
+  }
+
+  // Light smoothing so 1 Hz sample rate doesn't produce audible step-frets.
+  const lerp = 0.30;
+  for (let i = 0; i < driftVoices.length; i++) {
+    const v = driftVoices[i];
+    const osc = state.oscillators[i];
+    if (!v || !osc) continue;
+    const target = v.baseFreq * Math.pow(2, octaveOffset);
+    const newFreq = osc.frequencyHz + (target - osc.frequencyHz) * lerp;
+    osc.frequencyHz = newFreq;
+    engine.setFrequency(i, newFreq);
+  }
 }
 
 function restoreLfoTargetBase(oscIndex, target) {

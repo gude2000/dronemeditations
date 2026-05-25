@@ -28,10 +28,34 @@ final class DroneViewModel: ObservableObject {
 
     @Published var userPresets: [UserPreset] = UserPresetStore.load()
 
-    /// True while generative slow-drift mode is running. Voices wander
-    /// gently (±half-semitone freq, ±0.3 pan, ±0.15 amp) around their
-    /// values at the moment drift was turned on. Toggled by `toggleDrift()`.
-    @Published private(set) var isDriftEnabled: Bool = false
+    /// Drift mode selection. `off` disables. `glacial` is the original random
+    /// wander. `down`, `up`, `downUp`, `upDown` are deterministic ±1-octave
+    /// pitch journeys spread across the meditation session duration.
+    enum DriftMode: String, CaseIterable, Identifiable {
+        case off, glacial, down, up, downUp, upDown
+        var id: String { rawValue }
+        var label: String {
+            switch self {
+            case .off:     return "Off"
+            case .glacial: return "Glacial"
+            case .down:    return "Down 1 oct"
+            case .up:      return "Up 1 oct"
+            case .downUp:  return "Down / Up"
+            case .upDown:  return "Up / Down"
+            }
+        }
+        var hint: String {
+            switch self {
+            case .off:     return "No drift"
+            case .glacial: return "Gentle random wander"
+            case .down:    return "Slowly descend an octave"
+            case .up:      return "Slowly ascend an octave"
+            case .downUp:  return "Descend then return"
+            case .upDown:  return "Ascend then return"
+            }
+        }
+    }
+    @Published private(set) var driftMode: DriftMode = .off
 
     let audioEngine: AudioEngine
     let controller: DroneController
@@ -462,12 +486,13 @@ final class DroneViewModel: ObservableObject {
         activePresetName = nil
     }
 
-    // MARK: - Generative drift mode
+    // MARK: - Drift modes
+    //
+    // Off / Glacial = random wander around captured baselines.
+    // Down / Up / Down-Up / Up-Down = deterministic pitch journeys covering
+    // ±1 octave over the session duration (or a 15 min fallback for Open
+    // sessions). Snapshot baselines at mode-set time.
 
-    /// Per-voice drift state: baseline values captured at toggle-on time,
-    /// current targets, and the next retarget timestamp (in seconds since
-    /// drift started). Keeps the wander musically anchored to the starting
-    /// preset instead of letting it run away over a long session.
     private struct DriftVoice {
         var baseFreq: Double, basePan: Double, baseAmp: Double
         var freqTarget: Double, panTarget: Double, ampTarget: Double
@@ -475,12 +500,18 @@ final class DroneViewModel: ObservableObject {
     }
     private var driftVoices: [DriftVoice] = []
     private var driftTimer: Timer?
+    private var driftStart: Date = .distantPast
 
-    func toggleDrift() {
-        if isDriftEnabled { stopDrift() } else { startDrift() }
+    func setDriftMode(_ mode: DriftMode) {
+        guard mode != driftMode else { return }
+        if mode == .off {
+            stopDrift()
+        } else {
+            startDrift(mode)
+        }
     }
 
-    private func startDrift() {
+    private func startDrift(_ mode: DriftMode) {
         driftVoices = oscillators.map {
             DriftVoice(
                 baseFreq: $0.frequencyHz, basePan: $0.pan, baseAmp: $0.amplitude,
@@ -488,7 +519,8 @@ final class DroneViewModel: ObservableObject {
                 nextRetargetAt: .distantPast
             )
         }
-        isDriftEnabled = true
+        driftMode = mode
+        driftStart = Date()
         driftTimer?.invalidate()
         driftTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.driftTick() }
@@ -498,14 +530,19 @@ final class DroneViewModel: ObservableObject {
     private func stopDrift() {
         driftTimer?.invalidate()
         driftTimer = nil
-        isDriftEnabled = false
+        driftMode = .off
         driftVoices.removeAll()
     }
 
-    /// One drift step: per voice, occasionally pick new targets within the
-    /// bounded "humming around the preset" range, then lerp the current
-    /// values toward those targets so motion is glacial and continuous.
     private func driftTick() {
+        switch driftMode {
+        case .off: return
+        case .glacial: glacialTick()
+        default: journeyTick(driftMode)
+        }
+    }
+
+    private func glacialTick() {
         let now = Date()
         let lerp = 0.05
         for i in 0..<driftVoices.count {
@@ -514,7 +551,7 @@ final class DroneViewModel: ObservableObject {
             let o = oscillators[i]
 
             if now >= v.nextRetargetAt {
-                let cents = (Double.random(in: -1...1)) * 50.0    // ±50 cents from base
+                let cents = Double.random(in: -1...1) * 50.0
                 v.freqTarget = v.baseFreq * pow(2.0, cents / 1200.0)
                 v.panTarget  = max(-1, min(1, v.basePan + Double.random(in: -0.3...0.3)))
                 v.ampTarget  = max(0.1, min(1, v.baseAmp + Double.random(in: -0.15...0.15)))
@@ -532,6 +569,31 @@ final class DroneViewModel: ObservableObject {
             audioEngine.setPan(newPan, for: i)
             audioEngine.setAmplitude(newAmp, for: i)
             driftVoices[i] = v
+        }
+    }
+
+    private func journeyTick(_ mode: DriftMode) {
+        let sessionSec = controller.sessionDuration > 0 ? controller.sessionDuration : 15 * 60
+        let progress = min(1, max(0, Date().timeIntervalSince(driftStart) / sessionSec))
+
+        let octaveOffset: Double
+        switch mode {
+        case .down:   octaveOffset = -progress
+        case .up:     octaveOffset =  progress
+        case .downUp: octaveOffset = progress < 0.5 ? -progress * 2          : -1 + (progress - 0.5) * 2
+        case .upDown: octaveOffset = progress < 0.5 ?  progress * 2          :  1 - (progress - 0.5) * 2
+        default:      octaveOffset = 0
+        }
+
+        let lerp = 0.30
+        for i in 0..<driftVoices.count {
+            guard i < oscillators.count else { continue }
+            let v = driftVoices[i]
+            let o = oscillators[i]
+            let target = v.baseFreq * pow(2.0, octaveOffset)
+            let newFreq = o.frequencyHz + (target - o.frequencyHz) * lerp
+            oscillators[i].frequencyHz = newFreq
+            audioEngine.setFrequency(newFreq, for: i)
         }
     }
 }

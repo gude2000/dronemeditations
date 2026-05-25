@@ -42,7 +42,7 @@ export function initUI(state, actions) {
   // Wire static event handlers.
   document.getElementById("chord-pill").addEventListener("click", () => openSheet("chord-sheet"));
   document.getElementById("preset-pill").addEventListener("click", () => openSheet("preset-sheet"));
-  document.getElementById("drift-pill").addEventListener("click", () => dispatch.toggleDrift());
+  document.getElementById("drift-pill").addEventListener("click", openDriftMenu);
   document.getElementById("listen-pill").addEventListener("click", openListenSheet);
   document.getElementById("performance-pill").addEventListener("click", enterPerformance);
   document.getElementById("performance-exit").addEventListener("click", exitPerformance);
@@ -107,8 +107,8 @@ export function renderAll() {
     `${PITCH_CLASSES[s.keyId].name} ${CHORDS.find((c) => c.id === s.chordId).name}`;
   document.getElementById("preset-pill-value").textContent = s.activePresetName || "—";
   const driftPill = document.getElementById("drift-pill");
-  document.getElementById("drift-pill-value").textContent = s.driftEnabled ? "On" : "Off";
-  driftPill.classList.toggle("active", !!s.driftEnabled);
+  document.getElementById("drift-pill-value").textContent = DRIFT_MODE_LABELS[s.driftMode] || "Off";
+  driftPill.classList.toggle("active", s.driftMode !== "off");
 
   document.getElementById("master-volume").value = s.masterVolume;
   document.getElementById("master-volume").style.setProperty("--fill", `${Math.round(s.masterVolume * 100)}%`);
@@ -795,6 +795,72 @@ function syncTransport() {
   document.getElementById("time-readout").textContent = total ? `${elapsed} / ${total}` : elapsed;
   document.getElementById("duration-label").textContent =
     s.sessionDuration > 0 ? `${Math.round(s.sessionDuration / 60)} min` : "Open";
+}
+
+// Drift mode dropdown — same little floating-menu pattern as the duration
+// picker. Listed in a meditative order: Off, Glacial (random wander), then
+// the deterministic ±1-octave journeys (Down, Up, Down/Up, Up/Down).
+const DRIFT_MODE_OPTIONS = [
+  { id: "off",     label: "Off",          hint: "No drift" },
+  { id: "glacial", label: "Glacial",      hint: "Gentle random wander" },
+  { id: "down",    label: "Down 1 oct",   hint: "Slowly descend an octave" },
+  { id: "up",      label: "Up 1 oct",     hint: "Slowly ascend an octave" },
+  { id: "downup",  label: "Down / Up",    hint: "Descend then return" },
+  { id: "updown",  label: "Up / Down",    hint: "Ascend then return" },
+];
+const DRIFT_MODE_LABELS = Object.fromEntries(DRIFT_MODE_OPTIONS.map((o) => [o.id, o.label]));
+
+function openDriftMenu(e) {
+  let menu = document.getElementById("drift-menu");
+  if (menu) { menu.remove(); return; }
+
+  menu = document.createElement("div");
+  menu.id = "drift-menu";
+  menu.style.cssText = `
+    position: fixed; z-index: 30;
+    background: #111; border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 10px; padding: 6px; min-width: 220px;
+    display: flex; flex-direction: column; gap: 2px;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.5);
+  `;
+  const current = getState().driftMode;
+  for (const opt of DRIFT_MODE_OPTIONS) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.style.cssText = `
+      text-align: left; padding: 8px 12px; font-size: 13px;
+      color: #fff; background: ${opt.id === current ? "rgba(140,195,255,0.18)" : "transparent"};
+      border-radius: 6px;
+    `;
+    b.innerHTML = `<div style="font-weight:600">${opt.label}</div>` +
+                  `<div style="font-size:11px;color:rgba(255,255,255,0.55);margin-top:2px">${opt.hint}</div>`;
+    b.addEventListener("mouseenter", () => {
+      if (opt.id !== getState().driftMode) b.style.background = "rgba(255,255,255,0.06)";
+    });
+    b.addEventListener("mouseleave", () => {
+      b.style.background = opt.id === getState().driftMode ? "rgba(140,195,255,0.18)" : "transparent";
+    });
+    b.addEventListener("click", () => {
+      dispatch.setDriftMode(opt.id);
+      menu.remove();
+    });
+    menu.appendChild(b);
+  }
+
+  const rect = e.currentTarget.getBoundingClientRect();
+  menu.style.top = `${rect.bottom + 6}px`;
+  menu.style.left = `${rect.left}px`;
+  document.body.appendChild(menu);
+
+  setTimeout(() => {
+    const closer = (ev) => {
+      if (!menu.contains(ev.target)) {
+        menu.remove();
+        document.removeEventListener("click", closer);
+      }
+    };
+    document.addEventListener("click", closer);
+  }, 0);
 }
 
 // Lightweight inline duration picker — opens a small floating menu.

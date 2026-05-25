@@ -100,12 +100,22 @@ struct ControlsOverlay: View {
                 }
                 .buttonStyle(.plain)
 
-                Button {
-                    vm.toggleDrift()
+                Menu {
+                    ForEach(DroneViewModel.DriftMode.allCases) { mode in
+                        Button {
+                            vm.setDriftMode(mode)
+                        } label: {
+                            if mode == vm.driftMode {
+                                Label(mode.label, systemImage: "checkmark")
+                            } else {
+                                Text(mode.label)
+                            }
+                        }
+                    }
                 } label: {
                     driftPill
                 }
-                .buttonStyle(.plain)
+                .menuStyle(.borderlessButton)
 
                 Button {
                     showingListenSheet = true
@@ -128,9 +138,10 @@ struct ControlsOverlay: View {
         .padding(.top, 6)
     }
 
-    /// Tinted-when-on "DRIFT" pill that toggles generative slow-drift mode.
+    /// Pill that opens the drift-mode menu. Tinted when any active mode
+    /// (not .off) is selected; shows the current mode label.
     private var driftPill: some View {
-        let on = vm.isDriftEnabled
+        let on = vm.driftMode != .off
         return HStack(spacing: 6) {
             Image(systemName: on ? "wind.circle.fill" : "wind.circle")
                 .font(.caption.weight(.semibold))
@@ -138,11 +149,13 @@ struct ControlsOverlay: View {
                 Text("DRIFT")
                     .font(.system(size: 9, weight: .bold))
                     .foregroundStyle(on ? Color(red: 0.55, green: 0.76, blue: 1.0) : .white.opacity(0.6))
-                Text(on ? "On" : "Off")
+                Text(vm.driftMode.label)
                     .font(.system(.footnote, design: .rounded).weight(.semibold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
             }
+            Image(systemName: "chevron.down")
+                .font(.system(size: 9, weight: .bold))
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
