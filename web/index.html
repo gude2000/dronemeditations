@@ -255,12 +255,20 @@
         <div class="listen-meter" aria-label="Live audio input level">
           <div id="listen-meter-fill" class="listen-meter-fill"></div>
         </div>
-        <button id="listen-apply" class="sheet-save listen-apply" type="button" disabled>
-          Set as Root
-        </button>
+        <div class="listen-actions">
+          <button id="listen-apply" class="sheet-save listen-apply" type="button" disabled>
+            Set as Root
+          </button>
+          <button id="listen-reset" class="listen-reset" type="button"
+                  title="Clear the held pitch and start over">
+            Reset
+          </button>
+        </div>
         <p class="listen-hint">
           Hold a steady tone — voice, instrument, tuning fork. We'll detect the
-          nearest note and snap the chord generator's root key to match.
+          nearest note and snap the chord generator's root key to match. The
+          last detected pitch is <strong>held on screen</strong> until you tap
+          Reset or sing a new one — so you don't have to race the readout.
         </p>
       </div>
     </div>

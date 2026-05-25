@@ -9,7 +9,12 @@
 // or null when no stable pitch is detected (signal too quiet or aperiodic).
 
 const MIN_FREQ = 70;
-const MAX_FREQ = 2000;
+// 1500 Hz covers male & female voice fundamentals (~80–500 Hz), most pitched
+// instruments, and tuning forks (440–880 Hz). Narrowing from 2000 → 1500
+// reduces the chance YIN locks onto a very small lag (high "ghost" peak)
+// from formant noise. Defense in depth — the YIN math + clamp below already
+// catch this, but the tighter window makes false matches even rarer.
+const MAX_FREQ = 1500;
 const RMS_FLOOR = 0.002;     // dropped from 0.005 so quiet/whispered sounds
                               // still register the autocorrelation pass
 const PEAK_THRESH = 0.85;    // autocorrelation peak must be ≥ this fraction
@@ -96,8 +101,9 @@ export function isListening() {
 //      minimum.
 //   4. Parabolic interpolation on the CMNDF for sub-sample accuracy.
 //   5. Hard clamp to [MIN_FREQ, MAX_FREQ] as defense in depth.
-const YIN_THRESHOLD = 0.15;   // YIN paper recommends 0.10–0.15
-const YIN_ABSMAX = 0.5;       // reject very weak periodicity
+const YIN_THRESHOLD = 0.10;   // tightened from 0.15 — fewer false-positive
+                              // pitches from vocal formant / breath noise
+const YIN_ABSMAX = 0.4;       // reject very weak periodicity (was 0.5)
 
 function autocorrelate(buf, sampleRate) {
   const N = buf.length;

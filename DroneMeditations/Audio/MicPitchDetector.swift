@@ -11,8 +11,14 @@ import Combine
 /// algorithm as the web pitch-detect.js so the two platforms agree.
 @MainActor
 final class MicPitchDetector: ObservableObject {
-    /// Currently detected pitch in Hz, or nil when quiet/aperiodic.
+    /// Currently detected pitch in Hz. KEPT after the mic goes quiet so the
+    /// user has time to tap "Set as Root" — previously this decayed to nil
+    /// in ~0.5s and the readout disappeared mid-tap. Cleared explicitly via
+    /// `clearHeldPitch()` (Reset button) or replaced by a new stable pitch.
     @Published private(set) var detectedHz: Double?
+    /// True when `detectedHz` is being kept on screen even though the mic
+    /// has gone quiet. Used by the UI to dim the readout + show a "held" badge.
+    @Published private(set) var isHolding: Bool = false
     /// Live input RMS [0..1] so the UI can show a level meter and the user
     /// can confirm the mic is actually being heard even before a pitch lands.
     @Published private(set) var inputLevel: Float = 0
@@ -131,16 +137,35 @@ final class MicPitchDetector: ObservableObject {
     }
 
     private func consumePitch(_ hz: Double) {
-        if hz <= 0 {
-            smoothHz *= 0.85
-            if smoothHz < 5 {
-                detectedHz = nil
-                smoothHz = 0
-            }
+        // Display-layer clamp — defense in depth against the detector ever
+        // returning a value outside the human-voice / drone range. The
+        // autocorrelate() function already clamps to [MIN_FREQ, MAX_FREQ];
+        // this is a second line of defense for any regression that could
+        // possibly let a small-lag "ghost" pitch through.
+        let displayMin: Double = 60
+        let displayMax: Double = 1700
+        let valid = hz > 0 && hz >= displayMin && hz <= displayMax
+
+        if !valid {
+            // Mic went quiet (or returned garbage) — KEEP the last detected
+            // pitch on screen so the user has time to tap "Set as Root".
+            // Previously this faded to nil in ~0.5s, which made it nearly
+            // impossible to act on a brief stable note.
+            if detectedHz != nil { isHolding = true }
             return
         }
+        // Light smoothing on a fresh stable pitch.
         smoothHz = smoothHz > 0 ? smoothHz * 0.6 + hz * 0.4 : hz
         detectedHz = smoothHz
+        isHolding = false
+    }
+
+    /// Clear the held pitch — wired to the Reset button so the user can
+    /// start over without restarting the whole sheet.
+    func clearHeldPitch() {
+        detectedHz = nil
+        smoothHz = 0
+        isHolding = false
     }
 }
 
@@ -158,10 +183,13 @@ final class MicPitchDetector: ObservableObject {
 //   5. Hard clamp to [MIN_FREQ, MAX_FREQ] — defense in depth.
 
 private let MIN_FREQ: Double = 70
-private let MAX_FREQ: Double = 2000
+// 1500 Hz covers human voice + most pitched-instrument fundamentals.
+// Narrowing from 2000 reduces false-positive matches at very small lags.
+// Defense in depth alongside the hard clamp at the end of autocorrelate().
+private let MAX_FREQ: Double = 1500
 private let RMS_FLOOR: Double = 0.005
-private let YIN_THRESHOLD: Double = 0.15
-private let YIN_ABSMAX: Double = 0.5
+private let YIN_THRESHOLD: Double = 0.10   // tightened from 0.15
+private let YIN_ABSMAX: Double = 0.4       // tightened from 0.5
 
 private func autocorrelate(samples: UnsafePointer<Float>, count: Int, sampleRate: Double) -> Double {
     if count < 64 { return -1 }

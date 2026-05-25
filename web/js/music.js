@@ -199,7 +199,14 @@ const R = (hz) => ({ hz, pan: +1.0 });
 const C = (hz) => ({ hz, pan: 0.0 });
 const SILENT = { hz: 110, pan: 0.0, _silent: true };
 
+/// Rich voice spec for character-driven presets (Drone Artists category, etc.).
+/// All fields except `hz` are optional — applyPreset only pushes the fields
+/// that are defined, so other voice state survives untouched. Use this helper
+/// when a preset's *sound* (waveform, filter, FX) is part of its identity.
+const V = (spec) => ({ hz: spec.hz, pan: spec.pan ?? 0, ...spec });
+
 export const PRESET_CATEGORIES = [
+  "Drone Artists",
   "Binaural — 2 tone",
   "Binaural — 3 tone",
   "Binaural — 4 tone",
@@ -277,7 +284,362 @@ export const PRESETS = [
   { id: "solf_174", name: "Solfeggio 174 Hz",         category: "Solfeggio", sub: "Traditionally associated with grounding",          voices: [C(174), L(87),    R(348),  SILENT] },
   { id: "solf_285", name: "Solfeggio 285 Hz",         category: "Solfeggio", sub: "Traditionally associated with body restoration",   voices: [C(285), L(142.5), R(570),  SILENT] },
   { id: "solf_432", name: "Solfeggio 432 Hz (Verdi)", category: "Solfeggio", sub: "Alternative natural-tuning A",                     voices: [C(432), L(216),   R(864),  SILENT] },
-  { id: "solf_963", name: "Solfeggio 963 Hz",         category: "Solfeggio", sub: "Traditionally associated with the crown chakra",   voices: [C(963), L(481.5), R(1926), SILENT] }
+  { id: "solf_963", name: "Solfeggio 963 Hz",         category: "Solfeggio", sub: "Traditionally associated with the crown chakra",   voices: [C(963), L(481.5), R(1926), SILENT] },
+
+  // ─────────────────────────────────────────────────────────────────
+  // Drone Artists — tributes to pioneers of long-form drone music.
+  //
+  // These presets carry full voice character (waveform, filter, reverb,
+  // chorus, delay, sometimes LFOs + drift) so loading one captures the
+  // *sound* of the artist's signature, not just their pitch material.
+  // applyPreset pushes every defined field to the engine; undefined
+  // fields are left alone, so users can still tweak after loading.
+  //
+  // These are stylistic homages, not transcriptions — meant as starting
+  // points for the user to explore each artist's sound world.
+  // ─────────────────────────────────────────────────────────────────
+
+  // 1. Pauline Oliveros — Deep A Resonance.
+  //    Sustained A drone with slight detune for accordion-like sympathetic
+  //    beating, slow amp breathing per voice, long reverb. Tribute to
+  //    Deep Listening Band's church-resonance recordings.
+  {
+    id: "oliveros_a", name: "Oliveros — Deep A Resonance", category: "Drone Artists",
+    sub: "Pauline Oliveros · Deep Listening · slow A drone, sympathetic detune",
+    voices: [
+      V({ hz: 110.00,  pan: -0.4, wave: "sine", amp: 0.55, reverb: { decaySec: 8.0, mix: 0.40 },
+          lfos: [{ shape: "sine", target: "amp", rateHz: 0.07, depth: 0.30 }, null, null, null] }),
+      V({ hz: 220.12,  pan:  0.4, wave: "sine", amp: 0.50, reverb: { decaySec: 8.0, mix: 0.40 },
+          lfos: [{ shape: "sine", target: "amp", rateHz: 0.09, depth: 0.35 }, null, null, null] }),
+      V({ hz: 329.85,  pan: -0.2, wave: "sine", amp: 0.42, reverb: { decaySec: 8.0, mix: 0.40 },
+          lfos: [{ shape: "sine", target: "amp", rateHz: 0.06, depth: 0.40 }, null, null, null] }),
+      V({ hz: 440.00,  pan:  0.2, wave: "sine", amp: 0.38, reverb: { decaySec: 8.0, mix: 0.40 },
+          lfos: [{ shape: "sine", target: "amp", rateHz: 0.08, depth: 0.35 }, null, null, null] })
+    ]
+  },
+
+  // 2. Terry Riley — Rainbow Repetition.
+  //    Triangle-wave organ-like timbre, just-intoned C major (root + just-3rd
+  //    + 5th + octave-3rd), heavy ping-pong delay for cascading repetition
+  //    à la "A Rainbow in Curved Air" / "Persian Surgery Dervishes".
+  {
+    id: "riley_rainbow", name: "Riley — Rainbow Repetition", category: "Drone Artists",
+    sub: "Terry Riley · just-tuned C major + 1/8 ping-pong cascade",
+    voices: [
+      V({ hz: 130.81, pan:  0.00, wave: "triangle", amp: 0.50,
+          delay: { timeSec: 0.30, feedback: 0.65, mix: 0.40, mode: "pingPong", timing: "1/8" },
+          chorus: { rateHz: 0.6, depth: 0.5, width: 0.8, mix: 0.25 } }),
+      V({ hz: 196.22, pan: -0.4, wave: "triangle", amp: 0.45,
+          delay: { timeSec: 0.30, feedback: 0.65, mix: 0.40, mode: "pingPong", timing: "1/8" },
+          chorus: { rateHz: 0.6, depth: 0.5, width: 0.8, mix: 0.25 } }),
+      V({ hz: 261.63, pan:  0.4, wave: "triangle", amp: 0.45,
+          delay: { timeSec: 0.30, feedback: 0.65, mix: 0.40, mode: "pingPong", timing: "1/8" },
+          chorus: { rateHz: 0.6, depth: 0.5, width: 0.8, mix: 0.25 } }),
+      V({ hz: 327.04, pan: -0.1, wave: "triangle", amp: 0.42,
+          delay: { timeSec: 0.30, feedback: 0.65, mix: 0.40, mode: "pingPong", timing: "1/8" },
+          chorus: { rateHz: 0.6, depth: 0.5, width: 0.8, mix: 0.25 } })
+    ]
+  },
+
+  // 3. Éliane Radigue — Île Re-Sonante.
+  //    Two pairs of voices microtonally detuned (4 cents apart on the low,
+  //    0.3 Hz apart on the upper) so the air breathes at ~0.17–0.30 Hz —
+  //    the slow beating that defines her ARP 2500 work.
+  {
+    id: "radigue_ile", name: "Radigue — Île Re-Sonante", category: "Drone Artists",
+    sub: "Éliane Radigue · 4¢ + 0.3 Hz beating · static-seeming, ever-shifting",
+    voices: [
+      V({ hz:  73.42, pan: -0.5, wave: "sine", amp: 0.62, reverb: { decaySec: 7.0, mix: 0.30 } }),
+      V({ hz:  73.59, pan:  0.5, wave: "sine", amp: 0.62, reverb: { decaySec: 7.0, mix: 0.30 } }),
+      V({ hz: 220.00, pan: -0.2, wave: "sine", amp: 0.38, reverb: { decaySec: 7.0, mix: 0.30 } }),
+      V({ hz: 220.30, pan:  0.2, wave: "sine", amp: 0.38, reverb: { decaySec: 7.0, mix: 0.30 } })
+    ]
+  },
+
+  // 4. Stars of the Lid — Orchestral Halo.
+  //    Filtered saws to evoke bowed strings, slow cutoff LFO for swelling
+  //    inhale/exhale, long reverb + chorus for orchestral wash. A major
+  //    triad spread across two octaves.
+  {
+    id: "sotl_halo", name: "Stars of the Lid — Orchestral Halo", category: "Drone Artists",
+    sub: "Stars of the Lid · filtered-saw strings · A major halo, 10 s reverb",
+    voices: [
+      V({ hz: 110.00, pan: -0.4, wave: "sawtooth", amp: 0.50,
+          filter: { type: "lowpass", cutoffHz: 800, q: 1.5 },
+          reverb: { decaySec: 10.0, mix: 0.45 },
+          chorus: { rateHz: 0.4, depth: 0.5, width: 1.0, mix: 0.30 },
+          lfos: [null, { shape: "sine", target: "cutoff", rateHz: 0.05, depth: 0.35 }, null, null] }),
+      V({ hz: 164.81, pan:  0.4, wave: "sawtooth", amp: 0.45,
+          filter: { type: "lowpass", cutoffHz: 900, q: 1.5 },
+          reverb: { decaySec: 10.0, mix: 0.45 },
+          chorus: { rateHz: 0.4, depth: 0.5, width: 1.0, mix: 0.30 },
+          lfos: [null, { shape: "sine", target: "cutoff", rateHz: 0.04, depth: 0.35 }, null, null] }),
+      V({ hz: 220.00, pan: -0.2, wave: "sawtooth", amp: 0.40,
+          filter: { type: "lowpass", cutoffHz: 1100, q: 1.5 },
+          reverb: { decaySec: 10.0, mix: 0.45 },
+          chorus: { rateHz: 0.4, depth: 0.5, width: 1.0, mix: 0.30 },
+          lfos: [null, { shape: "sine", target: "cutoff", rateHz: 0.06, depth: 0.35 }, null, null] }),
+      V({ hz: 277.18, pan:  0.2, wave: "sawtooth", amp: 0.35,
+          filter: { type: "lowpass", cutoffHz: 1300, q: 1.5 },
+          reverb: { decaySec: 10.0, mix: 0.45 },
+          chorus: { rateHz: 0.4, depth: 0.5, width: 1.0, mix: 0.30 },
+          lfos: [null, { shape: "sine", target: "cutoff", rateHz: 0.05, depth: 0.35 }, null, null] })
+    ]
+  },
+
+  // 5. Sunn O))) — Onyx Tar.
+  //    Massive low E with octave doublings, filtered to remove top end,
+  //    square LFO on amplitude for slow tremolo pulse. CAUTION: lower
+  //    master volume — this stack is heavy.
+  {
+    id: "sunn_onyx", name: "Sunn O))) — Onyx Tar", category: "Drone Artists",
+    sub: "Sunn O))) · sub-bass E drone · square-LFO tremolo · drop master volume",
+    voices: [
+      V({ hz:  41.20, pan: -0.5, wave: "sawtooth", amp: 0.75,
+          filter: { type: "lowpass", cutoffHz: 350, q: 2.0 },
+          reverb: { decaySec: 9.0, mix: 0.45 },
+          lfos: [{ shape: "square", target: "amp", rateHz: 0.7, depth: 0.30 }, null, null, null] }),
+      V({ hz:  41.55, pan:  0.5, wave: "square",   amp: 0.70,
+          filter: { type: "lowpass", cutoffHz: 400, q: 1.8 },
+          reverb: { decaySec: 9.0, mix: 0.45 },
+          lfos: [{ shape: "square", target: "amp", rateHz: 0.7, depth: 0.30 }, null, null, null] }),
+      V({ hz:  82.40, pan:  0.0, wave: "sawtooth", amp: 0.55,
+          filter: { type: "lowpass", cutoffHz: 500, q: 1.5 },
+          reverb: { decaySec: 9.0, mix: 0.45 } }),
+      V({ hz: 123.47, pan:  0.1, wave: "sawtooth", amp: 0.40,
+          filter: { type: "lowpass", cutoffHz: 700, q: 1.5 },
+          reverb: { decaySec: 9.0, mix: 0.45 } })
+    ]
+  },
+
+  // 6. William Basinski — Disintegration.
+  //    Voice 1 acts as a slowly-decaying "tape loop": amp LFO fades it in
+  //    and out (~12 s cycle) and cutoff LFO progressively darkens it.
+  //    Other voices support in C major. 1/4 delay for repeated phrase.
+  {
+    id: "basinski_disint", name: "Basinski — Disintegration", category: "Drone Artists",
+    sub: "Basinski · tape-loop voice fading + filter-decay · C major support",
+    voices: [
+      V({ hz: 261.63, pan:  0.0, wave: "triangle", amp: 0.55,
+          filter: { type: "lowpass", cutoffHz: 1500, q: 1.0 },
+          delay: { timeSec: 0.50, feedback: 0.65, mix: 0.40, mode: "stereo", timing: "1/4" },
+          reverb: { decaySec: 7.0, mix: 0.40 },
+          lfos: [
+            { shape: "sine", target: "amp",    rateHz: 0.08, depth: 0.45 },
+            { shape: "sine", target: "cutoff", rateHz: 0.03, depth: 0.55 },
+            null, null
+          ] }),
+      V({ hz: 130.81, pan:  0.0, wave: "sine", amp: 0.45, reverb: { decaySec: 7.0, mix: 0.40 } }),
+      V({ hz: 392.00, pan: -0.3, wave: "sine", amp: 0.35, reverb: { decaySec: 7.0, mix: 0.40 } }),
+      V({ hz: 523.25, pan:  0.3, wave: "sine", amp: 0.32, reverb: { decaySec: 7.0, mix: 0.40 } })
+    ]
+  },
+
+  // 7. Phill Niblock — Tight Cluster.
+  //    Four sawtooth voices clustered within ~20 cents around A3 — wide
+  //    stereo pan so the close-interval beating moves around the room.
+  //    Short reverb because the cluster IS the room.
+  {
+    id: "niblock_cluster", name: "Niblock — Tight Cluster", category: "Drone Artists",
+    sub: "Phill Niblock · 4-voice microtonal cluster · beating as harmony",
+    voices: [
+      V({ hz: 220.00, pan: -0.8, wave: "sawtooth", amp: 0.45,
+          filter: { type: "lowpass", cutoffHz: 2000, q: 0.7 },
+          reverb: { decaySec: 3.0, mix: 0.20 } }),
+      V({ hz: 222.55, pan: -0.3, wave: "sawtooth", amp: 0.45,
+          filter: { type: "lowpass", cutoffHz: 2000, q: 0.7 },
+          reverb: { decaySec: 3.0, mix: 0.20 } }),
+      V({ hz: 218.45, pan:  0.3, wave: "sawtooth", amp: 0.45,
+          filter: { type: "lowpass", cutoffHz: 2000, q: 0.7 },
+          reverb: { decaySec: 3.0, mix: 0.20 } }),
+      V({ hz: 221.25, pan:  0.8, wave: "sawtooth", amp: 0.45,
+          filter: { type: "lowpass", cutoffHz: 2000, q: 0.7 },
+          reverb: { decaySec: 3.0, mix: 0.20 } })
+    ]
+  },
+
+  // 8. Charlemagne Palestine — Strumming Overtones.
+  //    Tribute to "Strumming Music" — heavily-chorused triangle + saw layers
+  //    with just-tuned D + F# (5/4) major-third pair, simulating the over-
+  //    tone richness of a strummed Bösendorfer.
+  {
+    id: "palestine_strum", name: "Palestine — Strumming Overtones", category: "Drone Artists",
+    sub: "Charlemagne Palestine · just D + 5/4 F# · piano-sustain chorus wash",
+    voices: [
+      V({ hz:  73.42, pan: -0.2, wave: "triangle", amp: 0.60,
+          chorus: { rateHz: 0.5, depth: 0.7, width: 1.0, mix: 0.40 },
+          reverb: { decaySec: 5.0, mix: 0.35 } }),
+      V({ hz:  91.78, pan:  0.2, wave: "triangle", amp: 0.50,
+          chorus: { rateHz: 0.5, depth: 0.7, width: 1.0, mix: 0.40 },
+          reverb: { decaySec: 5.0, mix: 0.35 } }),
+      V({ hz: 220.00, pan: -0.4, wave: "sawtooth", amp: 0.38,
+          filter: { type: "lowpass", cutoffHz: 2500, q: 0.7 },
+          chorus: { rateHz: 0.5, depth: 0.7, width: 1.0, mix: 0.40 },
+          reverb: { decaySec: 5.0, mix: 0.35 } }),
+      V({ hz: 293.66, pan:  0.4, wave: "sawtooth", amp: 0.38,
+          filter: { type: "lowpass", cutoffHz: 2800, q: 0.7 },
+          chorus: { rateHz: 0.5, depth: 0.7, width: 1.0, mix: 0.40 },
+          reverb: { decaySec: 5.0, mix: 0.35 } })
+    ]
+  },
+
+  // 9. Yoshi Wada — Bagpipe Drone.
+  //    Just-intoned A drone with perfect fifth (3/2) + just second (9/8),
+  //    sawtooth + LP filter + heavy chorus to simulate the multi-reed
+  //    interaction of bagpipes. Subtle 5 Hz pitch LFO for reed wobble.
+  {
+    id: "wada_bagpipe", name: "Wada — Bagpipe Drone", category: "Drone Artists",
+    sub: "Yoshi Wada · just A + 3/2 + 9/8 · reed wobble + multi-reed chorus",
+    voices: [
+      V({ hz: 110.00, pan:  0.0, wave: "sawtooth", amp: 0.65,
+          filter: { type: "lowpass", cutoffHz: 1800, q: 1.0 },
+          chorus: { rateHz: 0.7, depth: 0.6, width: 0.7, mix: 0.40 },
+          reverb: { decaySec: 4.0, mix: 0.30 },
+          lfos: [null, null, null, { shape: "sine", target: "pitch", rateHz: 5.0, depth: 0.02 }] }),
+      V({ hz: 220.00, pan: -0.4, wave: "sawtooth", amp: 0.45,
+          filter: { type: "lowpass", cutoffHz: 2200, q: 1.0 },
+          chorus: { rateHz: 0.7, depth: 0.6, width: 0.7, mix: 0.40 },
+          reverb: { decaySec: 4.0, mix: 0.30 } }),
+      V({ hz: 165.00, pan:  0.4, wave: "sawtooth", amp: 0.42,
+          filter: { type: "lowpass", cutoffHz: 2000, q: 1.0 },
+          chorus: { rateHz: 0.7, depth: 0.6, width: 0.7, mix: 0.40 },
+          reverb: { decaySec: 4.0, mix: 0.30 } }),
+      V({ hz: 247.50, pan: -0.2, wave: "sawtooth", amp: 0.30,
+          filter: { type: "lowpass", cutoffHz: 2500, q: 1.0 },
+          chorus: { rateHz: 0.7, depth: 0.6, width: 0.7, mix: 0.40 },
+          reverb: { decaySec: 4.0, mix: 0.30 } })
+    ]
+  },
+
+  // 10. Harold Budd — Pearl Pad.
+  //     Soft sine + triangle, C major7, slow amp LFO breathing, very long
+  //     reverb. Mirror of the gentle suspended pads of "The Pearl" (with
+  //     Eno) and "The Pavilion of Dreams".
+  {
+    id: "budd_pearl", name: "Budd — Pearl Pad", category: "Drone Artists",
+    sub: "Harold Budd · soft Cmaj7 pad · breathing amp LFO · 9 s reverb halo",
+    voices: [
+      V({ hz: 130.81, pan: -0.3, wave: "sine", amp: 0.50,
+          reverb: { decaySec: 9.0, mix: 0.50 },
+          chorus: { rateHz: 0.3, depth: 0.4, width: 0.6, mix: 0.25 },
+          lfos: [{ shape: "sine", target: "amp", rateHz: 0.04, depth: 0.40 }, null, null, null] }),
+      V({ hz: 196.00, pan:  0.3, wave: "sine", amp: 0.45,
+          reverb: { decaySec: 9.0, mix: 0.50 },
+          chorus: { rateHz: 0.3, depth: 0.4, width: 0.6, mix: 0.25 },
+          lfos: [{ shape: "sine", target: "amp", rateHz: 0.05, depth: 0.40 }, null, null, null] }),
+      V({ hz: 261.63, pan: -0.2, wave: "triangle", amp: 0.38,
+          reverb: { decaySec: 9.0, mix: 0.50 },
+          chorus: { rateHz: 0.3, depth: 0.4, width: 0.6, mix: 0.25 },
+          lfos: [{ shape: "sine", target: "amp", rateHz: 0.03, depth: 0.40 }, null, null, null] }),
+      V({ hz: 329.63, pan:  0.2, wave: "triangle", amp: 0.35,
+          reverb: { decaySec: 9.0, mix: 0.50 },
+          chorus: { rateHz: 0.3, depth: 0.4, width: 0.6, mix: 0.25 },
+          lfos: [{ shape: "sine", target: "amp", rateHz: 0.045, depth: 0.40 }, null, null, null] })
+    ]
+  },
+
+  // 11. Alice Coltrane — Spiritual Organ.
+  //     Bb minor 7 organ stack (Wurlitzer/Hammond-ish saws with LP), pan-LFO
+  //     for Leslie rotation, fast chorus for Leslie tremolo, medium reverb.
+  {
+    id: "acoltrane_organ", name: "Coltrane — Spiritual Organ", category: "Drone Artists",
+    sub: "Alice Coltrane · Bbm7 organ · Leslie pan rotation + tremolo",
+    voices: [
+      V({ hz:  58.27, pan:  0.0, wave: "sawtooth", amp: 0.60,
+          filter: { type: "lowpass", cutoffHz: 1500, q: 1.0 },
+          chorus: { rateHz: 6.0, depth: 0.7, width: 1.0, mix: 0.50 },
+          reverb: { decaySec: 4.0, mix: 0.40 },
+          lfos: [null, null, { shape: "sine", target: "pan", rateHz: 0.8, depth: 0.40 }, null] }),
+      V({ hz: 116.54, pan: -0.4, wave: "sawtooth", amp: 0.45,
+          filter: { type: "lowpass", cutoffHz: 2000, q: 1.0 },
+          chorus: { rateHz: 6.0, depth: 0.7, width: 1.0, mix: 0.50 },
+          reverb: { decaySec: 4.0, mix: 0.40 },
+          lfos: [null, null, { shape: "sine", target: "pan", rateHz: 0.8, depth: 0.40 }, null] }),
+      V({ hz: 174.61, pan:  0.4, wave: "sawtooth", amp: 0.40,
+          filter: { type: "lowpass", cutoffHz: 2200, q: 1.0 },
+          chorus: { rateHz: 6.0, depth: 0.7, width: 1.0, mix: 0.50 },
+          reverb: { decaySec: 4.0, mix: 0.40 },
+          lfos: [null, null, { shape: "sine", target: "pan", rateHz: 0.8, depth: 0.40 }, null] }),
+      V({ hz: 207.65, pan:  0.0, wave: "triangle", amp: 0.36,
+          chorus: { rateHz: 6.0, depth: 0.7, width: 1.0, mix: 0.50 },
+          reverb: { decaySec: 4.0, mix: 0.40 } })
+    ]
+  },
+
+  // 12. Earth — Tar Pit (Earth 2 style).
+  //     Slower than Sunn O))) — very low B + perfect fourth, heavy reverb,
+  //     drift glacial-down so the whole drone descends across the session.
+  {
+    id: "earth_tarpit", name: "Earth — Tar Pit", category: "Drone Artists",
+    sub: "Earth (Carlson) · Earth-2 doom · low B + 4th · 10 s reverb",
+    voices: [
+      V({ hz:  30.87, pan: -0.3, wave: "sawtooth", amp: 0.70,
+          filter: { type: "lowpass", cutoffHz: 250, q: 2.0 },
+          reverb: { decaySec: 10.0, mix: 0.50 },
+          drift: { pitchMode: "glacial", pitchAmount: 0.3, panMode: "static", panAmount: 0, pitchPhase: 0, panPhase: 0 } }),
+      V({ hz:  41.20, pan:  0.3, wave: "sawtooth", amp: 0.65,
+          filter: { type: "lowpass", cutoffHz: 280, q: 1.8 },
+          reverb: { decaySec: 10.0, mix: 0.50 },
+          drift: { pitchMode: "glacial", pitchAmount: 0.3, panMode: "static", panAmount: 0, pitchPhase: 0.25, panPhase: 0 } }),
+      V({ hz:  61.74, pan:  0.0, wave: "square",   amp: 0.50,
+          filter: { type: "lowpass", cutoffHz: 400, q: 1.5 },
+          reverb: { decaySec: 10.0, mix: 0.50 } }),
+      V({ hz:  92.50, pan:  0.0, wave: "sine",     amp: 0.35,
+          reverb: { decaySec: 10.0, mix: 0.50 } })
+    ]
+  },
+
+  // 13. Nurse With Wound — Avant Tableau.
+  //     Stranger, asymmetric — mixed waveforms across voices, wide pan,
+  //     S&H LFO on osc-2 cutoff, FM-style cross-modulation (osc 4 → osc 1)
+  //     via a small modulation index, ping-pong 1/4-triplet delay.
+  {
+    id: "nww_tableau", name: "Nurse With Wound — Avant Tableau", category: "Drone Artists",
+    sub: "Nurse With Wound · asymmetric collage · cross-osc FM + ping-pong 1/4T",
+    voices: [
+      V({ hz:  87.31, pan: -0.8, wave: "sawtooth", amp: 0.50,
+          filter: { type: "lowpass", cutoffHz: 900, q: 1.0 },
+          fm: { sourceIndex: 3, index: 60 },
+          delay: { timeSec: 0.40, feedback: 0.55, mix: 0.30, mode: "pingPong", timing: "1/4t" },
+          reverb: { decaySec: 6.0, mix: 0.35 } }),
+      V({ hz: 233.08, pan:  0.8, wave: "square",   amp: 0.35,
+          filter: { type: "highpass", cutoffHz: 400, q: 2.5 },
+          reverb: { decaySec: 6.0, mix: 0.35 },
+          lfos: [null, { shape: "sh", target: "cutoff", rateHz: 0.15, depth: 0.55 }, null, null] }),
+      V({ hz: 311.13, pan: -0.3, wave: "sine",     amp: 0.30,
+          reverb: { decaySec: 6.0, mix: 0.35 } }),
+      V({ hz: 415.30, pan:  0.3, wave: "triangle", amp: 0.28,
+          reverb: { decaySec: 6.0, mix: 0.35 } })
+    ]
+  },
+
+  // 14. Keiji Haino — Spectral Shimmer.
+  //     Low D drone + high HP-filtered shimmer pair an octave + minor-3rd
+  //     apart, subtle pitch LFO on the shimmer voices, heavy chorus,
+  //     long reverb. Suggests Haino's filtered-feedback meditative pieces.
+  {
+    id: "haino_shimmer", name: "Haino — Spectral Shimmer", category: "Drone Artists",
+    sub: "Keiji Haino · D drone + HP shimmer · wobble + chorus halo",
+    voices: [
+      V({ hz:  73.42, pan:  0.0, wave: "sawtooth", amp: 0.55,
+          filter: { type: "lowpass", cutoffHz: 800, q: 2.0 },
+          chorus: { rateHz: 1.5, depth: 0.7, width: 1.0, mix: 0.50 },
+          reverb: { decaySec: 5.0, mix: 0.40 } }),
+      V({ hz: 880.00, pan: -0.6, wave: "sawtooth", amp: 0.22,
+          filter: { type: "highpass", cutoffHz: 600, q: 3.0 },
+          chorus: { rateHz: 1.5, depth: 0.7, width: 1.0, mix: 0.50 },
+          reverb: { decaySec: 5.0, mix: 0.40 },
+          lfos: [null, null, null, { shape: "sine", target: "pitch", rateHz: 0.8, depth: 0.05 }] }),
+      V({ hz: 1108.73, pan: 0.6, wave: "sawtooth", amp: 0.18,
+          filter: { type: "highpass", cutoffHz: 700, q: 3.0 },
+          chorus: { rateHz: 1.5, depth: 0.7, width: 1.0, mix: 0.50 },
+          reverb: { decaySec: 5.0, mix: 0.40 },
+          lfos: [null, null, null, { shape: "sine", target: "pitch", rateHz: 0.7, depth: 0.05 }] }),
+      V({ hz: 220.00, pan:  0.0, wave: "square",   amp: 0.25,
+          filter: { type: "lowpass", cutoffHz: 1500, q: 1.0 },
+          reverb: { decaySec: 5.0, mix: 0.40 } })
+    ]
+  }
 ];
 
 // ────────────────────────────────────────────────────────────
@@ -443,6 +805,52 @@ export const JOURNEYS = [
       { durationSec: 4 * 60, presetId: "ligeti_1", driftSceneId: "glacial",     hint: "Chromatic cluster · wander" },
       { durationSec: 4 * 60, presetId: "ligeti_3", driftSceneId: "crossing",    hint: "Quartertone cluster · crossing" },
       { durationSec: 4 * 60, presetId: "om",       driftSceneId: "convergence", hint: "OM · convergence resolve" }
+    ]
+  },
+
+  // ─────────────────────────────────────────────────────────────────
+  // Drone-music lineage journeys — guided tours through the new
+  // Drone Artists presets. Each one traces a thematic arc through
+  // 3 artists' sound worlds.
+  // ─────────────────────────────────────────────────────────────────
+  {
+    id: "deepListeningLineage",
+    name: "Deep Listening Lineage",
+    description: "45 min through Oliveros → Radigue → Stars of the Lid — the contemplative thread of 20th-century drone.",
+    stages: [
+      { durationSec: 15 * 60, presetId: "oliveros_a",  driftSceneId: "glacial",   hint: "Oliveros · breathing A drone" },
+      { durationSec: 15 * 60, presetId: "radigue_ile", driftSceneId: "breathing", hint: "Radigue · microtonal beating" },
+      { durationSec: 15 * 60, presetId: "sotl_halo",   driftSceneId: "aurora",    hint: "Stars of the Lid · orchestral halo" }
+    ]
+  },
+  {
+    id: "heavyResonance",
+    name: "Heavy Resonance",
+    description: "30 min of low-end immersion — Sunn O))) → Earth → Niblock. Lower master volume before starting.",
+    stages: [
+      { durationSec: 10 * 60, presetId: "sunn_onyx",       driftSceneId: "off",      hint: "Sunn O))) · sub-bass tremolo" },
+      { durationSec: 10 * 60, presetId: "earth_tarpit",    driftSceneId: "descend",  hint: "Earth · glacial descent" },
+      { durationSec: 10 * 60, presetId: "niblock_cluster", driftSceneId: "crossing", hint: "Niblock · beating cluster" }
+    ]
+  },
+  {
+    id: "minimalistArc",
+    name: "Minimalist Arc",
+    description: "25 min from Riley's repetition through Budd's pearls to Palestine's strummed overtones.",
+    stages: [
+      { durationSec:  8 * 60, presetId: "riley_rainbow",     driftSceneId: "off",      hint: "Riley · rainbow cascade" },
+      { durationSec: 10 * 60, presetId: "budd_pearl",        driftSceneId: "breathing",hint: "Budd · breathing pad" },
+      { durationSec:  7 * 60, presetId: "palestine_strum",   driftSceneId: "aurora",   hint: "Palestine · overtone wash" }
+    ]
+  },
+  {
+    id: "spiritualPath",
+    name: "Spiritual Path",
+    description: "35 min · Alice Coltrane's Leslie organ → Wada's bagpipe just-intonation → Haino's shimmer halo.",
+    stages: [
+      { durationSec: 12 * 60, presetId: "acoltrane_organ", driftSceneId: "aurora",   hint: "Coltrane · Leslie rotation" },
+      { durationSec: 13 * 60, presetId: "wada_bagpipe",    driftSceneId: "off",      hint: "Wada · reed drone" },
+      { durationSec: 10 * 60, presetId: "haino_shimmer",   driftSceneId: "ascend",   hint: "Haino · spectral shimmer" }
     ]
   }
 ];

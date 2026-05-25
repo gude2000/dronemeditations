@@ -380,11 +380,14 @@ body:has(.controls.hidden) #zoom-wrap,
   transition: width 70ms linear, opacity 200ms ease;
   opacity: 0.85;
 }
-.listen-apply {
-  display: block;
-  width: 100%;
-  padding: 12px;
+.listen-actions {
+  display: flex;
+  gap: 8px;
   margin-top: 12px;
+}
+.listen-apply {
+  flex: 1;
+  padding: 12px;
   border: 0;
   border-radius: 12px;
   background: var(--accent, #6aa9ff);
@@ -396,6 +399,39 @@ body:has(.controls.hidden) #zoom-wrap,
   background: rgba(255, 255, 255, 0.10);
   color: rgba(255, 255, 255, 0.45);
   cursor: default;
+}
+.listen-reset {
+  flex: 0 0 auto;
+  padding: 12px 18px;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.80);
+  font-size: 14px; font-weight: 500;
+  cursor: pointer;
+}
+.listen-reset:hover { background: rgba(255, 255, 255, 0.14); }
+
+/* When the displayed pitch is "held" (mic has gone quiet but the last
+   detected pitch is being kept on screen), dim it slightly and add a
+   small ◦ badge so the user knows the value is sticky, not live. */
+.listen-note[data-held="true"] {
+  opacity: 0.60;
+  position: relative;
+}
+.listen-note[data-held="true"]::after {
+  content: "held";
+  position: absolute;
+  right: -4px;
+  top: 8px;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 220, 170, 0.85);
+  background: rgba(255, 220, 170, 0.12);
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-weight: 600;
 }
 .listen-hint {
   font-size: 12px;

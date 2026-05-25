@@ -177,5 +177,51 @@ extension Journey {
                 Stage(durationSec: 4*60, presetName: "OM 136.1 Hz",                  driftSceneId: "convergence", hint: "OM · convergence resolve"),
             ]
         ),
+
+        // ───────────────────────────────────────────────────────────
+        // Drone-music lineage journeys — guided tours through the new
+        // Drone Artists presets. Each one traces a thematic arc through
+        // 3 artists' sound worlds.
+        // ───────────────────────────────────────────────────────────
+        Journey(
+            id: "deepListeningLineage",
+            name: "Deep Listening Lineage",
+            description: "45 min through Oliveros → Radigue → Stars of the Lid — the contemplative thread of 20th-century drone.",
+            stages: [
+                Stage(durationSec: 15*60, presetName: "Oliveros — Deep A Resonance",        driftSceneId: "glacial",   hint: "Oliveros · breathing A drone"),
+                Stage(durationSec: 15*60, presetName: "Radigue — Île Re-Sonante",            driftSceneId: "breathing", hint: "Radigue · microtonal beating"),
+                Stage(durationSec: 15*60, presetName: "Stars of the Lid — Orchestral Halo", driftSceneId: "aurora",    hint: "Stars of the Lid · orchestral halo"),
+            ]
+        ),
+        Journey(
+            id: "heavyResonance",
+            name: "Heavy Resonance",
+            description: "30 min of low-end immersion — Sunn O))) → Earth → Niblock. Lower master volume before starting.",
+            stages: [
+                Stage(durationSec: 10*60, presetName: "Sunn O))) — Onyx Tar",       driftSceneId: "off",      hint: "Sunn O))) · sub-bass tremolo"),
+                Stage(durationSec: 10*60, presetName: "Earth — Tar Pit",            driftSceneId: "descend",  hint: "Earth · glacial descent"),
+                Stage(durationSec: 10*60, presetName: "Niblock — Tight Cluster",    driftSceneId: "crossing", hint: "Niblock · beating cluster"),
+            ]
+        ),
+        Journey(
+            id: "minimalistArc",
+            name: "Minimalist Arc",
+            description: "25 min from Riley's repetition through Budd's pearls to Palestine's strummed overtones.",
+            stages: [
+                Stage(durationSec:  8*60, presetName: "Riley — Rainbow Repetition",     driftSceneId: "off",       hint: "Riley · rainbow cascade"),
+                Stage(durationSec: 10*60, presetName: "Budd — Pearl Pad",                driftSceneId: "breathing", hint: "Budd · breathing pad"),
+                Stage(durationSec:  7*60, presetName: "Palestine — Strumming Overtones", driftSceneId: "aurora",    hint: "Palestine · overtone wash"),
+            ]
+        ),
+        Journey(
+            id: "spiritualPath",
+            name: "Spiritual Path",
+            description: "35 min · Alice Coltrane's Leslie organ → Wada's bagpipe just-intonation → Haino's shimmer halo.",
+            stages: [
+                Stage(durationSec: 12*60, presetName: "Coltrane — Spiritual Organ", driftSceneId: "aurora", hint: "Coltrane · Leslie rotation"),
+                Stage(durationSec: 13*60, presetName: "Wada — Bagpipe Drone",        driftSceneId: "off",    hint: "Wada · reed drone"),
+                Stage(durationSec: 10*60, presetName: "Haino — Spectral Shimmer",    driftSceneId: "ascend", hint: "Haino · spectral shimmer"),
+            ]
+        ),
     ]
 }

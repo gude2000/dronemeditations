@@ -86,6 +86,8 @@ export function initUI(state, actions) {
     s.addEventListener("click", (e) => { if (e.target === s) closeSheet(s.id); })
   );
   document.getElementById("listen-apply").addEventListener("click", applyDetectedRoot);
+  const listenReset = document.getElementById("listen-reset");
+  if (listenReset) listenReset.addEventListener("click", clearHeldPitch);
 
   document.getElementById("octave-down").addEventListener("click", () => dispatch.setOctave(getState().octave - 1));
   document.getElementById("octave-up").addEventListener("click", () => dispatch.setOctave(getState().octave + 1));
@@ -780,6 +782,12 @@ async function populateInputDevices() {
   };
 }
 
+// Display-layer clamp — defense in depth against a runtime regression in the
+// pitch detector ever returning a frequency outside the human-voice / drone
+// range. Anything outside is ignored at display time too.
+const DISPLAY_MIN_HZ = 60;
+const DISPLAY_MAX_HZ = 1700;
+
 function onPitchTick({ hz, level }) {
   // Drive the live level meter (logarithmic so quiet sounds register).
   const meter = document.getElementById("listen-meter-fill");
@@ -790,14 +798,22 @@ function onPitchTick({ hz, level }) {
     meter.style.width = pct + "%";
   }
 
+  // Display-layer clamp — drop anything that somehow escaped the detector's
+  // own [MIN_FREQ, MAX_FREQ] clamp.
+  if (hz != null && (hz < DISPLAY_MIN_HZ || hz > DISPLAY_MAX_HZ)) {
+    hz = null;
+  }
+
   if (!hz) {
-    // Decay displayed value toward 0 so the note doesn't freeze on the
-    // last captured pitch when the room goes quiet.
-    displayHz *= 0.85;
-    if (displayHz < 5) {
-      lastDetectedPitch = null;
-      resetReadout();
-      document.getElementById("listen-apply").disabled = true;
+    // KEEP the last detected pitch on screen until either a new pitch comes
+    // in or the user explicitly clears it. Previously this decayed to zero
+    // in about half a second — too fast to tap "Set as Root" before the note
+    // disappeared. The audio-level meter still shows the mic is alive; a
+    // small "(held)" badge below the note tells the user the value is
+    // sticky. They can press "Reset" to clear or just sing a new pitch.
+    if (lastDetectedPitch != null) {
+      // Mark as held — UI shows a subtle indicator.
+      document.getElementById("listen-note").dataset.held = "true";
     }
     return;
   }
@@ -805,11 +821,24 @@ function onPitchTick({ hz, level }) {
   displayHz = displayHz > 0 ? displayHz * 0.6 + hz * 0.4 : hz;
   lastDetectedPitch = displayHz;
   const note = freqToNote(displayHz);
-  document.getElementById("listen-note").textContent = `${note.name}${note.octave}`;
+  const noteEl = document.getElementById("listen-note");
+  noteEl.textContent = `${note.name}${note.octave}`;
+  delete noteEl.dataset.held;
   document.getElementById("listen-hz").textContent = `${displayHz.toFixed(2)} Hz`;
   document.getElementById("listen-cents").textContent =
     `${note.cents >= 0 ? "+" : ""}${note.cents.toFixed(0)} cents`;
   document.getElementById("listen-apply").disabled = false;
+}
+
+/// Clear the held pitch — wired to the Reset button in the Listen sheet so
+/// the user can start over without restarting the whole sheet.
+function clearHeldPitch() {
+  lastDetectedPitch = null;
+  displayHz = 0;
+  resetReadout();
+  document.getElementById("listen-apply").disabled = true;
+  const noteEl = document.getElementById("listen-note");
+  if (noteEl) delete noteEl.dataset.held;
 }
 
 function applyDetectedRoot() {

@@ -582,6 +582,66 @@ final class DroneViewModel: ObservableObject {
             audioEngine.setFrequency(clamped, for: i)
             audioEngine.setPan(voice.pan, for: i)
             audioEngine.setMute(isSilentSlot, for: i)
+
+            // ─── Optional rich-voice fields (Drone Artists presets) ───
+            // Each block is no-op when the preset's voice didn't specify it,
+            // so simple presets (just hz + pan) keep their old behavior of
+            // leaving the user's per-voice tone untouched.
+            if let w = voice.wave {
+                oscillators[i].waveform = w
+                audioEngine.setWaveform(w, for: i)
+            }
+            if let a = voice.amp {
+                oscillators[i].amplitude = a
+                audioEngine.setAmplitude(a, for: i)
+            }
+            if let f = voice.filter {
+                oscillators[i].filter = f
+                audioEngine.setFilterType(f.type, for: i)
+                audioEngine.setFilterCutoff(f.cutoffHz, for: i)
+                audioEngine.setFilterQ(f.q, for: i)
+            }
+            if let r = voice.reverb {
+                oscillators[i].reverb = r
+                audioEngine.setReverbDecay(r.decaySec, for: i)
+                audioEngine.setReverbMix(r.mix, for: i)
+            }
+            if let d = voice.delay {
+                oscillators[i].delay = d
+                audioEngine.setDelayTime(d.timeSec, for: i)
+                audioEngine.setDelayFeedback(d.feedback, for: i)
+                audioEngine.setDelayMix(d.mix, for: i)
+                audioEngine.setDelayMode(d.mode, for: i)
+            }
+            if let ch = voice.chorus {
+                oscillators[i].chorus = ch
+                audioEngine.setChorusRate(ch.rateHz, for: i)
+                audioEngine.setChorusDepth(ch.depth, for: i)
+                audioEngine.setChorusWidth(ch.width, for: i)
+                audioEngine.setChorusMix(ch.mix, for: i)
+            }
+            if let fm = voice.fm {
+                oscillators[i].fm = fm
+                audioEngine.setFMSource(fm.sourceIndex, for: i)
+                audioEngine.setFMIndex(fm.index, for: i)
+            }
+            if let lfos = voice.lfos {
+                // nil entries leave that LFO alone; non-nil overwrite.
+                for k in 0..<min(lfos.count, 4) {
+                    guard let lfo = lfos[k] else { continue }
+                    oscillators[i].lfos[k] = lfo
+                    audioEngine.setLfoShape(lfo.shape, for: i, lfoIndex: k)
+                    audioEngine.setLfoTarget(lfo.target, for: i, lfoIndex: k)
+                    audioEngine.setLfoRate(lfo.rateHz, for: i, lfoIndex: k)
+                    audioEngine.setLfoDepth(lfo.depth, for: i, lfoIndex: k)
+                }
+            }
+            if let dr = voice.drift {
+                oscillators[i].drift = dr
+                // Push through the public setters so the drift timer reconciles.
+                setVoicePitchDrift(i, mode: dr.pitchMode)
+                setVoicePanDrift(i, mode: dr.panMode)
+            }
         }
         activePresetName = preset.name
     }

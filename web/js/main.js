@@ -194,6 +194,75 @@ const actions = {
       engine.setFrequency(i, hz);
       engine.setPan(i, v.pan);
       engine.setMute(i, state.oscillators[i].isMuted);
+
+      // ─── Optional rich-voice fields (used by Drone Artists presets) ───
+      // Each block is no-op when the preset's voice didn't specify it,
+      // so simple presets (just hz + pan) keep their old behavior of
+      // leaving the user's per-voice tone untouched.
+      if (v.wave != null) {
+        state.oscillators[i].waveform = v.wave;
+        engine.setWaveform(i, v.wave);
+      }
+      if (v.amp != null) {
+        state.oscillators[i].amplitude = v.amp;
+        engine.setAmplitude(i, v.amp);
+      }
+      if (v.filter) {
+        const f = { ...defaultFilter(), ...v.filter };
+        state.oscillators[i].filter = f;
+        engine.setFilterType(i, f.type);
+        engine.setFilterCutoff(i, f.cutoffHz);
+        engine.setFilterQ(i, f.q);
+      }
+      if (v.reverb) {
+        const r = { ...defaultReverb(), ...v.reverb };
+        state.oscillators[i].reverb = r;
+        engine.setReverbDecay(i, r.decaySec);
+        engine.setReverbMix(i, r.mix);
+      }
+      if (v.delay) {
+        const d = { ...defaultDelay(), ...v.delay };
+        state.oscillators[i].delay = d;
+        engine.setDelayTime(i, d.timeSec);
+        engine.setDelayFeedback(i, d.feedback);
+        engine.setDelayMix(i, d.mix);
+        engine.setDelayMode(i, d.mode);
+      }
+      if (v.chorus) {
+        const ch = { ...defaultChorus(), ...v.chorus };
+        state.oscillators[i].chorus = ch;
+        engine.setChorusRate(i, ch.rateHz);
+        engine.setChorusDepth(i, ch.depth);
+        engine.setChorusWidth(i, ch.width);
+        engine.setChorusMix(i, ch.mix);
+      }
+      if (v.fm) {
+        const fm = { ...defaultFM(), ...v.fm };
+        state.oscillators[i].fm = fm;
+        engine.setFMSource(i, fm.sourceIndex);
+        engine.setFMIndex(i, fm.index);
+      }
+      if (Array.isArray(v.lfos)) {
+        // The preset may supply nulls for "leave this LFO alone" — only
+        // overwrite the indexes it specified explicitly.
+        for (let k = 0; k < v.lfos.length && k < 4; k++) {
+          const lfo = v.lfos[k];
+          if (!lfo) continue;
+          const merged = { ...state.oscillators[i].lfos[k], ...lfo };
+          state.oscillators[i].lfos[k] = merged;
+          engine.setLfoShape(i, k, merged.shape);
+          engine.setLfoTarget(i, k, merged.target);
+          engine.setLfoRate(i, k, merged.rateHz);
+          engine.setLfoDepth(i, k, merged.depth);
+        }
+      }
+      if (v.drift) {
+        const dr = { ...defaultDrift(), ...v.drift };
+        state.oscillators[i].drift = dr;
+        // Push through the public setters so the drift timer reconciles itself.
+        setVoicePitchDrift(i, dr.pitchMode);
+        setVoicePanDrift(i, dr.panMode);
+      }
     }
     state.activePresetName = p.name;
     renderAll();

@@ -2,6 +2,10 @@ import Foundation
 
 /// A preset that fully populates all 4 oscillators (frequency + pan).
 /// Binaural presets use opposite-ear panning to create a difference-frequency beat.
+///
+/// Hashable conformance is manual (by name) because `Voice` carries optional
+/// nested structs (FilterState, DelayState, etc.) — composing Hashable across
+/// all of them adds noise and requires every nested type to opt in.
 struct Preset: Identifiable, Hashable {
     var id: String { name }
     let name: String
@@ -10,12 +14,48 @@ struct Preset: Identifiable, Hashable {
     /// (frequency Hz, pan -1..1) for each of 4 voices.
     let voices: [Voice]
 
-    struct Voice: Hashable {
+    static func == (lhs: Preset, rhs: Preset) -> Bool { lhs.name == rhs.name }
+    func hash(into hasher: inout Hasher) { hasher.combine(name) }
+
+    struct Voice {
         let hz: Double
         let pan: Double  // -1..+1
+        // All fields below are optional. applyPreset only pushes the ones that
+        // are non-nil so simple presets (just hz + pan) keep their existing
+        // behavior of leaving the user's per-voice tone untouched. These
+        // optional fields are how the Drone Artists category captures full
+        // sound character — waveform, FX, LFOs, drift — not just pitches.
+        let wave: Waveform?
+        let amp: Double?
+        let filter: FilterState?
+        let reverb: ReverbState?
+        let delay: DelayState?
+        let chorus: ChorusState?
+        let fm: FMState?
+        /// Per-LFO overrides. nil entries (or fewer than 4) leave the
+        /// corresponding LFO alone; non-nil entries replace it.
+        let lfos: [LfoState?]?
+        let drift: DriftVoiceConfig?
+
+        init(hz: Double, pan: Double = 0,
+             wave: Waveform? = nil, amp: Double? = nil,
+             filter: FilterState? = nil,
+             reverb: ReverbState? = nil,
+             delay: DelayState? = nil,
+             chorus: ChorusState? = nil,
+             fm: FMState? = nil,
+             lfos: [LfoState?]? = nil,
+             drift: DriftVoiceConfig? = nil) {
+            self.hz = hz; self.pan = pan
+            self.wave = wave; self.amp = amp
+            self.filter = filter; self.reverb = reverb
+            self.delay = delay; self.chorus = chorus
+            self.fm = fm; self.lfos = lfos; self.drift = drift
+        }
     }
 
     enum Category: String, CaseIterable {
+        case droneArtists = "Drone Artists"
         case binaural2 = "Binaural — 2 tone"
         case binaural3 = "Binaural — 3 tone"
         case binaural4 = "Binaural — 4 tone"
@@ -136,7 +176,288 @@ extension Preset {
         Preset("Solfeggio 174 Hz",         .solfeggio, subtitle: "Traditionally associated with grounding",       [C(174), L(87),    R(348),  silent]),
         Preset("Solfeggio 285 Hz",         .solfeggio, subtitle: "Traditionally associated with body restoration",[C(285), L(142.5), R(570),  silent]),
         Preset("Solfeggio 432 Hz (Verdi)", .solfeggio, subtitle: "Alternative natural-tuning A",                  [C(432), L(216),   R(864),  silent]),
-        Preset("Solfeggio 963 Hz",         .solfeggio, subtitle: "Traditionally associated with the crown chakra",[C(963), L(481.5), R(1926), silent])
+        Preset("Solfeggio 963 Hz",         .solfeggio, subtitle: "Traditionally associated with the crown chakra",[C(963), L(481.5), R(1926), silent]),
+
+        // ─────────────────────────────────────────────────────────────
+        // MARK: Drone Artists — tributes to long-form drone pioneers
+        //
+        // These presets carry full voice character (waveform, filter, FX,
+        // sometimes LFOs + drift) so loading captures the *sound* of the
+        // artist's signature, not just their pitches. Tributes, not
+        // transcriptions — starting points for exploring each sound world.
+        // ─────────────────────────────────────────────────────────────
+
+        // Pauline Oliveros — Deep A Resonance
+        Preset("Oliveros — Deep A Resonance", .droneArtists,
+               subtitle: "Pauline Oliveros · slow A drone, sympathetic detune",
+               [
+                Voice(hz: 110.00,  pan: -0.4, wave: .sine, amp: 0.55,
+                      reverb: ReverbState(decaySec: 8.0, mix: 0.40),
+                      lfos: [LfoState(shape: .sine, target: .amplitude, rateHz: 0.07, depth: 0.30), nil, nil, nil]),
+                Voice(hz: 220.12,  pan:  0.4, wave: .sine, amp: 0.50,
+                      reverb: ReverbState(decaySec: 8.0, mix: 0.40),
+                      lfos: [LfoState(shape: .sine, target: .amplitude, rateHz: 0.09, depth: 0.35), nil, nil, nil]),
+                Voice(hz: 329.85,  pan: -0.2, wave: .sine, amp: 0.42,
+                      reverb: ReverbState(decaySec: 8.0, mix: 0.40),
+                      lfos: [LfoState(shape: .sine, target: .amplitude, rateHz: 0.06, depth: 0.40), nil, nil, nil]),
+                Voice(hz: 440.00,  pan:  0.2, wave: .sine, amp: 0.38,
+                      reverb: ReverbState(decaySec: 8.0, mix: 0.40),
+                      lfos: [LfoState(shape: .sine, target: .amplitude, rateHz: 0.08, depth: 0.35), nil, nil, nil])
+               ]),
+
+        // Terry Riley — Rainbow Repetition
+        Preset("Riley — Rainbow Repetition", .droneArtists,
+               subtitle: "Terry Riley · just-tuned C major + 1/8 ping-pong cascade",
+               {
+                   let dly = DelayState(timeSec: 0.30, feedback: 0.65, mix: 0.40, mode: .pingPong, timing: .eighth)
+                   let cho = ChorusState(rateHz: 0.6, depth: 0.5, width: 0.8, mix: 0.25)
+                   return [
+                    Voice(hz: 130.81, pan:  0.0,  wave: .triangle, amp: 0.50, delay: dly, chorus: cho),
+                    Voice(hz: 196.22, pan: -0.4,  wave: .triangle, amp: 0.45, delay: dly, chorus: cho),
+                    Voice(hz: 261.63, pan:  0.4,  wave: .triangle, amp: 0.45, delay: dly, chorus: cho),
+                    Voice(hz: 327.04, pan: -0.1,  wave: .triangle, amp: 0.42, delay: dly, chorus: cho)
+                   ]
+               }()),
+
+        // Éliane Radigue — Île Re-Sonante
+        Preset("Radigue — Île Re-Sonante", .droneArtists,
+               subtitle: "Éliane Radigue · 4¢ + 0.3 Hz beating · static-seeming, ever-shifting",
+               {
+                   let rev = ReverbState(decaySec: 7.0, mix: 0.30)
+                   return [
+                    Voice(hz:  73.42, pan: -0.5, wave: .sine, amp: 0.62, reverb: rev),
+                    Voice(hz:  73.59, pan:  0.5, wave: .sine, amp: 0.62, reverb: rev),
+                    Voice(hz: 220.00, pan: -0.2, wave: .sine, amp: 0.38, reverb: rev),
+                    Voice(hz: 220.30, pan:  0.2, wave: .sine, amp: 0.38, reverb: rev)
+                   ]
+               }()),
+
+        // Stars of the Lid — Orchestral Halo
+        Preset("Stars of the Lid — Orchestral Halo", .droneArtists,
+               subtitle: "Stars of the Lid · filtered-saw strings · A major halo, 10 s reverb",
+               {
+                   let rev = ReverbState(decaySec: 10.0, mix: 0.45)
+                   let cho = ChorusState(rateHz: 0.4, depth: 0.5, width: 1.0, mix: 0.30)
+                   func mkLFO(_ rate: Double) -> [LfoState?] {
+                       [nil, LfoState(shape: .sine, target: .cutoff, rateHz: rate, depth: 0.35), nil, nil]
+                   }
+                   return [
+                    Voice(hz: 110.00, pan: -0.4, wave: .sawtooth, amp: 0.50,
+                          filter: FilterState(type: .lowpass, cutoffHz: 800,  q: 1.5),
+                          reverb: rev, chorus: cho, lfos: mkLFO(0.05)),
+                    Voice(hz: 164.81, pan:  0.4, wave: .sawtooth, amp: 0.45,
+                          filter: FilterState(type: .lowpass, cutoffHz: 900,  q: 1.5),
+                          reverb: rev, chorus: cho, lfos: mkLFO(0.04)),
+                    Voice(hz: 220.00, pan: -0.2, wave: .sawtooth, amp: 0.40,
+                          filter: FilterState(type: .lowpass, cutoffHz: 1100, q: 1.5),
+                          reverb: rev, chorus: cho, lfos: mkLFO(0.06)),
+                    Voice(hz: 277.18, pan:  0.2, wave: .sawtooth, amp: 0.35,
+                          filter: FilterState(type: .lowpass, cutoffHz: 1300, q: 1.5),
+                          reverb: rev, chorus: cho, lfos: mkLFO(0.05))
+                   ]
+               }()),
+
+        // Sunn O))) — Onyx Tar  (drop master volume — heavy stack)
+        Preset("Sunn O))) — Onyx Tar", .droneArtists,
+               subtitle: "Sunn O))) · sub-bass E drone · square-LFO tremolo · drop master volume",
+               {
+                   let rev = ReverbState(decaySec: 9.0, mix: 0.45)
+                   let trem: [LfoState?] = [LfoState(shape: .square, target: .amplitude, rateHz: 0.7, depth: 0.30), nil, nil, nil]
+                   return [
+                    Voice(hz:  41.20, pan: -0.5, wave: .sawtooth, amp: 0.75,
+                          filter: FilterState(type: .lowpass, cutoffHz: 350, q: 2.0),
+                          reverb: rev, lfos: trem),
+                    Voice(hz:  41.55, pan:  0.5, wave: .square,   amp: 0.70,
+                          filter: FilterState(type: .lowpass, cutoffHz: 400, q: 1.8),
+                          reverb: rev, lfos: trem),
+                    Voice(hz:  82.40, pan:  0.0, wave: .sawtooth, amp: 0.55,
+                          filter: FilterState(type: .lowpass, cutoffHz: 500, q: 1.5), reverb: rev),
+                    Voice(hz: 123.47, pan:  0.1, wave: .sawtooth, amp: 0.40,
+                          filter: FilterState(type: .lowpass, cutoffHz: 700, q: 1.5), reverb: rev)
+                   ]
+               }()),
+
+        // William Basinski — Disintegration
+        Preset("Basinski — Disintegration", .droneArtists,
+               subtitle: "Basinski · tape-loop voice fading + filter-decay · C major support",
+               {
+                   let rev = ReverbState(decaySec: 7.0, mix: 0.40)
+                   return [
+                    Voice(hz: 261.63, pan: 0.0, wave: .triangle, amp: 0.55,
+                          filter: FilterState(type: .lowpass, cutoffHz: 1500, q: 1.0),
+                          reverb: rev,
+                          delay: DelayState(timeSec: 0.50, feedback: 0.65, mix: 0.40, mode: .stereo, timing: .quarter),
+                          chorus: nil, fm: nil,
+                          lfos: [
+                            LfoState(shape: .sine, target: .amplitude, rateHz: 0.08, depth: 0.45),
+                            LfoState(shape: .sine, target: .cutoff,    rateHz: 0.03, depth: 0.55),
+                            nil, nil
+                          ]),
+                    Voice(hz: 130.81, pan:  0.0, wave: .sine, amp: 0.45, reverb: rev),
+                    Voice(hz: 392.00, pan: -0.3, wave: .sine, amp: 0.35, reverb: rev),
+                    Voice(hz: 523.25, pan:  0.3, wave: .sine, amp: 0.32, reverb: rev)
+                   ]
+               }()),
+
+        // Phill Niblock — Tight Cluster
+        Preset("Niblock — Tight Cluster", .droneArtists,
+               subtitle: "Phill Niblock · 4-voice microtonal cluster · beating as harmony",
+               {
+                   let f = FilterState(type: .lowpass, cutoffHz: 2000, q: 0.7)
+                   let r = ReverbState(decaySec: 3.0, mix: 0.20)
+                   return [
+                    Voice(hz: 220.00, pan: -0.8, wave: .sawtooth, amp: 0.45, filter: f, reverb: r),
+                    Voice(hz: 222.55, pan: -0.3, wave: .sawtooth, amp: 0.45, filter: f, reverb: r),
+                    Voice(hz: 218.45, pan:  0.3, wave: .sawtooth, amp: 0.45, filter: f, reverb: r),
+                    Voice(hz: 221.25, pan:  0.8, wave: .sawtooth, amp: 0.45, filter: f, reverb: r)
+                   ]
+               }()),
+
+        // Charlemagne Palestine — Strumming Overtones
+        Preset("Palestine — Strumming Overtones", .droneArtists,
+               subtitle: "Charlemagne Palestine · just D + 5/4 F# · piano-sustain chorus wash",
+               {
+                   let cho = ChorusState(rateHz: 0.5, depth: 0.7, width: 1.0, mix: 0.40)
+                   let rev = ReverbState(decaySec: 5.0, mix: 0.35)
+                   return [
+                    Voice(hz:  73.42, pan: -0.2, wave: .triangle, amp: 0.60, reverb: rev, chorus: cho),
+                    Voice(hz:  91.78, pan:  0.2, wave: .triangle, amp: 0.50, reverb: rev, chorus: cho),
+                    Voice(hz: 220.00, pan: -0.4, wave: .sawtooth, amp: 0.38,
+                          filter: FilterState(type: .lowpass, cutoffHz: 2500, q: 0.7),
+                          reverb: rev, chorus: cho),
+                    Voice(hz: 293.66, pan:  0.4, wave: .sawtooth, amp: 0.38,
+                          filter: FilterState(type: .lowpass, cutoffHz: 2800, q: 0.7),
+                          reverb: rev, chorus: cho)
+                   ]
+               }()),
+
+        // Yoshi Wada — Bagpipe Drone
+        Preset("Wada — Bagpipe Drone", .droneArtists,
+               subtitle: "Yoshi Wada · just A + 3/2 + 9/8 · reed wobble + multi-reed chorus",
+               {
+                   let cho = ChorusState(rateHz: 0.7, depth: 0.6, width: 0.7, mix: 0.40)
+                   let rev = ReverbState(decaySec: 4.0, mix: 0.30)
+                   let wobble: [LfoState?] = [nil, nil, nil, LfoState(shape: .sine, target: .pitch, rateHz: 5.0, depth: 0.02)]
+                   return [
+                    Voice(hz: 110.00, pan:  0.0, wave: .sawtooth, amp: 0.65,
+                          filter: FilterState(type: .lowpass, cutoffHz: 1800, q: 1.0),
+                          reverb: rev, chorus: cho, lfos: wobble),
+                    Voice(hz: 220.00, pan: -0.4, wave: .sawtooth, amp: 0.45,
+                          filter: FilterState(type: .lowpass, cutoffHz: 2200, q: 1.0),
+                          reverb: rev, chorus: cho),
+                    Voice(hz: 165.00, pan:  0.4, wave: .sawtooth, amp: 0.42,
+                          filter: FilterState(type: .lowpass, cutoffHz: 2000, q: 1.0),
+                          reverb: rev, chorus: cho),
+                    Voice(hz: 247.50, pan: -0.2, wave: .sawtooth, amp: 0.30,
+                          filter: FilterState(type: .lowpass, cutoffHz: 2500, q: 1.0),
+                          reverb: rev, chorus: cho)
+                   ]
+               }()),
+
+        // Harold Budd — Pearl Pad
+        Preset("Budd — Pearl Pad", .droneArtists,
+               subtitle: "Harold Budd · soft Cmaj7 pad · breathing amp LFO · 9 s reverb halo",
+               {
+                   let rev = ReverbState(decaySec: 9.0, mix: 0.50)
+                   let cho = ChorusState(rateHz: 0.3, depth: 0.4, width: 0.6, mix: 0.25)
+                   func br(_ rate: Double) -> [LfoState?] {
+                       [LfoState(shape: .sine, target: .amplitude, rateHz: rate, depth: 0.40), nil, nil, nil]
+                   }
+                   return [
+                    Voice(hz: 130.81, pan: -0.3, wave: .sine,     amp: 0.50, reverb: rev, chorus: cho, lfos: br(0.04)),
+                    Voice(hz: 196.00, pan:  0.3, wave: .sine,     amp: 0.45, reverb: rev, chorus: cho, lfos: br(0.05)),
+                    Voice(hz: 261.63, pan: -0.2, wave: .triangle, amp: 0.38, reverb: rev, chorus: cho, lfos: br(0.03)),
+                    Voice(hz: 329.63, pan:  0.2, wave: .triangle, amp: 0.35, reverb: rev, chorus: cho, lfos: br(0.045))
+                   ]
+               }()),
+
+        // Alice Coltrane — Spiritual Organ
+        Preset("Coltrane — Spiritual Organ", .droneArtists,
+               subtitle: "Alice Coltrane · Bbm7 organ · Leslie pan rotation + tremolo",
+               {
+                   let rev = ReverbState(decaySec: 4.0, mix: 0.40)
+                   let cho = ChorusState(rateHz: 6.0, depth: 0.7, width: 1.0, mix: 0.50)
+                   let leslie: [LfoState?] = [nil, nil, LfoState(shape: .sine, target: .pan, rateHz: 0.8, depth: 0.40), nil]
+                   return [
+                    Voice(hz:  58.27, pan:  0.0, wave: .sawtooth, amp: 0.60,
+                          filter: FilterState(type: .lowpass, cutoffHz: 1500, q: 1.0),
+                          reverb: rev, chorus: cho, lfos: leslie),
+                    Voice(hz: 116.54, pan: -0.4, wave: .sawtooth, amp: 0.45,
+                          filter: FilterState(type: .lowpass, cutoffHz: 2000, q: 1.0),
+                          reverb: rev, chorus: cho, lfos: leslie),
+                    Voice(hz: 174.61, pan:  0.4, wave: .sawtooth, amp: 0.40,
+                          filter: FilterState(type: .lowpass, cutoffHz: 2200, q: 1.0),
+                          reverb: rev, chorus: cho, lfos: leslie),
+                    Voice(hz: 207.65, pan:  0.0, wave: .triangle, amp: 0.36, reverb: rev, chorus: cho)
+                   ]
+               }()),
+
+        // Earth — Tar Pit  (Earth 2 style)
+        Preset("Earth — Tar Pit", .droneArtists,
+               subtitle: "Earth (Carlson) · Earth-2 doom · low B + 4th · 10 s reverb",
+               {
+                   let rev = ReverbState(decaySec: 10.0, mix: 0.50)
+                   func descend(phase: Double) -> DriftVoiceConfig {
+                       DriftVoiceConfig(pitchMode: .glacial, pitchAmount: 0.3, pitchPhase: phase,
+                                        panMode: .static, panAmount: 0, panPhase: 0)
+                   }
+                   return [
+                    Voice(hz:  30.87, pan: -0.3, wave: .sawtooth, amp: 0.70,
+                          filter: FilterState(type: .lowpass, cutoffHz: 250, q: 2.0),
+                          reverb: rev, drift: descend(phase: 0.0)),
+                    Voice(hz:  41.20, pan:  0.3, wave: .sawtooth, amp: 0.65,
+                          filter: FilterState(type: .lowpass, cutoffHz: 280, q: 1.8),
+                          reverb: rev, drift: descend(phase: 0.25)),
+                    Voice(hz:  61.74, pan:  0.0, wave: .square,   amp: 0.50,
+                          filter: FilterState(type: .lowpass, cutoffHz: 400, q: 1.5), reverb: rev),
+                    Voice(hz:  92.50, pan:  0.0, wave: .sine,     amp: 0.35, reverb: rev)
+                   ]
+               }()),
+
+        // Nurse With Wound — Avant Tableau
+        Preset("Nurse With Wound — Avant Tableau", .droneArtists,
+               subtitle: "Nurse With Wound · asymmetric collage · cross-osc FM + ping-pong 1/4T",
+               {
+                   let rev = ReverbState(decaySec: 6.0, mix: 0.35)
+                   return [
+                    Voice(hz:  87.31, pan: -0.8, wave: .sawtooth, amp: 0.50,
+                          filter: FilterState(type: .lowpass, cutoffHz: 900, q: 1.0),
+                          reverb: rev,
+                          delay: DelayState(timeSec: 0.40, feedback: 0.55, mix: 0.30, mode: .pingPong, timing: .quarterT),
+                          fm: FMState(sourceIndex: 3, index: 60)),
+                    Voice(hz: 233.08, pan:  0.8, wave: .square,   amp: 0.35,
+                          filter: FilterState(type: .highpass, cutoffHz: 400, q: 2.5),
+                          reverb: rev,
+                          lfos: [nil, LfoState(shape: .sampleAndHold, target: .cutoff, rateHz: 0.15, depth: 0.55), nil, nil]),
+                    Voice(hz: 311.13, pan: -0.3, wave: .sine,     amp: 0.30, reverb: rev),
+                    Voice(hz: 415.30, pan:  0.3, wave: .triangle, amp: 0.28, reverb: rev)
+                   ]
+               }()),
+
+        // Keiji Haino — Spectral Shimmer
+        Preset("Haino — Spectral Shimmer", .droneArtists,
+               subtitle: "Keiji Haino · D drone + HP shimmer · wobble + chorus halo",
+               {
+                   let cho = ChorusState(rateHz: 1.5, depth: 0.7, width: 1.0, mix: 0.50)
+                   let rev = ReverbState(decaySec: 5.0, mix: 0.40)
+                   func wob(_ rate: Double) -> [LfoState?] {
+                       [nil, nil, nil, LfoState(shape: .sine, target: .pitch, rateHz: rate, depth: 0.05)]
+                   }
+                   return [
+                    Voice(hz:   73.42, pan:  0.0, wave: .sawtooth, amp: 0.55,
+                          filter: FilterState(type: .lowpass, cutoffHz: 800, q: 2.0),
+                          reverb: rev, chorus: cho),
+                    Voice(hz:  880.00, pan: -0.6, wave: .sawtooth, amp: 0.22,
+                          filter: FilterState(type: .highpass, cutoffHz: 600, q: 3.0),
+                          reverb: rev, chorus: cho, lfos: wob(0.8)),
+                    Voice(hz: 1108.73, pan:  0.6, wave: .sawtooth, amp: 0.18,
+                          filter: FilterState(type: .highpass, cutoffHz: 700, q: 3.0),
+                          reverb: rev, chorus: cho, lfos: wob(0.7)),
+                    Voice(hz:  220.00, pan:  0.0, wave: .square,   amp: 0.25,
+                          filter: FilterState(type: .lowpass, cutoffHz: 1500, q: 1.0),
+                          reverb: rev)
+                   ]
+               }())
     ]
 
     static let byCategory: [Category: [Preset]] = {
