@@ -81,8 +81,24 @@ export function isListening() {
   return micStream !== null;
 }
 
-// Autocorrelation via the standard "peak picking with parabolic
-// interpolation" approach. Fast enough to run every frame on a 4k window.
+// YIN pitch detector (de Cheveigné & Kawahara, 2002). Far more robust against
+// the octave-error bug the plain autocorrelation algorithm had — the previous
+// implementation could lock onto the early descent from lag=0 and then let
+// parabolic interpolation push the refined lag below the search range, which
+// is how a hummed D#4 was occasionally reported as D#10.
+//
+// Algorithm:
+//   1. Difference function  d[lag] = Σ (x[i] - x[i+lag])²
+//   2. Cumulative mean normalized difference function (CMNDF):
+//      d'[lag] = d[lag] · lag / Σ(d[1..lag])
+//   3. First lag past minLag where d'[lag] drops below `threshold`, then
+//      walk forward while d' is still decreasing to land in the true local
+//      minimum.
+//   4. Parabolic interpolation on the CMNDF for sub-sample accuracy.
+//   5. Hard clamp to [MIN_FREQ, MAX_FREQ] as defense in depth.
+const YIN_THRESHOLD = 0.15;   // YIN paper recommends 0.10–0.15
+const YIN_ABSMAX = 0.5;       // reject very weak periodicity
+
 function autocorrelate(buf, sampleRate) {
   const N = buf.length;
 
@@ -92,47 +108,72 @@ function autocorrelate(buf, sampleRate) {
   rms = Math.sqrt(rms / N);
   if (rms < RMS_FLOOR) return -1;
 
-  const minLag = Math.floor(sampleRate / MAX_FREQ);
-  const maxLag = Math.min(N - 1, Math.floor(sampleRate / MIN_FREQ));
+  const minLag = Math.max(2, Math.floor(sampleRate / MAX_FREQ));
+  const maxLag = Math.min(Math.floor(N / 2), Math.floor(sampleRate / MIN_FREQ));
+  if (minLag >= maxLag) return -1;
 
-  // Trim ends to avoid the autocorrelation's natural taper.
+  // 1. Difference function over a fixed analysis window. Using a window of
+  //    size (N - maxLag) keeps every lag's comparison the same length so
+  //    d[lag] values are directly comparable.
+  const W = N - maxLag;
+  const d = new Float32Array(maxLag + 1);
+  for (let lag = 1; lag <= maxLag; lag++) {
+    let sum = 0;
+    for (let i = 0; i < W; i++) {
+      const diff = buf[i] - buf[i + lag];
+      sum += diff * diff;
+    }
+    d[lag] = sum;
+  }
+
+  // 2. CMNDF — normalizes against the running mean so the function starts
+  //    at 1.0 and dips below 1 only where the signal repeats.
+  const cmndf = new Float32Array(maxLag + 1);
+  cmndf[0] = 1;
+  let runningSum = 0;
+  for (let lag = 1; lag <= maxLag; lag++) {
+    runningSum += d[lag];
+    cmndf[lag] = (runningSum > 0) ? d[lag] * lag / runningSum : 1;
+  }
+
+  // 3. First lag in [minLag, maxLag) below threshold, then walk to local min.
   let bestLag = -1;
-  let bestCorr = 0;
-  let foundPositive = false;
-  for (let lag = minLag; lag <= maxLag; lag++) {
-    let corr = 0;
-    for (let i = 0; i < N - lag; i++) corr += buf[i] * buf[i + lag];
-    corr /= (N - lag);
-    if (corr > 0) foundPositive = true;
-    // Find first peak that crosses PEAK_THRESH × bestCorr — that's the
-    // fundamental, not a higher harmonic.
-    if (corr > bestCorr) {
-      bestCorr = corr;
+  for (let lag = minLag; lag < maxLag; lag++) {
+    if (cmndf[lag] < YIN_THRESHOLD) {
+      while (lag + 1 < maxLag && cmndf[lag + 1] < cmndf[lag]) lag++;
       bestLag = lag;
-    } else if (foundPositive && corr < bestCorr * PEAK_THRESH && bestLag > 0) {
       break;
     }
   }
-  if (bestLag < 0 || bestCorr < 0.01) return -1;
-
-  // Parabolic interpolation for sub-sample lag accuracy.
-  let refinedLag = bestLag;
-  if (bestLag > 0 && bestLag < N - 1) {
-    let y0 = 0, y1 = 0, y2 = 0;
-    for (let i = 0; i < N - bestLag - 1; i++) {
-      y0 += buf[i] * buf[i + bestLag - 1];
-      y1 += buf[i] * buf[i + bestLag];
-      y2 += buf[i] * buf[i + bestLag + 1];
+  if (bestLag < 0) {
+    // Fall back to the absolute minimum of CMNDF if no lag crossed threshold.
+    let minVal = Infinity;
+    for (let lag = minLag; lag < maxLag; lag++) {
+      if (cmndf[lag] < minVal) { minVal = cmndf[lag]; bestLag = lag; }
     }
-    y0 /= (N - bestLag - 1);
-    y1 /= (N - bestLag - 1);
-    y2 /= (N - bestLag - 1);
+    if (bestLag < 0 || minVal > YIN_ABSMAX) return -1;
+  }
+
+  // 4. Parabolic refinement on the CMNDF (concave-up valley).
+  let refined = bestLag;
+  if (bestLag > minLag && bestLag < maxLag - 1) {
+    const y0 = cmndf[bestLag - 1];
+    const y1 = cmndf[bestLag];
+    const y2 = cmndf[bestLag + 1];
     const denom = (y0 - 2 * y1 + y2);
     if (Math.abs(denom) > 1e-9) {
-      refinedLag = bestLag + 0.5 * (y0 - y2) / denom;
+      const shift = 0.5 * (y0 - y2) / denom;
+      // Clamp shift to ±1 sample — anything bigger is a fit failure.
+      refined = bestLag + Math.max(-1, Math.min(1, shift));
     }
   }
-  return sampleRate / refinedLag;
+  // 5. Defense in depth: clamp result so we never report a frequency
+  //    outside [MIN_FREQ, MAX_FREQ]. This is what stopped the old
+  //    autocorrelation from ever reporting D#10 again — the YIN math
+  //    above won't produce it, but the clamp guarantees it can't.
+  const hz = sampleRate / refined;
+  if (hz < MIN_FREQ || hz > MAX_FREQ) return -1;
+  return hz;
 }
 
 /**

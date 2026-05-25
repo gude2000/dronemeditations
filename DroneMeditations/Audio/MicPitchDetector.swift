@@ -144,64 +144,99 @@ final class MicPitchDetector: ObservableObject {
     }
 }
 
-// MARK: - Autocorrelation (parabolic-refined)
+// MARK: - YIN pitch detection
+//
+// Replaces the original autocorrelation, which could lock onto the early
+// descent from lag=0 and then let parabolic interpolation push the refined
+// lag below the search range — turning a hummed D#4 into a reported D#10.
+//
+// Same algorithm as web/js/pitch-detect.js so the platforms agree.
+//   1. Difference function  d[lag] = Σ (x[i] - x[i+lag])²
+//   2. CMNDF: d'[lag] = d[lag] · lag / Σ(d[1..lag])
+//   3. First lag past minLag below threshold, walk to local min
+//   4. Parabolic refinement (±1-sample shift cap)
+//   5. Hard clamp to [MIN_FREQ, MAX_FREQ] — defense in depth.
 
 private let MIN_FREQ: Double = 70
 private let MAX_FREQ: Double = 2000
 private let RMS_FLOOR: Double = 0.005
-private let PEAK_THRESH: Double = 0.85
+private let YIN_THRESHOLD: Double = 0.15
+private let YIN_ABSMAX: Double = 0.5
 
 private func autocorrelate(samples: UnsafePointer<Float>, count: Int, sampleRate: Double) -> Double {
     if count < 64 { return -1 }
-    var rms: Double = 0
+    var rmsSum: Double = 0
     for i in 0..<count {
         let v = Double(samples[i])
-        rms += v * v
+        rmsSum += v * v
     }
-    rms = (rms / Double(count)).squareRoot()
+    let rms = (rmsSum / Double(count)).squareRoot()
     if rms < RMS_FLOOR { return -1 }
 
-    let minLag = max(1, Int(sampleRate / MAX_FREQ))
-    let maxLag = min(count - 1, Int(sampleRate / MIN_FREQ))
+    let minLag = max(2, Int(sampleRate / MAX_FREQ))
+    let maxLag = min(count / 2, Int(sampleRate / MIN_FREQ))
     if minLag >= maxLag { return -1 }
 
-    var bestLag = -1
-    var bestCorr: Double = 0
-    var foundPositive = false
-    for lag in minLag...maxLag {
-        var corr: Double = 0
-        for i in 0..<(count - lag) {
-            corr += Double(samples[i]) * Double(samples[i + lag])
+    // 1. Difference function over a fixed (count - maxLag) analysis window so
+    //    d[lag] values stay comparable.
+    let W = count - maxLag
+    if W <= 0 { return -1 }
+    var d = [Double](repeating: 0, count: maxLag + 1)
+    for lag in 1...maxLag {
+        var sum: Double = 0
+        for i in 0..<W {
+            let diff = Double(samples[i]) - Double(samples[i + lag])
+            sum += diff * diff
         }
-        corr /= Double(count - lag)
-        if corr > 0 { foundPositive = true }
-        if corr > bestCorr {
-            bestCorr = corr
+        d[lag] = sum
+    }
+
+    // 2. CMNDF.
+    var cmndf = [Double](repeating: 0, count: maxLag + 1)
+    cmndf[0] = 1
+    var runningSum: Double = 0
+    for lag in 1...maxLag {
+        runningSum += d[lag]
+        cmndf[lag] = runningSum > 0 ? d[lag] * Double(lag) / runningSum : 1
+    }
+
+    // 3. First lag in [minLag, maxLag) below threshold, walk to local min.
+    var bestLag = -1
+    var lag = minLag
+    while lag < maxLag {
+        if cmndf[lag] < YIN_THRESHOLD {
+            while lag + 1 < maxLag && cmndf[lag + 1] < cmndf[lag] { lag += 1 }
             bestLag = lag
-        } else if foundPositive && corr < bestCorr * PEAK_THRESH && bestLag > 0 {
             break
         }
+        lag += 1
     }
-    if bestLag < 0 || bestCorr < 0.01 { return -1 }
+    if bestLag < 0 {
+        // Fallback: absolute minimum of CMNDF, only if periodicity isn't weak.
+        var minVal = Double.infinity
+        for l in minLag..<maxLag {
+            if cmndf[l] < minVal { minVal = cmndf[l]; bestLag = l }
+        }
+        if bestLag < 0 || minVal > YIN_ABSMAX { return -1 }
+    }
 
-    // Parabolic interpolation for sub-sample lag accuracy.
+    // 4. Parabolic refinement around the CMNDF minimum.
     var refined: Double = Double(bestLag)
-    if bestLag > 0 && bestLag < count - 1 {
-        var y0: Double = 0, y1: Double = 0, y2: Double = 0
-        let n = count - bestLag - 1
-        if n > 0 {
-            for i in 0..<n {
-                y0 += Double(samples[i]) * Double(samples[i + bestLag - 1])
-                y1 += Double(samples[i]) * Double(samples[i + bestLag])
-                y2 += Double(samples[i]) * Double(samples[i + bestLag + 1])
-            }
-            let denom = (y0 - 2 * y1 + y2)
-            if abs(denom) > 1e-9 {
-                refined = Double(bestLag) + 0.5 * (y0 - y2) / denom
-            }
+    if bestLag > minLag && bestLag < maxLag - 1 {
+        let y0 = cmndf[bestLag - 1]
+        let y1 = cmndf[bestLag]
+        let y2 = cmndf[bestLag + 1]
+        let denom = (y0 - 2 * y1 + y2)
+        if abs(denom) > 1e-9 {
+            let shift = 0.5 * (y0 - y2) / denom
+            refined = Double(bestLag) + max(-1, min(1, shift))  // cap shift
         }
     }
-    return sampleRate / refined
+
+    // 5. Defense in depth: never report a frequency outside the search range.
+    let hz = sampleRate / refined
+    if hz < MIN_FREQ || hz > MAX_FREQ { return -1 }
+    return hz
 }
 
 // MARK: - Hz → 12-TET note helper

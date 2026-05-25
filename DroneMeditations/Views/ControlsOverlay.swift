@@ -329,11 +329,25 @@ struct ControlsOverlay: View {
             }
             .scrollClipDisabled()  // let menus open beyond the scroll bounds
 
+            // Same icon order as the portrait header so the structure stays
+            // consistent across orientations: camera (snapshot) → spectrum
+            // toggle → Chladni toggle. Keeping Chladni adjacent to spectrum
+            // makes the visualization-toggle pair visually grouped.
             Button { captureSnapshot() } label: {
                 Image(systemName: "camera.fill")
                     .font(.system(size: 12, weight: .semibold))
                     .frame(width: 28, height: 28)
                     .background(Circle().fill(Color.white.opacity(0.10)))
+                    .foregroundStyle(.white)
+            }
+            .buttonStyle(.plain)
+            Button { vm.showSpectrum.toggle() } label: {
+                Image(systemName: "chart.bar.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(width: 28, height: 28)
+                    .background(Circle().fill(vm.showSpectrum
+                        ? Color(red: 0.55, green: 0.76, blue: 1.0).opacity(0.30)
+                        : Color.white.opacity(0.10)))
                     .foregroundStyle(.white)
             }
             .buttonStyle(.plain)

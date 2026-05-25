@@ -1170,9 +1170,18 @@ let journeyAdvanceTimer = null;
 function startJourney(id) {
   const j = JOURNEYS.find((x) => x.id === id);
   if (!j) return;
-  stopJourney();  // cancel any previous
+  // Cancel any previous journey *without* fully stopping the transport.
+  // The full stop() schedules an 8-second master fadeOut + engine.stop()
+  // task; if we then immediately togglePlay() (which fades back IN over
+  // 3s), the orphan fadeOut Task wakes up ~8 s later and calls
+  // engine.stop(), cutting audio after about 6 seconds of play. So:
+  // just kill the scheduler and reset journey state — don't touch the
+  // transport here.
+  if (journeyAdvanceTimer) clearTimeout(journeyAdvanceTimer);
+  journeyAdvanceTimer = null;
   state.activeJourneyId = id;
   state.journeyStageIndex = -1;
+  state.journeyStageEndsAt = 0;
   // Total journey duration becomes the session length so the existing
   // auto-stop logic + 8s fade-out at the end happen automatically.
   actions.setDuration(journeyTotalSeconds(j));

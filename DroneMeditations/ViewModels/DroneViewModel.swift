@@ -648,7 +648,16 @@ final class DroneViewModel: ObservableObject {
     /// applies stage 0 immediately and schedules subsequent stages.
     func startJourney(_ id: String) {
         guard let j = Journey.all.first(where: { $0.id == id }) else { return }
-        stopJourney()  // cancel any in-flight journey
+        // Cancel any previous journey *without* fully stopping the transport.
+        // The full stop() schedules an 8-second master fadeOut + engine.stop()
+        // task; if we then immediately call play() (which fades back IN over
+        // 3 s), the orphan fadeOut Task wakes up ~8 s later and calls
+        // engine.stop(), cutting audio after about 6 seconds of play. So:
+        // just kill the scheduler and reset journey state — don't touch the
+        // transport here.
+        journeyTimer?.invalidate()
+        journeyTimer = nil
+        journeyStageEndsAt = nil
         activeJourneyId = id
         journeyStageIndex = -1
         controller.sessionDuration = j.totalSeconds
