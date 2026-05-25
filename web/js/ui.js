@@ -1189,12 +1189,6 @@ function openVoicePresetMenu(e, voiceIndex) {
   }, 0);
 }
 
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
-  }[c]));
-}
-
 // Drift scene dropdown. Scenes come from main.js (DRIFT_SCENES). The first
 // 6 are the "singles" (off + glacial + 4 simple journeys); the rest are
 // coordinated multi-voice scenes. A divider separates the two sections.
