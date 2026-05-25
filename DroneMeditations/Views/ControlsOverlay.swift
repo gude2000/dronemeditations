@@ -140,10 +140,14 @@ struct ControlsOverlay: View {
     }
 
     /// Pill that opens the drift-scene menu. Tinted whenever the active
-    /// scene is anything other than "Off"; shows the current scene name.
+    /// scene is anything other than "Off"; shows the current scene name
+    /// or "Custom" if individual voices have been tweaked.
     private var driftPill: some View {
         let on = vm.driftSceneId != "off"
-        let label = vm.driftScene?.name ?? "Off"
+        let label: String
+        if let name = vm.driftScene?.name { label = name }
+        else if vm.driftSceneId == "custom" { label = "Custom" }
+        else { label = "Off" }
         return HStack(spacing: 6) {
             Image(systemName: on ? "wind.circle.fill" : "wind.circle")
                 .font(.caption.weight(.semibold))

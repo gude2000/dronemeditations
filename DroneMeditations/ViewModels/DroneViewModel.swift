@@ -28,19 +28,10 @@ final class DroneViewModel: ObservableObject {
 
     @Published var userPresets: [UserPreset] = UserPresetStore.load()
 
-    /// Per-voice drift configuration. Either field nil means "static".
-    struct DriftVoiceConfig {
-        enum PitchMode { case `static`, up, down, upDown, downUp, wave, glacial }
-        enum PanMode   { case `static`, sweepLR, sweepRL, pendulum, antiPendulum, glacial }
-        var pitchMode: PitchMode = .static
-        var pitchAmount: Double = 1.0
-        var pitchPhase: Double = 0
-        var panMode: PanMode = .static
-        var panAmount: Double = 1.0
-        var panPhase: Double = 0
-    }
-
     /// A scene is the per-voice drift assignment for all four oscillators.
+    /// Scenes are *templates* — picking one bulk-copies its voice configs
+    /// into the per-oscillator state. Users can then customize any voice
+    /// via the per-strip drift menu and the header pill flips to "Custom".
     struct DriftScene: Identifiable {
         let id: String
         let name: String
@@ -574,28 +565,32 @@ final class DroneViewModel: ObservableObject {
     private var driftStart: Date = .distantPast
 
     func setDriftScene(_ sceneId: String) {
-        guard sceneId != driftSceneId else { return }
         if sceneId == "off" {
             stopDrift()
-        } else if Self.driftScenes.contains(where: { $0.id == sceneId }) {
-            startDrift(sceneId)
+            return
         }
-    }
-
-    private func startDrift(_ sceneId: String) {
-        driftVoices = oscillators.map {
-            DriftVoice(
-                baseFreq: $0.frequencyHz, basePan: $0.pan, baseAmp: $0.amplitude,
-                freqTarget: $0.frequencyHz, panTarget: $0.pan, ampTarget: $0.amplitude,
-                nextRetargetAt: .distantPast
-            )
+        guard let scene = Self.driftScenes.first(where: { $0.id == sceneId }) else { return }
+        // Bulk-apply scene template into each voice's drift state.
+        for i in 0..<oscillators.count where i < scene.voices.count {
+            oscillators[i].drift = scene.voices[i]
         }
         driftSceneId = sceneId
-        driftStart = Date()
-        driftTimer?.invalidate()
-        driftTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.driftTick() }
-        }
+        reconcileDriftRunning(snapshotIfStarting: true)
+    }
+
+    /// Change one voice's pitch drift mode without disturbing the others.
+    func setVoicePitchDrift(_ index: Int, mode: DriftVoiceConfig.PitchMode) {
+        guard index >= 0 && index < oscillators.count else { return }
+        oscillators[index].drift.pitchMode = mode
+        reconcileDriftRunning(snapshotIfStarting: true)
+        driftSceneId = sceneIdMatchingVoices()
+    }
+    /// Change one voice's pan drift mode without disturbing the others.
+    func setVoicePanDrift(_ index: Int, mode: DriftVoiceConfig.PanMode) {
+        guard index >= 0 && index < oscillators.count else { return }
+        oscillators[index].drift.panMode = mode
+        reconcileDriftRunning(snapshotIfStarting: true)
+        driftSceneId = sceneIdMatchingVoices()
     }
 
     private func stopDrift() {
@@ -603,22 +598,72 @@ final class DroneViewModel: ObservableObject {
         driftTimer = nil
         driftSceneId = "off"
         driftVoices.removeAll()
+        for i in 0..<oscillators.count { oscillators[i].drift = .off }
+    }
+
+    /// Start the drift timer (snapshotting baselines) if any voice is
+    /// drifting and it isn't running yet. Stop it if no voice is drifting.
+    private func reconcileDriftRunning(snapshotIfStarting: Bool) {
+        let active = oscillators.contains(where: { $0.drift.isActive })
+        if active {
+            if driftTimer == nil {
+                if snapshotIfStarting {
+                    driftVoices = oscillators.map {
+                        DriftVoice(
+                            baseFreq: $0.frequencyHz, basePan: $0.pan, baseAmp: $0.amplitude,
+                            freqTarget: $0.frequencyHz, panTarget: $0.pan, ampTarget: $0.amplitude,
+                            nextRetargetAt: .distantPast
+                        )
+                    }
+                    driftStart = Date()
+                }
+                driftTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+                    Task { @MainActor in self?.driftTick() }
+                }
+            }
+        } else {
+            driftTimer?.invalidate()
+            driftTimer = nil
+            driftVoices.removeAll()
+        }
+    }
+
+    /// Returns the scene id whose template matches the current per-voice
+    /// drift state exactly, or "custom" if no scene matches. Used to keep
+    /// the header pill label in sync after manual per-voice edits.
+    private func sceneIdMatchingVoices() -> String {
+        for scene in Self.driftScenes {
+            var matches = true
+            for i in 0..<oscillators.count where i < scene.voices.count {
+                let s = scene.voices[i]
+                let d = oscillators[i].drift
+                if s.pitchMode != d.pitchMode || s.panMode != d.panMode ||
+                   abs(s.pitchAmount - d.pitchAmount) > 0.001 {
+                    matches = false; break
+                }
+            }
+            if matches { return scene.id }
+        }
+        return "custom"
     }
 
     private func driftTick() {
-        guard let scene = driftScene, scene.id != "off" else { return }
+        // No voice drifting → stop the timer cleanly.
+        guard oscillators.contains(where: { $0.drift.isActive }) else {
+            driftTimer?.invalidate(); driftTimer = nil; return
+        }
         let sessionSec = controller.sessionDuration > 0 ? controller.sessionDuration : 15 * 60
         let rawProgress = min(1, max(0, Date().timeIntervalSince(driftStart) / sessionSec))
 
         for i in 0..<driftVoices.count {
-            guard i < oscillators.count, i < scene.voices.count else { continue }
-            let cfg = scene.voices[i]
+            guard i < oscillators.count else { continue }
             let o = oscillators[i]
+            let cfg = o.drift
 
             // ─── Pitch ───
             if cfg.pitchMode == .glacial {
                 glacialPitchVoice(i)
-            } else {
+            } else if cfg.pitchMode != .static {
                 let p = (rawProgress + cfg.pitchPhase).truncatingRemainder(dividingBy: 1.0)
                 let octaveOffset = Self.pitchShape(cfg.pitchMode, p: p) * cfg.pitchAmount
                 let target = driftVoices[i].baseFreq * pow(2.0, octaveOffset)

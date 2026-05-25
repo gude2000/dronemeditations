@@ -30,13 +30,23 @@ const defaultLfos = () => ([
 const defaultFilter = () => ({ type: "lowpass", cutoffHz: 4000, q: 0.7 });
 const defaultReverb = () => ({ decaySec: 2.0, mix: 0 });
 const defaultDelay  = () => ({ timeSec: 0.30, feedback: 0.40, mix: 0 });
+// Per-voice drift config. Tick reads these directly; scenes are just
+// templates that bulk-set them across all 4 voices.
+const defaultDrift  = () => ({
+  pitchMode: "static",  // "static" | "up" | "down" | "upDown" | "downUp" | "wave" | "glacial"
+  pitchAmount: 1.0,     // octaves
+  pitchPhase: 0,        // 0..1 modular phase offset
+  panMode: "static",    // "static" | "sweepLR" | "sweepRL" | "pendulum" | "antiPendulum" | "glacial"
+  panAmount: 1.0,
+  panPhase: 0
+});
 
 const state = {
   oscillators: [
-    { id: 0, frequencyHz: 110.00, waveform: "sine", amplitude: 0.6,  pan: -0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), sampleName: null },
-    { id: 1, frequencyHz: 165.00, waveform: "sine", amplitude: 0.6,  pan:  0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), sampleName: null },
-    { id: 2, frequencyHz: 220.00, waveform: "sine", amplitude: 0.55, pan: -0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), sampleName: null },
-    { id: 3, frequencyHz: 277.18, waveform: "sine", amplitude: 0.5,  pan:  0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), sampleName: null }
+    { id: 0, frequencyHz: 110.00, waveform: "sine", amplitude: 0.6,  pan: -0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), sampleName: null },
+    { id: 1, frequencyHz: 165.00, waveform: "sine", amplitude: 0.6,  pan:  0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), sampleName: null },
+    { id: 2, frequencyHz: 220.00, waveform: "sine", amplitude: 0.55, pan: -0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), sampleName: null },
+    { id: 3, frequencyHz: 277.18, waveform: "sine", amplitude: 0.5,  pan:  0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), sampleName: null }
   ],
   keyId: 9,         // A
   octave: 3,
@@ -445,13 +455,14 @@ const actions = {
   },
 
   setDriftScene(sceneId) {
-    if (state.driftSceneId === sceneId) return;
     if (sceneId === "off") {
       stopDrift();
     } else {
       startDrift(sceneId);
     }
   },
+  setVoicePitchDrift(voiceIndex, mode) { setVoicePitchDrift(voiceIndex, mode); },
+  setVoicePanDrift(voiceIndex, mode)   { setVoicePanDrift(voiceIndex, mode); },
 
   /// Randomize this oscillator's parameters — everything except level so
   /// the voice doesn't suddenly blast or vanish. Touches frequency,
@@ -618,18 +629,31 @@ let driftStartMs = 0;
 const driftVoices = [];   // per-osc {baseFreq, basePan, baseAmp, freqTarget, panTarget, ampTarget, nextRetargetAt}
 
 function startDrift(sceneId) {
+  // Sceneid === "off" means stop everything. Anything else: apply the
+  // scene's per-voice config to the oscillators, then start the timer.
+  if (sceneId === "off") { stopDrift(); return; }
+  const scene = DRIFT_SCENE_BY_ID[sceneId];
+  if (!scene) return;
+
   driftVoices.length = 0;
-  for (const o of state.oscillators) {
+  for (let i = 0; i < state.oscillators.length; i++) {
+    const o = state.oscillators[i];
     driftVoices.push({
-      baseFreq: o.frequencyHz,
-      basePan: o.pan,
-      baseAmp: o.amplitude,
-      // Glacial-only random walk state.
-      freqTarget: o.frequencyHz,
-      panTarget: o.pan,
-      ampTarget: o.amplitude,
+      baseFreq: o.frequencyHz, basePan: o.pan, baseAmp: o.amplitude,
+      freqTarget: o.frequencyHz, panTarget: o.pan, ampTarget: o.amplitude,
       nextRetargetAt: 0
     });
+    // Apply the scene's voice config into the oscillator's drift state,
+    // overwriting any previous per-voice setting.
+    const cfg = scene.voices[i] || {};
+    o.drift = {
+      pitchMode:   cfg.pitchMode   || "static",
+      pitchAmount: cfg.pitchAmount != null ? cfg.pitchAmount : 1,
+      pitchPhase:  cfg.pitchPhase  || 0,
+      panMode:     cfg.panMode     || "static",
+      panAmount:   cfg.panAmount   != null ? cfg.panAmount   : 1,
+      panPhase:    cfg.panPhase    || 0,
+    };
   }
   state.driftSceneId = sceneId;
   driftStartMs = Date.now();
@@ -641,34 +665,112 @@ function startDrift(sceneId) {
 function stopDrift() {
   state.driftSceneId = "off";
   driftVoices.length = 0;
+  // Reset each voice's drift to static (no motion).
+  for (const o of state.oscillators) o.drift = defaultDrift();
   if (driftIntervalId) clearInterval(driftIntervalId);
   driftIntervalId = null;
   renderAll();
 }
 
+// True if any voice has a non-static drift mode (pitch OR pan). When all
+// voices are static, the drift timer can sleep without effect.
+function anyVoiceDrifting() {
+  return state.oscillators.some((o) =>
+    o.drift && (
+      (o.drift.pitchMode && o.drift.pitchMode !== "static") ||
+      (o.drift.panMode   && o.drift.panMode   !== "static")
+    )
+  );
+}
+
+// Public: change one voice's pitch drift mode without touching others. If
+// drift wasn't running, this starts it; if every voice becomes static, this
+// stops it.
+function setVoicePitchDrift(voiceIndex, mode) {
+  const o = state.oscillators[voiceIndex];
+  if (!o) return;
+  if (!o.drift) o.drift = defaultDrift();
+  o.drift.pitchMode = mode;
+  reconcileDriftRunning();
+  state.driftSceneId = sceneIdForCurrentVoices();
+  renderAll();
+}
+function setVoicePanDrift(voiceIndex, mode) {
+  const o = state.oscillators[voiceIndex];
+  if (!o) return;
+  if (!o.drift) o.drift = defaultDrift();
+  o.drift.panMode = mode;
+  reconcileDriftRunning();
+  state.driftSceneId = sceneIdForCurrentVoices();
+  renderAll();
+}
+
+// If any voice is drifting and the timer isn't running, start it (and
+// snapshot baselines). If no voice is drifting, stop the timer.
+function reconcileDriftRunning() {
+  if (anyVoiceDrifting()) {
+    if (!driftIntervalId) {
+      driftVoices.length = 0;
+      for (const o of state.oscillators) {
+        driftVoices.push({
+          baseFreq: o.frequencyHz, basePan: o.pan, baseAmp: o.amplitude,
+          freqTarget: o.frequencyHz, panTarget: o.pan, ampTarget: o.amplitude,
+          nextRetargetAt: 0
+        });
+      }
+      driftStartMs = Date.now();
+      driftIntervalId = setInterval(driftTick, 1000);
+    }
+  } else {
+    if (driftIntervalId) clearInterval(driftIntervalId);
+    driftIntervalId = null;
+    driftVoices.length = 0;
+  }
+}
+
+// Returns the scene id whose template matches the current per-voice drift
+// state, or "custom" if no scene matches exactly. Used to keep the header
+// pill's label in sync after manual edits.
+function sceneIdForCurrentVoices() {
+  for (const scene of DRIFT_SCENES) {
+    let matches = true;
+    for (let i = 0; i < state.oscillators.length; i++) {
+      const cfg = scene.voices[i] || {};
+      const d = state.oscillators[i].drift || defaultDrift();
+      if ((cfg.pitchMode || "static") !== d.pitchMode) { matches = false; break; }
+      if ((cfg.panMode   || "static") !== d.panMode)   { matches = false; break; }
+      const cA = cfg.pitchAmount != null ? cfg.pitchAmount : 1;
+      if (Math.abs(cA - d.pitchAmount) > 0.001) { matches = false; break; }
+    }
+    if (matches) return scene.id;
+  }
+  return "custom";
+}
+
 function driftTick() {
-  const scene = DRIFT_SCENE_BY_ID[state.driftSceneId];
-  if (!scene || scene.id === "off") return;
+  if (!anyVoiceDrifting()) {
+    // All voices went static — stop the timer cleanly.
+    if (driftIntervalId) { clearInterval(driftIntervalId); driftIntervalId = null; }
+    return;
+  }
 
   const sessionSec = state.sessionDuration > 0 ? state.sessionDuration : 15 * 60;
   const rawProgress = Math.min(1, Math.max(0, (Date.now() - driftStartMs) / (sessionSec * 1000)));
 
   for (let i = 0; i < driftVoices.length; i++) {
-    const cfg = scene.voices[i] || {};
     const v = driftVoices[i];
     const osc = state.oscillators[i];
     if (!v || !osc) continue;
+    const cfg = osc.drift || defaultDrift();
 
     // ─── Pitch ───
     if (cfg.pitchMode === "glacial") {
       glacialPitchVoice(i, v, osc);
-    } else {
-      const pitchPhase = cfg.pitchPhase || 0;
-      const p = (rawProgress + pitchPhase) % 1;
+    } else if (cfg.pitchMode && cfg.pitchMode !== "static") {
+      const p = (rawProgress + (cfg.pitchPhase || 0)) % 1;
       const amount = cfg.pitchAmount != null ? cfg.pitchAmount : 1;
-      const octaveOffset = pitchShape(cfg.pitchMode || "static", p) * amount;
+      const octaveOffset = pitchShape(cfg.pitchMode, p) * amount;
       const target = v.baseFreq * Math.pow(2, octaveOffset);
-      // Light lerp to keep the per-second sampling from sounding stepped.
       const newFreq = osc.frequencyHz + (target - osc.frequencyHz) * 0.30;
       osc.frequencyHz = newFreq;
       engine.setFrequency(i, newFreq);
@@ -678,8 +780,7 @@ function driftTick() {
     if (cfg.panMode === "glacial") {
       glacialPanVoice(i, v, osc);
     } else if (cfg.panMode && cfg.panMode !== "static") {
-      const panPhase = cfg.panPhase || 0;
-      const p = (rawProgress + panPhase) % 1;
+      const p = (rawProgress + (cfg.panPhase || 0)) % 1;
       const amount = cfg.panAmount != null ? cfg.panAmount : 1;
       const target = Math.max(-1, Math.min(1, panShape(cfg.panMode, p) * amount));
       const newPan = osc.pan + (target - osc.pan) * 0.20;

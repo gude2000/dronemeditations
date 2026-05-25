@@ -107,7 +107,8 @@ export function renderAll() {
     `${PITCH_CLASSES[s.keyId].name} ${CHORDS.find((c) => c.id === s.chordId).name}`;
   document.getElementById("preset-pill-value").textContent = s.activePresetName || "—";
   const driftPill = document.getElementById("drift-pill");
-  const sceneLabel = (window.__drone?.DRIFT_SCENES || []).find((sc) => sc.id === s.driftSceneId)?.name || "Off";
+  let sceneLabel = (window.__drone?.DRIFT_SCENES || []).find((sc) => sc.id === s.driftSceneId)?.name;
+  if (!sceneLabel) sceneLabel = s.driftSceneId === "custom" ? "Custom" : "Off";
   document.getElementById("drift-pill-value").textContent = sceneLabel;
   driftPill.classList.toggle("active", s.driftSceneId !== "off");
 
@@ -206,6 +207,7 @@ function buildStrip(index) {
       />
       <span class="strip-freq-unit">Hz</span>
       <div class="strip-buttons">
+        <button class="sm-button" data-role="voice-drift" type="button" title="Drift this voice independently — pitch + pan motion over the session" aria-label="Voice drift mode">∿</button>
         <button class="sm-button" data-role="randomize" type="button" title="Randomize this oscillator's parameters (level is preserved)" aria-label="Randomize parameters">⚄</button>
         <button class="sm-button" data-role="solo" type="button">S</button>
         <button class="sm-button" data-role="mute" type="button">M</button>
@@ -313,6 +315,7 @@ function buildStrip(index) {
   root.querySelector('[data-role="solo"]').addEventListener("click", () => dispatch.toggleSolo(index));
   root.querySelector('[data-role="mute"]').addEventListener("click", () => dispatch.toggleMute(index));
   root.querySelector('[data-role="randomize"]').addEventListener("click", () => dispatch.randomizeOscillator(index));
+  root.querySelector('[data-role="voice-drift"]').addEventListener("click", (e) => openVoiceDriftMenu(e, index));
 
   // Editable freq display — commit on Enter / blur; revert on Escape.
   const freqInput = root.querySelector('[data-role="freq-input"]');
@@ -440,6 +443,11 @@ function syncStrip(index, root) {
   soloBtn.classList.toggle("solo-on", osc.isSoloed);
   const muteBtn = root.querySelector('[data-role="mute"]');
   muteBtn.classList.toggle("mute-on", osc.isMuted);
+  // Voice-drift button glows when this voice has any non-static drift.
+  const driftBtn = root.querySelector('[data-role="voice-drift"]');
+  const d = osc.drift || {};
+  const driftActive = (d.pitchMode && d.pitchMode !== "static") || (d.panMode && d.panMode !== "static");
+  driftBtn.classList.toggle("drift-on", !!driftActive);
 
   root.querySelectorAll('[data-waveform]').forEach((btn) => {
     btn.classList.toggle("selected", btn.dataset.waveform === osc.waveform);
@@ -809,6 +817,95 @@ function syncTransport() {
   document.getElementById("time-readout").textContent = total ? `${elapsed} / ${total}` : elapsed;
   document.getElementById("duration-label").textContent =
     s.sessionDuration > 0 ? `${Math.round(s.sessionDuration / 60)} min` : "Open";
+}
+
+// Per-voice drift dropdown — opens beside the strip's drift button. Lets
+// the user override that single voice's pitch and pan motion without
+// affecting the other three. Active button glow + bulk DRIFT pill
+// switching to "Custom" both happen automatically when state changes.
+const VOICE_PITCH_DRIFT_MODES = [
+  { id: "static",  label: "Static" },
+  { id: "up",      label: "Up 1 oct" },
+  { id: "down",    label: "Down 1 oct" },
+  { id: "upDown",  label: "Up / Down (^)" },
+  { id: "downUp",  label: "Down / Up (V)" },
+  { id: "wave",    label: "Wave (sine)" },
+  { id: "glacial", label: "Glacial wander" }
+];
+const VOICE_PAN_DRIFT_MODES = [
+  { id: "static",       label: "Static" },
+  { id: "sweepLR",      label: "Sweep L → R" },
+  { id: "sweepRL",      label: "Sweep R → L" },
+  { id: "pendulum",     label: "Pendulum" },
+  { id: "antiPendulum", label: "Anti-pendulum" },
+  { id: "glacial",      label: "Glacial wander" }
+];
+
+function openVoiceDriftMenu(e, voiceIndex) {
+  let menu = document.getElementById("voice-drift-menu");
+  if (menu) { menu.remove(); return; }
+
+  menu = document.createElement("div");
+  menu.id = "voice-drift-menu";
+  menu.style.cssText = `
+    position: fixed; z-index: 30;
+    background: #111; border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 10px; padding: 6px; min-width: 220px;
+    display: flex; flex-direction: column; gap: 2px;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.5);
+  `;
+  const drift = getState().oscillators[voiceIndex]?.drift || { pitchMode: "static", panMode: "static" };
+
+  const addSection = (title) => {
+    const h = document.createElement("div");
+    h.style.cssText = `
+      padding: 8px 12px 4px 12px;
+      font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+      color: rgba(255,255,255,0.50); text-transform: uppercase;
+    `;
+    h.textContent = title;
+    menu.appendChild(h);
+  };
+  const addOption = (mode, currentValue, onClick) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    const isCurrent = mode.id === currentValue;
+    b.style.cssText = `
+      text-align: left; padding: 6px 12px; font-size: 12px;
+      color: #fff; background: ${isCurrent ? "rgba(140,195,255,0.18)" : "transparent"};
+      border-radius: 6px;
+    `;
+    b.textContent = mode.label;
+    b.addEventListener("click", () => {
+      onClick(mode.id);
+      menu.remove();
+    });
+    menu.appendChild(b);
+  };
+
+  addSection(`OSC ${voiceIndex + 1} · Pitch`);
+  for (const m of VOICE_PITCH_DRIFT_MODES) {
+    addOption(m, drift.pitchMode, (id) => dispatch.setVoicePitchDrift(voiceIndex, id));
+  }
+  addSection(`OSC ${voiceIndex + 1} · Pan`);
+  for (const m of VOICE_PAN_DRIFT_MODES) {
+    addOption(m, drift.panMode, (id) => dispatch.setVoicePanDrift(voiceIndex, id));
+  }
+
+  const rect = e.currentTarget.getBoundingClientRect();
+  menu.style.top = `${rect.bottom + 6}px`;
+  menu.style.left = `${Math.min(rect.left, window.innerWidth - 240)}px`;
+  document.body.appendChild(menu);
+
+  setTimeout(() => {
+    const closer = (ev) => {
+      if (!menu.contains(ev.target)) {
+        menu.remove();
+        document.removeEventListener("click", closer);
+      }
+    };
+    document.addEventListener("click", closer);
+  }, 0);
 }
 
 // Drift scene dropdown. Scenes come from main.js (DRIFT_SCENES). The first

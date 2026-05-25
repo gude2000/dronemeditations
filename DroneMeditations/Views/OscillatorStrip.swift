@@ -470,6 +470,49 @@ struct OscillatorStrip: View {
 
     private var soloMuteCluster: some View {
         HStack(spacing: 8) {
+            // Per-voice drift menu — pitch + pan motion for just this voice.
+            Menu {
+                Section("OSC \(index + 1) · Pitch") {
+                    ForEach(DriftVoiceConfig.PitchMode.allCases) { mode in
+                        Button {
+                            vm.setVoicePitchDrift(index, mode: mode)
+                        } label: {
+                            if mode == osc.drift.pitchMode {
+                                Label(mode.label, systemImage: "checkmark")
+                            } else {
+                                Text(mode.label)
+                            }
+                        }
+                    }
+                }
+                Section("OSC \(index + 1) · Pan") {
+                    ForEach(DriftVoiceConfig.PanMode.allCases) { mode in
+                        Button {
+                            vm.setVoicePanDrift(index, mode: mode)
+                        } label: {
+                            if mode == osc.drift.panMode {
+                                Label(mode.label, systemImage: "checkmark")
+                            } else {
+                                Text(mode.label)
+                            }
+                        }
+                    }
+                }
+            } label: {
+                Image(systemName: osc.drift.isActive ? "wind.circle.fill" : "wind.circle")
+                    .font(.system(.caption, design: .rounded).weight(.heavy))
+                    .frame(width: 26, height: 26)
+                    .background(
+                        Circle().fill(
+                            osc.drift.isActive
+                                ? Color(red: 0.55, green: 0.76, blue: 1.0).opacity(0.30)
+                                : Color.white.opacity(0.10)
+                        )
+                    )
+                    .foregroundStyle(.white)
+            }
+            .menuStyle(.borderlessButton)
+
             Button {
                 vm.randomizeOscillator(index)
             } label: {

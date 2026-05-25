@@ -123,6 +123,7 @@ struct OscillatorState: Identifiable, Equatable {
     var reverb: ReverbState = .defaults()
     var delay: DelayState = .defaults()
     var lfos: [LfoState]    // exactly 3 — see LfoState above
+    var drift: DriftVoiceConfig = .off      // per-voice drift; tick reads this directly
     var sampleName: String? = nil           // user-visible filename
     var sampleStoredFilename: String? = nil // relative path under DroneSamples/ (for preset persistence)
 
