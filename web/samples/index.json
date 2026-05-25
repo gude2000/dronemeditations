@@ -1,5 +1,7 @@
 {
   "_comment": "List of bundled sample audio files. Each entry needs file (relative to this folder), name (shown in the picker), and optional category. Add a file here and it will appear in the 'Bundled samples' picker that opens when you click 'Load file...' on any oscillator. Supported formats: WAV / MP3 / OGG / FLAC.",
   "_addInstructions": "1) Drop your file into web/samples/  2) Append an entry below  3) Commit and the app picks it up after deploy. Browsers can't enumerate a static folder, which is why we need this manifest.",
-  "samples": []
+  "samples": [
+    { "file": "organ-mid.wav", "name": "Organ — Mid Note", "category": "Keys" }
+  ]
 }
