@@ -1,7 +1,7 @@
 // Bootstrap — owns app state, glues UI + audio + visualizations together.
 
 import {
-  CHORDS, PRESETS, PITCH_CLASSES, TUNING_SYSTEMS,
+  CHORDS, PRESETS, JOURNEYS, journeyTotalSeconds, PITCH_CLASSES, TUNING_SYSTEMS,
   pitchToFrequency, chordFrequencies, FREQ_MIN, FREQ_MAX
 } from "./music.js";
 import { AudioEngine } from "./audio.js";
@@ -63,6 +63,9 @@ const state = {
   elapsed: 0,
   isRecording: false,         // mirrors engine.isRecording() for the UI
   driftSceneId: "off",        // id from DRIFT_SCENES below
+  activeJourneyId: null,      // null when not on a journey
+  journeyStageIndex: 0,       // which stage of the active journey
+  journeyStageEndsAt: 0,      // Date.now() ms when the current stage ends
 
   // User-saved presets
   userPresets: loadUserPresets()
@@ -174,6 +177,9 @@ const actions = {
     state.transportState = "stopped";
     state.elapsed = 0;
     stopTicker();
+    // Stop a journey if one is running so it doesn't keep advancing
+    // through preset changes while transport is silent.
+    if (state.activeJourneyId) stopJourney();
     renderAll();
     // If a recording is in progress, stop it before tearing down audio so
     // the captured fade-out is included in the final file.
@@ -461,6 +467,9 @@ const actions = {
       startDrift(sceneId);
     }
   },
+
+  startJourney(id) { startJourney(id); },
+  stopJourney()    { stopJourney(); },
   setVoicePitchDrift(voiceIndex, mode) { setVoicePitchDrift(voiceIndex, mode); },
   setVoicePanDrift(voiceIndex, mode)   { setVoicePanDrift(voiceIndex, mode); },
 
@@ -912,7 +921,58 @@ renderAll();
 
 // Debug handle — read-only inspection from devtools / preview_eval.
 // Safe to leave in; no UI/audio behavior depends on it.
-window.__drone = { state, engine, actions, DRIFT_SCENES };
+window.__drone = { state, engine, actions, DRIFT_SCENES, JOURNEYS };
+
+// ──────────────────────────────────────────────────
+// Meditation journey runner. A journey is a list of stages — each stage
+// applies a preset + drift scene for its duration, then auto-advances to
+// the next. When the final stage ends, the journey completes (and we let
+// the existing session auto-stop fade-out take care of the audio).
+// ──────────────────────────────────────────────────
+let journeyAdvanceTimer = null;
+
+function startJourney(id) {
+  const j = JOURNEYS.find((x) => x.id === id);
+  if (!j) return;
+  stopJourney();  // cancel any previous
+  state.activeJourneyId = id;
+  state.journeyStageIndex = -1;
+  // Total journey duration becomes the session length so the existing
+  // auto-stop logic + 8s fade-out at the end happen automatically.
+  actions.setDuration(journeyTotalSeconds(j));
+  // Make sure transport is playing.
+  if (state.transportState !== "playing") actions.togglePlay();
+  advanceJourneyStage();
+}
+
+function stopJourney() {
+  if (journeyAdvanceTimer) clearTimeout(journeyAdvanceTimer);
+  journeyAdvanceTimer = null;
+  state.activeJourneyId = null;
+  state.journeyStageIndex = 0;
+  state.journeyStageEndsAt = 0;
+  renderAll();
+}
+
+function advanceJourneyStage() {
+  const j = JOURNEYS.find((x) => x.id === state.activeJourneyId);
+  if (!j) return;
+  state.journeyStageIndex += 1;
+  if (state.journeyStageIndex >= j.stages.length) {
+    // Journey complete — leave transport running; sessionDuration auto-stops.
+    state.activeJourneyId = null;
+    renderAll();
+    return;
+  }
+  const stage = j.stages[state.journeyStageIndex];
+  // Apply this stage.
+  actions.applyPreset(stage.presetId);
+  actions.setDriftScene(stage.driftSceneId || "off");
+  state.journeyStageEndsAt = Date.now() + stage.durationSec * 1000;
+  // Schedule next advance.
+  journeyAdvanceTimer = setTimeout(advanceJourneyStage, stage.durationSec * 1000);
+  renderAll();
+}
 
 // ──────────────────────────────────────────────────
 // Pop-out Chladni window sync

@@ -26,6 +26,17 @@ final class DroneViewModel: ObservableObject {
     /// and a tiny Exit affordance.
     @Published var performanceMode: Bool = false
 
+    // ─── Meditation journey state ───
+    @Published private(set) var activeJourneyId: String? = nil
+    @Published private(set) var journeyStageIndex: Int = 0
+    @Published private(set) var journeyStageEndsAt: Date? = nil
+    private var journeyTimer: Timer?
+
+    var activeJourney: Journey? {
+        guard let id = activeJourneyId else { return nil }
+        return Journey.all.first { $0.id == id }
+    }
+
     @Published var userPresets: [UserPreset] = UserPresetStore.load()
 
     /// A scene is the per-voice drift assignment for all four oscillators.
@@ -142,9 +153,15 @@ final class DroneViewModel: ObservableObject {
         self.nowPlaying = NowPlayingBridge(controller: controller, vm: self)
         self.micPitch = MicPitchDetector(engine: engine)
 
-        // Mirror transport + preset changes into Now Playing.
-        controller.$state.sink { [weak self] _ in
-            Task { @MainActor in self?.nowPlaying.refresh() }
+        // Mirror transport + preset changes into Now Playing, and stop
+        // any running journey when transport stops.
+        controller.$state.sink { [weak self] newState in
+            Task { @MainActor in
+                self?.nowPlaying.refresh()
+                if newState == .stopped, self?.activeJourneyId != nil {
+                    self?.stopJourney()
+                }
+            }
         }.store(in: &cancellables)
         controller.$elapsed.sink { [weak self] _ in
             Task { @MainActor in self?.nowPlaying.refresh() }
@@ -456,6 +473,50 @@ final class DroneViewModel: ObservableObject {
             audioEngine.setMute(isSilentSlot, for: i)
         }
         activePresetName = preset.name
+    }
+
+    // MARK: - Meditation journeys
+
+    /// Start a scripted journey. Sets the session duration to the journey
+    /// total so the existing auto-stop fade kicks in at the end, then
+    /// applies stage 0 immediately and schedules subsequent stages.
+    func startJourney(_ id: String) {
+        guard let j = Journey.all.first(where: { $0.id == id }) else { return }
+        stopJourney()  // cancel any in-flight journey
+        activeJourneyId = id
+        journeyStageIndex = -1
+        controller.sessionDuration = j.totalSeconds
+        if controller.state != .playing { controller.play() }
+        advanceJourneyStage()
+    }
+
+    func stopJourney() {
+        journeyTimer?.invalidate()
+        journeyTimer = nil
+        activeJourneyId = nil
+        journeyStageIndex = 0
+        journeyStageEndsAt = nil
+    }
+
+    private func advanceJourneyStage() {
+        guard let j = activeJourney else { return }
+        journeyStageIndex += 1
+        if journeyStageIndex >= j.stages.count {
+            // Journey complete — leave transport, the session-auto-stop
+            // fade-out handles the final silence.
+            activeJourneyId = nil
+            return
+        }
+        let stage = j.stages[journeyStageIndex]
+        if let preset = Preset.all.first(where: { $0.name == stage.presetName }) {
+            applyPreset(preset)
+        }
+        setDriftScene(stage.driftSceneId)
+        journeyStageEndsAt = Date().addingTimeInterval(stage.durationSec)
+        journeyTimer?.invalidate()
+        journeyTimer = Timer.scheduledTimer(withTimeInterval: stage.durationSec, repeats: false) { [weak self] _ in
+            Task { @MainActor in self?.advanceJourneyStage() }
+        }
     }
 
     // MARK: - Master

@@ -4,6 +4,7 @@
 import {
   WAVEFORMS, PITCH_CLASSES, TUNING_SYSTEMS,
   CHORDS, CHORD_CATEGORIES, PRESETS, PRESET_CATEGORIES,
+  JOURNEYS, journeyTotalSeconds,
   FREQ_MIN, FREQ_MAX, frequencyHue
 } from "./music.js";
 import { startListening, stopListening, freqToNote, listInputDevices, switchInputDevice } from "./pitch-detect.js";
@@ -45,6 +46,7 @@ export function initUI(state, actions) {
   document.getElementById("drift-pill").addEventListener("click", openDriftMenu);
   document.getElementById("listen-pill").addEventListener("click", openListenSheet);
   document.getElementById("performance-pill").addEventListener("click", enterPerformance);
+  document.getElementById("journey-pill").addEventListener("click", openJourneySheet);
   document.getElementById("performance-exit").addEventListener("click", exitPerformance);
   // Esc exits Performance from anywhere on the page (in addition to the Exit button).
   document.addEventListener("keydown", (e) => {
@@ -111,6 +113,8 @@ export function renderAll() {
   if (!sceneLabel) sceneLabel = s.driftSceneId === "custom" ? "Custom" : "Off";
   document.getElementById("drift-pill-value").textContent = sceneLabel;
   driftPill.classList.toggle("active", s.driftSceneId !== "off");
+
+  syncJourneyPill();
 
   document.getElementById("master-volume").value = s.masterVolume;
   document.getElementById("master-volume").style.setProperty("--fill", `${Math.round(s.masterVolume * 100)}%`);
@@ -684,6 +688,75 @@ function exitPerformance() {
   // Bring the main controls back into view on exit so the user lands
   // somewhere usable instead of a blank Chladni.
   dispatch.setShowControls(true);
+}
+
+// ───────── meditation journeys ─────────
+
+function openJourneySheet() {
+  buildJourneyList();
+  openSheet("journey-sheet");
+}
+
+function buildJourneyList() {
+  const root = document.getElementById("journey-list");
+  const activeId = getState().activeJourneyId;
+  root.innerHTML = "";
+  for (const j of JOURNEYS) {
+    const total = journeyTotalSeconds(j);
+    const totalMin = Math.round(total / 60);
+    const isActive = j.id === activeId;
+    const card = document.createElement("div");
+    card.className = "preset-item" + (isActive ? " preset-active" : "");
+    card.style.cssText = "display:flex;flex-direction:column;gap:8px;padding:12px;cursor:pointer;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);margin-bottom:8px";
+    const stages = j.stages.map((s) =>
+      `<div style="font-size:11px;color:rgba(255,255,255,0.65);margin-left:8px;line-height:1.5">
+        · ${Math.round(s.durationSec/60)} min — ${s.hint}
+      </div>`
+    ).join("");
+    card.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <div>
+          <div style="font-size:14px;font-weight:600;color:#fff">${j.name}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.55);margin-top:2px">${totalMin} min · ${j.stages.length} stages</div>
+        </div>
+        <button type="button" data-journey="${j.id}" class="${isActive ? "journey-stop-btn" : "journey-start-btn"}"
+          style="padding:6px 14px;border-radius:999px;border:0;font-size:12px;font-weight:600;cursor:pointer;
+                 background:${isActive ? "rgba(220,80,80,0.85)" : "var(--accent,#6aa9ff)"};color:#fff">
+          ${isActive ? "Stop" : "Start"}
+        </button>
+      </div>
+      <div style="font-size:12px;color:rgba(255,255,255,0.75);line-height:1.4">${j.description}</div>
+      <div>${stages}</div>
+    `;
+    card.querySelector("button").addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (isActive) {
+        dispatch.stopJourney();
+      } else {
+        dispatch.startJourney(j.id);
+        closeSheet("journey-sheet");
+      }
+    });
+    root.appendChild(card);
+  }
+}
+
+function syncJourneyPill() {
+  const s = getState();
+  const pill = document.getElementById("journey-pill");
+  const value = document.getElementById("journey-pill-value");
+  if (!s.activeJourneyId) {
+    value.textContent = "Off";
+    pill.classList.remove("active");
+    return;
+  }
+  const j = JOURNEYS.find((x) => x.id === s.activeJourneyId);
+  if (!j) { value.textContent = "Off"; pill.classList.remove("active"); return; }
+  const stage = j.stages[s.journeyStageIndex];
+  const stageNum = Math.min(s.journeyStageIndex + 1, j.stages.length);
+  value.textContent = `${j.name} · ${stageNum}/${j.stages.length}`;
+  pill.classList.add("active");
+  pill.title = stage ? `${j.name}\nStage ${stageNum}/${j.stages.length}: ${stage.hint}` : j.name;
 }
 
 function buildKeyGrid() {

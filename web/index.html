@@ -57,6 +57,10 @@
         <span class="pill-label">PERFORM</span>
         <span id="performance-pill-value" class="pill-value">Cymatics fullscreen</span>
       </button>
+      <button id="journey-pill" class="pill" type="button" title="Scripted meditation journeys — multi-stage timed sessions that auto-advance presets + drift">
+        <span class="pill-label">JOURNEY</span>
+        <span id="journey-pill-value" class="pill-value">Off</span>
+      </button>
     </div>
 
     <section id="oscillator-strips" class="strips" aria-label="Oscillators"></section>
@@ -168,6 +172,24 @@
         </p>
         <div id="user-preset-list" class="preset-list"></div>
         <div id="preset-list" class="preset-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Meditation journeys sheet — opens via the JOURNEY pill. -->
+  <div id="journey-sheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="journey-sheet-title" hidden>
+    <div class="sheet-panel">
+      <header class="sheet-header">
+        <h2 id="journey-sheet-title">Meditation Journeys</h2>
+        <button class="sheet-done" data-close="journey-sheet" type="button">Done</button>
+      </header>
+      <div class="sheet-scroll">
+        <p class="preset-disclaimer">
+          A journey auto-advances through multiple presets + drift scenes
+          over a fixed duration. The session timer is set to the journey
+          total; transport fades out at the end.
+        </p>
+        <div id="journey-list" class="preset-list"></div>
       </div>
     </div>
   </div>

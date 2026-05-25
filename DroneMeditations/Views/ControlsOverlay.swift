@@ -7,6 +7,7 @@ struct ControlsOverlay: View {
     @State private var showingChordSheet = false
     @State private var showingPresetSheet = false
     @State private var showingListenSheet = false
+    @State private var showingJourneySheet = false
 
     // iPhone landscape reports verticalSizeClass == .compact. iPad and iPhone
     // portrait both report .regular. Use this to switch to space-efficient
@@ -56,6 +57,10 @@ struct ControlsOverlay: View {
             vm.micPitch.stop()
         }) {
             ListenSheetView()
+                .environmentObject(vm)
+        }
+        .sheet(isPresented: $showingJourneySheet) {
+            JourneyPickerView()
                 .environmentObject(vm)
         }
     }
@@ -133,10 +138,49 @@ struct ControlsOverlay: View {
                     pillLabel(title: "Perform", value: "Cymatics", system: "rectangle.fill.on.rectangle.fill")
                 }
                 .buttonStyle(.plain)
+
+                Button { showingJourneySheet = true } label: { journeyPill }
+                    .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 14)
         .padding(.top, 6)
+    }
+
+    /// Pill that opens the journeys sheet. Amber-tinted while a journey is
+    /// running; shows journey name + stage X/N.
+    private var journeyPill: some View {
+        let active = vm.activeJourneyId != nil
+        let value: String
+        if let j = vm.activeJourney {
+            let stage = min(vm.journeyStageIndex + 1, j.stages.count)
+            value = "\(j.name) · \(stage)/\(j.stages.count)"
+        } else {
+            value = "Off"
+        }
+        return HStack(spacing: 6) {
+            Image(systemName: active ? "map.fill" : "map")
+                .font(.caption.weight(.semibold))
+            VStack(alignment: .leading, spacing: 0) {
+                Text("JOURNEY")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(active ? Color(red: 1.0, green: 0.85, blue: 0.55) : .white.opacity(0.6))
+                Text(value)
+                    .font(.system(.footnote, design: .rounded).weight(.semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+            }
+            Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(
+            Capsule().fill(active ? Color(red: 1.0, green: 0.85, blue: 0.55).opacity(0.20) : Color.white.opacity(0.10))
+        )
+        .overlay(
+            Capsule().stroke(active ? Color(red: 1.0, green: 0.85, blue: 0.55).opacity(0.40) : .clear, lineWidth: 1)
+        )
+        .foregroundStyle(.white)
     }
 
     /// Pill that opens the drift-scene menu. Tinted whenever the active
@@ -245,6 +289,9 @@ struct ControlsOverlay: View {
                         pillLabel(title: "Perform", value: "Cymatics", system: "rectangle.fill.on.rectangle.fill")
                     }
                     .buttonStyle(.plain)
+
+                    Button { showingJourneySheet = true } label: { journeyPill }
+                        .buttonStyle(.plain)
                 }
             }
             .scrollClipDisabled()  // let menus open beyond the scroll bounds

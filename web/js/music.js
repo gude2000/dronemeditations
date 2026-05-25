@@ -273,6 +273,76 @@ export const PRESETS = [
 ];
 
 // ────────────────────────────────────────────────────────────
+// Meditation journeys — scripted multi-stage sessions.
+// ────────────────────────────────────────────────────────────
+//
+// Each journey is a sequence of stages; when started, the journey auto-
+// advances through the stages on a timer, loading the stage's preset and
+// applying its drift scene as it goes. The transport's session duration
+// is automatically set to the journey total so the existing fade-out
+// behavior kicks in at the end.
+//
+// A stage references presets and drift scenes by id — both must exist in
+// PRESETS and DRIFT_SCENES (defined in music.js / main.js) respectively.
+
+export const JOURNEYS = [
+  {
+    id: "sundown",
+    name: "Sundown",
+    description: "Bright clarity slowly descending into deep rest. Good for end of day.",
+    stages: [
+      { durationSec: 5 * 60,  presetId: "solf_528",     driftSceneId: "glacial",    hint: "Pure 528 Hz · gentle wander" },
+      { durationSec: 10 * 60, presetId: "scriabin_2",   driftSceneId: "breathing",  hint: "Mystic chord · breathing" },
+      { durationSec: 5 * 60,  presetId: "sable",        driftSceneId: "descend",    hint: "φ-tuned descent" }
+    ]
+  },
+  {
+    id: "awakening",
+    name: "Awakening",
+    description: "Deep root rising into bright resonance. Good for morning focus.",
+    stages: [
+      { durationSec: 5 * 60,  presetId: "om",                  driftSceneId: "off",       hint: "OM 136.1 Hz · still" },
+      { durationSec: 5 * 60,  presetId: "harmonic_series",     driftSceneId: "ascend",    hint: "Harmonic series · ascending" },
+      { durationSec: 5 * 60,  presetId: "just_major",          driftSceneId: "aurora",    hint: "Just major triad · aurora" }
+    ]
+  },
+  {
+    id: "floating",
+    name: "Floating",
+    description: "Sustained ambient texture for long sessions or sleep onset.",
+    stages: [
+      { durationSec: 10 * 60, presetId: "phi_field",     driftSceneId: "aurora",     hint: "Phi field · aurora" },
+      { durationSec: 10 * 60, presetId: "schumann_x",    driftSceneId: "tidal",      hint: "Schumann layers · tidal" },
+      { durationSec: 10 * 60, presetId: "ligeti_2",      driftSceneId: "pendulum",   hint: "Whole-tone cluster · pendulum" }
+    ]
+  },
+  {
+    id: "centering",
+    name: "Centering",
+    description: "Short focus session — 10 minutes total, ideal for a quick reset.",
+    stages: [
+      { durationSec: 3 * 60,  presetId: "hypogeum",         driftSceneId: "off",       hint: "Hypogeum 111 Hz · still" },
+      { durationSec: 4 * 60,  presetId: "phi_aug",          driftSceneId: "glacial",   hint: "Phi-augmented · wander" },
+      { durationSec: 3 * 60,  presetId: "earth",            driftSceneId: "downUp",    hint: "Schumann fundamental · return" }
+    ]
+  },
+  {
+    id: "spiralDescent",
+    name: "Spiral Descent",
+    description: "Outer voices spiral around a central drone, slowly descending. 25 min.",
+    stages: [
+      { durationSec: 5 * 60,  presetId: "fifths_stack",     driftSceneId: "spiral",     hint: "Perfect fifths · spiral" },
+      { durationSec: 10 * 60, presetId: "fibonacci_quartet",driftSceneId: "convergence",hint: "Fibonacci · converging" },
+      { durationSec: 10 * 60, presetId: "octave_stack",     driftSceneId: "descend",    hint: "Octave stack · descending" }
+    ]
+  }
+];
+
+export function journeyTotalSeconds(journey) {
+  return journey.stages.reduce((s, st) => s + st.durationSec, 0);
+}
+
+// ────────────────────────────────────────────────────────────
 // Misc constants.
 // ────────────────────────────────────────────────────────────
 export const FREQ_MIN = 20;

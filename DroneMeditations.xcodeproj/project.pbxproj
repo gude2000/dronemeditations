@@ -32,6 +32,8 @@
 		B00000000000000000000022 /* MicPitchDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000022 /* MicPitchDetector.swift */; };
 		B00000000000000000000023 /* ListenSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000023 /* ListenSheetView.swift */; };
 		B00000000000000000000024 /* DriftConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000024 /* DriftConfig.swift */; };
+		B00000000000000000000025 /* Journey.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000025 /* Journey.swift */; };
+		B00000000000000000000026 /* JourneyPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000026 /* JourneyPickerView.swift */; };
 		B00000000000000000000014 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000014 /* Assets.xcassets */; };
 		B00000000000000000000016 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000016 /* Preview Assets.xcassets */; };
 		B00000000000000000000017 /* UserPreset.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000017 /* UserPreset.swift */; };
@@ -65,6 +67,8 @@
 		F00000000000000000000022 /* MicPitchDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicPitchDetector.swift; sourceTree = "<group>"; };
 		F00000000000000000000023 /* ListenSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListenSheetView.swift; sourceTree = "<group>"; };
 		F00000000000000000000024 /* DriftConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriftConfig.swift; sourceTree = "<group>"; };
+		F00000000000000000000025 /* Journey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Journey.swift; sourceTree = "<group>"; };
+		F00000000000000000000026 /* JourneyPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JourneyPickerView.swift; sourceTree = "<group>"; };
 		F00000000000000000000014 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F00000000000000000000015 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		F00000000000000000000016 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
@@ -115,6 +119,7 @@
 				F00000000000000000000005 /* Chord.swift */,
 				F00000000000000000000006 /* OscillatorState.swift */,
 				F00000000000000000000024 /* DriftConfig.swift */,
+				F00000000000000000000025 /* Journey.swift */,
 				F00000000000000000000007 /* Preset.swift */,
 				F00000000000000000000017 /* UserPreset.swift */,
 			);
@@ -156,6 +161,7 @@
 				F00000000000000000000019 /* ChladniMiniControls.swift */,
 				F00000000000000000000020 /* ShareSheet.swift */,
 				F00000000000000000000023 /* ListenSheetView.swift */,
+				F00000000000000000000026 /* JourneyPickerView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -253,6 +259,8 @@
 				B00000000000000000000005 /* Chord.swift in Sources */,
 				B00000000000000000000006 /* OscillatorState.swift in Sources */,
 				B00000000000000000000024 /* DriftConfig.swift in Sources */,
+				B00000000000000000000025 /* Journey.swift in Sources */,
+				B00000000000000000000026 /* JourneyPickerView.swift in Sources */,
 				B00000000000000000000007 /* Preset.swift in Sources */,
 				B00000000000000000000008 /* Voice.swift in Sources */,
 				B00000000000000000000009 /* AudioEngine.swift in Sources */,
