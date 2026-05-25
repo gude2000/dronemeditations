@@ -84,46 +84,79 @@ struct ContentView: View {
         .statusBarHidden(true)
     }
 
-    /// Tiny "Exit" pill in the top-left corner that fades back to faint
-    /// after a short delay so it doesn't intrude on the Performance view.
+    /// "Exit" pill in the top-left corner. Auto-dims after a few seconds
+    /// so it doesn't intrude on the Performance view, but never fully
+    /// disappears (kept at 0.45 opacity), AND a tap anywhere on the
+    /// screen wakes it back to full brightness for another fade cycle.
+    /// This avoids the previous bug where the button became effectively
+    /// invisible and trapped the user in Performance mode.
     @State private var exitVisible: Bool = true
+    @State private var exitFadeTask: Task<Void, Never>?
+
     private var performanceExit: some View {
-        VStack {
-            HStack {
-                Button {
-                    withAnimation(.easeInOut(duration: 0.22)) {
-                        vm.performanceMode = false
-                        vm.showControls = true
-                    }
-                } label: {
-                    Text("Exit")
-                        .font(.system(size: 12, weight: .medium))
+        ZStack {
+            // Wake-on-tap layer covering the whole screen. Doesn't block
+            // the Exit button (it's stacked above), but catches taps
+            // anywhere else on the Chladni so the user can always reveal
+            // the Exit button by tapping the screen.
+            Color.clear
+                .contentShape(Rectangle())
+                .onTapGesture { wakeExitButton() }
+                .ignoresSafeArea()
+
+            VStack {
+                HStack {
+                    Button {
+                        exitPerformance()
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 11, weight: .bold))
+                            Text("Exit")
+                                .font(.system(size: 12, weight: .medium))
+                        }
                         .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(
-                            Capsule().fill(Color.black.opacity(0.45))
-                        )
-                        .overlay(
-                            Capsule().stroke(Color.white.opacity(0.25), lineWidth: 1)
-                        )
-                        .foregroundStyle(.white.opacity(0.85))
+                        .padding(.vertical, 7)
+                        .background(Capsule().fill(Color.black.opacity(0.60)))
+                        .overlay(Capsule().stroke(Color.white.opacity(0.35), lineWidth: 1))
+                        .foregroundStyle(.white)
+                    }
+                    .buttonStyle(.plain)
+                    .opacity(exitVisible ? 1.0 : 0.45)
+                    .padding(.leading, 12)
+                    .padding(.top, 12)
+                    Spacer()
                 }
-                .buttonStyle(.plain)
-                .opacity(exitVisible ? 1.0 : 0.2)
-                .padding(.leading, 12)
-                .padding(.top, 12)
                 Spacer()
             }
-            Spacer()
+            .ignoresSafeArea(.keyboard)
         }
-        .ignoresSafeArea(.keyboard)
-        .onAppear {
-            // Auto-dim a few seconds after entering Performance.
+        .onAppear { wakeExitButton() }
+        .onDisappear {
+            exitFadeTask?.cancel()
+            exitFadeTask = nil
             exitVisible = true
-            Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 3_000_000_000)
-                withAnimation(.easeOut(duration: 0.5)) { exitVisible = false }
-            }
+        }
+    }
+
+    /// Bring the Exit button to full opacity and (re)start the auto-dim
+    /// timer. Any in-flight fade task is cancelled so successive taps
+    /// keep it visible.
+    private func wakeExitButton() {
+        exitFadeTask?.cancel()
+        withAnimation(.easeOut(duration: 0.18)) { exitVisible = true }
+        exitFadeTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeOut(duration: 0.7)) { exitVisible = false }
+        }
+    }
+
+    private func exitPerformance() {
+        exitFadeTask?.cancel()
+        withAnimation(.easeInOut(duration: 0.22)) {
+            vm.performanceMode = false
+            vm.showControls = true
         }
     }
 
