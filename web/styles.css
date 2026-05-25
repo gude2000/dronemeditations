@@ -912,10 +912,12 @@ body.performance:hover { cursor: default; }
   min-width: 0;
 }
 
-/* Filter row */
+/* Filter row — 5 children: FILT label + LP/HP/BP segmented + CUTOFF +
+   Q + DRIVE. Adding DRIVE without bumping column count was wrapping it
+   to a second row at the label's 36px width (microscopic slider). */
 .filter-row {
   display: grid;
-  grid-template-columns: 36px auto 1fr 1fr;
+  grid-template-columns: 36px auto 1.6fr 1fr 1.4fr;
   gap: 10px;
   align-items: center;
   padding-top: 6px;
