@@ -194,6 +194,35 @@ struct OscillatorStrip: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 56, alignment: .leading)
 
+            // Bundled samples picker — shows entries discovered in the
+            // app bundle's Samples folder at launch. Tapping one loads
+            // it directly (no Files-app round-trip). Hidden when there
+            // are no bundled samples present so the row isn't cluttered.
+            if !BundledSampleStore.all.isEmpty {
+                Menu {
+                    let groups = Dictionary(grouping: BundledSampleStore.all) { $0.category }
+                    ForEach(groups.keys.sorted(), id: \.self) { cat in
+                        Section(cat) {
+                            ForEach(groups[cat] ?? []) { entry in
+                                Button(entry.name) {
+                                    vm.loadBundledSample(entry, for: index)
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    Text("Bundled ▾")
+                        .font(.system(size: 12, weight: .semibold))
+                        .padding(.horizontal, 10).padding(.vertical, 6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 7)
+                                .fill(Color.white.opacity(0.10))
+                        )
+                        .foregroundStyle(.white)
+                }
+                .menuStyle(.borderlessButton)
+            }
+
             Button {
                 showingFilePicker = true
             } label: {

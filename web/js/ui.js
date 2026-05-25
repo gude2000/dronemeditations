@@ -180,6 +180,110 @@ export function renderAll() {
   document.getElementById("spectrum-toggle").classList.toggle("active", !!s.showSpectrum);
 }
 
+// ───────── Bundled samples ─────────
+//
+// Browsers can't enumerate a static folder, so the app fetches a manifest
+// (web/samples/index.json) once and uses that to populate the picker. The
+// manifest is shipped alongside the audio files in the GitHub Pages deploy.
+
+let _bundledSamplesCache = null;
+let _bundledSamplesPromise = null;
+
+async function loadBundledSampleManifest() {
+  if (_bundledSamplesCache) return _bundledSamplesCache;
+  if (_bundledSamplesPromise) return _bundledSamplesPromise;
+  _bundledSamplesPromise = (async () => {
+    try {
+      const resp = await fetch("./samples/index.json", { cache: "no-cache" });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      _bundledSamplesCache = Array.isArray(data.samples) ? data.samples : [];
+    } catch (err) {
+      console.warn("[samples] couldn't load index.json:", err);
+      _bundledSamplesCache = [];
+    }
+    return _bundledSamplesCache;
+  })();
+  return _bundledSamplesPromise;
+}
+
+/// Render a small popup menu of bundled samples anchored beneath the
+/// Bundled button on the given oscillator's sample row. Tapping an
+/// entry loads it via dispatch.loadBundledSample. The popup auto-closes
+/// on selection or on outside click.
+async function openBundledSamplePicker(anchor, oscIndex) {
+  // Tear down any existing popup first.
+  document.querySelectorAll(".bundled-sample-popup").forEach((p) => p.remove());
+
+  const samples = await loadBundledSampleManifest();
+  const rect = anchor.getBoundingClientRect();
+  const popup = document.createElement("div");
+  popup.className = "bundled-sample-popup";
+  popup.style.cssText = `
+    position: fixed;
+    top: ${Math.round(rect.bottom + 4)}px;
+    left: ${Math.round(rect.left)}px;
+    max-height: 60vh;
+    overflow-y: auto;
+    min-width: 240px;
+    z-index: 9999;
+    background: #14141a;
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    padding: 6px;
+  `;
+
+  if (samples.length === 0) {
+    const empty = document.createElement("div");
+    empty.style.cssText = "padding:12px 14px;font-size:12px;color:rgba(255,255,255,0.65);max-width:280px;line-height:1.45";
+    empty.innerHTML = `No bundled samples yet. Add audio files to
+      <code style="font-family:ui-monospace,monospace;background:rgba(255,255,255,0.10);padding:1px 4px;border-radius:4px">web/samples/</code>
+      and list them in <code style="font-family:ui-monospace,monospace;background:rgba(255,255,255,0.10);padding:1px 4px;border-radius:4px">samples/index.json</code>.`;
+    popup.appendChild(empty);
+  } else {
+    // Group by optional category.
+    const groups = {};
+    for (const s of samples) {
+      const k = s.category || "Samples";
+      (groups[k] = groups[k] || []).push(s);
+    }
+    for (const [cat, list] of Object.entries(groups)) {
+      const hdr = document.createElement("div");
+      hdr.style.cssText = "font-size:9px;letter-spacing:0.10em;text-transform:uppercase;color:rgba(255,255,255,0.45);padding:8px 10px 4px";
+      hdr.textContent = cat;
+      popup.appendChild(hdr);
+      for (const entry of list) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.style.cssText = "display:block;width:100%;text-align:left;padding:8px 10px;background:transparent;border:0;color:#fff;font-size:13px;cursor:pointer;border-radius:6px";
+        btn.textContent = entry.name || entry.file;
+        btn.addEventListener("mouseenter", () => { btn.style.background = "rgba(255,255,255,0.08)"; });
+        btn.addEventListener("mouseleave", () => { btn.style.background = "transparent"; });
+        btn.addEventListener("click", () => {
+          popup.remove();
+          dispatch.loadBundledSample(oscIndex, entry);
+        });
+        popup.appendChild(btn);
+      }
+    }
+  }
+
+  document.body.appendChild(popup);
+
+  // Dismiss on outside click. Use a one-shot capture-phase handler so it
+  // doesn't fight the open button's click that was already in flight.
+  setTimeout(() => {
+    const dismiss = (e) => {
+      if (!popup.contains(e.target)) {
+        popup.remove();
+        document.removeEventListener("click", dismiss, true);
+      }
+    };
+    document.addEventListener("click", dismiss, true);
+  }, 0);
+}
+
 function renderStrips() {
   const s = getState();
   // Reuse existing DOM nodes when possible to avoid losing slider focus.
@@ -275,6 +379,7 @@ function buildStrip(index) {
     <div class="sample-row" data-role="sample-row" hidden>
       <span class="strip-label">SAMPLE</span>
       <input type="file" accept="audio/*" data-role="sample-input" hidden />
+      <button type="button" class="sample-button" data-role="sample-bundled" title="Pick from samples shipped with the app">Bundled ▾</button>
       <button type="button" class="sample-button" data-role="sample-load">Load file…</button>
       <span class="sample-name" data-role="sample-name" title="">—</span>
       <button type="button" class="sample-clear" data-role="sample-clear" hidden>Clear</button>
@@ -453,6 +558,9 @@ function buildStrip(index) {
   // Sample row wiring
   const sampleInput = root.querySelector('[data-role="sample-input"]');
   root.querySelector('[data-role="sample-load"]').addEventListener("click", () => sampleInput.click());
+  root.querySelector('[data-role="sample-bundled"]').addEventListener("click", (e) => {
+    openBundledSamplePicker(e.currentTarget, index);
+  });
   sampleInput.addEventListener("change", (e) => {
     const file = e.target.files && e.target.files[0];
     if (file) dispatch.loadSampleFile(index, file);

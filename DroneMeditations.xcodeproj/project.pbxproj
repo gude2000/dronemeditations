@@ -41,6 +41,7 @@
 		B0000000000000000000002B /* SnapshotHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0000000000000000000002B /* SnapshotHelper.swift */; };
 		B0000000000000000000002C /* UserJourney.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0000000000000000000002C /* UserJourney.swift */; };
 		B0000000000000000000002D /* MorphSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0000000000000000000002D /* MorphSheetView.swift */; };
+		B0000000000000000000002E /* BundledSampleStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0000000000000000000002E /* BundledSampleStore.swift */; };
 		B00000000000000000000014 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000014 /* Assets.xcassets */; };
 		B00000000000000000000016 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000016 /* Preview Assets.xcassets */; };
 		B00000000000000000000017 /* UserPreset.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000017 /* UserPreset.swift */; };
@@ -83,6 +84,7 @@
 		F0000000000000000000002B /* SnapshotHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotHelper.swift; sourceTree = "<group>"; };
 		F0000000000000000000002C /* UserJourney.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserJourney.swift; sourceTree = "<group>"; };
 		F0000000000000000000002D /* MorphSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorphSheetView.swift; sourceTree = "<group>"; };
+		F0000000000000000000002E /* BundledSampleStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundledSampleStore.swift; sourceTree = "<group>"; };
 		F00000000000000000000014 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F00000000000000000000015 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		F00000000000000000000016 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
@@ -153,6 +155,7 @@
 				F00000000000000000000027 /* HapticsBridge.swift */,
 				F00000000000000000000029 /* SpectrumTap.swift */,
 				F0000000000000000000002B /* SnapshotHelper.swift */,
+				F0000000000000000000002E /* BundledSampleStore.swift */,
 				F00000000000000000000018 /* UserPresetStore.swift */,
 			);
 			path = Audio;
@@ -283,6 +286,7 @@
 				B00000000000000000000025 /* Journey.swift in Sources */,
 				B0000000000000000000002C /* UserJourney.swift in Sources */,
 				B0000000000000000000002D /* MorphSheetView.swift in Sources */,
+				B0000000000000000000002E /* BundledSampleStore.swift in Sources */,
 				B00000000000000000000026 /* JourneyPickerView.swift in Sources */,
 				B00000000000000000000027 /* HapticsBridge.swift in Sources */,
 				B00000000000000000000028 /* VoicePreset.swift in Sources */,

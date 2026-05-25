@@ -431,6 +431,15 @@ final class DroneViewModel: ObservableObject {
         audioEngine.setWaveform(.sample, for: index)
     }
 
+    /// Load a sample from a bundled-in-the-app file URL (resolved by
+    /// BundledSampleStore). Routes through the existing loadSample so
+    /// it goes through the same persist-to-Documents path and will
+    /// round-trip in user-preset saves.
+    func loadBundledSample(_ entry: BundledSampleStore.Entry, for index: Int) {
+        do { try loadSample(from: entry.url, for: index) }
+        catch { print("[bundled] couldn't load \(entry.name): \(error)") }
+    }
+
     func clearSample(for index: Int) {
         guard oscillators.indices.contains(index) else { return }
         audioEngine.clearSample(for: index)

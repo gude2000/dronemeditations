@@ -23,6 +23,18 @@ import {
 //   Default LFO 3: sine  → cutoff
 //   Default LFO 4: sine  → pitch (vibrato)
 // `shape` and `target` are user-editable per LFO; `depth: 0` disables the LFO.
+/// Best-effort MIME type from a sample filename — used when the server
+/// didn't supply a content-type header (GitHub Pages sometimes doesn't
+/// on .ogg / .flac).
+function guessMimeFromName(name = "") {
+  const ext = name.toLowerCase().split(".").pop();
+  return {
+    wav: "audio/wav", mp3: "audio/mpeg", m4a: "audio/mp4",
+    aac: "audio/aac", ogg: "audio/ogg", oga: "audio/ogg",
+    flac: "audio/flac", opus: "audio/opus", webm: "audio/webm"
+  }[ext] || "audio/*";
+}
+
 const defaultLfos = () => ([
   { shape: "sine", target: "pan",    rateHz: 0.25, depth: 0 },
   { shape: "sh",   target: "amp",    rateHz: 0.50, depth: 0 },
@@ -468,6 +480,38 @@ const actions = {
     state.oscillators[oscIndex].filter.q = clamped;
     engine.setFilterQ(oscIndex, clamped);
     renderAll();
+  },
+
+  /// Load a sample from the bundled `web/samples/` folder by URL.
+  /// `entry` is a row from samples/index.json with .file + .name. We
+  /// fetch the blob and route through the existing decode + cache path
+  /// so it persists across user-preset saves like any user upload.
+  async loadBundledSample(oscIndex, entry) {
+    if (!entry || !entry.file) return;
+    engine.ensureStarted(state.oscillators);
+    engine.resume();
+    try {
+      const url = `./samples/${entry.file}`;
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const arrayBuffer = await resp.arrayBuffer();
+      const audioBuffer = await engine.ctx.decodeAudioData(arrayBuffer.slice(0));
+      engine.loadSample(oscIndex, audioBuffer);
+      state.oscillators[oscIndex].sampleName = entry.name || entry.file;
+      state.oscillators[oscIndex].waveform = "sample";
+      engine.setWaveform(oscIndex, "sample");
+      const mime = resp.headers.get("content-type") || guessMimeFromName(entry.file);
+      sampleCache[oscIndex] = {
+        id: null,
+        name: entry.name || entry.file,
+        blob: new Blob([arrayBuffer], { type: mime }),
+        type: mime
+      };
+      renderAll();
+    } catch (err) {
+      console.error("Bundled sample load failed:", err);
+      alert(`Couldn't load bundled sample "${entry.name || entry.file}".`);
+    }
   },
 
   async loadSampleFile(oscIndex, file) {
