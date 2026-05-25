@@ -279,6 +279,24 @@ struct OscillatorStrip: View {
                     )
                 )
             }
+
+            // Per-voice drive (1.0 = clean, 12.0 = heavy tanh saturation).
+            // Shares the filter row since drive shapes the raw oscillator
+            // signal that the filter then carves.
+            VStack(alignment: .leading, spacing: 0) {
+                Text(osc.drive <= 1.01
+                     ? "DRIVE clean"
+                     : String(format: "DRIVE %.1fx", osc.drive))
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(osc.drive > 1.01 ? Color.accentColor : .secondary)
+                Slider(
+                    value: Binding(
+                        get: { osc.drive },
+                        set: { vm.setDrive($0, for: index) }
+                    ),
+                    in: 1.0...12.0
+                ).tint(.white.opacity(0.7))
+            }
         }
     }
 

@@ -27,6 +27,7 @@ struct Preset: Identifiable, Hashable {
         // sound character — waveform, FX, LFOs, drift — not just pitches.
         let wave: Waveform?
         let amp: Double?
+        let drive: Double?
         let filter: FilterState?
         let reverb: ReverbState?
         let delay: DelayState?
@@ -39,6 +40,7 @@ struct Preset: Identifiable, Hashable {
 
         init(hz: Double, pan: Double = 0,
              wave: Waveform? = nil, amp: Double? = nil,
+             drive: Double? = nil,
              filter: FilterState? = nil,
              reverb: ReverbState? = nil,
              delay: DelayState? = nil,
@@ -48,7 +50,7 @@ struct Preset: Identifiable, Hashable {
              drift: DriftVoiceConfig? = nil) {
             self.hz = hz; self.pan = pan
             self.wave = wave; self.amp = amp
-            self.filter = filter; self.reverb = reverb
+            self.drive = drive; self.filter = filter; self.reverb = reverb
             self.delay = delay; self.chorus = chorus
             self.fm = fm; self.lfos = lfos; self.drift = drift
         }
@@ -259,31 +261,31 @@ extension Preset {
 
         // Sunn O))) — Onyx Tar  (drop master volume — heavy stack)
         Preset("Sunn O))) — Onyx Tar", .droneArtists,
-               subtitle: "Sunn O))) · sub-bass E drone · square-LFO tremolo · drop master volume",
+               subtitle: "Sunn O))) · sub-bass E + amp drive · square tremolo · drop master volume",
                {
                    let rev = ReverbState(decaySec: 9.0, mix: 0.45)
                    let trem: [LfoState?] = [LfoState(shape: .square, target: .amplitude, rateHz: 0.7, depth: 0.30), nil, nil, nil]
                    return [
-                    Voice(hz:  41.20, pan: -0.5, wave: .sawtooth, amp: 0.75,
+                    Voice(hz:  41.20, pan: -0.5, wave: .sawtooth, amp: 0.75, drive: 6.5,
                           filter: FilterState(type: .lowpass, cutoffHz: 350, q: 2.0),
                           reverb: rev, lfos: trem),
-                    Voice(hz:  41.55, pan:  0.5, wave: .square,   amp: 0.70,
+                    Voice(hz:  41.55, pan:  0.5, wave: .square,   amp: 0.65, drive: 5.5,
                           filter: FilterState(type: .lowpass, cutoffHz: 400, q: 1.8),
                           reverb: rev, lfos: trem),
-                    Voice(hz:  82.40, pan:  0.0, wave: .sawtooth, amp: 0.55,
+                    Voice(hz:  82.40, pan:  0.0, wave: .sawtooth, amp: 0.55, drive: 4.0,
                           filter: FilterState(type: .lowpass, cutoffHz: 500, q: 1.5), reverb: rev),
-                    Voice(hz: 123.47, pan:  0.1, wave: .sawtooth, amp: 0.40,
+                    Voice(hz: 123.47, pan:  0.1, wave: .sawtooth, amp: 0.40, drive: 3.0,
                           filter: FilterState(type: .lowpass, cutoffHz: 700, q: 1.5), reverb: rev)
                    ]
                }()),
 
         // William Basinski — Disintegration
         Preset("Basinski — Disintegration", .droneArtists,
-               subtitle: "Basinski · tape-loop voice fading + filter-decay · C major support",
+               subtitle: "Basinski · tape-loop voice + pink-noise hiss · C major support",
                {
                    let rev = ReverbState(decaySec: 7.0, mix: 0.40)
                    return [
-                    Voice(hz: 261.63, pan: 0.0, wave: .triangle, amp: 0.55,
+                    Voice(hz: 261.63, pan: 0.0, wave: .triangle, amp: 0.55, drive: 1.8,
                           filter: FilterState(type: .lowpass, cutoffHz: 1500, q: 1.0),
                           reverb: rev,
                           delay: DelayState(timeSec: 0.50, feedback: 0.65, mix: 0.40, mode: .stereo, timing: .quarter),
@@ -295,7 +297,14 @@ extension Preset {
                           ]),
                     Voice(hz: 130.81, pan:  0.0, wave: .sine, amp: 0.45, reverb: rev),
                     Voice(hz: 392.00, pan: -0.3, wave: .sine, amp: 0.35, reverb: rev),
-                    Voice(hz: 523.25, pan:  0.3, wave: .sine, amp: 0.32, reverb: rev)
+                    // Pink-noise tape-hiss layer — counter-phase amp LFO so it
+                    // swells while the melodic loop fades, like the way
+                    // disintegrating tape lets more bias noise through. HP
+                    // filter keeps it airy, not muddy.
+                    Voice(hz: 220.00, pan: 0.0, wave: .pinkNoise, amp: 0.22,
+                          filter: FilterState(type: .highpass, cutoffHz: 600, q: 0.7),
+                          reverb: rev,
+                          lfos: [LfoState(shape: .sine, target: .amplitude, rateHz: 0.08, depth: 0.55), nil, nil, nil])
                    ]
                }()),
 
@@ -394,7 +403,7 @@ extension Preset {
 
         // Earth — Tar Pit  (Earth 2 style)
         Preset("Earth — Tar Pit", .droneArtists,
-               subtitle: "Earth (Carlson) · Earth-2 doom · low B + 4th · 10 s reverb",
+               subtitle: "Earth (Carlson) · Earth-2 doom · driven low B + 4th · 10 s reverb",
                {
                    let rev = ReverbState(decaySec: 10.0, mix: 0.50)
                    func descend(phase: Double) -> DriftVoiceConfig {
@@ -402,13 +411,13 @@ extension Preset {
                                         panMode: .static, panAmount: 0, panPhase: 0)
                    }
                    return [
-                    Voice(hz:  30.87, pan: -0.3, wave: .sawtooth, amp: 0.70,
+                    Voice(hz:  30.87, pan: -0.3, wave: .sawtooth, amp: 0.70, drive: 4.5,
                           filter: FilterState(type: .lowpass, cutoffHz: 250, q: 2.0),
                           reverb: rev, drift: descend(phase: 0.0)),
-                    Voice(hz:  41.20, pan:  0.3, wave: .sawtooth, amp: 0.65,
+                    Voice(hz:  41.20, pan:  0.3, wave: .sawtooth, amp: 0.65, drive: 4.0,
                           filter: FilterState(type: .lowpass, cutoffHz: 280, q: 1.8),
                           reverb: rev, drift: descend(phase: 0.25)),
-                    Voice(hz:  61.74, pan:  0.0, wave: .square,   amp: 0.50,
+                    Voice(hz:  61.74, pan:  0.0, wave: .square,   amp: 0.50, drive: 3.0,
                           filter: FilterState(type: .lowpass, cutoffHz: 400, q: 1.5), reverb: rev),
                     Voice(hz:  92.50, pan:  0.0, wave: .sine,     amp: 0.35, reverb: rev)
                    ]
@@ -416,21 +425,30 @@ extension Preset {
 
         // Nurse With Wound — Avant Tableau
         Preset("Nurse With Wound — Avant Tableau", .droneArtists,
-               subtitle: "Nurse With Wound · asymmetric collage · cross-osc FM + ping-pong 1/4T",
+               subtitle: "NWW · driven saw + S&H square + white-noise bursts + ping-pong 1/4T",
                {
                    let rev = ReverbState(decaySec: 6.0, mix: 0.35)
                    return [
-                    Voice(hz:  87.31, pan: -0.8, wave: .sawtooth, amp: 0.50,
+                    Voice(hz:  87.31, pan: -0.8, wave: .sawtooth, amp: 0.50, drive: 3.0,
                           filter: FilterState(type: .lowpass, cutoffHz: 900, q: 1.0),
                           reverb: rev,
                           delay: DelayState(timeSec: 0.40, feedback: 0.55, mix: 0.30, mode: .pingPong, timing: .quarterT),
                           fm: FMState(sourceIndex: 3, index: 60)),
-                    Voice(hz: 233.08, pan:  0.8, wave: .square,   amp: 0.35,
+                    Voice(hz: 233.08, pan:  0.8, wave: .square,   amp: 0.35, drive: 2.0,
                           filter: FilterState(type: .highpass, cutoffHz: 400, q: 2.5),
                           reverb: rev,
                           lfos: [nil, LfoState(shape: .sampleAndHold, target: .cutoff, rateHz: 0.15, depth: 0.55), nil, nil]),
                     Voice(hz: 311.13, pan: -0.3, wave: .sine,     amp: 0.30, reverb: rev),
-                    Voice(hz: 415.30, pan:  0.3, wave: .triangle, amp: 0.28, reverb: rev)
+                    // White noise w/ S&H amp LFO + wandering BP — intermittent
+                    // texture bursts at irregular intervals, very NWW.
+                    Voice(hz: 220.00, pan: 0.3, wave: .whiteNoise, amp: 0.30,
+                          filter: FilterState(type: .bandpass, cutoffHz: 1200, q: 4.0),
+                          reverb: rev,
+                          lfos: [
+                            LfoState(shape: .sampleAndHold, target: .amplitude, rateHz: 0.30, depth: 0.80),
+                            LfoState(shape: .sine, target: .cutoff, rateHz: 0.10, depth: 0.50),
+                            nil, nil
+                          ])
                    ]
                }()),
 
@@ -444,7 +462,7 @@ extension Preset {
                        [nil, nil, nil, LfoState(shape: .sine, target: .pitch, rateHz: rate, depth: 0.05)]
                    }
                    return [
-                    Voice(hz:   73.42, pan:  0.0, wave: .sawtooth, amp: 0.55,
+                    Voice(hz:   73.42, pan:  0.0, wave: .sawtooth, amp: 0.55, drive: 3.5,
                           filter: FilterState(type: .lowpass, cutoffHz: 800, q: 2.0),
                           reverb: rev, chorus: cho),
                     Voice(hz:  880.00, pan: -0.6, wave: .sawtooth, amp: 0.22,

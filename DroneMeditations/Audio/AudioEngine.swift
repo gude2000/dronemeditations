@@ -289,6 +289,13 @@ final class AudioEngine {
         voices[voiceIndex].filterQ = max(FilterState.qMin, min(FilterState.qMax, q))
     }
 
+    /// 1.0 = no drive; up to ~12 for heavy saturation. Lower-only clamp so
+    /// negative values can't invert the waveshaper.
+    func setDrive(_ d: Double, for voiceIndex: Int) {
+        guard voices.indices.contains(voiceIndex) else { return }
+        voices[voiceIndex].drive = max(1.0, min(12.0, d))
+    }
+
     func setReverbDecay(_ sec: Double, for voiceIndex: Int) {
         guard voices.indices.contains(voiceIndex) else { return }
         voices[voiceIndex].reverbDecaySec = max(ReverbState.decayMin, min(ReverbState.decayMax, sec))

@@ -24,6 +24,7 @@ struct VoicePreset: Codable, Identifiable {
         // presets saved before chorus + FM existed. nil → defaults on load.
         var fm: FMState?
         var chorus: ChorusState?
+        var drive: Double?
     }
 }
 

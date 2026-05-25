@@ -212,6 +212,11 @@ struct OscillatorState: Identifiable, Equatable {
     var isMuted: Bool
     var isSoloed: Bool
     var filter: FilterState
+    /// Per-voice soft-saturation drive applied to the raw oscillator/sample/
+    /// noise output before the filter. 1.0 = bypass; > 1 progressively warmer.
+    /// Useful for amp-style distortion (Sunn O))) / Earth) and gentle tape
+    /// saturation (Basinski).
+    var drive: Double = 1.0
     var fm: FMState = .defaults()
     var chorus: ChorusState = .defaults()
     var reverb: ReverbState = .defaults()

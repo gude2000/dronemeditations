@@ -5,12 +5,19 @@
 // Waveforms — names match Web Audio's OscillatorType strings.
 // ────────────────────────────────────────────────────────────
 export const WAVEFORMS = [
-  { id: "sine",     name: "Sine",     symbol: "sine" },
-  { id: "triangle", name: "Triangle", symbol: "triangle" },
-  { id: "sawtooth", name: "Saw",      symbol: "saw" },
-  { id: "square",   name: "Square",   symbol: "square" },
-  { id: "sample",   name: "Sample",   symbol: "sample" }
+  { id: "sine",       name: "Sine",       symbol: "sine" },
+  { id: "triangle",   name: "Triangle",   symbol: "triangle" },
+  { id: "sawtooth",   name: "Saw",        symbol: "saw" },
+  { id: "square",     name: "Square",     symbol: "square" },
+  { id: "whiteNoise", name: "White Noise", symbol: "noise" },
+  { id: "pinkNoise",  name: "Pink Noise",  symbol: "pinknoise" },
+  { id: "sample",     name: "Sample",     symbol: "sample" }
 ];
+
+/// True for waveform IDs that are stochastic noise (not periodic).
+export function isNoiseWaveform(id) {
+  return id === "whiteNoise" || id === "pinkNoise";
+}
 
 /// Reference frequency used as the "unity pitch" anchor when a sample is loaded.
 /// At this frequency the sample plays at 1.0× its native rate.
@@ -388,25 +395,27 @@ export const PRESETS = [
   },
 
   // 5. Sunn O))) — Onyx Tar.
-  //    Massive low E with octave doublings, filtered to remove top end,
-  //    square LFO on amplitude for slow tremolo pulse. CAUTION: lower
-  //    master volume — this stack is heavy.
+  //    Massive low E with octave doublings, amp-style drive on the bass
+  //    pair into a tight LP filter so the saturation produces harmonic
+  //    content the filter then carves into doom-guitar character. Square
+  //    LFO on amplitude for slow tremolo pulse.
+  //    CAUTION: lower master volume — this stack is heavy.
   {
     id: "sunn_onyx", name: "Sunn O))) — Onyx Tar", category: "Drone Artists",
-    sub: "Sunn O))) · sub-bass E drone · square-LFO tremolo · drop master volume",
+    sub: "Sunn O))) · sub-bass E + amp drive · square tremolo · drop master volume",
     voices: [
-      V({ hz:  41.20, pan: -0.5, wave: "sawtooth", amp: 0.75,
+      V({ hz:  41.20, pan: -0.5, wave: "sawtooth", amp: 0.75, drive: 6.5,
           filter: { type: "lowpass", cutoffHz: 350, q: 2.0 },
           reverb: { decaySec: 9.0, mix: 0.45 },
           lfos: [{ shape: "square", target: "amp", rateHz: 0.7, depth: 0.30 }, null, null, null] }),
-      V({ hz:  41.55, pan:  0.5, wave: "square",   amp: 0.70,
+      V({ hz:  41.55, pan:  0.5, wave: "square",   amp: 0.65, drive: 5.5,
           filter: { type: "lowpass", cutoffHz: 400, q: 1.8 },
           reverb: { decaySec: 9.0, mix: 0.45 },
           lfos: [{ shape: "square", target: "amp", rateHz: 0.7, depth: 0.30 }, null, null, null] }),
-      V({ hz:  82.40, pan:  0.0, wave: "sawtooth", amp: 0.55,
+      V({ hz:  82.40, pan:  0.0, wave: "sawtooth", amp: 0.55, drive: 4.0,
           filter: { type: "lowpass", cutoffHz: 500, q: 1.5 },
           reverb: { decaySec: 9.0, mix: 0.45 } }),
-      V({ hz: 123.47, pan:  0.1, wave: "sawtooth", amp: 0.40,
+      V({ hz: 123.47, pan:  0.1, wave: "sawtooth", amp: 0.40, drive: 3.0,
           filter: { type: "lowpass", cutoffHz: 700, q: 1.5 },
           reverb: { decaySec: 9.0, mix: 0.45 } })
     ]
@@ -415,12 +424,15 @@ export const PRESETS = [
   // 6. William Basinski — Disintegration.
   //    Voice 1 acts as a slowly-decaying "tape loop": amp LFO fades it in
   //    and out (~12 s cycle) and cutoff LFO progressively darkens it.
-  //    Other voices support in C major. 1/4 delay for repeated phrase.
+  //    Voice 4 is a pink-noise "tape hiss" layer that breathes UP as the
+  //    loop fades — a slow square-LFO amp swap evokes the way disintegrating
+  //    tape lets more noise floor through. 1/4 delay on the loop for the
+  //    repeated phrase.
   {
     id: "basinski_disint", name: "Basinski — Disintegration", category: "Drone Artists",
-    sub: "Basinski · tape-loop voice fading + filter-decay · C major support",
+    sub: "Basinski · tape-loop voice + pink-noise hiss · C major support",
     voices: [
-      V({ hz: 261.63, pan:  0.0, wave: "triangle", amp: 0.55,
+      V({ hz: 261.63, pan:  0.0, wave: "triangle", amp: 0.55, drive: 1.8,
           filter: { type: "lowpass", cutoffHz: 1500, q: 1.0 },
           delay: { timeSec: 0.50, feedback: 0.65, mix: 0.40, mode: "stereo", timing: "1/4" },
           reverb: { decaySec: 7.0, mix: 0.40 },
@@ -431,7 +443,13 @@ export const PRESETS = [
           ] }),
       V({ hz: 130.81, pan:  0.0, wave: "sine", amp: 0.45, reverb: { decaySec: 7.0, mix: 0.40 } }),
       V({ hz: 392.00, pan: -0.3, wave: "sine", amp: 0.35, reverb: { decaySec: 7.0, mix: 0.40 } }),
-      V({ hz: 523.25, pan:  0.3, wave: "sine", amp: 0.32, reverb: { decaySec: 7.0, mix: 0.40 } })
+      // Pink-noise "tape hiss" — counter-phase amp LFO so it swells while the
+      // melodic loop fades, like the way tape decay lets more bias noise through.
+      // HP filter keeps it airy, not muddy. Frequency is irrelevant for noise.
+      V({ hz: 220.00, pan:  0.0, wave: "pinkNoise", amp: 0.22,
+          filter: { type: "highpass", cutoffHz: 600, q: 0.7 },
+          reverb: { decaySec: 7.0, mix: 0.40 },
+          lfos: [{ shape: "sine", target: "amp", rateHz: 0.08, depth: 0.55 }, null, null, null] })
     ]
   },
 
@@ -567,21 +585,22 @@ export const PRESETS = [
   },
 
   // 12. Earth — Tar Pit (Earth 2 style).
-  //     Slower than Sunn O))) — very low B + perfect fourth, heavy reverb,
-  //     drift glacial-down so the whole drone descends across the session.
+  //     Slower than Sunn O))) — very low B + perfect fourth with moderate
+  //     drive for tar-thick harmonic content, heavy reverb, drift glacial-
+  //     down so the whole drone descends across the session.
   {
     id: "earth_tarpit", name: "Earth — Tar Pit", category: "Drone Artists",
-    sub: "Earth (Carlson) · Earth-2 doom · low B + 4th · 10 s reverb",
+    sub: "Earth (Carlson) · Earth-2 doom · driven low B + 4th · 10 s reverb",
     voices: [
-      V({ hz:  30.87, pan: -0.3, wave: "sawtooth", amp: 0.70,
+      V({ hz:  30.87, pan: -0.3, wave: "sawtooth", amp: 0.70, drive: 4.5,
           filter: { type: "lowpass", cutoffHz: 250, q: 2.0 },
           reverb: { decaySec: 10.0, mix: 0.50 },
           drift: { pitchMode: "glacial", pitchAmount: 0.3, panMode: "static", panAmount: 0, pitchPhase: 0, panPhase: 0 } }),
-      V({ hz:  41.20, pan:  0.3, wave: "sawtooth", amp: 0.65,
+      V({ hz:  41.20, pan:  0.3, wave: "sawtooth", amp: 0.65, drive: 4.0,
           filter: { type: "lowpass", cutoffHz: 280, q: 1.8 },
           reverb: { decaySec: 10.0, mix: 0.50 },
           drift: { pitchMode: "glacial", pitchAmount: 0.3, panMode: "static", panAmount: 0, pitchPhase: 0.25, panPhase: 0 } }),
-      V({ hz:  61.74, pan:  0.0, wave: "square",   amp: 0.50,
+      V({ hz:  61.74, pan:  0.0, wave: "square",   amp: 0.50, drive: 3.0,
           filter: { type: "lowpass", cutoffHz: 400, q: 1.5 },
           reverb: { decaySec: 10.0, mix: 0.50 } }),
       V({ hz:  92.50, pan:  0.0, wave: "sine",     amp: 0.35,
@@ -591,25 +610,35 @@ export const PRESETS = [
 
   // 13. Nurse With Wound — Avant Tableau.
   //     Stranger, asymmetric — mixed waveforms across voices, wide pan,
-  //     S&H LFO on osc-2 cutoff, FM-style cross-modulation (osc 4 → osc 1)
-  //     via a small modulation index, ping-pong 1/4-triplet delay.
+  //     gritty drive on the driven low + a S&H-modulated cutoff on the
+  //     square, cross-osc FM (osc 4 → osc 1), and a WHITE-NOISE textural
+  //     voice with HP filter + S&H amp LFO for unpredictable bursts.
+  //     Ping-pong 1/4-triplet delay.
   {
     id: "nww_tableau", name: "Nurse With Wound — Avant Tableau", category: "Drone Artists",
-    sub: "Nurse With Wound · asymmetric collage · cross-osc FM + ping-pong 1/4T",
+    sub: "NWW · driven saw + S&H square + white-noise bursts + ping-pong 1/4T",
     voices: [
-      V({ hz:  87.31, pan: -0.8, wave: "sawtooth", amp: 0.50,
+      V({ hz:  87.31, pan: -0.8, wave: "sawtooth", amp: 0.50, drive: 3.0,
           filter: { type: "lowpass", cutoffHz: 900, q: 1.0 },
           fm: { sourceIndex: 3, index: 60 },
           delay: { timeSec: 0.40, feedback: 0.55, mix: 0.30, mode: "pingPong", timing: "1/4t" },
           reverb: { decaySec: 6.0, mix: 0.35 } }),
-      V({ hz: 233.08, pan:  0.8, wave: "square",   amp: 0.35,
+      V({ hz: 233.08, pan:  0.8, wave: "square",   amp: 0.35, drive: 2.0,
           filter: { type: "highpass", cutoffHz: 400, q: 2.5 },
           reverb: { decaySec: 6.0, mix: 0.35 },
           lfos: [null, { shape: "sh", target: "cutoff", rateHz: 0.15, depth: 0.55 }, null, null] }),
       V({ hz: 311.13, pan: -0.3, wave: "sine",     amp: 0.30,
           reverb: { decaySec: 6.0, mix: 0.35 } }),
-      V({ hz: 415.30, pan:  0.3, wave: "triangle", amp: 0.28,
-          reverb: { decaySec: 6.0, mix: 0.35 } })
+      // White noise w/ S&H amp LFO and a wandering BP filter — produces
+      // intermittent texture bursts at irregular intervals, very NWW.
+      V({ hz: 220.00, pan:  0.3, wave: "whiteNoise", amp: 0.30,
+          filter: { type: "bandpass", cutoffHz: 1200, q: 4.0 },
+          reverb: { decaySec: 6.0, mix: 0.35 },
+          lfos: [
+            { shape: "sh", target: "amp",    rateHz: 0.30, depth: 0.80 },
+            { shape: "sine", target: "cutoff", rateHz: 0.10, depth: 0.50 },
+            null, null
+          ] })
     ]
   },
 
@@ -621,7 +650,7 @@ export const PRESETS = [
     id: "haino_shimmer", name: "Haino — Spectral Shimmer", category: "Drone Artists",
     sub: "Keiji Haino · D drone + HP shimmer · wobble + chorus halo",
     voices: [
-      V({ hz:  73.42, pan:  0.0, wave: "sawtooth", amp: 0.55,
+      V({ hz:  73.42, pan:  0.0, wave: "sawtooth", amp: 0.55, drive: 3.5,
           filter: { type: "lowpass", cutoffHz: 800, q: 2.0 },
           chorus: { rateHz: 1.5, depth: 0.7, width: 1.0, mix: 0.50 },
           reverb: { decaySec: 5.0, mix: 0.40 } }),
@@ -851,6 +880,73 @@ export const JOURNEYS = [
       { durationSec: 12 * 60, presetId: "acoltrane_organ", driftSceneId: "aurora",   hint: "Coltrane · Leslie rotation" },
       { durationSec: 13 * 60, presetId: "wada_bagpipe",    driftSceneId: "off",      hint: "Wada · reed drone" },
       { durationSec: 10 * 60, presetId: "haino_shimmer",   driftSceneId: "ascend",   hint: "Haino · spectral shimmer" }
+    ]
+  },
+
+  // ─────────────────────────────────────────────────────────────
+  // Drone-artist journeys — additional themed arcs through the
+  // Drone Artists presets. These layer different combinations than
+  // the 4 lineage journeys above so the user has plenty of pre-
+  // composed sound worlds to drop into.
+  // ─────────────────────────────────────────────────────────────
+  {
+    id: "sonicCathedral",
+    name: "Sonic Cathedral",
+    description: "40 min of warm reverberant pad — Stars of the Lid → Budd → Oliveros. Gentle, room-filling, sleep-friendly.",
+    stages: [
+      { durationSec: 14 * 60, presetId: "sotl_halo",   driftSceneId: "aurora",    hint: "Stars of the Lid · orchestral halo" },
+      { durationSec: 14 * 60, presetId: "budd_pearl",  driftSceneId: "breathing", hint: "Budd · breathing pad" },
+      { durationSec: 12 * 60, presetId: "oliveros_a",  driftSceneId: "glacial",   hint: "Oliveros · sympathetic A drone" }
+    ]
+  },
+  {
+    id: "blackMass",
+    name: "Black Mass",
+    description: "30 min sub-bass + shimmer immersion — Sunn O))) → Earth → Haino. Heavy. Drop master volume first.",
+    stages: [
+      { durationSec: 10 * 60, presetId: "sunn_onyx",     driftSceneId: "off",      hint: "Sunn O))) · sub-bass tremolo" },
+      { durationSec: 10 * 60, presetId: "earth_tarpit",  driftSceneId: "descend",  hint: "Earth · glacial descent" },
+      { durationSec: 10 * 60, presetId: "haino_shimmer", driftSceneId: "ascend",   hint: "Haino · spectral shimmer halo" }
+    ]
+  },
+  {
+    id: "slowBloom",
+    name: "Slow Bloom",
+    description: "33 min beating-into-overtones arc — Radigue → Palestine → Alice Coltrane. Tension → release → rotation.",
+    stages: [
+      { durationSec: 12 * 60, presetId: "radigue_ile",      driftSceneId: "breathing", hint: "Radigue · microtonal beating" },
+      { durationSec: 11 * 60, presetId: "palestine_strum",  driftSceneId: "aurora",    hint: "Palestine · overtone wash" },
+      { durationSec: 10 * 60, presetId: "acoltrane_organ", driftSceneId: "aurora",    hint: "Coltrane · Leslie organ" }
+    ]
+  },
+  {
+    id: "tapeAndTar",
+    name: "Tape & Tar",
+    description: "32 min of decay-themed listening — Basinski's tape-loop disintegration → Nurse With Wound texture → Earth tar pit.",
+    stages: [
+      { durationSec: 12 * 60, presetId: "basinski_disint", driftSceneId: "glacial",  hint: "Basinski · loop + hiss" },
+      { durationSec: 10 * 60, presetId: "nww_tableau",     driftSceneId: "crossing", hint: "NWW · asymmetric collage" },
+      { durationSec: 10 * 60, presetId: "earth_tarpit",    driftSceneId: "descend",  hint: "Earth · slow descent" }
+    ]
+  },
+  {
+    id: "awakeningDrone",
+    name: "Awakening Drone",
+    description: "30 min · Wada's bagpipe just-intonation → Riley's rainbow cascade → Coltrane's Leslie organ. Good for morning.",
+    stages: [
+      { durationSec: 10 * 60, presetId: "wada_bagpipe",    driftSceneId: "off",       hint: "Wada · reed drone" },
+      { durationSec: 10 * 60, presetId: "riley_rainbow",   driftSceneId: "ascend",    hint: "Riley · rainbow cascade" },
+      { durationSec: 10 * 60, presetId: "acoltrane_organ", driftSceneId: "aurora",    hint: "Coltrane · Leslie rotation" }
+    ]
+  },
+  {
+    id: "microtonalGarden",
+    name: "Microtonal Garden",
+    description: "33 min in the cracks between notes — Niblock's tight cluster → Radigue's slow beats → Oliveros's sympathetic drone.",
+    stages: [
+      { durationSec: 11 * 60, presetId: "niblock_cluster", driftSceneId: "crossing",  hint: "Niblock · beating cluster" },
+      { durationSec: 12 * 60, presetId: "radigue_ile",     driftSceneId: "breathing", hint: "Radigue · microtonal beating" },
+      { durationSec: 10 * 60, presetId: "oliveros_a",      driftSceneId: "glacial",   hint: "Oliveros · sympathetic A" }
     ]
   }
 ];

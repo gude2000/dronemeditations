@@ -286,6 +286,10 @@ function buildStrip(index) {
         <span class="mini-label" data-role="filter-q-label">Q</span>
         <input type="range" min="0" max="1" step="0.0001" data-role="filter-q" />
       </div>
+      <div class="mini-control">
+        <span class="mini-label" data-role="drive-label">DRIVE clean</span>
+        <input type="range" min="1" max="12" step="0.01" data-role="drive" title="Per-voice tanh saturation (1.0 = clean)" />
+      </div>
     </div>
     <!-- FX rows in user-requested vertical order: FM → Chorus → Delay → Reverb -->
     <div class="fx-row" data-role="fm-row">
@@ -464,6 +468,10 @@ function buildStrip(index) {
     dispatch.setFilterQ(index, q);
   });
 
+  root.querySelector('[data-role="drive"]').addEventListener("input", (e) => {
+    dispatch.setDrive(index, parseFloat(e.target.value));
+  });
+
   // Reverb + delay sliders
   root.querySelector('[data-role="rev-decay"]').addEventListener("input", (e) => {
     const t = parseFloat(e.target.value);
@@ -608,6 +616,16 @@ function syncStrip(index, root) {
   if (document.activeElement !== qSlider) qSlider.value = qT.toFixed(4);
   qSlider.style.setProperty("--fill", `${Math.round(qT * 100)}%`);
   root.querySelector('[data-role="filter-q-label"]').textContent = `Q ${f.q.toFixed(2)}`;
+
+  // Drive slider — sits in the filter row. Label flips to "clean" at 1.0.
+  const driveSlider = root.querySelector('[data-role="drive"]');
+  const driveVal = osc.drive || 1.0;
+  if (document.activeElement !== driveSlider) driveSlider.value = driveVal.toFixed(2);
+  // Map drive [1, 12] → fill 0–100%.
+  const driveFill = ((driveVal - 1) / 11) * 100;
+  driveSlider.style.setProperty("--fill", `${Math.round(driveFill)}%`);
+  root.querySelector('[data-role="drive-label"]').textContent =
+    driveVal <= 1.01 ? "DRIVE clean" : `DRIVE ${driveVal.toFixed(1)}×`;
 
   // FM row
   const fm = osc.fm || { sourceIndex: -1, index: 0 };

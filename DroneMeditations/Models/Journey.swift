@@ -223,5 +223,72 @@ extension Journey {
                 Stage(durationSec: 10*60, presetName: "Haino — Spectral Shimmer",    driftSceneId: "ascend", hint: "Haino · spectral shimmer"),
             ]
         ),
+
+        // ─────────────────────────────────────────────────────
+        // Additional drone-artist journeys — themed arcs that
+        // layer different combinations than the 4 lineage
+        // journeys above, so the user has plenty of pre-composed
+        // sound worlds.
+        // ─────────────────────────────────────────────────────
+        Journey(
+            id: "sonicCathedral",
+            name: "Sonic Cathedral",
+            description: "40 min of warm reverberant pad — Stars of the Lid → Budd → Oliveros. Gentle, room-filling, sleep-friendly.",
+            stages: [
+                Stage(durationSec: 14*60, presetName: "Stars of the Lid — Orchestral Halo", driftSceneId: "aurora",    hint: "Stars of the Lid · orchestral halo"),
+                Stage(durationSec: 14*60, presetName: "Budd — Pearl Pad",                    driftSceneId: "breathing", hint: "Budd · breathing pad"),
+                Stage(durationSec: 12*60, presetName: "Oliveros — Deep A Resonance",         driftSceneId: "glacial",   hint: "Oliveros · sympathetic A drone"),
+            ]
+        ),
+        Journey(
+            id: "blackMass",
+            name: "Black Mass",
+            description: "30 min sub-bass + shimmer immersion — Sunn O))) → Earth → Haino. Heavy. Drop master volume first.",
+            stages: [
+                Stage(durationSec: 10*60, presetName: "Sunn O))) — Onyx Tar",     driftSceneId: "off",     hint: "Sunn O))) · sub-bass tremolo"),
+                Stage(durationSec: 10*60, presetName: "Earth — Tar Pit",          driftSceneId: "descend", hint: "Earth · glacial descent"),
+                Stage(durationSec: 10*60, presetName: "Haino — Spectral Shimmer", driftSceneId: "ascend",  hint: "Haino · spectral shimmer halo"),
+            ]
+        ),
+        Journey(
+            id: "slowBloom",
+            name: "Slow Bloom",
+            description: "33 min beating-into-overtones arc — Radigue → Palestine → Alice Coltrane. Tension → release → rotation.",
+            stages: [
+                Stage(durationSec: 12*60, presetName: "Radigue — Île Re-Sonante",        driftSceneId: "breathing", hint: "Radigue · microtonal beating"),
+                Stage(durationSec: 11*60, presetName: "Palestine — Strumming Overtones", driftSceneId: "aurora",    hint: "Palestine · overtone wash"),
+                Stage(durationSec: 10*60, presetName: "Coltrane — Spiritual Organ",      driftSceneId: "aurora",    hint: "Coltrane · Leslie organ"),
+            ]
+        ),
+        Journey(
+            id: "tapeAndTar",
+            name: "Tape & Tar",
+            description: "32 min of decay-themed listening — Basinski's tape-loop disintegration → Nurse With Wound texture → Earth tar pit.",
+            stages: [
+                Stage(durationSec: 12*60, presetName: "Basinski — Disintegration",         driftSceneId: "glacial",  hint: "Basinski · loop + hiss"),
+                Stage(durationSec: 10*60, presetName: "Nurse With Wound — Avant Tableau",  driftSceneId: "crossing", hint: "NWW · asymmetric collage"),
+                Stage(durationSec: 10*60, presetName: "Earth — Tar Pit",                    driftSceneId: "descend",  hint: "Earth · slow descent"),
+            ]
+        ),
+        Journey(
+            id: "awakeningDrone",
+            name: "Awakening Drone",
+            description: "30 min · Wada's bagpipe just-intonation → Riley's rainbow cascade → Coltrane's Leslie organ. Good for morning.",
+            stages: [
+                Stage(durationSec: 10*60, presetName: "Wada — Bagpipe Drone",        driftSceneId: "off",    hint: "Wada · reed drone"),
+                Stage(durationSec: 10*60, presetName: "Riley — Rainbow Repetition",  driftSceneId: "ascend", hint: "Riley · rainbow cascade"),
+                Stage(durationSec: 10*60, presetName: "Coltrane — Spiritual Organ", driftSceneId: "aurora", hint: "Coltrane · Leslie rotation"),
+            ]
+        ),
+        Journey(
+            id: "microtonalGarden",
+            name: "Microtonal Garden",
+            description: "33 min in the cracks between notes — Niblock's tight cluster → Radigue's slow beats → Oliveros's sympathetic drone.",
+            stages: [
+                Stage(durationSec: 11*60, presetName: "Niblock — Tight Cluster",         driftSceneId: "crossing",  hint: "Niblock · beating cluster"),
+                Stage(durationSec: 12*60, presetName: "Radigue — Île Re-Sonante",         driftSceneId: "breathing", hint: "Radigue · microtonal beating"),
+                Stage(durationSec: 10*60, presetName: "Oliveros — Deep A Resonance",      driftSceneId: "glacial",   hint: "Oliveros · sympathetic A"),
+            ]
+        ),
     ]
 }

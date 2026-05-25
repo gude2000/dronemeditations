@@ -34,6 +34,8 @@ struct UserPreset: Identifiable, Codable, Equatable {
         // saved before chorus + FM existed.
         var fm: FMState?
         var chorus: ChorusState?
+        /// Per-voice drive (noise osc + tanh saturation), nil = no change.
+        var drive: Double?
     }
 
     static func newId() -> String {

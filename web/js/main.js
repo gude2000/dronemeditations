@@ -94,10 +94,10 @@ const defaultDrift  = () => ({
 
 const state = {
   oscillators: [
-    { id: 0, frequencyHz: 110.00, waveform: "sine", amplitude: 0.6,  pan: -0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), sampleName: null },
-    { id: 1, frequencyHz: 165.00, waveform: "sine", amplitude: 0.6,  pan:  0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), sampleName: null },
-    { id: 2, frequencyHz: 220.00, waveform: "sine", amplitude: 0.55, pan: -0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), sampleName: null },
-    { id: 3, frequencyHz: 277.18, waveform: "sine", amplitude: 0.5,  pan:  0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), sampleName: null }
+    { id: 0, frequencyHz: 110.00, waveform: "sine", amplitude: 0.6,  pan: -0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), sampleName: null },
+    { id: 1, frequencyHz: 165.00, waveform: "sine", amplitude: 0.6,  pan:  0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), sampleName: null },
+    { id: 2, frequencyHz: 220.00, waveform: "sine", amplitude: 0.55, pan: -0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), sampleName: null },
+    { id: 3, frequencyHz: 277.18, waveform: "sine", amplitude: 0.5,  pan:  0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), sampleName: null }
   ],
   keyId: 9,         // A
   octave: 3,
@@ -213,6 +213,10 @@ const actions = {
         engine.setFilterType(i, f.type);
         engine.setFilterCutoff(i, f.cutoffHz);
         engine.setFilterQ(i, f.q);
+      }
+      if (v.drive != null) {
+        state.oscillators[i].drive = v.drive;
+        engine.setDrive(i, v.drive);
       }
       if (v.reverb) {
         const r = { ...defaultReverb(), ...v.reverb };
@@ -420,6 +424,11 @@ const actions = {
     engine.setFilterCutoff(oscIndex, clamped);
     renderAll();
   },
+  setDrive(oscIndex, d) {
+    const clamped = Math.max(1.0, Math.min(12.0, d));
+    state.oscillators[oscIndex].drive = clamped;
+    engine.setDrive(oscIndex, clamped);
+  },
   setFilterQ(oscIndex, q) {
     const clamped = Math.max(0.3, Math.min(20, q));
     state.oscillators[oscIndex].filter.q = clamped;
@@ -560,6 +569,7 @@ const actions = {
         frequencyHz: o.frequencyHz, waveform: o.waveform, amplitude: o.amplitude,
         pan: o.pan, isMuted: o.isMuted, isSoloed: o.isSoloed,
         filter: { ...o.filter },
+        drive: o.drive,
         fm:     { ...o.fm },
         chorus: { ...o.chorus },
         reverb: { ...o.reverb }, delay: { ...o.delay },
@@ -599,9 +609,10 @@ const actions = {
       actions.setFilterType(i, o.filter.type);
       actions.setFilterCutoff(i, o.filter.cutoffHz);
       actions.setFilterQ(i, o.filter.q);
-      // FM + Chorus migration — older presets won't have these; merge with defaults.
+      // FM + Chorus + Drive migration — older presets won't have these; merge with defaults.
       const fm     = { ...defaultFM(),     ...(o.fm     || {}) };
       const chorus = { ...defaultChorus(), ...(o.chorus || {}) };
+      actions.setDrive(i, (o.drive != null) ? o.drive : 1.0);
       actions.setFMSource(i, fm.sourceIndex);
       actions.setFMIndex(i, fm.index);
       actions.setChorusRate(i, chorus.rateHz);
@@ -696,6 +707,7 @@ const actions = {
       amplitude: o.amplitude,
       pan: o.pan,
       filter: { ...o.filter },
+      drive:  o.drive,
       fm:     { ...o.fm },
       chorus: { ...o.chorus },
       reverb: { ...o.reverb },
@@ -728,6 +740,7 @@ const actions = {
     o.amplitude = v.amplitude;
     o.pan = v.pan;
     o.filter = { ...defaultFilter(), ...(v.filter || {}) };
+    o.drive  = (v.drive != null) ? v.drive : 1.0;
     o.fm     = { ...defaultFM(),     ...(v.fm     || {}) };
     o.chorus = { ...defaultChorus(), ...(v.chorus || {}) };
     o.reverb = { ...defaultReverb(), ...(v.reverb || {}) };
@@ -742,6 +755,7 @@ const actions = {
     engine.setFilterType(oscIndex, o.filter.type);
     engine.setFilterCutoff(oscIndex, o.filter.cutoffHz);
     engine.setFilterQ(oscIndex, o.filter.q);
+    engine.setDrive(oscIndex, o.drive);
     engine.setFMSource(oscIndex, o.fm.sourceIndex);
     engine.setFMIndex(oscIndex, o.fm.index);
     engine.setChorusRate(oscIndex, o.chorus.rateHz);

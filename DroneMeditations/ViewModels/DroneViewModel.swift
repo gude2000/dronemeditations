@@ -318,6 +318,13 @@ final class DroneViewModel: ObservableObject {
         audioEngine.setFilterQ(clamped, for: index)
     }
 
+    func setDrive(_ d: Double, for index: Int) {
+        guard oscillators.indices.contains(index) else { return }
+        let clamped = max(1.0, min(12.0, d))
+        oscillators[index].drive = clamped
+        audioEngine.setDrive(clamped, for: index)
+    }
+
     func setReverbDecay(_ sec: Double, for index: Int) {
         guard oscillators.indices.contains(index) else { return }
         let clamped = max(ReverbState.decayMin, min(ReverbState.decayMax, sec))
@@ -439,7 +446,7 @@ final class DroneViewModel: ObservableObject {
                 isMuted: o.isMuted, isSoloed: o.isSoloed,
                 filter: o.filter, reverb: o.reverb, delay: o.delay,
                 lfos: o.lfos, sampleStoredFilename: o.sampleStoredFilename,
-                fm: o.fm, chorus: o.chorus
+                fm: o.fm, chorus: o.chorus, drive: o.drive
             )
         }
         let preset = UserPreset(
@@ -470,9 +477,10 @@ final class DroneViewModel: ObservableObject {
             setFilterType(v.filter.type, for: i)
             setFilterCutoff(v.filter.cutoffHz, for: i)
             setFilterQ(v.filter.q, for: i)
-            // FM + Chorus (optional in preset for backward compatibility).
+            // FM + Chorus + Drive (optional in preset for backward compat).
             let fm = v.fm ?? .defaults()
             let ch = v.chorus ?? .defaults()
+            setDrive(v.drive ?? 1.0, for: i)
             setFMSource(fm.sourceIndex, for: i)
             setFMIndex(fm.index, for: i)
             setChorusRate(ch.rateHz, for: i)
@@ -601,6 +609,10 @@ final class DroneViewModel: ObservableObject {
                 audioEngine.setFilterCutoff(f.cutoffHz, for: i)
                 audioEngine.setFilterQ(f.q, for: i)
             }
+            if let dr = voice.drive {
+                oscillators[i].drive = dr
+                audioEngine.setDrive(dr, for: i)
+            }
             if let r = voice.reverb {
                 oscillators[i].reverb = r
                 audioEngine.setReverbDecay(r.decaySec, for: i)
@@ -662,7 +674,8 @@ final class DroneViewModel: ObservableObject {
             lfos: o.lfos,
             drift: o.drift,
             fm: o.fm,
-            chorus: o.chorus
+            chorus: o.chorus,
+            drive: o.drive
         )
         let trimmed = (name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let chosenName = trimmed.isEmpty
@@ -694,8 +707,10 @@ final class DroneViewModel: ObservableObject {
         oscillators[index].drift = v.drift
         let loadedFm = v.fm ?? .defaults()
         let loadedCh = v.chorus ?? .defaults()
+        let loadedDrive = v.drive ?? 1.0
         oscillators[index].fm = loadedFm
         oscillators[index].chorus = loadedCh
+        oscillators[index].drive = loadedDrive
         // Push to engine.
         audioEngine.setFrequency(v.frequencyHz, for: index)
         audioEngine.setWaveform(v.waveform, for: index)
@@ -704,6 +719,7 @@ final class DroneViewModel: ObservableObject {
         audioEngine.setFilterType(v.filter.type, for: index)
         audioEngine.setFilterCutoff(v.filter.cutoffHz, for: index)
         audioEngine.setFilterQ(v.filter.q, for: index)
+        audioEngine.setDrive(loadedDrive, for: index)
         audioEngine.setFMSource(loadedFm.sourceIndex, for: index)
         audioEngine.setFMIndex(loadedFm.index, for: index)
         audioEngine.setChorusRate(loadedCh.rateHz, for: index)
@@ -853,6 +869,7 @@ final class DroneViewModel: ObservableObject {
             audioEngine.setFilterType(osc.filter.type, for: osc.id)
             audioEngine.setFilterCutoff(osc.filter.cutoffHz, for: osc.id)
             audioEngine.setFilterQ(osc.filter.q, for: osc.id)
+            audioEngine.setDrive(osc.drive, for: osc.id)
             audioEngine.setFMSource(osc.fm.sourceIndex, for: osc.id)
             audioEngine.setFMIndex(osc.fm.index, for: osc.id)
             audioEngine.setChorusRate(osc.chorus.rateHz, for: osc.id)

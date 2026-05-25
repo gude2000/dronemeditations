@@ -78,6 +78,18 @@ export class AudioEngine {
       const oscGain = this.ctx.createGain();
       // Sample bus — node created when a sample is loaded for this voice.
       const sampleGain = this.ctx.createGain();
+      // Noise bus — a looping AudioBufferSourceNode fed by either the
+      // engine's shared white-noise or pink-noise buffer. We swap which
+      // buffer it points to when the waveform changes between the two,
+      // and crossfade the noiseGain against oscGain/sampleGain so the
+      // active source has the only audible level.
+      const noiseGain = this.ctx.createGain();
+      noiseGain.gain.value = 0;
+      const noiseSrc = this.ctx.createBufferSource();
+      noiseSrc.buffer = (v.waveform === "pinkNoise")
+        ? this._pinkNoiseBuffer()
+        : this._whiteNoiseBuffer();
+      noiseSrc.loop = true;
       // FM modulation input gain — other voices' raw oscillators get routed
       // through this voice's `fmInput` (with their depth gain), and `fmInput`
       // is connected to `osc.frequency`. Allows cross-voice FM. Default 1.0.
@@ -132,7 +144,13 @@ export class AudioEngine {
       const pan = this.ctx.createStereoPanner();
       const gain = this.ctx.createGain();
 
-      const synthWaveform = v.waveform === "sample" ? "sine" : v.waveform;
+      // OscillatorNode only accepts sine/triangle/sawtooth/square. When the
+      // voice's waveform is sample / whiteNoise / pinkNoise, the osc itself
+      // is silenced via oscGain = 0; we keep it ticking on sine so FM still
+      // has a periodic signal to reference if some other voice has us as
+      // its FM source.
+      const PERIODIC_TYPES = ["sine", "triangle", "sawtooth", "square"];
+      const synthWaveform = PERIODIC_TYPES.includes(v.waveform) ? v.waveform : "sine";
       osc.type = synthWaveform;
       osc.frequency.value = v.frequencyHz;
 
@@ -144,10 +162,24 @@ export class AudioEngine {
       pan.pan.value = v.pan;
       gain.gain.value = 0;  // fade in via setVoiceState
 
-      // Crossfade: when waveform === "sample", oscGain → 0, sampleGain → 1.
+      // Three-way crossfade across osc / sample / noise so the active source
+      // drives the chain at unity and the others sit at 0.
       const isSample = v.waveform === "sample";
-      oscGain.gain.value = isSample ? 0 : 1;
+      const isNoise  = (v.waveform === "whiteNoise" || v.waveform === "pinkNoise");
+      const isOsc    = !isSample && !isNoise;
+      oscGain.gain.value    = isOsc    ? 1 : 0;
       sampleGain.gain.value = isSample ? 1 : 0;
+      noiseGain.gain.value  = isNoise  ? 1 : 0;
+
+      // Per-voice drive — WaveShaperNode using a precomputed tanh curve.
+      // drive = 1.0 → identity (no audible change). drive ∈ (1, 12] →
+      // progressively warmer saturation; output normalized so peaks stay
+      // around 1.0. Sits between the source merge and the filter so the
+      // saturation creates harmonics that the LP filter can then tame —
+      // exactly how amp + cab + EQ stacks behave.
+      const drive = this.ctx.createWaveShaper();
+      drive.curve = this._makeDriveCurve(v.drive || 1.0);
+      drive.oversample = "2x";
 
       // Initial FX values from state (or defaults).
       const ch = v.chorus || { rateHz: 0.5, depth: 0.4, width: 0.7, mix: 0 };
@@ -188,9 +220,14 @@ export class AudioEngine {
       //                              └→ delayInR → delayR ─┤  (gates differ per mode)
       //                                         ┌────────┘
       //                                         └→ merger → gain
+      // Sources → drive (waveshaper) → filter → … rest of chain.
       osc.connect(oscGain);
-      oscGain.connect(filter);
-      sampleGain.connect(filter);
+      noiseSrc.connect(noiseGain);
+      noiseSrc.start();
+      oscGain.connect(drive);
+      sampleGain.connect(drive);
+      noiseGain.connect(drive);
+      drive.connect(filter);
 
       // — Chorus stage —
       // Dry path: filter → chorusDry → chorusOut.
@@ -234,7 +271,7 @@ export class AudioEngine {
       // Apply the saved mode and the saved mix to the routing gains.
       // Default mode is "mono" when nothing was saved.
       const voiceObj = {
-        osc, oscGain, sampleGain, fmInput, filter, pan, gain,
+        osc, oscGain, sampleGain, noiseSrc, noiseGain, drive, fmInput, filter, pan, gain,
         chorusDry, chorusDelayL, chorusDelayR,
         chorusWetL, chorusWetR, chorusOutMerger, chorusOut,
         chLfoL, chLfoR, chLfoLGain, chLfoRGain, chCenterL, chCenterR,
@@ -556,18 +593,41 @@ export class AudioEngine {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
 
-    // Crossfade between synth-osc bus and sample bus.
-    const oscTarget = waveform === "sample" ? 0 : 1;
-    const sampTarget = waveform === "sample" ? 1 : 0;
-    v.oscGain.gain.cancelScheduledValues(t);
-    v.oscGain.gain.setValueAtTime(v.oscGain.gain.value, t);
-    v.oscGain.gain.linearRampToValueAtTime(oscTarget, t + 0.020);
-    v.sampleGain.gain.cancelScheduledValues(t);
-    v.sampleGain.gain.setValueAtTime(v.sampleGain.gain.value, t);
-    v.sampleGain.gain.linearRampToValueAtTime(sampTarget, t + 0.020);
+    // Three-way crossfade across osc / sample / noise so exactly one source
+    // is audible at a time.
+    const isSample = waveform === "sample";
+    const isNoise  = (waveform === "whiteNoise" || waveform === "pinkNoise");
+    const isOsc    = !isSample && !isNoise;
+    const ramp = (param, target) => {
+      param.cancelScheduledValues(t);
+      param.setValueAtTime(param.value, t);
+      param.linearRampToValueAtTime(target, t + 0.020);
+    };
+    ramp(v.oscGain.gain,    isOsc    ? 1 : 0);
+    ramp(v.sampleGain.gain, isSample ? 1 : 0);
+    ramp(v.noiseGain.gain,  isNoise  ? 1 : 0);
 
-    if (waveform !== "sample") {
-      // Brief dip on the master gain to hide the synth osc's phase-reset click.
+    // For noise: swap the buffer between white and pink if the active type
+    // changed. AudioBufferSourceNode lets you only set buffer once OR while
+    // not started — so we hot-swap by stopping + recreating the source.
+    if (isNoise) {
+      const wantBuffer = (waveform === "pinkNoise")
+        ? this._pinkNoiseBuffer()
+        : this._whiteNoiseBuffer();
+      if (v.noiseSrc.buffer !== wantBuffer) {
+        try { v.noiseSrc.stop(); v.noiseSrc.disconnect(); } catch {}
+        const ns = this.ctx.createBufferSource();
+        ns.buffer = wantBuffer;
+        ns.loop = true;
+        ns.connect(v.noiseGain);
+        ns.start();
+        v.noiseSrc = ns;
+      }
+    }
+
+    // For periodic waveforms: brief dip on the master gain to hide the synth
+    // osc's phase-reset click when changing osc.type.
+    if (isOsc) {
       const target = v.gain.gain.value;
       v.gain.gain.cancelScheduledValues(t);
       v.gain.gain.setValueAtTime(target, t);
@@ -575,6 +635,72 @@ export class AudioEngine {
       v.osc.type = waveform;
       v.gain.gain.linearRampToValueAtTime(target, t + 0.024);
     }
+  }
+
+  // ───── Drive (per-voice tanh saturation) ─────────────
+  setDrive(index, driveAmount) {
+    const v = this.voices[index]; if (!v) return;
+    const clamped = Math.max(1.0, Math.min(12.0, driveAmount));
+    v.params.drive = clamped;
+    if (!this.ctx || !v.drive) return;
+    v.drive.curve = this._makeDriveCurve(clamped);
+  }
+
+  /// Build a 256-point tanh waveshaping curve. drive=1 → identity (no
+  /// audible change). drive>1 → progressively warmer saturation, output
+  /// normalized so peaks stay around 1.0.
+  _makeDriveCurve(driveAmount) {
+    const n = 256;
+    const curve = new Float32Array(n);
+    if (driveAmount <= 1.001) {
+      for (let i = 0; i < n; i++) curve[i] = (i * 2 / (n - 1)) - 1;
+      return curve;
+    }
+    const norm = Math.tanh(driveAmount);
+    for (let i = 0; i < n; i++) {
+      const x = (i * 2 / (n - 1)) - 1;
+      curve[i] = Math.tanh(driveAmount * x) / norm;
+    }
+    return curve;
+  }
+
+  /// Lazy shared 2-second white-noise loop. Reused across all voices —
+  /// noise is stochastic so sharing the buffer doesn't produce correlated
+  /// channels (each BufferSource starts at a different time).
+  _whiteNoiseBuffer() {
+    if (!this._whiteBuf) {
+      const sr = this.ctx.sampleRate;
+      const len = sr * 2;
+      const buf = this.ctx.createBuffer(1, len, sr);
+      const ch = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) ch[i] = Math.random() * 2 - 1;
+      this._whiteBuf = buf;
+    }
+    return this._whiteBuf;
+  }
+
+  /// Lazy shared 2-second pink-noise loop via Paul Kellet's filter.
+  _pinkNoiseBuffer() {
+    if (!this._pinkBuf) {
+      const sr = this.ctx.sampleRate;
+      const len = sr * 2;
+      const buf = this.ctx.createBuffer(1, len, sr);
+      const ch = buf.getChannelData(0);
+      let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+      for (let i = 0; i < len; i++) {
+        const white = Math.random() * 2 - 1;
+        b0 = 0.99886 * b0 + white * 0.0555179;
+        b1 = 0.99332 * b1 + white * 0.0750759;
+        b2 = 0.96900 * b2 + white * 0.1538520;
+        b3 = 0.86650 * b3 + white * 0.3104856;
+        b4 = 0.55000 * b4 + white * 0.5329522;
+        b5 = -0.7616 * b5 - white * 0.0168980;
+        ch[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.11;
+        b6 = white * 0.115926;
+      }
+      this._pinkBuf = buf;
+    }
+    return this._pinkBuf;
   }
 
   /// Load (or replace) the sample for a voice. `audioBuffer` is a decoded AudioBuffer.

@@ -36,6 +36,25 @@ final class Voice {
     var filterCutoffHz: Double = 4000.0
     var filterQ: Double = 0.7
 
+    // Per-voice soft-saturation drive applied to the raw oscillator/sample/
+    // noise output before the filter. drive = 1.0 → linear (no change).
+    // drive > 1 → progressively warmer / more harmonic content through a
+    // tanh waveshaper, output normalized so peaks stay within ~[-1, 1].
+    // Useful for Sunn O))) amp fuzz, Earth doom grit, NWW texture, gentle
+    // tape saturation for Basinski.
+    var drive: Double = 1.0
+
+    // Pink-noise filter state — Paul Kellet's economy variant of the
+    // Voss-McCartney algorithm. Six leaky integrators of white noise plus
+    // a high-frequency compensation tap give a flat 1/f spectrum.
+    private var pinkB0: Double = 0
+    private var pinkB1: Double = 0
+    private var pinkB2: Double = 0
+    private var pinkB3: Double = 0
+    private var pinkB4: Double = 0
+    private var pinkB5: Double = 0
+    private var pinkB6: Double = 0
+
     private var bqB0: Double = 1.0
     private var bqB1: Double = 0.0
     private var bqB2: Double = 0.0
@@ -270,7 +289,7 @@ final class Voice {
             a += Float((Double(ampTarget) - Double(a)) * aStep)
             p += Float((Double(panTarget) - Double(p)) * pStep)
 
-            let raw: Double
+            var raw: Double
             if isSampleMode, sampleCount > 0 {
                 let pos = samplePosition
                 let i0 = Int(pos) % sampleCount
@@ -282,6 +301,26 @@ final class Voice {
                 samplePosition += sampleIncrement
                 if samplePosition >= Double(sampleCount) {
                     samplePosition -= Double(sampleCount)
+                }
+            } else if wave.isNoise {
+                // Noise voices skip phase math + FM entirely (no periodic
+                // frequency to modulate). Frequency knob has no effect.
+                if wave == .whiteNoise {
+                    raw = Double.random(in: -1.0 ... 1.0)
+                } else {
+                    // Pink noise (Paul Kellet). Six leaky integrators + a HF
+                    // compensation tap on the raw white sample. Output gain
+                    // 0.11 keeps peaks roughly in [-1, 1].
+                    let white = Double.random(in: -1.0 ... 1.0)
+                    pinkB0 = 0.99886 * pinkB0 + white * 0.0555179
+                    pinkB1 = 0.99332 * pinkB1 + white * 0.0750759
+                    pinkB2 = 0.96900 * pinkB2 + white * 0.1538520
+                    pinkB3 = 0.86650 * pinkB3 + white * 0.3104856
+                    pinkB4 = 0.55000 * pinkB4 + white * 0.5329522
+                    pinkB5 = -0.7616 * pinkB5 - white * 0.0168980
+                    raw = (pinkB0 + pinkB1 + pinkB2 + pinkB3 + pinkB4
+                           + pinkB5 + pinkB6 + white * 0.5362) * 0.11
+                    pinkB6 = white * 0.115926
                 }
             } else {
                 // Synth oscillator: advance phase + sample the waveform formula.
@@ -296,6 +335,13 @@ final class Voice {
                 if ph >= 1.0 { ph -= floor(ph) }
                 if ph < 0    { ph += ceil(-ph) }   // negative FM excursions
                 raw = wave.sample(phase: ph)
+            }
+            // Per-voice drive (soft-saturation). 1.0 = bypass — no math.
+            // tanh waveshaper, normalized so output peak ≈ 1.0 regardless
+            // of drive amount, producing warm harmonic content without
+            // brutally clipping.
+            if drive > 1.001 {
+                raw = tanh(raw * drive) / tanh(drive)
             }
             // Capture pre-filter raw for other voices' FM lookups next render.
             lastRawBuffer[i] = Float(raw)

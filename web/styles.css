@@ -956,6 +956,15 @@ body.performance:hover { cursor: default; }
 }
 .fx-row.active { opacity: 1; }
 .fx-row[data-role="dly-row"] { grid-template-columns: 36px 70px 60px 1fr 1fr 1fr; }
+/* Chorus has 4 mini-controls (rate / depth / width / mix). Default 3-col
+   grid was wrapping the last two to a second row at 36px each — making
+   the WIDTH slider tiny. WIDTH gets a bit more room than MIX so the
+   primary spatial control is comfortable. */
+.fx-row[data-role="ch-row"]  { grid-template-columns: 36px 1fr 1fr 1.6fr 0.8fr; }
+/* FM has source dropdown + index slider. Default 1fr select stretched the
+   dropdown wider than necessary — pin it to its content width so the
+   arrow sits right next to the FM label. */
+.fx-row[data-role="fm-row"]  { grid-template-columns: 36px max-content 1fr; }
 .fx-select {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
