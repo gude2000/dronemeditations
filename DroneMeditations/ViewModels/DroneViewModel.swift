@@ -307,6 +307,20 @@ final class DroneViewModel: ObservableObject {
         oscillators[index].delay.mix = clamped
         audioEngine.setDelayMix(clamped, for: index)
     }
+    func setDelayMode(_ mode: DelayState.Mode, for index: Int) {
+        guard oscillators.indices.contains(index) else { return }
+        oscillators[index].delay.mode = mode
+        // NOTE: audio-graph rework for stereo/ping-pong on iOS pending.
+        // Stored in state so UI + presets persist correctly. Web app
+        // already implements full ping-pong audio.
+    }
+    func setDelayTiming(_ timing: DelayState.Timing, for index: Int) {
+        guard oscillators.indices.contains(index) else { return }
+        oscillators[index].delay.timing = timing
+        if let sec = timing.seconds() {
+            setDelayTime(sec, for: index)
+        }
+    }
 
     /// Load an audio file from a URL into a voice's sample slot, and switch the
     /// voice's waveform to `.sample` so it plays. Also persists the file into

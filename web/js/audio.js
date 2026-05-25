@@ -72,12 +72,26 @@ export class AudioEngine {
       // Sample bus — node created when a sample is loaded for this voice.
       const sampleGain = this.ctx.createGain();
       const filter = this.ctx.createBiquadFilter();
-      // Reverb (ConvolverNode + wet-gain) and Delay (DelayNode + feedback + wet-gain).
+      // Reverb (ConvolverNode + wet-gain) and Delay.
+      //
+      // Delay supports three modes (mono / stereo / ping-pong) via two
+      // DelayNodes plus four routing-gain nodes that enable or silence
+      // the various feedback edges. Wet is sent through a ChannelMerger
+      // so we have proper L/R stereo separation independent of the dry
+      // path's StereoPanner.
       const reverb = this.ctx.createConvolver();
       const reverbWet = this.ctx.createGain();
-      const delay = this.ctx.createDelay(2.0);
-      const delayFb = this.ctx.createGain();
-      const delayWet = this.ctx.createGain();
+      const delayL = this.ctx.createDelay(2.0);
+      const delayR = this.ctx.createDelay(2.0);
+      const delayInR = this.ctx.createGain();   // filter → delayR gate (off in mono+pingPong)
+      const fbSelfL  = this.ctx.createGain();    // delayL → delayL  (mono+stereo)
+      const fbSelfR  = this.ctx.createGain();    // delayR → delayR  (stereo)
+      const fbCrossLR = this.ctx.createGain();   // delayL → delayR  (pingPong)
+      const fbCrossRL = this.ctx.createGain();   // delayR → delayL  (pingPong)
+      const wetL2L = this.ctx.createGain();      // delayL → merger.L
+      const wetL2R = this.ctx.createGain();      // delayL → merger.R (mono spread)
+      const wetR2R = this.ctx.createGain();      // delayR → merger.R (stereo + pingPong)
+      const delayMerger = this.ctx.createChannelMerger(2);
       const pan = this.ctx.createStereoPanner();
       const gain = this.ctx.createGain();
 
@@ -100,33 +114,55 @@ export class AudioEngine {
 
       // Initial FX values from state (or defaults).
       const r = v.reverb || { decaySec: 2.0, mix: 0 };
-      const d = v.delay  || { timeSec: 0.30, feedback: 0.40, mix: 0 };
+      const d = v.delay  || { timeSec: 0.30, feedback: 0.40, mix: 0, mode: "mono", timing: "free" };
       reverb.buffer = buildReverbIR(this.ctx, r.decaySec);
       reverbWet.gain.value = r.mix;
-      delay.delayTime.value = d.timeSec;
-      delayFb.gain.value = d.feedback;
-      delayWet.gain.value = d.mix;
+      delayL.delayTime.value = d.timeSec;
+      delayR.delayTime.value = d.timeSec;
 
       // Routing:
       //   osc/sample → filter
-      //              ─┬→ pan      (dry, unity gain)
+      //              ─┬→ pan          (dry)
       //               ├→ reverb → reverbWet → pan
-      //               └→ delay  ⟲ feedback   → delayWet → pan
+      //               ├→ delayL ─┐
+      //               └→ delayInR → delayR ─┤  (gates differ per mode; see _applyDelayMode)
+      //                          ┌────────┘
+      //                          └→ merger → gain  (skips pan to keep ping-pong stereo intact)
       osc.connect(oscGain);
       oscGain.connect(filter);
       sampleGain.connect(filter);
       filter.connect(pan);                            // dry
       filter.connect(reverb).connect(reverbWet).connect(pan);   // reverb wet send
-      filter.connect(delay);
-      delay.connect(delayFb).connect(delay);          // feedback loop
-      delay.connect(delayWet).connect(pan);           // delay wet send
+
+      // Delay topology: filter feeds both delays (delayR gated by delayInR
+      // gain); each delay's output feeds back into both itself and the
+      // other delay via four routing-gain nodes; both outputs land in the
+      // merger as a true stereo pair.
+      filter.connect(delayL);
+      filter.connect(delayInR); delayInR.connect(delayR);
+
+      delayL.connect(fbSelfL);  fbSelfL.connect(delayL);
+      delayR.connect(fbSelfR);  fbSelfR.connect(delayR);
+      delayL.connect(fbCrossLR); fbCrossLR.connect(delayR);
+      delayR.connect(fbCrossRL); fbCrossRL.connect(delayL);
+
+      delayL.connect(wetL2L); wetL2L.connect(delayMerger, 0, 0);
+      delayL.connect(wetL2R); wetL2R.connect(delayMerger, 0, 1);
+      delayR.connect(wetR2R); wetR2R.connect(delayMerger, 0, 1);
+      delayMerger.connect(gain);
+
       pan.connect(gain);
       gain.connect(this.master);
       osc.start();
 
-      this.voices.push({
+      // Apply the saved mode and the saved mix to the routing gains.
+      // Default mode is "mono" when nothing was saved.
+      const voiceObj = {
         osc, oscGain, sampleGain, filter, pan, gain,
-        reverb, reverbWet, delay, delayFb, delayWet,
+        reverb, reverbWet,
+        delayL, delayR, delayInR,
+        fbSelfL, fbSelfR, fbCrossLR, fbCrossRL,
+        wetL2L, wetL2R, wetR2R, delayMerger,
         sampleSrc: null,         // AudioBufferSourceNode, created on loadSample
         sampleBuffer: null,      // decoded AudioBuffer
         // _effectiveFreq tracks the current playing frequency including pitch-LFO
@@ -154,7 +190,11 @@ export class AudioEngine {
         _lfoPhase: [0, 0, 0, 0],
         _lfoHold: [0, 0, 0, 0],
         _audible: true
-      });
+      };
+      this.voices.push(voiceObj);
+      // Apply the saved delay mode + mix to the routing gains now that
+      // voiceObj is in place.
+      this._applyDelayMode(this.voices.length - 1, d.mode || "mono", d.mix, d.feedback);
     }
 
     this.started = true;
@@ -558,27 +598,62 @@ export class AudioEngine {
     v.params.delay.timeSec = sec;
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
-    v.delay.delayTime.cancelScheduledValues(t);
-    v.delay.delayTime.setValueAtTime(v.delay.delayTime.value, t);
-    v.delay.delayTime.linearRampToValueAtTime(sec, t + RAMP_TIME);
+    for (const dn of [v.delayL, v.delayR]) {
+      dn.delayTime.cancelScheduledValues(t);
+      dn.delayTime.setValueAtTime(dn.delayTime.value, t);
+      dn.delayTime.linearRampToValueAtTime(sec, t + RAMP_TIME);
+    }
   }
   setDelayFeedback(voiceIndex, fb) {
     const v = this.voices[voiceIndex]; if (!v) return;
     v.params.delay.feedback = fb;
     if (!this.ctx) return;
-    const t = this.ctx.currentTime;
-    v.delayFb.gain.cancelScheduledValues(t);
-    v.delayFb.gain.setValueAtTime(v.delayFb.gain.value, t);
-    v.delayFb.gain.linearRampToValueAtTime(fb, t + RAMP_TIME);
+    // Re-apply mode so feedback gains pick up the new value.
+    this._applyDelayMode(voiceIndex, v.params.delay.mode || "mono", v.params.delay.mix, fb);
   }
   setDelayMix(voiceIndex, mix) {
     const v = this.voices[voiceIndex]; if (!v) return;
     v.params.delay.mix = mix;
     if (!this.ctx) return;
+    this._applyDelayMode(voiceIndex, v.params.delay.mode || "mono", mix, v.params.delay.feedback);
+  }
+  setDelayMode(voiceIndex, mode) {
+    const v = this.voices[voiceIndex]; if (!v) return;
+    v.params.delay.mode = mode;
+    if (!this.ctx) return;
+    this._applyDelayMode(voiceIndex, mode, v.params.delay.mix, v.params.delay.feedback);
+  }
+  /// Map (mode, mix, fb) to the seven routing gains. Mono = single tap
+  /// centered. Stereo = both delays sound, slight detune happens via timing
+  /// dropdown (we keep delay times equal here; future: per-channel offset).
+  /// Ping-Pong = cross feedback only, bouncing each tap L↔R.
+  _applyDelayMode(voiceIndex, mode, mix, fb) {
+    const v = this.voices[voiceIndex]; if (!v || !this.ctx) return;
     const t = this.ctx.currentTime;
-    v.delayWet.gain.cancelScheduledValues(t);
-    v.delayWet.gain.setValueAtTime(v.delayWet.gain.value, t);
-    v.delayWet.gain.linearRampToValueAtTime(mix, t + RAMP_TIME);
+    const ramp = (g, val) => {
+      g.gain.cancelScheduledValues(t);
+      g.gain.setValueAtTime(g.gain.value, t);
+      g.gain.linearRampToValueAtTime(val, t + RAMP_TIME);
+    };
+    let inR = 0, selfL = 0, selfR = 0, crossLR = 0, crossRL = 0,
+        wL2L = 0, wL2R = 0, wR2R = 0;
+    if (mode === "stereo") {
+      inR = 1;  selfL = fb; selfR = fb;
+      wL2L = mix; wR2R = mix;
+    } else if (mode === "pingPong") {
+      // Source only feeds L; L → R cross-feedback creates the bounce; R → L cross-feedback continues it.
+      inR = 0;  selfL = 0;  selfR = 0;
+      crossLR = fb; crossRL = fb;
+      wL2L = mix; wR2R = mix;
+    } else {
+      // mono — single tap centered: output L on both channels of the merger.
+      inR = 0;  selfL = fb; selfR = 0;
+      wL2L = mix; wL2R = mix;
+    }
+    ramp(v.delayInR, inR);
+    ramp(v.fbSelfL, selfL); ramp(v.fbSelfR, selfR);
+    ramp(v.fbCrossLR, crossLR); ramp(v.fbCrossRL, crossRL);
+    ramp(v.wetL2L, wL2L); ramp(v.wetL2R, wL2R); ramp(v.wetR2R, wR2R);
   }
 
   // ───── solo / mute resolution ─────────────────────────────

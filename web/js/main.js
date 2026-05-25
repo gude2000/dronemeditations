@@ -30,7 +30,41 @@ const defaultLfos = () => ([
 ]);
 const defaultFilter = () => ({ type: "lowpass", cutoffHz: 4000, q: 0.7 });
 const defaultReverb = () => ({ decaySec: 2.0, mix: 0 });
-const defaultDelay  = () => ({ timeSec: 0.30, feedback: 0.40, mix: 0 });
+const defaultDelay  = () => ({
+  timeSec: 0.30,
+  feedback: 0.40,
+  mix: 0,
+  mode: "mono",       // "mono" | "stereo" | "pingPong"
+  timing: "free"      // "free" | "1/2" | "1/3" | "1/3t" | "1/4" | "1/4t" | "1/8" | "1/8t" | "1/16" | "1/16t"
+});
+
+// Default tempo for musical-division delay timings. Future: expose to UI.
+const DEFAULT_BPM = 120;
+
+// Beats-per-bar fractions per timing label. Triplets are 2/3 of the
+// corresponding regular value.
+export const DELAY_TIMINGS = [
+  { id: "free",  label: "Free" },
+  { id: "1/2",   label: "1/2"  , beats: 2.0   },
+  { id: "1/3",   label: "1/3"  , beats: 4/3   },
+  { id: "1/3t",  label: "1/3T" , beats: 8/9   },
+  { id: "1/4",   label: "1/4"  , beats: 1.0   },
+  { id: "1/4t",  label: "1/4T" , beats: 2/3   },
+  { id: "1/8",   label: "1/8"  , beats: 0.5   },
+  { id: "1/8t",  label: "1/8T" , beats: 1/3   },
+  { id: "1/16",  label: "1/16" , beats: 0.25  },
+  { id: "1/16t", label: "1/16T", beats: 1/6   }
+];
+export function delayTimeForTiming(timingId, bpm = DEFAULT_BPM) {
+  const t = DELAY_TIMINGS.find((x) => x.id === timingId);
+  if (!t || t.beats == null) return null;
+  return t.beats * 60 / bpm;
+}
+export const DELAY_MODES = [
+  { id: "mono",     label: "Mono",      hint: "Single tap, centered" },
+  { id: "stereo",   label: "Stereo",    hint: "Slight L/R offset for width" },
+  { id: "pingPong", label: "Ping-Pong", hint: "Bounces L ↔ R per repeat" }
+];
 // Per-voice drift config. Tick reads these directly; scenes are just
 // templates that bulk-set them across all 4 voices.
 const defaultDrift  = () => ({
@@ -351,6 +385,22 @@ const actions = {
     const clamped = clamp01(mix);
     state.oscillators[oscIndex].delay.mix = clamped;
     engine.setDelayMix(oscIndex, clamped);
+    renderAll();
+  },
+  setDelayMode(oscIndex, mode) {
+    state.oscillators[oscIndex].delay.mode = mode;
+    engine.setDelayMode(oscIndex, mode);
+    renderAll();
+  },
+  setDelayTiming(oscIndex, timingId) {
+    state.oscillators[oscIndex].delay.timing = timingId;
+    // If a musical division was picked, compute and apply the time. "free"
+    // leaves the time slider as the source of truth.
+    const sec = delayTimeForTiming(timingId);
+    if (sec != null) {
+      state.oscillators[oscIndex].delay.timeSec = sec;
+      engine.setDelayTime(oscIndex, sec);
+    }
     renderAll();
   },
 

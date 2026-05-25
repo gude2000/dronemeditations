@@ -274,6 +274,23 @@ function buildStrip(index) {
     </div>
     <div class="fx-row" data-role="dly-row">
       <span class="strip-label">DLY</span>
+      <select class="fx-select" data-role="dly-mode" title="Delay mode">
+        <option value="mono">Mono</option>
+        <option value="stereo">Stereo</option>
+        <option value="pingPong">Ping-Pong</option>
+      </select>
+      <select class="fx-select" data-role="dly-timing" title="Delay timing (musical division at 120 BPM)">
+        <option value="free">Free</option>
+        <option value="1/2">1/2</option>
+        <option value="1/3">1/3</option>
+        <option value="1/3t">1/3T</option>
+        <option value="1/4">1/4</option>
+        <option value="1/4t">1/4T</option>
+        <option value="1/8">1/8</option>
+        <option value="1/8t">1/8T</option>
+        <option value="1/16">1/16</option>
+        <option value="1/16t">1/16T</option>
+      </select>
       <div class="mini-control">
         <span class="mini-label" data-role="dly-time-label">TIME</span>
         <input type="range" min="0" max="1" step="0.0001" data-role="dly-time" />
@@ -410,6 +427,12 @@ function buildStrip(index) {
   root.querySelector('[data-role="dly-mix"]').addEventListener("input", (e) => {
     dispatch.setDelayMix(index, parseFloat(e.target.value));
   });
+  root.querySelector('[data-role="dly-mode"]').addEventListener("change", (e) => {
+    dispatch.setDelayMode(index, e.target.value);
+  });
+  root.querySelector('[data-role="dly-timing"]').addEventListener("change", (e) => {
+    dispatch.setDelayTiming(index, e.target.value);
+  });
 
   return root;
 }
@@ -534,6 +557,12 @@ function syncStrip(index, root) {
     dl.timeSec < 1 ? `TIME ${Math.round(dl.timeSec * 1000)}ms` : `TIME ${dl.timeSec.toFixed(2)}s`;
   root.querySelector('[data-role="dly-fb-label"]').textContent = `FB ${Math.round(dl.feedback * 100)}`;
   root.querySelector('[data-role="dly-mix-label"]').textContent = `MIX ${Math.round(dl.mix * 100)}`;
+  const dlyModeSel = root.querySelector('[data-role="dly-mode"]');
+  const dlyTimingSel = root.querySelector('[data-role="dly-timing"]');
+  if (document.activeElement !== dlyModeSel) dlyModeSel.value = dl.mode || "mono";
+  if (document.activeElement !== dlyTimingSel) dlyTimingSel.value = dl.timing || "free";
+  // Lock the time slider when the user has chosen a musical division.
+  dlyTimeSlider.disabled = (dl.timing && dl.timing !== "free");
 
   // LFO sliders (3 LFOs)
   root.querySelectorAll('.lfo-control').forEach((section) => {

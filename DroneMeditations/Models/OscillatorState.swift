@@ -69,16 +69,73 @@ struct ReverbState: Equatable, Codable {
 
 /// Per-oscillator delay line with feedback.
 struct DelayState: Equatable, Codable {
+    enum Mode: String, CaseIterable, Identifiable, Codable {
+        case mono, stereo, pingPong
+        var id: String { rawValue }
+        var label: String {
+            switch self {
+            case .mono:     return "Mono"
+            case .stereo:   return "Stereo"
+            case .pingPong: return "Ping-Pong"
+            }
+        }
+    }
+    /// Musical-division timing labels. `free` lets the user drag the time
+    /// slider; the others compute timeSec from the global tempo.
+    enum Timing: String, CaseIterable, Identifiable, Codable {
+        case free, half = "1/2", third = "1/3", thirdT = "1/3t",
+             quarter = "1/4", quarterT = "1/4t",
+             eighth = "1/8", eighthT = "1/8t",
+             sixteenth = "1/16", sixteenthT = "1/16t"
+        var id: String { rawValue }
+        var label: String {
+            switch self {
+            case .free: return "Free"
+            case .half: return "1/2"
+            case .third: return "1/3"
+            case .thirdT: return "1/3T"
+            case .quarter: return "1/4"
+            case .quarterT: return "1/4T"
+            case .eighth: return "1/8"
+            case .eighthT: return "1/8T"
+            case .sixteenth: return "1/16"
+            case .sixteenthT: return "1/16T"
+            }
+        }
+        /// Beats per bar at 4/4. nil for `free`.
+        var beats: Double? {
+            switch self {
+            case .free: return nil
+            case .half: return 2.0
+            case .third: return 4.0 / 3.0
+            case .thirdT: return 8.0 / 9.0
+            case .quarter: return 1.0
+            case .quarterT: return 2.0 / 3.0
+            case .eighth: return 0.5
+            case .eighthT: return 1.0 / 3.0
+            case .sixteenth: return 0.25
+            case .sixteenthT: return 1.0 / 6.0
+            }
+        }
+        /// Seconds for one tap at the given BPM. nil for `free`.
+        func seconds(bpm: Double = 120) -> Double? {
+            guard let b = beats else { return nil }
+            return b * 60.0 / bpm
+        }
+    }
+
     var timeSec: Double = 0.30   // 0.02 .. 2.0
     var feedback: Double = 0.40  // 0 .. 0.95
     var mix: Double = 0.0        // 0..1, dry/wet level
+    var mode: Mode = .mono
+    var timing: Timing = .free
 
     static let timeMin: Double = 0.02
     static let timeMax: Double = 2.0
     static let feedbackMax: Double = 0.95
 
     static func defaults() -> DelayState {
-        DelayState(timeSec: 0.30, feedback: 0.40, mix: 0)
+        DelayState(timeSec: 0.30, feedback: 0.40, mix: 0, mode: .mono, timing: .free)
     }
 }
 

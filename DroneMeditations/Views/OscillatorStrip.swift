@@ -341,6 +341,48 @@ struct OscillatorStrip: View {
                 .foregroundStyle(active ? Color.accentColor : .secondary)
                 .frame(width: 36, alignment: .leading)
 
+            // Mode picker (mono / stereo / ping-pong). Stored on iOS but
+            // audio rework for stereo/ping-pong is pending — web has it.
+            Menu {
+                ForEach(DelayState.Mode.allCases) { m in
+                    Button {
+                        vm.setDelayMode(m, for: index)
+                    } label: {
+                        if m == dl.mode { Label(m.label, systemImage: "checkmark") }
+                        else            { Text(m.label) }
+                    }
+                }
+            } label: {
+                Text(dl.mode.label)
+                    .font(.system(size: 9, weight: .semibold))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(Color.white.opacity(0.10)))
+                    .foregroundStyle(.white)
+            }
+            .menuStyle(.borderlessButton)
+
+            // Musical-timing picker. Free = manual; the rest compute
+            // delayTime from the global default tempo (120 BPM).
+            Menu {
+                ForEach(DelayState.Timing.allCases) { t in
+                    Button {
+                        vm.setDelayTiming(t, for: index)
+                    } label: {
+                        if t == dl.timing { Label(t.label, systemImage: "checkmark") }
+                        else              { Text(t.label) }
+                    }
+                }
+            } label: {
+                Text(dl.timing.label)
+                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(Color.white.opacity(0.10)))
+                    .foregroundStyle(.white)
+            }
+            .menuStyle(.borderlessButton)
+
             VStack(alignment: .leading, spacing: 0) {
                 Text(dl.timeSec < 1
                      ? String(format: "TIME %.0fms", dl.timeSec * 1000)
@@ -355,6 +397,8 @@ struct OscillatorStrip: View {
                     minValue: DelayState.timeMin,
                     maxValue: DelayState.timeMax
                 )
+                .disabled(dl.timing != .free)
+                .opacity(dl.timing == .free ? 1.0 : 0.5)
             }
             VStack(alignment: .leading, spacing: 0) {
                 Text("FB \(Int(dl.feedback * 100))")
