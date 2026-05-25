@@ -643,10 +643,16 @@ function syncStrip(index, root) {
     (Math.log10(Math.max(1, fm.index)) - Math.log10(1)) / (Math.log10(800) - Math.log10(1));
   if (document.activeElement !== fmIdxSlider) fmIdxSlider.value = fmIdxT.toFixed(4);
   fmIdxSlider.style.setProperty("--fill", `${Math.round(fmIdxT * 100)}%`);
-  root.querySelector('[data-role="fm-index-label"]').textContent =
-    fm.index < 10 ? `INDEX ${fm.index.toFixed(1)}` : `INDEX ${Math.round(fm.index)}`;
-  // Lock the index slider when source is Off — no point modulating nothing.
-  fmIdxSlider.disabled = (fm.sourceIndex < 0);
+  // Label tells the user to pick a source when one isn't chosen yet,
+  // since the index has nothing to apply to until they do. Slider is
+  // always active so the user can pre-dial a value before flipping
+  // source on — previously it was disabled and felt broken.
+  if (fm.sourceIndex < 0) {
+    root.querySelector('[data-role="fm-index-label"]').textContent = "INDEX (pick source)";
+  } else {
+    root.querySelector('[data-role="fm-index-label"]').textContent =
+      fm.index < 10 ? `INDEX ${fm.index.toFixed(1)}` : `INDEX ${Math.round(fm.index)}`;
+  }
 
   // Chorus row
   const ch = osc.chorus || { rateHz: 0.5, depth: 0, width: 0, mix: 0 };

@@ -971,7 +971,11 @@ body.performance:hover { cursor: default; }
 /* FM has source dropdown + index slider. Default 1fr select stretched the
    dropdown wider than necessary — pin it to its content width so the
    arrow sits right next to the FM label. */
-.fx-row[data-role="fm-row"]  { grid-template-columns: 36px max-content 1fr; }
+/* FM row has only 3 children (label + source dropdown + index slider).
+   1fr on the slider made it span the entire remaining row width on
+   wide screens — comically long. Cap it via minmax so it sits a
+   sensible width and the rest of the row stays clean. */
+.fx-row[data-role="fm-row"]  { grid-template-columns: 36px max-content minmax(140px, 280px); }
 .fx-select {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
