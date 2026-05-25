@@ -1,7 +1,17 @@
 {
-  "_comment": "List of bundled sample audio files. Each entry needs file (relative to this folder), name (shown in the picker), and optional category. Add a file here and it will appear in the 'Bundled samples' picker that opens when you click 'Load file...' on any oscillator. Supported formats: WAV / MP3 / OGG / FLAC.",
+  "_comment": "List of bundled sample audio files. Each entry needs file (relative to this folder), name (shown in the picker), and optional category. Add a file here and it will appear in the 'Bundled samples' picker that opens when you click 'Load file...' on any oscillator. Supported formats: WAV / MP3 / OGG / FLAC / AIF.",
   "_addInstructions": "1) Drop your file into web/samples/  2) Append an entry below  3) Commit and the app picks it up after deploy. Browsers can't enumerate a static folder, which is why we need this manifest.",
   "samples": [
-    { "file": "organ-mid.wav", "name": "Organ — Mid Note", "category": "Keys" }
+    { "file": "phi-drone.mp3",              "name": "Phi Drone",                 "category": "Drones" },
+
+    { "file": "organ-mid.wav",              "name": "Organ — Mid Note",          "category": "Keys" },
+    { "file": "scriabin-mystic-piano.mp3",  "name": "Scriabin Mystic — Piano",   "category": "Keys" },
+
+    { "file": "acoustic-guitar-chord.aif",  "name": "Acoustic Guitar Chord",     "category": "Instruments" },
+    { "file": "jg-vox-nothing-at-all.wav",  "name": "JG Vox — Nothing At All",   "category": "Voice" },
+
+    { "file": "sable-almost.mp3",           "name": "Sable — Almost",            "category": "Themes" },
+    { "file": "alex-and-jose-theme.mp3",    "name": "Alex & Jose Theme",         "category": "Themes" },
+    { "file": "alex-alma-theme-440hz.mp3",  "name": "Alex-Alma Theme (440 Hz)",  "category": "Themes" }
   ]
 }
