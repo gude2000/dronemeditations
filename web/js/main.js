@@ -106,10 +106,10 @@ const defaultDrift  = () => ({
 
 const state = {
   oscillators: [
-    { id: 0, frequencyHz: 110.00, waveform: "sine", amplitude: 0.6,  pan: -0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), sampleName: null },
-    { id: 1, frequencyHz: 165.00, waveform: "sine", amplitude: 0.6,  pan:  0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), sampleName: null },
-    { id: 2, frequencyHz: 220.00, waveform: "sine", amplitude: 0.55, pan: -0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), sampleName: null },
-    { id: 3, frequencyHz: 277.18, waveform: "sine", amplitude: 0.5,  pan:  0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), sampleName: null }
+    { id: 0, frequencyHz: 110.00, waveform: "sine", amplitude: 0.6,  pan: -0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), sampleName: null, startDelaySec: 0, playDurationSec: 0 },
+    { id: 1, frequencyHz: 165.00, waveform: "sine", amplitude: 0.6,  pan:  0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), sampleName: null, startDelaySec: 0, playDurationSec: 0 },
+    { id: 2, frequencyHz: 220.00, waveform: "sine", amplitude: 0.55, pan: -0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), sampleName: null, startDelaySec: 0, playDurationSec: 0 },
+    { id: 3, frequencyHz: 277.18, waveform: "sine", amplitude: 0.5,  pan:  0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), sampleName: null, startDelaySec: 0, playDurationSec: 0 }
   ],
   keyId: 9,         // A
   octave: 3,
@@ -241,6 +241,15 @@ const actions = {
         state.oscillators[i].drive = v.drive;
         engine.setDrive(i, v.drive);
       }
+      // Per-voice timing envelope — only applies if specified, so simple
+      // presets keep their always-on behavior. Treat missing as "play
+      // immediately, play forever" which matches the default state.
+      const startDelay = (v.startDelaySec != null) ? v.startDelaySec : 0;
+      const playDur    = (v.playDurationSec != null) ? v.playDurationSec : 0;
+      state.oscillators[i].startDelaySec = startDelay;
+      state.oscillators[i].playDurationSec = playDur;
+      engine.setStartDelay(i, startDelay);
+      engine.setPlayDuration(i, playDur);
       if (v.reverb) {
         const r = { ...defaultReverb(), ...v.reverb };
         state.oscillators[i].reverb = r;
@@ -346,6 +355,11 @@ const actions = {
         engine.setSolo(i, state.oscillators[i].isSoloed);
       }
       engine.fadeInMaster(fromStopped ? 3.0 : 1.0);
+      // Initialize transportElapsed so the per-voice timing envelope can
+      // start computing immediately (otherwise the engine tick would see
+      // NaN until the first transport tick fires ~250 ms later, and any
+      // voice with startDelaySec == 0 would briefly silence then jump up).
+      engine.transportElapsed = state.elapsed;
       state.transportState = "playing";
       startTicker();
     }
@@ -357,6 +371,10 @@ const actions = {
     // Update UI state immediately; audio fades over 8s, then tears down.
     state.transportState = "stopped";
     state.elapsed = 0;
+    // Mark transport stopped so the per-voice timing envelope reverts
+    // to its idle behavior (no fade-in math while the engine isn't
+    // playing — that's the master fade-out's job).
+    if (engine.ctx) engine.transportElapsed = NaN;
     stopTicker();
     // Stop a journey if one is running so it doesn't keep advancing
     // through preset changes while transport is silent.
@@ -474,6 +492,18 @@ const actions = {
     const clamped = Math.max(1.0, Math.min(12.0, d));
     state.oscillators[oscIndex].drive = clamped;
     engine.setDrive(oscIndex, clamped);
+  },
+  setStartDelay(oscIndex, sec) {
+    const clamped = Math.max(0, Math.min(60 * 60, sec || 0));
+    state.oscillators[oscIndex].startDelaySec = clamped;
+    engine.setStartDelay(oscIndex, clamped);
+    renderAll();
+  },
+  setPlayDuration(oscIndex, sec) {
+    const clamped = Math.max(0, Math.min(60 * 60, sec || 0));
+    state.oscillators[oscIndex].playDurationSec = clamped;
+    engine.setPlayDuration(oscIndex, clamped);
+    renderAll();
   },
   setFilterQ(oscIndex, q) {
     const clamped = Math.max(0.3, Math.min(20, q));
@@ -652,6 +682,8 @@ const actions = {
         chorus: { ...o.chorus },
         reverb: { ...o.reverb }, delay: { ...o.delay },
         lfos: o.lfos.map((l) => ({ ...l })),
+        startDelaySec: o.startDelaySec || 0,
+        playDurationSec: o.playDurationSec || 0,
         sampleRef
       };
     }));
@@ -691,6 +723,8 @@ const actions = {
       const fm     = { ...defaultFM(),     ...(o.fm     || {}) };
       const chorus = { ...defaultChorus(), ...(o.chorus || {}) };
       actions.setDrive(i, (o.drive != null) ? o.drive : 1.0);
+      actions.setStartDelay(i,    o.startDelaySec   || 0);
+      actions.setPlayDuration(i,  o.playDurationSec || 0);
       actions.setFMSource(i, fm.sourceIndex);
       actions.setFMIndex(i, fm.index);
       actions.setChorusRate(i, chorus.rateHz);
@@ -791,7 +825,9 @@ const actions = {
       reverb: { ...o.reverb },
       delay:  { ...o.delay },
       lfos:   o.lfos.map((l) => ({ ...l })),
-      drift:  { ...o.drift }
+      drift:  { ...o.drift },
+      startDelaySec:    o.startDelaySec || 0,
+      playDurationSec:  o.playDurationSec || 0
     };
     const cleanName = (name || "").trim() ||
       `${waveformLabel(voice.waveform)} ${voice.frequencyHz.toFixed(1)} Hz`;
@@ -819,6 +855,8 @@ const actions = {
     o.pan = v.pan;
     o.filter = { ...defaultFilter(), ...(v.filter || {}) };
     o.drive  = (v.drive != null) ? v.drive : 1.0;
+    o.startDelaySec   = v.startDelaySec   || 0;
+    o.playDurationSec = v.playDurationSec || 0;
     o.fm     = { ...defaultFM(),     ...(v.fm     || {}) };
     o.chorus = { ...defaultChorus(), ...(v.chorus || {}) };
     o.reverb = { ...defaultReverb(), ...(v.reverb || {}) };
@@ -834,6 +872,8 @@ const actions = {
     engine.setFilterCutoff(oscIndex, o.filter.cutoffHz);
     engine.setFilterQ(oscIndex, o.filter.q);
     engine.setDrive(oscIndex, o.drive);
+    engine.setStartDelay(oscIndex, o.startDelaySec);
+    engine.setPlayDuration(oscIndex, o.playDurationSec);
     engine.setFMSource(oscIndex, o.fm.sourceIndex);
     engine.setFMIndex(oscIndex, o.fm.index);
     engine.setChorusRate(oscIndex, o.chorus.rateHz);
@@ -1316,6 +1356,9 @@ function startTicker() {
     const dt = (now - lastTickTime) / 1000;
     lastTickTime = now;
     state.elapsed += dt;
+    // Push transport elapsed to the engine so per-voice timing envelopes
+    // (startDelaySec + playDurationSec) can shape volume over the session.
+    if (engine.ctx) engine.transportElapsed = state.elapsed;
     if (state.sessionDuration > 0 && state.elapsed >= state.sessionDuration) {
       actions.stop();
       return;

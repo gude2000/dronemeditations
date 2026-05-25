@@ -45,6 +45,10 @@ final class DroneController: ObservableObject {
         if state != .playing {
             // Fresh start gets a 3s meditation-fade; resume from pause is 1s.
             engine.fadeInMaster(seconds: fromStopped ? 3.0 : 1.0)
+            // Initialize the engine's transport-elapsed clock so per-voice
+            // timing envelopes start computing right away rather than
+            // waiting for the first tick (~100 ms later).
+            engine.transportElapsed = elapsed
             lastTickDate = Date()
             startTicker()
             state = .playing
@@ -67,6 +71,9 @@ final class DroneController: ObservableObject {
         elapsed = 0
         lastTickDate = nil
         state = .stopped
+        // Mark transport stopped so the per-voice timing envelopes don't
+        // keep advancing while the master fade-out plays.
+        engine.transportElapsed = .nan
         // If recording is active, finalize the file first so the captured
         // fade-out is part of the export. The completed URL is held in
         // `lastRecordingURL` for the UI to surface via the share sheet.
@@ -127,6 +134,9 @@ final class DroneController: ObservableObject {
         let dt = now.timeIntervalSince(lastTickDate ?? now)
         lastTickDate = now
         elapsed += dt
+        // Push to the engine so per-voice timing envelopes
+        // (startDelaySec + playDurationSec) can shape volume.
+        engine.transportElapsed = elapsed
         if sessionDuration > 0 && elapsed >= sessionDuration {
             stop()
         }

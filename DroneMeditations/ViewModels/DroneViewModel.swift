@@ -333,6 +333,20 @@ final class DroneViewModel: ObservableObject {
         audioEngine.setDrive(clamped, for: index)
     }
 
+    // Per-voice timing envelope. 0 = play immediately / forever.
+    func setStartDelay(_ sec: Double, for index: Int) {
+        guard oscillators.indices.contains(index) else { return }
+        let clamped = max(0, min(3600, sec))
+        oscillators[index].startDelaySec = clamped
+        audioEngine.setStartDelay(clamped, for: index)
+    }
+    func setPlayDuration(_ sec: Double, for index: Int) {
+        guard oscillators.indices.contains(index) else { return }
+        let clamped = max(0, min(3600, sec))
+        oscillators[index].playDurationSec = clamped
+        audioEngine.setPlayDuration(clamped, for: index)
+    }
+
     func setReverbDecay(_ sec: Double, for index: Int) {
         guard oscillators.indices.contains(index) else { return }
         let clamped = max(ReverbState.decayMin, min(ReverbState.decayMax, sec))
@@ -463,7 +477,8 @@ final class DroneViewModel: ObservableObject {
                 isMuted: o.isMuted, isSoloed: o.isSoloed,
                 filter: o.filter, reverb: o.reverb, delay: o.delay,
                 lfos: o.lfos, sampleStoredFilename: o.sampleStoredFilename,
-                fm: o.fm, chorus: o.chorus, drive: o.drive
+                fm: o.fm, chorus: o.chorus, drive: o.drive,
+                startDelaySec: o.startDelaySec, playDurationSec: o.playDurationSec
             )
         }
         let preset = UserPreset(
@@ -498,6 +513,8 @@ final class DroneViewModel: ObservableObject {
             let fm = v.fm ?? .defaults()
             let ch = v.chorus ?? .defaults()
             setDrive(v.drive ?? 1.0, for: i)
+            setStartDelay(v.startDelaySec ?? 0, for: i)
+            setPlayDuration(v.playDurationSec ?? 0, for: i)
             setFMSource(fm.sourceIndex, for: i)
             setFMIndex(fm.index, for: i)
             setChorusRate(ch.rateHz, for: i)
@@ -630,6 +647,14 @@ final class DroneViewModel: ObservableObject {
                 oscillators[i].drive = dr
                 audioEngine.setDrive(dr, for: i)
             }
+            // Per-voice timing envelope — only push if specified, so
+            // simple presets keep their always-on behavior.
+            let sdSec = voice.startDelaySec ?? 0
+            let pdSec = voice.playDurationSec ?? 0
+            oscillators[i].startDelaySec = sdSec
+            oscillators[i].playDurationSec = pdSec
+            audioEngine.setStartDelay(sdSec, for: i)
+            audioEngine.setPlayDuration(pdSec, for: i)
             if let r = voice.reverb {
                 oscillators[i].reverb = r
                 audioEngine.setReverbDecay(r.decaySec, for: i)
@@ -692,7 +717,9 @@ final class DroneViewModel: ObservableObject {
             drift: o.drift,
             fm: o.fm,
             chorus: o.chorus,
-            drive: o.drive
+            drive: o.drive,
+            startDelaySec: o.startDelaySec,
+            playDurationSec: o.playDurationSec
         )
         let trimmed = (name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let chosenName = trimmed.isEmpty
@@ -725,9 +752,13 @@ final class DroneViewModel: ObservableObject {
         let loadedFm = v.fm ?? .defaults()
         let loadedCh = v.chorus ?? .defaults()
         let loadedDrive = v.drive ?? 1.0
+        let loadedStart = v.startDelaySec ?? 0
+        let loadedPlay  = v.playDurationSec ?? 0
         oscillators[index].fm = loadedFm
         oscillators[index].chorus = loadedCh
         oscillators[index].drive = loadedDrive
+        oscillators[index].startDelaySec = loadedStart
+        oscillators[index].playDurationSec = loadedPlay
         // Push to engine.
         audioEngine.setFrequency(v.frequencyHz, for: index)
         audioEngine.setWaveform(v.waveform, for: index)
@@ -737,6 +768,8 @@ final class DroneViewModel: ObservableObject {
         audioEngine.setFilterCutoff(v.filter.cutoffHz, for: index)
         audioEngine.setFilterQ(v.filter.q, for: index)
         audioEngine.setDrive(loadedDrive, for: index)
+        audioEngine.setStartDelay(loadedStart, for: index)
+        audioEngine.setPlayDuration(loadedPlay, for: index)
         audioEngine.setFMSource(loadedFm.sourceIndex, for: index)
         audioEngine.setFMIndex(loadedFm.index, for: index)
         audioEngine.setChorusRate(loadedCh.rateHz, for: index)
@@ -1006,6 +1039,8 @@ final class DroneViewModel: ObservableObject {
             audioEngine.setFilterCutoff(osc.filter.cutoffHz, for: osc.id)
             audioEngine.setFilterQ(osc.filter.q, for: osc.id)
             audioEngine.setDrive(osc.drive, for: osc.id)
+            audioEngine.setStartDelay(osc.startDelaySec, for: osc.id)
+            audioEngine.setPlayDuration(osc.playDurationSec, for: osc.id)
             audioEngine.setFMSource(osc.fm.sourceIndex, for: osc.id)
             audioEngine.setFMIndex(osc.fm.index, for: osc.id)
             audioEngine.setChorusRate(osc.chorus.rateHz, for: osc.id)

@@ -314,13 +314,19 @@ export const PRESETS = [
     id: "oliveros_a", name: "Oliveros — Deep A Resonance", category: "Drone Artists",
     sub: "Pauline Oliveros · Deep Listening · slow A drone, sympathetic detune",
     voices: [
+      // Fundamental A2 starts immediately; the upper voices enter in
+      // sympathy at 1, 2, 4 minutes — like Deep Listening's slowly
+      // accumulating overtones in resonant spaces.
       V({ hz: 110.00,  pan: -0.4, wave: "sine", amp: 0.55, reverb: { decaySec: 8.0, mix: 0.40 },
           lfos: [{ shape: "sine", target: "amp", rateHz: 0.07, depth: 0.30 }, null, null, null] }),
-      V({ hz: 220.12,  pan:  0.4, wave: "sine", amp: 0.50, reverb: { decaySec: 8.0, mix: 0.40 },
+      V({ hz: 220.12,  pan:  0.4, wave: "sine", amp: 0.50,
+          startDelaySec: 60, reverb: { decaySec: 8.0, mix: 0.40 },
           lfos: [{ shape: "sine", target: "amp", rateHz: 0.09, depth: 0.35 }, null, null, null] }),
-      V({ hz: 329.85,  pan: -0.2, wave: "sine", amp: 0.42, reverb: { decaySec: 8.0, mix: 0.40 },
+      V({ hz: 329.85,  pan: -0.2, wave: "sine", amp: 0.42,
+          startDelaySec: 120, reverb: { decaySec: 8.0, mix: 0.40 },
           lfos: [{ shape: "sine", target: "amp", rateHz: 0.06, depth: 0.40 }, null, null, null] }),
-      V({ hz: 440.00,  pan:  0.2, wave: "sine", amp: 0.38, reverb: { decaySec: 8.0, mix: 0.40 },
+      V({ hz: 440.00,  pan:  0.2, wave: "sine", amp: 0.38,
+          startDelaySec: 240, reverb: { decaySec: 8.0, mix: 0.40 },
           lfos: [{ shape: "sine", target: "amp", rateHz: 0.08, depth: 0.35 }, null, null, null] })
     ]
   },
@@ -331,18 +337,23 @@ export const PRESETS = [
   //    à la "A Rainbow in Curved Air" / "Persian Surgery Dervishes".
   {
     id: "riley_rainbow", name: "Riley — Rainbow Repetition", category: "Drone Artists",
-    sub: "Terry Riley · just-tuned C major + 1/8 ping-pong cascade",
+    sub: "Terry Riley · just C major cascade · voices enter at 0 / 15 / 45 / 90 s",
     voices: [
+      // C3 ground starts immediately; each next voice joins the cascade
+      // ~15 s later (then 30, then 60) so the rainbow accumulates.
       V({ hz: 130.81, pan:  0.00, wave: "triangle", amp: 0.50,
           delay: { timeSec: 0.30, feedback: 0.65, mix: 0.40, mode: "pingPong", timing: "1/8" },
           chorus: { rateHz: 0.6, depth: 0.5, width: 0.8, mix: 0.25 } }),
       V({ hz: 196.22, pan: -0.4, wave: "triangle", amp: 0.45,
+          startDelaySec: 15,
           delay: { timeSec: 0.30, feedback: 0.65, mix: 0.40, mode: "pingPong", timing: "1/8" },
           chorus: { rateHz: 0.6, depth: 0.5, width: 0.8, mix: 0.25 } }),
       V({ hz: 261.63, pan:  0.4, wave: "triangle", amp: 0.45,
+          startDelaySec: 45,
           delay: { timeSec: 0.30, feedback: 0.65, mix: 0.40, mode: "pingPong", timing: "1/8" },
           chorus: { rateHz: 0.6, depth: 0.5, width: 0.8, mix: 0.25 } }),
       V({ hz: 327.04, pan: -0.1, wave: "triangle", amp: 0.42,
+          startDelaySec: 90,
           delay: { timeSec: 0.30, feedback: 0.65, mix: 0.40, mode: "pingPong", timing: "1/8" },
           chorus: { rateHz: 0.6, depth: 0.5, width: 0.8, mix: 0.25 } })
     ]
@@ -371,22 +382,29 @@ export const PRESETS = [
     id: "sotl_halo", name: "Stars of the Lid — Orchestral Halo", category: "Drone Artists",
     sub: "Stars of the Lid · filtered-saw strings · A major halo, 10 s reverb",
     voices: [
+      // Voice 1 (A2) starts immediately — the foundation.
       V({ hz: 110.00, pan: -0.4, wave: "sawtooth", amp: 0.50,
           filter: { type: "lowpass", cutoffHz: 800, q: 1.5 },
           reverb: { decaySec: 10.0, mix: 0.45 },
           chorus: { rateHz: 0.4, depth: 0.5, width: 1.0, mix: 0.30 },
           lfos: [null, { shape: "sine", target: "cutoff", rateHz: 0.05, depth: 0.35 }, null, null] }),
+      // Voice 2 (E3) joins at 30 s — perfect 5th adds harmonic body.
       V({ hz: 164.81, pan:  0.4, wave: "sawtooth", amp: 0.45,
+          startDelaySec: 30,
           filter: { type: "lowpass", cutoffHz: 900, q: 1.5 },
           reverb: { decaySec: 10.0, mix: 0.45 },
           chorus: { rateHz: 0.4, depth: 0.5, width: 1.0, mix: 0.30 },
           lfos: [null, { shape: "sine", target: "cutoff", rateHz: 0.04, depth: 0.35 }, null, null] }),
+      // Voice 3 (A3) joins at 90 s — the octave doubling lifts the pad.
       V({ hz: 220.00, pan: -0.2, wave: "sawtooth", amp: 0.40,
+          startDelaySec: 90,
           filter: { type: "lowpass", cutoffHz: 1100, q: 1.5 },
           reverb: { decaySec: 10.0, mix: 0.45 },
           chorus: { rateHz: 0.4, depth: 0.5, width: 1.0, mix: 0.30 },
           lfos: [null, { shape: "sine", target: "cutoff", rateHz: 0.06, depth: 0.35 }, null, null] }),
+      // Voice 4 (C#4 — major third) joins at 3 min — the chord blooms.
       V({ hz: 277.18, pan:  0.2, wave: "sawtooth", amp: 0.35,
+          startDelaySec: 180,
           filter: { type: "lowpass", cutoffHz: 1300, q: 1.5 },
           reverb: { decaySec: 10.0, mix: 0.45 },
           chorus: { rateHz: 0.4, depth: 0.5, width: 1.0, mix: 0.30 },
@@ -443,10 +461,12 @@ export const PRESETS = [
           ] }),
       V({ hz: 130.81, pan:  0.0, wave: "sine", amp: 0.45, reverb: { decaySec: 7.0, mix: 0.40 } }),
       V({ hz: 392.00, pan: -0.3, wave: "sine", amp: 0.35, reverb: { decaySec: 7.0, mix: 0.40 } }),
-      // Pink-noise "tape hiss" — counter-phase amp LFO so it swells while the
-      // melodic loop fades, like the way tape decay lets more bias noise through.
-      // HP filter keeps it airy, not muddy. Frequency is irrelevant for noise.
+      // Pink-noise "tape hiss" — joins at 90 s, then takes over as the
+      // melodic voice fades. The counter-phase amp LFO already gives the
+      // hiss a breathing quality; the late entry sells the disintegration
+      // narrative — the loop wears out and the noise floor takes its place.
       V({ hz: 220.00, pan:  0.0, wave: "pinkNoise", amp: 0.22,
+          startDelaySec: 90,
           filter: { type: "highpass", cutoffHz: 600, q: 0.7 },
           reverb: { decaySec: 7.0, mix: 0.40 },
           lfos: [{ shape: "sine", target: "amp", rateHz: 0.08, depth: 0.55 }, null, null, null] })

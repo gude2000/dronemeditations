@@ -25,6 +25,13 @@ export class AudioEngine {
 
     this._rafId = null;
     this._lastTickTime = 0;
+
+    // Transport elapsed seconds, pushed in from main.js on every transport
+    // tick. Used by the per-voice timing envelope to know when each voice
+    // should fade in (after startDelaySec) and fade out (after
+    // playDurationSec, if non-zero). NaN means "not playing" — the engine
+    // forces every voice's envelope back to its idle value.
+    this.transportElapsed = NaN;
   }
 
   /**
@@ -265,13 +272,20 @@ export class AudioEngine {
       delayMerger.connect(gain);
 
       pan.connect(gain);
-      gain.connect(this.master);
+      // Per-voice timing envelope: voice.envelopeGain is what implements
+      // "start delay" + "play duration". The tick re-computes its target
+      // value from the transport elapsed seconds and ramps it smoothly.
+      // Defaults to 1.0 (voice plays immediately, plays forever).
+      const envelopeGain = this.ctx.createGain();
+      envelopeGain.gain.value = 1.0;
+      gain.connect(envelopeGain);
+      envelopeGain.connect(this.master);
       osc.start();
 
       // Apply the saved mode and the saved mix to the routing gains.
       // Default mode is "mono" when nothing was saved.
       const voiceObj = {
-        osc, oscGain, sampleGain, noiseSrc, noiseGain, drive, fmInput, filter, pan, gain,
+        osc, oscGain, sampleGain, noiseSrc, noiseGain, drive, fmInput, filter, pan, gain, envelopeGain,
         chorusDry, chorusDelayL, chorusDelayR,
         chorusWetL, chorusWetR, chorusOutMerger, chorusOut,
         chLfoL, chLfoR, chLfoLGain, chLfoRGain, chCenterL, chCenterR,
@@ -305,6 +319,11 @@ export class AudioEngine {
           fm: { ...fm },
           reverb: { ...r },
           delay: { ...d },
+          // Timing envelope: voice silent for startDelaySec after transport
+          // play, then 8s fade-in to full; if playDurationSec > 0, voice
+          // fades out over 8s once it's played that long. 0 = no fade-out.
+          startDelaySec: v.startDelaySec || 0,
+          playDurationSec: v.playDurationSec || 0,
           lfos: (v.lfos || [
             { shape: "sine", target: "pan",    rateHz: 0.25, depth: 0 },
             { shape: "sh",   target: "amp",    rateHz: 0.50, depth: 0 },
@@ -419,8 +438,60 @@ export class AudioEngine {
     this._lastTickTime = now;
     for (let i = 0; i < this.voices.length; i++) {
       this._applyLfosForVoice(i, dt, now);
+      this._applyTimingEnvelope(i, now);
     }
   };
+
+  /// Per-voice timing envelope, driven by transportElapsed:
+  ///   t < startDelay                          → silent
+  ///   startDelay <= t < startDelay + FADE    → fade in
+  ///   ...full...
+  ///   if playDuration > 0 and (t - startDelay) > playDuration
+  ///                                          → fade out then silent
+  /// FADE is 8 seconds either side — long enough to feel meditative,
+  /// short enough not to compete with the user's session timer.
+  _applyTimingEnvelope(i, nowAudioTime) {
+    const v = this.voices[i]; if (!v || !v.envelopeGain) return;
+    const startDelay = v.params.startDelaySec || 0;
+    const playDur    = v.params.playDurationSec || 0;
+    const elapsed    = this.transportElapsed;
+    // Default-skip: no envelope settings AND transport stopped → leave at 1.0.
+    if (startDelay <= 0 && playDur <= 0) {
+      if (v._envTarget !== 1) {
+        v._envTarget = 1;
+        const t = nowAudioTime;
+        v.envelopeGain.gain.cancelScheduledValues(t);
+        v.envelopeGain.gain.linearRampToValueAtTime(1, t + 0.05);
+      }
+      return;
+    }
+    const FADE = 8.0;  // seconds of fade-in and fade-out
+    let target = 1.0;
+    if (!isFinite(elapsed)) {
+      // Transport stopped/paused — leave whatever was there. The master
+      // fadeOut covers actual silence; we don't fight it here.
+      return;
+    } else if (elapsed < startDelay) {
+      target = 0;
+    } else if (elapsed < startDelay + FADE) {
+      target = (elapsed - startDelay) / FADE;
+    } else if (playDur > 0 && elapsed >= startDelay + playDur) {
+      const fadeOutElapsed = elapsed - (startDelay + playDur);
+      target = fadeOutElapsed >= FADE ? 0 : 1 - (fadeOutElapsed / FADE);
+    } else {
+      target = 1;
+    }
+    if (v._envTarget == null || Math.abs(v._envTarget - target) > 0.005) {
+      v._envTarget = target;
+      const t = nowAudioTime;
+      v.envelopeGain.gain.cancelScheduledValues(t);
+      v.envelopeGain.gain.setValueAtTime(v.envelopeGain.gain.value, t);
+      // Shorter than the FADE window above on purpose — tick is ~30 Hz, so
+      // 0.15 s per ramp segment is plenty smooth and lets the envelope
+      // shape itself by accumulating many tiny ramps.
+      v.envelopeGain.gain.linearRampToValueAtTime(target, t + 0.15);
+    }
+  }
 
   _applyLfosForVoice(i, dt, now) {
     const v = this.voices[i];
@@ -635,6 +706,17 @@ export class AudioEngine {
       v.osc.type = waveform;
       v.gain.gain.linearRampToValueAtTime(target, t + 0.024);
     }
+  }
+
+  // ───── Timing envelope (per-voice start delay + play duration) ─────
+  setStartDelay(index, sec) {
+    const v = this.voices[index]; if (!v) return;
+    v.params.startDelaySec = Math.max(0, sec || 0);
+    // Envelope is re-evaluated on every tick — no further action needed.
+  }
+  setPlayDuration(index, sec) {
+    const v = this.voices[index]; if (!v) return;
+    v.params.playDurationSec = Math.max(0, sec || 0);
   }
 
   // ───── Drive (per-voice tanh saturation) ─────────────

@@ -217,6 +217,13 @@ struct OscillatorState: Identifiable, Equatable {
     /// Useful for amp-style distortion (Sunn O))) / Earth) and gentle tape
     /// saturation (Basinski).
     var drive: Double = 1.0
+    /// Per-voice timing envelope. Voice stays silent for `startDelaySec`
+    /// after transport play, then fades in over 8 s. If `playDurationSec`
+    /// > 0, the voice fades out over 8 s once it has been audible that
+    /// long. 0 (default) = play immediately / play forever. Used to
+    /// stagger voice introductions across a meditation or journey.
+    var startDelaySec: Double = 0
+    var playDurationSec: Double = 0
     var fm: FMState = .defaults()
     var chorus: ChorusState = .defaults()
     var reverb: ReverbState = .defaults()

@@ -355,6 +355,7 @@ function buildStrip(index) {
       <div class="strip-buttons">
         <button class="sm-button" data-role="voice-preset" type="button" title="Save / load presets for this single voice" aria-label="Voice presets">★</button>
         <button class="sm-button" data-role="voice-drift" type="button" title="Drift this voice independently — pitch + pan motion over the session" aria-label="Voice drift mode">∿</button>
+        <button class="sm-button" data-role="voice-timing" type="button" title="Timing envelope — silence this voice for N seconds after play, then fade in; optionally fade out after N minutes" aria-label="Timing envelope">⏱</button>
         <button class="sm-button" data-role="randomize" type="button" title="Randomize this oscillator's parameters (level is preserved)" aria-label="Randomize parameters">⚄</button>
         <button class="sm-button" data-role="solo" type="button">S</button>
         <button class="sm-button" data-role="mute" type="button">M</button>
@@ -517,6 +518,7 @@ function buildStrip(index) {
   root.querySelector('[data-role="randomize"]').addEventListener("click", () => dispatch.randomizeOscillator(index));
   root.querySelector('[data-role="voice-drift"]').addEventListener("click", (e) => openVoiceDriftMenu(e, index));
   root.querySelector('[data-role="voice-preset"]').addEventListener("click", (e) => openVoicePresetMenu(e, index));
+  root.querySelector('[data-role="voice-timing"]').addEventListener("click", (e) => openTimingMenu(e, index));
 
   // Editable freq display — commit on Enter / blur; revert on Escape.
   const freqInput = root.querySelector('[data-role="freq-input"]');
@@ -1747,6 +1749,146 @@ function openVoiceDriftMenu(e, voiceIndex) {
 // saved voice into this slot. Presets are stored per-device in
 // localStorage and can be loaded into ANY oscillator slot, enabling
 // real mix-and-match across the four voices.
+/// Timing-envelope popup — quick-pick presets for "voice silent for N
+/// seconds after play" + "voice fades out after N minutes". Used in
+/// dynamic presets and for the user to stagger voice introductions
+/// during long meditations. Default = play immediately + forever.
+function openTimingMenu(e, voiceIndex) {
+  // Toggle: tapping the icon while the menu is open closes it.
+  let menu = document.getElementById("voice-timing-menu");
+  if (menu) { menu.remove(); return; }
+
+  const o = getState().oscillators[voiceIndex];
+  const curStart = o.startDelaySec || 0;
+  const curPlay  = o.playDurationSec || 0;
+
+  const rect = e.currentTarget.getBoundingClientRect();
+  menu = document.createElement("div");
+  menu.id = "voice-timing-menu";
+  menu.style.cssText = `
+    position: fixed;
+    top: ${Math.round(rect.bottom + 4)}px;
+    left: ${Math.round(rect.right - 260)}px;
+    min-width: 260px;
+    z-index: 9999;
+    background: #14141a;
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    padding: 10px 12px;
+    color: #fff;
+    font-size: 12px;
+  `;
+
+  const startPresets = [
+    { label: "Now",  sec: 0 },
+    { label: "15 s", sec: 15 },
+    { label: "30 s", sec: 30 },
+    { label: "1 min", sec: 60 },
+    { label: "2 min", sec: 120 },
+    { label: "5 min", sec: 300 },
+    { label: "10 min", sec: 600 }
+  ];
+  const playPresets = [
+    { label: "Forever", sec: 0 },
+    { label: "1 min",  sec: 60 },
+    { label: "3 min",  sec: 180 },
+    { label: "5 min",  sec: 300 },
+    { label: "10 min", sec: 600 },
+    { label: "15 min", sec: 900 },
+    { label: "20 min", sec: 1200 }
+  ];
+
+  const fmtStart = (s) => s === 0 ? "Now" : (s < 60 ? `${s}s` : `${Math.round(s/60)}m`);
+  const fmtPlay  = (s) => s === 0 ? "Forever" : `${Math.round(s/60)}m`;
+
+  const renderChips = (group, selected, fmt, onPick) =>
+    group.map((p) => {
+      const sel = p.sec === selected;
+      return `<button type="button" data-sec="${p.sec}"
+        style="padding:5px 10px;border-radius:999px;border:0;cursor:pointer;font-size:11px;font-weight:600;
+               background:${sel ? "var(--accent,#6aa9ff)" : "rgba(255,255,255,0.08)"};
+               color:${sel ? "#fff" : "rgba(255,255,255,0.85)"}">${p.label}</button>`;
+    }).join(" ");
+
+  menu.innerHTML = `
+    <div style="font-size:10px;letter-spacing:0.10em;text-transform:uppercase;color:rgba(255,255,255,0.55);margin-bottom:6px">Start after</div>
+    <div id="timing-start-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${
+      renderChips(startPresets, curStart, fmtStart)
+    }</div>
+
+    <div style="font-size:10px;letter-spacing:0.10em;text-transform:uppercase;color:rgba(255,255,255,0.55);margin-bottom:6px">Play duration</div>
+    <div id="timing-play-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${
+      renderChips(playPresets, curPlay, fmtPlay)
+    }</div>
+
+    <div style="display:flex;gap:8px;align-items:center;font-size:11px;color:rgba(255,255,255,0.65);margin-top:4px">
+      <span style="flex:0 0 60px">Custom →</span>
+      <input id="timing-start-custom" type="number" min="0" max="3600" step="1" placeholder="Start sec" value="${curStart}"
+        style="flex:1;padding:4px 6px;background:rgba(0,0,0,0.4);color:#fff;border:1px solid rgba(255,255,255,0.15);border-radius:6px;font-size:11px" />
+      <input id="timing-play-custom" type="number" min="0" max="60" step="0.5" placeholder="Play min" value="${(curPlay/60).toFixed(1)}"
+        style="flex:1;padding:4px 6px;background:rgba(0,0,0,0.4);color:#fff;border:1px solid rgba(255,255,255,0.15);border-radius:6px;font-size:11px" />
+    </div>
+
+    <div style="display:flex;justify-content:space-between;margin-top:10px;align-items:center">
+      <span id="timing-summary" style="font-size:10px;color:rgba(255,255,255,0.50)"></span>
+      <button type="button" id="timing-close" style="background:rgba(255,255,255,0.10);border:0;border-radius:6px;color:#fff;padding:4px 10px;font-size:11px;cursor:pointer">Done</button>
+    </div>
+  `;
+  document.body.appendChild(menu);
+
+  const updateSummary = () => {
+    const o2 = getState().oscillators[voiceIndex];
+    const s = o2.startDelaySec || 0;
+    const p = o2.playDurationSec || 0;
+    const part1 = s > 0 ? `starts at ${fmtStart(s)}` : "starts immediately";
+    const part2 = p > 0 ? `fades out after ${fmtPlay(p)}` : "plays forever";
+    menu.querySelector("#timing-summary").textContent = `Voice ${voiceIndex + 1} ${part1}, ${part2}`;
+  };
+  updateSummary();
+
+  menu.querySelectorAll('#timing-start-chips [data-sec]').forEach((btn) => {
+    btn.addEventListener("click", () => {
+      dispatch.setStartDelay(voiceIndex, parseFloat(btn.dataset.sec));
+      menu.remove();
+      openTimingMenu(e, voiceIndex);  // re-render with new selection
+    });
+  });
+  menu.querySelectorAll('#timing-play-chips [data-sec]').forEach((btn) => {
+    btn.addEventListener("click", () => {
+      dispatch.setPlayDuration(voiceIndex, parseFloat(btn.dataset.sec));
+      menu.remove();
+      openTimingMenu(e, voiceIndex);
+    });
+  });
+  menu.querySelector("#timing-start-custom").addEventListener("change", (ev) => {
+    const v = parseFloat(ev.target.value);
+    if (Number.isFinite(v) && v >= 0) {
+      dispatch.setStartDelay(voiceIndex, v);
+      updateSummary();
+    }
+  });
+  menu.querySelector("#timing-play-custom").addEventListener("change", (ev) => {
+    const minutes = parseFloat(ev.target.value);
+    if (Number.isFinite(minutes) && minutes >= 0) {
+      dispatch.setPlayDuration(voiceIndex, minutes * 60);
+      updateSummary();
+    }
+  });
+  menu.querySelector("#timing-close").addEventListener("click", () => menu.remove());
+
+  // Dismiss on outside click (capture-phase one-shot).
+  setTimeout(() => {
+    const dismiss = (ev) => {
+      if (!menu.contains(ev.target)) {
+        menu.remove();
+        document.removeEventListener("click", dismiss, true);
+      }
+    };
+    document.addEventListener("click", dismiss, true);
+  }, 0);
+}
+
 function openVoicePresetMenu(e, voiceIndex) {
   let menu = document.getElementById("voice-preset-menu");
   if (menu) { menu.remove(); return; }

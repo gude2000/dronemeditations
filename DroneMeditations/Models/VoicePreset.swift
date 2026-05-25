@@ -25,6 +25,8 @@ struct VoicePreset: Codable, Identifiable {
         var fm: FMState?
         var chorus: ChorusState?
         var drive: Double?
+        var startDelaySec: Double?
+        var playDurationSec: Double?
     }
 }
 

@@ -36,6 +36,9 @@ struct UserPreset: Identifiable, Codable, Equatable {
         var chorus: ChorusState?
         /// Per-voice drive (noise osc + tanh saturation), nil = no change.
         var drive: Double?
+        /// Per-voice timing envelope. nil = play immediately / forever.
+        var startDelaySec: Double?
+        var playDurationSec: Double?
     }
 
     static func newId() -> String {

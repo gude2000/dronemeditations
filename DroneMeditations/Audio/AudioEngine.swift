@@ -24,6 +24,12 @@ final class AudioEngine {
     private var masterTarget: Float = 0.30
     private var fadeTimer: Timer?
 
+    /// Transport elapsed seconds, pushed in by DroneController on every
+    /// transport tick. The audio render thread reads it once per render
+    /// block and fans it out to each voice so per-voice timing envelopes
+    /// (startDelaySec + playDurationSec) can shape volume. NaN = stopped.
+    var transportElapsed: Double = .nan
+
     private var sourceNode: AVAudioSourceNode!
     private var isSessionConfigured = false
 
@@ -73,8 +79,12 @@ final class AudioEngine {
             // typical iOS buffer sizes ~5-10 ms). Voices read from `src.lastRawBuffer`
             // which holds whatever was written last call; the new call updates
             // each voice's own lastRawBuffer in place.
+            // Snapshot transport elapsed once for this render block so all
+            // four voices see the same time for their envelope evaluation.
+            let elapsed = self.transportElapsed
             for v in voices {
                 v.effectiveEnabled = anySoloed ? v.isSoloed : true
+                v.transportElapsed = elapsed
                 let srcIdx = v.fmSourceIndex
                 if srcIdx >= 0 && srcIdx < voices.count && srcIdx != v.id {
                     let src = voices[srcIdx]
@@ -287,6 +297,17 @@ final class AudioEngine {
     func setFilterQ(_ q: Double, for voiceIndex: Int) {
         guard voices.indices.contains(voiceIndex) else { return }
         voices[voiceIndex].filterQ = max(FilterState.qMin, min(FilterState.qMax, q))
+    }
+
+    /// Voice timing envelope. 0 (default) for both means play immediately
+    /// and play forever. Clamped to 0..3600 each (a one-hour cap).
+    func setStartDelay(_ sec: Double, for voiceIndex: Int) {
+        guard voices.indices.contains(voiceIndex) else { return }
+        voices[voiceIndex].startDelaySec = max(0, min(3600, sec))
+    }
+    func setPlayDuration(_ sec: Double, for voiceIndex: Int) {
+        guard voices.indices.contains(voiceIndex) else { return }
+        voices[voiceIndex].playDurationSec = max(0, min(3600, sec))
     }
 
     /// 1.0 = no drive; up to ~12 for heavy saturation. Lower-only clamp so

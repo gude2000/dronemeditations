@@ -44,6 +44,25 @@ final class Voice {
     // tape saturation for Basinski.
     var drive: Double = 1.0
 
+    // Per-voice timing envelope. Voice is silent for `startDelaySec` after
+    // transport play, then fades in over 8 s. If `playDurationSec` > 0,
+    // voice fades out over 8 s once it has been audible that long. Both
+    // 0 = play immediately + forever (legacy behavior).
+    //
+    // `transportElapsed` is pushed in by the AudioEngine on each render
+    // before this voice's render is called; the buffer-level envelope
+    // value is computed at the START of render and applied multiplicatively
+    // to the output. We don't interpolate per-sample because buffer sizes
+    // are small (~5-10 ms) compared to the 8 s fade — sample-level
+    // granularity isn't audible there.
+    var startDelaySec: Double = 0
+    var playDurationSec: Double = 0
+    var transportElapsed: Double = .nan
+    /// Slewed-from value of the timing-envelope multiplier; per-sample
+    /// interpolation from this to the per-buffer target avoids clicks
+    /// when the user taps a Now/Forever chip mid-session.
+    private var currentTimingEnv: Double = 1.0
+
     // Pink-noise filter state — Paul Kellet's economy variant of the
     // Voss-McCartney algorithm. Six leaky integrators of white noise plus
     // a high-frequency compensation tap give a flat 1/f spectrum.
@@ -238,6 +257,33 @@ final class Voice {
         let revMix = reverbMix
         let dlyMix = delayMix
         let dlyFb = delayFeedback
+
+        // Per-voice timing envelope target for this buffer. Smoothed per-
+        // sample below by interpolating from currentTimingEnv → envTarget
+        // across the buffer so toggles don't click. Math: silent before
+        // startDelay; 8-second fade-in; full; optional 8-second fade-out
+        // after playDuration; then silent. transportElapsed = NaN means
+        // transport stopped — leave the multiplier alone (master fadeOut
+        // handles real silence).
+        let envTarget: Double
+        if !transportElapsed.isFinite {
+            envTarget = currentTimingEnv
+        } else if startDelaySec <= 0 && playDurationSec <= 0 {
+            envTarget = 1.0
+        } else {
+            let fade = 8.0
+            if transportElapsed < startDelaySec {
+                envTarget = 0
+            } else if transportElapsed < startDelaySec + fade {
+                envTarget = (transportElapsed - startDelaySec) / fade
+            } else if playDurationSec > 0 && transportElapsed >= startDelaySec + playDurationSec {
+                let foe = transportElapsed - (startDelaySec + playDurationSec)
+                envTarget = foe >= fade ? 0 : 1 - (foe / fade)
+            } else {
+                envTarget = 1
+            }
+        }
+        let envStep: Double = frameCount > 0 ? (envTarget - currentTimingEnv) / Double(frameCount) : 0
 
         // Width changes can't apply mid-render without clicks; we snap the
         // R-channel phase to the requested offset whenever width changes
@@ -479,8 +525,13 @@ final class Voice {
                 dlyR = delayOutR * dlyMix
             }
 
-            left[i]  += dryL + sideL + dlyL
-            right[i] += dryR + sideR + dlyR
+            // Slew the per-buffer timing-envelope target across the buffer
+            // so chip toggles don't click. After the loop, currentTimingEnv
+            // == envTarget within rounding.
+            currentTimingEnv += envStep
+            let envMul = Float(currentTimingEnv)
+            left[i]  += (dryL + sideL + dlyL) * envMul
+            right[i] += (dryR + sideR + dlyR) * envMul
         }
         lastRawCount = frameCount
 

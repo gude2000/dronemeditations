@@ -28,6 +28,8 @@ struct Preset: Identifiable, Hashable {
         let wave: Waveform?
         let amp: Double?
         let drive: Double?
+        let startDelaySec: Double?
+        let playDurationSec: Double?
         let filter: FilterState?
         let reverb: ReverbState?
         let delay: DelayState?
@@ -41,6 +43,8 @@ struct Preset: Identifiable, Hashable {
         init(hz: Double, pan: Double = 0,
              wave: Waveform? = nil, amp: Double? = nil,
              drive: Double? = nil,
+             startDelaySec: Double? = nil,
+             playDurationSec: Double? = nil,
              filter: FilterState? = nil,
              reverb: ReverbState? = nil,
              delay: DelayState? = nil,
@@ -50,7 +54,10 @@ struct Preset: Identifiable, Hashable {
              drift: DriftVoiceConfig? = nil) {
             self.hz = hz; self.pan = pan
             self.wave = wave; self.amp = amp
-            self.drive = drive; self.filter = filter; self.reverb = reverb
+            self.drive = drive
+            self.startDelaySec = startDelaySec
+            self.playDurationSec = playDurationSec
+            self.filter = filter; self.reverb = reverb
             self.delay = delay; self.chorus = chorus
             self.fm = fm; self.lfos = lfos; self.drift = drift
         }
@@ -189,35 +196,41 @@ extension Preset {
         // transcriptions — starting points for exploring each sound world.
         // ─────────────────────────────────────────────────────────────
 
-        // Pauline Oliveros — Deep A Resonance
+        // Pauline Oliveros — Deep A Resonance (staggered entries at 0/1/2/4 min)
         Preset("Oliveros — Deep A Resonance", .droneArtists,
-               subtitle: "Pauline Oliveros · slow A drone, sympathetic detune",
+               subtitle: "Pauline Oliveros · slow A drone · voices enter at 0 / 1 / 2 / 4 min",
                [
                 Voice(hz: 110.00,  pan: -0.4, wave: .sine, amp: 0.55,
                       reverb: ReverbState(decaySec: 8.0, mix: 0.40),
                       lfos: [LfoState(shape: .sine, target: .amplitude, rateHz: 0.07, depth: 0.30), nil, nil, nil]),
                 Voice(hz: 220.12,  pan:  0.4, wave: .sine, amp: 0.50,
+                      startDelaySec: 60,
                       reverb: ReverbState(decaySec: 8.0, mix: 0.40),
                       lfos: [LfoState(shape: .sine, target: .amplitude, rateHz: 0.09, depth: 0.35), nil, nil, nil]),
                 Voice(hz: 329.85,  pan: -0.2, wave: .sine, amp: 0.42,
+                      startDelaySec: 120,
                       reverb: ReverbState(decaySec: 8.0, mix: 0.40),
                       lfos: [LfoState(shape: .sine, target: .amplitude, rateHz: 0.06, depth: 0.40), nil, nil, nil]),
                 Voice(hz: 440.00,  pan:  0.2, wave: .sine, amp: 0.38,
+                      startDelaySec: 240,
                       reverb: ReverbState(decaySec: 8.0, mix: 0.40),
                       lfos: [LfoState(shape: .sine, target: .amplitude, rateHz: 0.08, depth: 0.35), nil, nil, nil])
                ]),
 
-        // Terry Riley — Rainbow Repetition
+        // Terry Riley — Rainbow Repetition (cascade staggered at 0/15/45/90 s)
         Preset("Riley — Rainbow Repetition", .droneArtists,
-               subtitle: "Terry Riley · just-tuned C major + 1/8 ping-pong cascade",
+               subtitle: "Terry Riley · just C major cascade · voices enter at 0 / 15 / 45 / 90 s",
                {
                    let dly = DelayState(timeSec: 0.30, feedback: 0.65, mix: 0.40, mode: .pingPong, timing: .eighth)
                    let cho = ChorusState(rateHz: 0.6, depth: 0.5, width: 0.8, mix: 0.25)
                    return [
                     Voice(hz: 130.81, pan:  0.0,  wave: .triangle, amp: 0.50, delay: dly, chorus: cho),
-                    Voice(hz: 196.22, pan: -0.4,  wave: .triangle, amp: 0.45, delay: dly, chorus: cho),
-                    Voice(hz: 261.63, pan:  0.4,  wave: .triangle, amp: 0.45, delay: dly, chorus: cho),
-                    Voice(hz: 327.04, pan: -0.1,  wave: .triangle, amp: 0.42, delay: dly, chorus: cho)
+                    Voice(hz: 196.22, pan: -0.4,  wave: .triangle, amp: 0.45,
+                          startDelaySec: 15, delay: dly, chorus: cho),
+                    Voice(hz: 261.63, pan:  0.4,  wave: .triangle, amp: 0.45,
+                          startDelaySec: 45, delay: dly, chorus: cho),
+                    Voice(hz: 327.04, pan: -0.1,  wave: .triangle, amp: 0.42,
+                          startDelaySec: 90, delay: dly, chorus: cho)
                    ]
                }()),
 
@@ -234,9 +247,9 @@ extension Preset {
                    ]
                }()),
 
-        // Stars of the Lid — Orchestral Halo
+        // Stars of the Lid — Orchestral Halo (chord blooms at 0/30/90/180 s)
         Preset("Stars of the Lid — Orchestral Halo", .droneArtists,
-               subtitle: "Stars of the Lid · filtered-saw strings · A major halo, 10 s reverb",
+               subtitle: "Stars of the Lid · A major halo · chord blooms 0 / 30 / 90 / 180 s",
                {
                    let rev = ReverbState(decaySec: 10.0, mix: 0.45)
                    let cho = ChorusState(rateHz: 0.4, depth: 0.5, width: 1.0, mix: 0.30)
@@ -248,12 +261,15 @@ extension Preset {
                           filter: FilterState(type: .lowpass, cutoffHz: 800,  q: 1.5),
                           reverb: rev, chorus: cho, lfos: mkLFO(0.05)),
                     Voice(hz: 164.81, pan:  0.4, wave: .sawtooth, amp: 0.45,
+                          startDelaySec: 30,
                           filter: FilterState(type: .lowpass, cutoffHz: 900,  q: 1.5),
                           reverb: rev, chorus: cho, lfos: mkLFO(0.04)),
                     Voice(hz: 220.00, pan: -0.2, wave: .sawtooth, amp: 0.40,
+                          startDelaySec: 90,
                           filter: FilterState(type: .lowpass, cutoffHz: 1100, q: 1.5),
                           reverb: rev, chorus: cho, lfos: mkLFO(0.06)),
                     Voice(hz: 277.18, pan:  0.2, wave: .sawtooth, amp: 0.35,
+                          startDelaySec: 180,
                           filter: FilterState(type: .lowpass, cutoffHz: 1300, q: 1.5),
                           reverb: rev, chorus: cho, lfos: mkLFO(0.05))
                    ]
@@ -297,11 +313,12 @@ extension Preset {
                           ]),
                     Voice(hz: 130.81, pan:  0.0, wave: .sine, amp: 0.45, reverb: rev),
                     Voice(hz: 392.00, pan: -0.3, wave: .sine, amp: 0.35, reverb: rev),
-                    // Pink-noise tape-hiss layer — counter-phase amp LFO so it
-                    // swells while the melodic loop fades, like the way
-                    // disintegrating tape lets more bias noise through. HP
-                    // filter keeps it airy, not muddy.
+                    // Pink-noise tape-hiss layer — joins at 90 s, then takes
+                    // over as the melodic voice fades. HP keeps it airy. The
+                    // late entry sells the disintegration narrative — the loop
+                    // wears out and the noise floor takes its place.
                     Voice(hz: 220.00, pan: 0.0, wave: .pinkNoise, amp: 0.22,
+                          startDelaySec: 90,
                           filter: FilterState(type: .highpass, cutoffHz: 600, q: 0.7),
                           reverb: rev,
                           lfos: [LfoState(shape: .sine, target: .amplitude, rateHz: 0.08, depth: 0.55), nil, nil, nil])

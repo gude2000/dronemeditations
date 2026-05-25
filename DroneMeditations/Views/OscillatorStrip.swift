@@ -329,6 +329,31 @@ struct OscillatorStrip: View {
         }
     }
 
+    @ViewBuilder
+    private func timingStartButton(label: String, sec: Double) -> some View {
+        Button {
+            vm.setStartDelay(sec, for: index)
+        } label: {
+            if abs(osc.startDelaySec - sec) < 0.5 {
+                Label(label, systemImage: "checkmark")
+            } else {
+                Text(label)
+            }
+        }
+    }
+    @ViewBuilder
+    private func timingPlayButton(label: String, sec: Double) -> some View {
+        Button {
+            vm.setPlayDuration(sec, for: index)
+        } label: {
+            if abs(osc.playDurationSec - sec) < 0.5 {
+                Label(label, systemImage: "checkmark")
+            } else {
+                Text(label)
+            }
+        }
+    }
+
     private func cutoffLabel(_ hz: Double) -> String {
         hz < 1000 ? String(format: "CUTOFF %.0fHz", hz)
                   : String(format: "CUTOFF %.2fk", hz / 1000)
@@ -776,6 +801,45 @@ struct OscillatorStrip: View {
                         Circle().fill(
                             osc.drift.isActive
                                 ? Color(red: 0.55, green: 0.76, blue: 1.0).opacity(0.30)
+                                : Color.white.opacity(0.10)
+                        )
+                    )
+                    .foregroundStyle(.white)
+            }
+            .menuStyle(.borderlessButton)
+
+            // Per-voice timing envelope menu (start delay + play duration).
+            // Quick-pick chips for common values; tap any to apply. The
+            // icon glows amber when an envelope is active so the user can
+            // see at a glance which voices are timed.
+            Menu {
+                Section("OSC \(index + 1) · Start after") {
+                    timingStartButton(label: "Now",     sec: 0)
+                    timingStartButton(label: "15 s",    sec: 15)
+                    timingStartButton(label: "30 s",    sec: 30)
+                    timingStartButton(label: "1 min",   sec: 60)
+                    timingStartButton(label: "2 min",   sec: 120)
+                    timingStartButton(label: "5 min",   sec: 300)
+                    timingStartButton(label: "10 min",  sec: 600)
+                }
+                Section("OSC \(index + 1) · Play duration") {
+                    timingPlayButton(label: "Forever",  sec: 0)
+                    timingPlayButton(label: "1 min",    sec: 60)
+                    timingPlayButton(label: "3 min",    sec: 180)
+                    timingPlayButton(label: "5 min",    sec: 300)
+                    timingPlayButton(label: "10 min",   sec: 600)
+                    timingPlayButton(label: "15 min",   sec: 900)
+                    timingPlayButton(label: "20 min",   sec: 1200)
+                }
+            } label: {
+                let active = osc.startDelaySec > 0 || osc.playDurationSec > 0
+                Image(systemName: active ? "clock.fill" : "clock")
+                    .font(.system(.caption, design: .rounded).weight(.heavy))
+                    .frame(width: 26, height: 26)
+                    .background(
+                        Circle().fill(
+                            active
+                                ? Color(red: 1.0, green: 0.78, blue: 0.45).opacity(0.30)
                                 : Color.white.opacity(0.10)
                         )
                     )
