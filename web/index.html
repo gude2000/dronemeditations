@@ -70,6 +70,10 @@
         <span class="pill-label">JOURNEY</span>
         <span id="journey-pill-value" class="pill-value">Off</span>
       </button>
+      <button id="gallery-pill" class="pill" type="button" title="Cymatics snapshot gallery — browse, re-download, or delete saved Chladni patterns">
+        <span class="pill-label">GALLERY</span>
+        <span id="gallery-pill-value" class="pill-value">0</span>
+      </button>
     </div>
 
     <section id="oscillator-strips" class="strips" aria-label="Oscillators"></section>
@@ -199,6 +203,28 @@
           total; transport fades out at the end.
         </p>
         <div id="journey-list" class="preset-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cymatics snapshot gallery — opens via the GALLERY pill. -->
+  <div id="gallery-sheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="gallery-sheet-title" hidden>
+    <div class="sheet-panel">
+      <header class="sheet-header">
+        <h2 id="gallery-sheet-title">Cymatics Gallery</h2>
+        <button class="sheet-done" data-close="gallery-sheet" type="button">Done</button>
+      </header>
+      <div class="sheet-scroll">
+        <p class="preset-disclaimer">
+          Every snapshot you save in the Pop-out Chladni window is mirrored
+          here. Tap the image to re-download; the × button removes it from
+          this gallery only (already-downloaded PNGs are untouched).
+        </p>
+        <div id="gallery-grid" class="gallery-grid"></div>
+        <div id="gallery-empty" class="gallery-empty">
+          No snapshots yet. Open the pop-out Chladni window and press the
+          camera button (or S key) to capture one.
+        </div>
       </div>
     </div>
   </div>

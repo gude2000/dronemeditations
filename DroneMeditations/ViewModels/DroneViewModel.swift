@@ -21,6 +21,12 @@ final class DroneViewModel: ObservableObject {
     @Published var activePresetName: String? = nil
     /// True if Chladni overlay is drawn over the blob background.
     @Published var showChladni: Bool = true
+    /// True if the FFT spectrum analyzer is drawn over the blob background.
+    @Published var showSpectrum: Bool = false {
+        didSet {
+            if showSpectrum { spectrumTap.start() } else { spectrumTap.stop() }
+        }
+    }
     /// Cymatics-only Performance fullscreen — hides every chrome element
     /// (controls, mini-strip, tap hint, copyright) leaving only the pattern
     /// and a tiny Exit affordance.
@@ -149,6 +155,9 @@ final class DroneViewModel: ObservableObject {
     /// Off by default; user toggles from controls.
     private(set) var haptics: HapticsBridge!
 
+    /// FFT spectrum analyzer source. Off until `showSpectrum` flips true.
+    private(set) var spectrumTap: SpectrumTap!
+
     private var cancellables = Set<AnyCancellable>()
 
     init() {
@@ -160,6 +169,7 @@ final class DroneViewModel: ObservableObject {
         self.nowPlaying = NowPlayingBridge(controller: controller, vm: self)
         self.micPitch = MicPitchDetector(engine: engine)
         self.haptics = HapticsBridge(vm: self)
+        self.spectrumTap = SpectrumTap(engine: engine)
 
         // Mirror transport + preset changes into Now Playing, and stop
         // any running journey when transport stops.

@@ -28,6 +28,10 @@ struct ContentView: View {
                 ChladniView(zoom: liveZoom)
                     .environmentObject(vm)
             }
+            if vm.showSpectrum {
+                SpectrumView(tap: vm.spectrumTap)
+                    .environmentObject(vm)
+            }
 
             // Tap layer (always present, beneath the controls so the controls'
             // buttons win). Tap toggles the main controls; a separately-attached

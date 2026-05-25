@@ -214,6 +214,95 @@ body:has(.controls.hidden) #zoom-wrap,
 }
 #journey-pill.active .pill-label { color: rgba(255, 220, 170, 0.95); }
 
+/* Gallery pill — cyan glow when at least one snapshot is saved. */
+#gallery-pill.active {
+  background: rgba(120, 230, 220, 0.20);
+  box-shadow: inset 0 0 0 1px rgba(120, 230, 220, 0.40);
+}
+#gallery-pill.active .pill-label { color: rgba(170, 240, 230, 0.95); }
+
+/* Cymatics gallery grid — responsive cards with a thumbnail, timestamp,
+   per-osc frequencies, and a small × delete affordance. */
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.gallery-empty {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 13px;
+  text-align: center;
+  padding: 30px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  margin-top: 12px;
+}
+.gallery-card {
+  position: relative;
+  margin: 0;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.gallery-thumb-btn {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: #000;
+  cursor: pointer;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+}
+.gallery-thumb {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.2s ease;
+}
+.gallery-thumb-btn:hover .gallery-thumb { transform: scale(1.05); }
+.gallery-caption {
+  padding: 8px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.gallery-when {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.65);
+}
+.gallery-freqs {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.50);
+  line-height: 1.4;
+}
+.gallery-delete {
+  position: absolute;
+  top: 6px; right: 6px;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 14px;
+  line-height: 22px;
+  cursor: pointer;
+  padding: 0;
+  z-index: 2;
+  opacity: 0.75;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+.gallery-delete:hover {
+  opacity: 1;
+  background: rgba(220, 80, 80, 0.85);
+}
+
 /* Listen pill — turns warm red + pulses while mic is live. */
 #listen-pill.listening {
   background: rgba(220, 80, 80, 0.22);

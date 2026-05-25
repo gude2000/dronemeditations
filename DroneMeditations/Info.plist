@@ -22,6 +22,8 @@
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Drone Meditations uses the microphone only when you tap "Tune to Room" — to detect a pitch in your environment and snap the chord root to it. No audio is recorded or transmitted.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Drone Meditations saves cymatic snapshots (rendered Chladni patterns) to your Photos library when you tap the snapshot button. Add-only access — the app never reads your existing photos.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>

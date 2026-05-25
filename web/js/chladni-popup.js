@@ -7,6 +7,9 @@
 
 import { frequencyHue } from "./music.js";
 import { modePairForFreq, chladniField } from "./chladni-modes.js";
+import {
+  putSnapshotBlob, loadSnapshotMeta, saveSnapshotMeta, newSnapshotId
+} from "./storage.js";
 
 const canvas = document.getElementById("chladni");
 const disconnected = document.getElementById("disconnected");
@@ -395,18 +398,67 @@ function snapshot() {
     ctx.drawImage(sandCanvas, 0, 0);
     ctx.globalCompositeOperation = "source-over";
   }
-  composite.toBlob((blob) => {
+  composite.toBlob(async (blob) => {
     if (!blob) return;
+    const now = new Date();
+    const stamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}_${String(now.getHours()).padStart(2,"0")}${String(now.getMinutes()).padStart(2,"0")}${String(now.getSeconds()).padStart(2,"0")}`;
+
+    // 1. Trigger the download (existing behavior).
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    const now = new Date();
-    const stamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}_${String(now.getHours()).padStart(2,"0")}${String(now.getMinutes()).padStart(2,"0")}${String(now.getSeconds()).padStart(2,"0")}`;
     a.download = `chladni-${stamp}.png`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 500);
+
+    // 2. ALSO persist into the in-app gallery (IndexedDB blob + LS metadata)
+    //    so users can browse / re-export later without keeping their Downloads
+    //    folder pristine. Failures are silent — download already succeeded.
+    try {
+      const id = newSnapshotId();
+      await putSnapshotBlob(id, blob);
+
+      // Build a small thumbnail for the gallery list. 240px wide max so the
+      // metadata payload stays small (we store thumbnails as data-URLs in
+      // localStorage to avoid a second IDB round-trip on gallery open).
+      const thumbW = 240;
+      const thumbH = Math.round(thumbW * (h / w));
+      const thumbCanvas = document.createElement("canvas");
+      thumbCanvas.width = thumbW;
+      thumbCanvas.height = thumbH;
+      const tctx = thumbCanvas.getContext("2d");
+      tctx.fillStyle = "#000";
+      tctx.fillRect(0, 0, thumbW, thumbH);
+      tctx.drawImage(composite, 0, 0, thumbW, thumbH);
+      const thumbnail = thumbCanvas.toDataURL("image/jpeg", 0.65);
+
+      const oscSnap = (latestOscillators || []).map((o) => ({
+        frequencyHz: o.frequencyHz,
+        isMuted: o.isMuted,
+        isSoloed: o.isSoloed
+      }));
+
+      const meta = loadSnapshotMeta();
+      meta.unshift({
+        id,
+        createdAt: now.toISOString(),
+        stamp,
+        oscillators: oscSnap,
+        zoom: zoomLevel,
+        sand: sandEnabled,
+        thumbnail
+      });
+      // Cap the gallery so localStorage doesn't bloat (each thumbnail ≈ 8–20 KB).
+      while (meta.length > 200) meta.pop();
+      saveSnapshotMeta(meta);
+
+      // Notify the main window so an open Gallery sheet refreshes.
+      try { channel.postMessage({ type: "gallery-changed" }); } catch {}
+    } catch (err) {
+      console.warn("Snapshot gallery save failed:", err);
+    }
   }, "image/png");
 }
 

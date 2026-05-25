@@ -7,9 +7,11 @@
 // id so multiple presets can share the same underlying file without dup.
 
 const DB_NAME = "dronemeditations";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const SAMPLE_STORE = "samples";
+const SNAPSHOT_STORE = "snapshots";
 const PRESETS_KEY = "dronemeditations:user-presets";
+const SNAPSHOTS_META_KEY = "dronemeditations:snapshot-meta";
 
 function openDB() {
   return new Promise((resolve, reject) => {
@@ -18,6 +20,9 @@ function openDB() {
       const db = req.result;
       if (!db.objectStoreNames.contains(SAMPLE_STORE)) {
         db.createObjectStore(SAMPLE_STORE, { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains(SNAPSHOT_STORE)) {
+        db.createObjectStore(SNAPSHOT_STORE, { keyPath: "id" });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -94,4 +99,51 @@ export function saveVoicePresets(list) {
 
 export function newVoicePresetId() {
   return `voice-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+// ─── cymatics snapshots (IndexedDB blobs + localStorage metadata) ────────
+//
+// Blobs are large so they live in IndexedDB. Metadata (id, name, timestamp,
+// chord, frequencies, drift scene, etc.) is a small JSON array in
+// localStorage for fast list rendering.
+
+export function loadSnapshotMeta() {
+  try {
+    const raw = localStorage.getItem(SNAPSHOTS_META_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+export function saveSnapshotMeta(list) {
+  localStorage.setItem(SNAPSHOTS_META_KEY, JSON.stringify(list));
+}
+export function newSnapshotId() {
+  return `snap-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export async function putSnapshotBlob(id, blob) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const t = db.transaction(SNAPSHOT_STORE, "readwrite");
+    t.objectStore(SNAPSHOT_STORE).put({ id, blob });
+    t.oncomplete = () => resolve();
+    t.onerror = () => reject(t.error);
+  });
+}
+export async function getSnapshotBlob(id) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const t = db.transaction(SNAPSHOT_STORE, "readonly");
+    const req = t.objectStore(SNAPSHOT_STORE).get(id);
+    req.onsuccess = () => resolve(req.result ? req.result.blob : null);
+    req.onerror = () => reject(req.error);
+  });
+}
+export async function deleteSnapshotBlob(id) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const t = db.transaction(SNAPSHOT_STORE, "readwrite");
+    t.objectStore(SNAPSHOT_STORE).delete(id);
+    t.oncomplete = () => resolve();
+    t.onerror = () => reject(t.error);
+  });
 }

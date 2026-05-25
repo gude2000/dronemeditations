@@ -36,6 +36,9 @@
 		B00000000000000000000026 /* JourneyPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000026 /* JourneyPickerView.swift */; };
 		B00000000000000000000027 /* HapticsBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000027 /* HapticsBridge.swift */; };
 		B00000000000000000000028 /* VoicePreset.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000028 /* VoicePreset.swift */; };
+		B00000000000000000000029 /* SpectrumTap.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000029 /* SpectrumTap.swift */; };
+		B0000000000000000000002A /* SpectrumView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0000000000000000000002A /* SpectrumView.swift */; };
+		B0000000000000000000002B /* SnapshotHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0000000000000000000002B /* SnapshotHelper.swift */; };
 		B00000000000000000000014 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000014 /* Assets.xcassets */; };
 		B00000000000000000000016 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000016 /* Preview Assets.xcassets */; };
 		B00000000000000000000017 /* UserPreset.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000017 /* UserPreset.swift */; };
@@ -73,6 +76,9 @@
 		F00000000000000000000026 /* JourneyPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JourneyPickerView.swift; sourceTree = "<group>"; };
 		F00000000000000000000027 /* HapticsBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticsBridge.swift; sourceTree = "<group>"; };
 		F00000000000000000000028 /* VoicePreset.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoicePreset.swift; sourceTree = "<group>"; };
+		F00000000000000000000029 /* SpectrumTap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectrumTap.swift; sourceTree = "<group>"; };
+		F0000000000000000000002A /* SpectrumView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectrumView.swift; sourceTree = "<group>"; };
+		F0000000000000000000002B /* SnapshotHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotHelper.swift; sourceTree = "<group>"; };
 		F00000000000000000000014 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F00000000000000000000015 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		F00000000000000000000016 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
@@ -140,6 +146,8 @@
 				F00000000000000000000021 /* NowPlayingBridge.swift */,
 				F00000000000000000000022 /* MicPitchDetector.swift */,
 				F00000000000000000000027 /* HapticsBridge.swift */,
+				F00000000000000000000029 /* SpectrumTap.swift */,
+				F0000000000000000000002B /* SnapshotHelper.swift */,
 				F00000000000000000000018 /* UserPresetStore.swift */,
 			);
 			path = Audio;
@@ -168,6 +176,7 @@
 				F00000000000000000000020 /* ShareSheet.swift */,
 				F00000000000000000000023 /* ListenSheetView.swift */,
 				F00000000000000000000026 /* JourneyPickerView.swift */,
+				F0000000000000000000002A /* SpectrumView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -269,6 +278,9 @@
 				B00000000000000000000026 /* JourneyPickerView.swift in Sources */,
 				B00000000000000000000027 /* HapticsBridge.swift in Sources */,
 				B00000000000000000000028 /* VoicePreset.swift in Sources */,
+				B00000000000000000000029 /* SpectrumTap.swift in Sources */,
+				B0000000000000000000002A /* SpectrumView.swift in Sources */,
+				B0000000000000000000002B /* SnapshotHelper.swift in Sources */,
 				B00000000000000000000007 /* Preset.swift in Sources */,
 				B00000000000000000000008 /* Voice.swift in Sources */,
 				B00000000000000000000009 /* AudioEngine.swift in Sources */,

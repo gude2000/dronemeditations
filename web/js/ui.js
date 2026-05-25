@@ -9,6 +9,9 @@ import {
 } from "./music.js";
 import { startListening, stopListening, freqToNote, listInputDevices, switchInputDevice } from "./pitch-detect.js";
 import { initMIDI, midiToKeyOctave } from "./midi.js";
+import {
+  loadSnapshotMeta, saveSnapshotMeta, getSnapshotBlob, deleteSnapshotBlob
+} from "./storage.js";
 
 const WAVEFORM_SVG = {
   sine:     '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12c3-7 7-7 10 0s7 7 10 0"/></svg>',
@@ -48,6 +51,22 @@ export function initUI(state, actions) {
   document.getElementById("listen-pill").addEventListener("click", openListenSheet);
   document.getElementById("performance-pill").addEventListener("click", enterPerformance);
   document.getElementById("journey-pill").addEventListener("click", openJourneySheet);
+  document.getElementById("gallery-pill").addEventListener("click", openGallerySheet);
+
+  // Cross-window: the pop-out Chladni broadcasts "gallery-changed" after each
+  // snapshot save so we can refresh the counter pill + sheet contents live.
+  if (typeof BroadcastChannel !== "undefined") {
+    try {
+      const galleryWatcher = new BroadcastChannel("drone-meditations-chladni");
+      galleryWatcher.addEventListener("message", (e) => {
+        if (e?.data?.type === "gallery-changed") {
+          syncGalleryPill();
+          const sheet = document.getElementById("gallery-sheet");
+          if (sheet && !sheet.hidden) rebuildGalleryGrid();
+        }
+      });
+    } catch {}
+  }
 
   // Try to initialize Web MIDI on first user gesture so we can listen for
   // note-on events from any connected controller. Fails silently in
@@ -124,6 +143,7 @@ export function renderAll() {
   driftPill.classList.toggle("active", s.driftSceneId !== "off");
 
   syncJourneyPill();
+  syncGalleryPill();
 
   document.getElementById("master-volume").value = s.masterVolume;
   document.getElementById("master-volume").style.setProperty("--fill", `${Math.round(s.masterVolume * 100)}%`);
@@ -823,6 +843,95 @@ function syncJourneyPill() {
   // Start/Stop button labels reflect current state instead of stale closures.
   const sheet = document.getElementById("journey-sheet");
   if (sheet && !sheet.hidden) buildJourneyList();
+}
+
+// ───────── cymatics snapshot gallery ─────────
+
+function openGallerySheet() {
+  rebuildGalleryGrid();
+  openSheet("gallery-sheet");
+}
+
+function rebuildGalleryGrid() {
+  const grid = document.getElementById("gallery-grid");
+  const empty = document.getElementById("gallery-empty");
+  const meta = loadSnapshotMeta();
+  if (!meta.length) {
+    grid.innerHTML = "";
+    empty.style.display = "block";
+    return;
+  }
+  empty.style.display = "none";
+  grid.innerHTML = meta.map((m) => {
+    const freqs = (m.oscillators || []).map((o) => `${o.frequencyHz.toFixed(0)} Hz`).join(" · ");
+    const when = new Date(m.createdAt);
+    const whenStr = when.toLocaleString(undefined, {
+      year: "numeric", month: "short", day: "numeric",
+      hour: "2-digit", minute: "2-digit"
+    });
+    return `
+      <figure class="gallery-card" data-id="${m.id}">
+        <button class="gallery-delete" data-id="${m.id}" type="button" aria-label="Delete snapshot">×</button>
+        <button class="gallery-thumb-btn" data-id="${m.id}" type="button" title="Click to re-download PNG">
+          <img class="gallery-thumb" src="${m.thumbnail || ""}" alt="Cymatic pattern" loading="lazy" />
+        </button>
+        <figcaption class="gallery-caption">
+          <div class="gallery-when">${whenStr}</div>
+          <div class="gallery-freqs">${freqs || "—"}</div>
+        </figcaption>
+      </figure>
+    `;
+  }).join("");
+
+  grid.querySelectorAll(".gallery-thumb-btn").forEach((btn) => {
+    btn.addEventListener("click", () => redownloadSnapshot(btn.dataset.id));
+  });
+  grid.querySelectorAll(".gallery-delete").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      removeSnapshot(btn.dataset.id);
+    });
+  });
+}
+
+async function redownloadSnapshot(id) {
+  try {
+    const blob = await getSnapshotBlob(id);
+    if (!blob) return;
+    const meta = loadSnapshotMeta().find((m) => m.id === id);
+    const stamp = meta?.stamp || id;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `chladni-${stamp}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 500);
+  } catch (err) {
+    console.warn("Re-download failed:", err);
+  }
+}
+
+async function removeSnapshot(id) {
+  try {
+    await deleteSnapshotBlob(id);
+    const meta = loadSnapshotMeta().filter((m) => m.id !== id);
+    saveSnapshotMeta(meta);
+    rebuildGalleryGrid();
+    syncGalleryPill();
+  } catch (err) {
+    console.warn("Snapshot delete failed:", err);
+  }
+}
+
+function syncGalleryPill() {
+  const meta = loadSnapshotMeta();
+  const value = document.getElementById("gallery-pill-value");
+  const pill = document.getElementById("gallery-pill");
+  if (!value || !pill) return;
+  value.textContent = String(meta.length);
+  pill.classList.toggle("active", meta.length > 0);
 }
 
 function buildKeyGrid() {

@@ -9,6 +9,12 @@ struct ControlsOverlay: View {
     @State private var showingListenSheet = false
     @State private var showingJourneySheet = false
 
+    /// Transient banner shown after a snapshot save attempt — "Saved to Photos"
+    /// on success, error string on failure. Auto-clears after 2 seconds.
+    @State private var snapshotToast: String?
+    @State private var snapshotToastIsError: Bool = false
+    @State private var snapshotToastTask: Task<Void, Never>?
+
     // iPhone landscape reports verticalSizeClass == .compact. iPad and iPhone
     // portrait both report .regular. Use this to switch to space-efficient
     // single-row layouts on iPhone landscape where vertical space is scarce.
@@ -63,6 +69,11 @@ struct ControlsOverlay: View {
             JourneyPickerView()
                 .environmentObject(vm)
         }
+        .modifier(SnapshotToastModifier(
+            toast: $snapshotToast,
+            isError: $snapshotToastIsError,
+            toastTask: $snapshotToastTask
+        ))
     }
 
     // MARK: - Header
@@ -79,6 +90,28 @@ struct ControlsOverlay: View {
                         .foregroundStyle(.white.opacity(0.7))
                 }
                 Spacer()
+                Button {
+                    captureSnapshot()
+                } label: {
+                    Image(systemName: "camera.fill")
+                        .font(.system(size: 15, weight: .semibold))
+                        .frame(width: 34, height: 34)
+                        .background(Circle().fill(Color.white.opacity(0.10)))
+                        .foregroundStyle(.white)
+                }
+                .buttonStyle(.plain)
+                Button {
+                    vm.showSpectrum.toggle()
+                } label: {
+                    Image(systemName: "chart.bar.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .frame(width: 34, height: 34)
+                        .background(Circle().fill(vm.showSpectrum
+                            ? Color(red: 0.55, green: 0.76, blue: 1.0).opacity(0.30)
+                            : Color.white.opacity(0.10)))
+                        .foregroundStyle(.white)
+                }
+                .buttonStyle(.plain)
                 Button {
                     vm.showChladni.toggle()
                 } label: {
@@ -296,6 +329,14 @@ struct ControlsOverlay: View {
             }
             .scrollClipDisabled()  // let menus open beyond the scroll bounds
 
+            Button { captureSnapshot() } label: {
+                Image(systemName: "camera.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(width: 28, height: 28)
+                    .background(Circle().fill(Color.white.opacity(0.10)))
+                    .foregroundStyle(.white)
+            }
+            .buttonStyle(.plain)
             Button { vm.showChladni.toggle() } label: {
                 Image(systemName: vm.showChladni ? "circles.hexagongrid.fill" : "circles.hexagongrid")
                     .font(.system(size: 14, weight: .semibold))
@@ -380,5 +421,82 @@ struct ControlsOverlay: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(.ultraThinMaterial)
         )
+    }
+
+    // MARK: - Snapshot
+
+    /// Render the current Chladni state to an image and save it to the
+    /// user's Photos library. Shows a 2-second toast with success/failure.
+    @MainActor
+    private func captureSnapshot() {
+        // Wire one-shot notification observers if not already attached.
+        attachSnapshotObservers()
+        SnapshotHelper.captureAndSave(vm: vm)
+    }
+
+    private func attachSnapshotObservers() {
+        // Idempotent — re-adding the same observer name/object/queue creates
+        // a duplicate, so guard via a stored token. We use a class-side
+        // attached-flag pattern via NotificationCenter's auto-deduping:
+        // since the closures change identity on each render, we instead
+        // post into a single sink hooked at the parent level via .onReceive
+        // below. The actual wiring happens in the .onReceive modifier in
+        // body — see chained `.modifier(...)` below.
+    }
+}
+
+/// View-modifier that hangs the notification observers off `body` so SwiftUI
+/// manages their lifecycle, and renders the toast banner on top of the
+/// controls layer. Kept separate so the body of `ControlsOverlay` stays
+/// readable.
+private struct SnapshotToastModifier: ViewModifier {
+    @Binding var toast: String?
+    @Binding var isError: Bool
+    @Binding var toastTask: Task<Void, Never>?
+
+    private let savedPub  = NotificationCenter.default.publisher(for: .cymaticSnapshotSaved)
+    private let failedPub = NotificationCenter.default.publisher(for: .cymaticSnapshotFailed)
+
+    func body(content: Content) -> some View {
+        content
+            .overlay(alignment: .top) {
+                if let toast {
+                    Text(toast)
+                        .font(.footnote.weight(.semibold))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(
+                            Capsule().fill(isError
+                                ? Color(red: 0.65, green: 0.20, blue: 0.20).opacity(0.92)
+                                : Color.black.opacity(0.78))
+                        )
+                        .overlay(
+                            Capsule().stroke(Color.white.opacity(0.30), lineWidth: 1)
+                        )
+                        .foregroundStyle(.white)
+                        .padding(.top, 14)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
+            .onReceive(savedPub) { _ in
+                show(message: "Saved to Photos", error: false)
+            }
+            .onReceive(failedPub) { note in
+                let reason = (note.userInfo?["reason"] as? String) ?? "Save failed"
+                show(message: reason, error: true)
+            }
+    }
+
+    private func show(message: String, error: Bool) {
+        toastTask?.cancel()
+        withAnimation(.easeOut(duration: 0.20)) {
+            isError = error
+            toast = message
+        }
+        toastTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeOut(duration: 0.30)) { toast = nil }
+        }
     }
 }
