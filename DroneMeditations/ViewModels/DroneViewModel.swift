@@ -142,6 +142,10 @@ final class DroneViewModel: ObservableObject {
     /// stopped so the mic indicator doesn't linger.
     private(set) var micPitch: MicPitchDetector!
 
+    /// Optional subtle haptic feedback synced to the slowest active LFO.
+    /// Off by default; user toggles from controls.
+    private(set) var haptics: HapticsBridge!
+
     private var cancellables = Set<AnyCancellable>()
 
     init() {
@@ -152,6 +156,7 @@ final class DroneViewModel: ObservableObject {
         audioEngine.masterVolume = Float(masterVolume)
         self.nowPlaying = NowPlayingBridge(controller: controller, vm: self)
         self.micPitch = MicPitchDetector(engine: engine)
+        self.haptics = HapticsBridge(vm: self)
 
         // Mirror transport + preset changes into Now Playing, and stop
         // any running journey when transport stops.

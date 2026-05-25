@@ -8,6 +8,7 @@ import {
   FREQ_MIN, FREQ_MAX, frequencyHue
 } from "./music.js";
 import { startListening, stopListening, freqToNote, listInputDevices, switchInputDevice } from "./pitch-detect.js";
+import { initMIDI, midiToKeyOctave } from "./midi.js";
 
 const WAVEFORM_SVG = {
   sine:     '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12c3-7 7-7 10 0s7 7 10 0"/></svg>',
@@ -47,6 +48,11 @@ export function initUI(state, actions) {
   document.getElementById("listen-pill").addEventListener("click", openListenSheet);
   document.getElementById("performance-pill").addEventListener("click", enterPerformance);
   document.getElementById("journey-pill").addEventListener("click", openJourneySheet);
+
+  // Try to initialize Web MIDI on first user gesture so we can listen for
+  // note-on events from any connected controller. Fails silently in
+  // browsers without MIDI support.
+  document.addEventListener("click", initMIDIOnce, { once: true });
   document.getElementById("performance-exit").addEventListener("click", exitPerformance);
   // Esc exits Performance from anywhere on the page (in addition to the Exit button).
   document.addEventListener("keydown", (e) => {
@@ -739,6 +745,23 @@ function buildJourneyList() {
     });
     root.appendChild(card);
   }
+}
+
+// ───────── Web MIDI (controllers → chord root) ─────────
+
+function initMIDIOnce() {
+  initMIDI({
+    onNoteFn: (note) => {
+      // Set the chord generator's root to the played note. Octave is
+      // clamped to the chord-gen's supported 1..6 range.
+      const { pitchClassId, octave } = midiToKeyOctave(note.midi);
+      dispatch.setKey(pitchClassId);
+      dispatch.setOctave(Math.max(1, Math.min(6, octave)));
+    },
+    onStatusFn: (status) => {
+      console.log("[MIDI]", status.available ? `connected — ${status.devices.length} input(s)` : status.lastError || "unavailable", status);
+    }
+  }).catch((err) => console.warn("[MIDI] init failed:", err));
 }
 
 function syncJourneyPill() {

@@ -34,6 +34,7 @@
 		B00000000000000000000024 /* DriftConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000024 /* DriftConfig.swift */; };
 		B00000000000000000000025 /* Journey.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000025 /* Journey.swift */; };
 		B00000000000000000000026 /* JourneyPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000026 /* JourneyPickerView.swift */; };
+		B00000000000000000000027 /* HapticsBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000027 /* HapticsBridge.swift */; };
 		B00000000000000000000014 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000014 /* Assets.xcassets */; };
 		B00000000000000000000016 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000016 /* Preview Assets.xcassets */; };
 		B00000000000000000000017 /* UserPreset.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000017 /* UserPreset.swift */; };
@@ -69,6 +70,7 @@
 		F00000000000000000000024 /* DriftConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriftConfig.swift; sourceTree = "<group>"; };
 		F00000000000000000000025 /* Journey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Journey.swift; sourceTree = "<group>"; };
 		F00000000000000000000026 /* JourneyPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JourneyPickerView.swift; sourceTree = "<group>"; };
+		F00000000000000000000027 /* HapticsBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticsBridge.swift; sourceTree = "<group>"; };
 		F00000000000000000000014 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F00000000000000000000015 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		F00000000000000000000016 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
@@ -134,6 +136,7 @@
 				F0000000000000000000000A /* DroneController.swift */,
 				F00000000000000000000021 /* NowPlayingBridge.swift */,
 				F00000000000000000000022 /* MicPitchDetector.swift */,
+				F00000000000000000000027 /* HapticsBridge.swift */,
 				F00000000000000000000018 /* UserPresetStore.swift */,
 			);
 			path = Audio;
@@ -261,6 +264,7 @@
 				B00000000000000000000024 /* DriftConfig.swift in Sources */,
 				B00000000000000000000025 /* Journey.swift in Sources */,
 				B00000000000000000000026 /* JourneyPickerView.swift in Sources */,
+				B00000000000000000000027 /* HapticsBridge.swift in Sources */,
 				B00000000000000000000007 /* Preset.swift in Sources */,
 				B00000000000000000000008 /* Voice.swift in Sources */,
 				B00000000000000000000009 /* AudioEngine.swift in Sources */,

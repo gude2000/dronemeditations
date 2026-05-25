@@ -353,6 +353,26 @@ struct ControlsOverlay: View {
                 .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(.secondary)
                 .frame(width: 32, alignment: .trailing)
+
+            // Subtle haptics toggle — taps the device in time with the
+            // slowest active LFO. Off by default.
+            Button {
+                vm.haptics.isEnabled.toggle()
+            } label: {
+                Image(systemName: vm.haptics.isEnabled ? "waveform.path" : "waveform.path")
+                    .font(.system(size: 14, weight: .semibold))
+                    .frame(width: 28, height: 28)
+                    .background(
+                        Circle().fill(
+                            vm.haptics.isEnabled
+                                ? Color(red: 0.55, green: 0.76, blue: 1.0).opacity(0.30)
+                                : Color.white.opacity(0.10)
+                        )
+                    )
+                    .foregroundStyle(.white)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Toggle haptic feedback")
         }
         .padding(.horizontal, isCompact ? 12 : 14)
         .padding(.vertical, isCompact ? 5 : 10)
