@@ -52,7 +52,7 @@ const state = {
   sessionDuration: 15 * 60,   // 0 means open
   elapsed: 0,
   isRecording: false,         // mirrors engine.isRecording() for the UI
-  driftMode: "off",           // "off" | "glacial" | "down" | "up" | "downup" | "updown"
+  driftSceneId: "off",        // id from DRIFT_SCENES below
 
   // User-saved presets
   userPresets: loadUserPresets()
@@ -444,12 +444,12 @@ const actions = {
     renderAll();
   },
 
-  setDriftMode(mode) {
-    if (state.driftMode === mode) return;
-    if (mode === "off") {
+  setDriftScene(sceneId) {
+    if (state.driftSceneId === sceneId) return;
+    if (sceneId === "off") {
       stopDrift();
     } else {
-      startDrift(mode);
+      startDrift(sceneId);
     }
   },
 
@@ -506,42 +506,132 @@ const actions = {
 };
 
 // ──────────────────────────────────────────────────
-// Drift modes
+// Drift scenes — per-voice pitch + pan motion over the session.
 //
-//   off      — disabled
-//   glacial  — bounded random walks on freq/pan/amp; targets re-roll
-//              every 30–60 s, lerped slowly. Wandering, not chaotic.
-//   down     — every voice slides smoothly to baseFreq/2 over sessionDur
-//   up       — every voice slides to baseFreq*2 over sessionDur
-//   downup   — V journey: down to baseFreq/2 by session mid, back to base
-//   updown   — ^ journey: up to baseFreq*2 by session mid, back to base
+// Each scene assigns a (pitchMode, pitchAmount, pitchPhase) and
+// (panMode, panAmount, panPhase) per voice. Pitch is measured in
+// octaves from baseline; pan is -1..1 absolute.
 //
-// All deterministic modes use sessionDuration (or 15 min if Open). When
-// progress reaches 1.0 the journey is complete; the voices simply hold at
-// their final value (which is the baseline for V/^ shapes, or ±1 oct for
-// linear up/down).
-// ──────────────────────────────────────────────────
+// pitchMode:
+//   static  — hold baseline
+//   up      — climb pitchAmount octaves linearly over session
+//   down    — descend pitchAmount octaves linearly
+//   upDown  — ^ shape: ascend by mid-session, return to baseline by end
+//   downUp  — V shape: descend then return
+//   wave    — full sine over session (±pitchAmount octaves)
+//   glacial — random walk around baseline (the old "Glacial" behavior)
+//
+// panMode:
+//   static          — hold baseline pan
+//   sweepLR         — −1 → +1 linearly
+//   sweepRL         — +1 → −1 linearly
+//   pendulum        — 2 full sine cycles per session
+//   antiPendulum    — same with inverted phase
+//   glacial         — random walk around baseline
+//
+// phase (0..1) shifts each voice's progress modularly so multi-voice scenes
+// can stagger phases (e.g. "Breathing" runs the same downUp on all 4 voices
+// at evenly-spaced phase offsets, creating a breathing polyrhythm).
+const DRIFT_SCENES = [
+  // ─── Singles ───
+  { id: "off",     name: "Off",         hint: "No drift",
+    voices: [ {}, {}, {}, {} ] },
+  { id: "glacial", name: "Glacial",     hint: "Gentle random wander on all voices",
+    voices: [
+      { pitchMode: "glacial", panMode: "glacial" },
+      { pitchMode: "glacial", panMode: "glacial" },
+      { pitchMode: "glacial", panMode: "glacial" },
+      { pitchMode: "glacial", panMode: "glacial" },
+    ]},
+  { id: "ascend",  name: "All Ascend",  hint: "Every voice climbs an octave",
+    voices: Array.from({length: 4}, () => ({ pitchMode: "up", pitchAmount: 1 })) },
+  { id: "descend", name: "All Descend", hint: "Every voice falls an octave",
+    voices: Array.from({length: 4}, () => ({ pitchMode: "down", pitchAmount: 1 })) },
+  { id: "downUp",  name: "All Down/Up", hint: "Every voice falls then returns",
+    voices: Array.from({length: 4}, () => ({ pitchMode: "downUp", pitchAmount: 1 })) },
+  { id: "upDown",  name: "All Up/Down", hint: "Every voice rises then returns",
+    voices: Array.from({length: 4}, () => ({ pitchMode: "upDown", pitchAmount: 1 })) },
+
+  // ─── Coordinated scenes ───
+  { id: "divergence",  name: "Divergence",     hint: "2 voices up, 2 voices down",
+    voices: [
+      { pitchMode: "up",   pitchAmount: 1 },
+      { pitchMode: "down", pitchAmount: 1 },
+      { pitchMode: "up",   pitchAmount: 1 },
+      { pitchMode: "down", pitchAmount: 1 },
+    ]},
+  { id: "convergence", name: "Convergence",    hint: "Outer voices drift toward middle",
+    voices: [
+      { pitchMode: "down", pitchAmount: 0.5 },
+      { pitchMode: "static" },
+      { pitchMode: "static" },
+      { pitchMode: "up",   pitchAmount: 0.5 },
+    ]},
+  { id: "crossing",    name: "Crossing Paths", hint: "Pairs of V and ^ that cross at session mid",
+    voices: [
+      { pitchMode: "downUp", pitchAmount: 1 },
+      { pitchMode: "upDown", pitchAmount: 1 },
+      { pitchMode: "downUp", pitchAmount: 1, pitchPhase: 0.25 },
+      { pitchMode: "upDown", pitchAmount: 1, pitchPhase: 0.25 },
+    ]},
+  { id: "pendulum",    name: "Pendulum",       hint: "Outer voices swing pan + pitch; inner pair holds center",
+    voices: [
+      { pitchMode: "up",   pitchAmount: 0.5, panMode: "pendulum" },
+      { pitchMode: "static", panMode: "static" },
+      { pitchMode: "static", panMode: "static" },
+      { pitchMode: "down", pitchAmount: 0.5, panMode: "antiPendulum" },
+    ]},
+  { id: "breathing",   name: "Breathing",      hint: "Down/Up on all voices, staggered phases",
+    voices: [
+      { pitchMode: "downUp", pitchAmount: 0.5, pitchPhase: 0.00 },
+      { pitchMode: "downUp", pitchAmount: 0.5, pitchPhase: 0.25 },
+      { pitchMode: "downUp", pitchAmount: 0.5, pitchPhase: 0.50 },
+      { pitchMode: "downUp", pitchAmount: 0.5, pitchPhase: 0.75 },
+    ]},
+  { id: "spiral",      name: "Spiral",         hint: "Up/Down with varying depths — voices spiral around the root",
+    voices: [
+      { pitchMode: "upDown", pitchAmount: 1.00 },
+      { pitchMode: "upDown", pitchAmount: 0.75, pitchPhase: 0.125 },
+      { pitchMode: "upDown", pitchAmount: 0.50, pitchPhase: 0.25 },
+      { pitchMode: "upDown", pitchAmount: 0.25, pitchPhase: 0.375 },
+    ]},
+  { id: "aurora",      name: "Aurora",         hint: "Glacial pitch + opposite slow pan sweeps",
+    voices: [
+      { pitchMode: "glacial", panMode: "sweepLR" },
+      { pitchMode: "glacial", panMode: "sweepRL" },
+      { pitchMode: "glacial", panMode: "pendulum" },
+      { pitchMode: "glacial", panMode: "antiPendulum" },
+    ]},
+  { id: "tidal",       name: "Tidal",          hint: "Slow sine wave on pitch, opposite pans for swelling space",
+    voices: [
+      { pitchMode: "wave", pitchAmount: 0.5, panMode: "sweepLR" },
+      { pitchMode: "wave", pitchAmount: 0.5, panMode: "sweepRL", pitchPhase: 0.5 },
+      { pitchMode: "wave", pitchAmount: 0.5, panMode: "sweepLR", pitchPhase: 0.25 },
+      { pitchMode: "wave", pitchAmount: 0.5, panMode: "sweepRL", pitchPhase: 0.75 },
+    ]},
+];
+
+const DRIFT_SCENE_BY_ID = Object.fromEntries(DRIFT_SCENES.map((s) => [s.id, s]));
+
 let driftIntervalId = null;
 let driftStartMs = 0;
 const driftVoices = [];   // per-osc {baseFreq, basePan, baseAmp, freqTarget, panTarget, ampTarget, nextRetargetAt}
 
-function startDrift(mode) {
-  // Restarting from a new mode → snapshot fresh baselines from current
-  // oscillator values. (If the user was already in a journey, their current
-  // values become the new "base" — we don't jump back to a remembered one.)
+function startDrift(sceneId) {
   driftVoices.length = 0;
   for (const o of state.oscillators) {
     driftVoices.push({
       baseFreq: o.frequencyHz,
       basePan: o.pan,
       baseAmp: o.amplitude,
+      // Glacial-only random walk state.
       freqTarget: o.frequencyHz,
       panTarget: o.pan,
       ampTarget: o.amplitude,
       nextRetargetAt: 0
     });
   }
-  state.driftMode = mode;
+  state.driftSceneId = sceneId;
   driftStartMs = Date.now();
   if (driftIntervalId) clearInterval(driftIntervalId);
   driftIntervalId = setInterval(driftTick, 1000);
@@ -549,7 +639,7 @@ function startDrift(mode) {
 }
 
 function stopDrift() {
-  state.driftMode = "off";
+  state.driftSceneId = "off";
   driftVoices.length = 0;
   if (driftIntervalId) clearInterval(driftIntervalId);
   driftIntervalId = null;
@@ -557,70 +647,98 @@ function stopDrift() {
 }
 
 function driftTick() {
-  const mode = state.driftMode;
-  if (mode === "off") return;
+  const scene = DRIFT_SCENE_BY_ID[state.driftSceneId];
+  if (!scene || scene.id === "off") return;
 
-  if (mode === "glacial") {
-    glacialTick();
-  } else {
-    journeyTick(mode);
+  const sessionSec = state.sessionDuration > 0 ? state.sessionDuration : 15 * 60;
+  const rawProgress = Math.min(1, Math.max(0, (Date.now() - driftStartMs) / (sessionSec * 1000)));
+
+  for (let i = 0; i < driftVoices.length; i++) {
+    const cfg = scene.voices[i] || {};
+    const v = driftVoices[i];
+    const osc = state.oscillators[i];
+    if (!v || !osc) continue;
+
+    // ─── Pitch ───
+    if (cfg.pitchMode === "glacial") {
+      glacialPitchVoice(i, v, osc);
+    } else {
+      const pitchPhase = cfg.pitchPhase || 0;
+      const p = (rawProgress + pitchPhase) % 1;
+      const amount = cfg.pitchAmount != null ? cfg.pitchAmount : 1;
+      const octaveOffset = pitchShape(cfg.pitchMode || "static", p) * amount;
+      const target = v.baseFreq * Math.pow(2, octaveOffset);
+      // Light lerp to keep the per-second sampling from sounding stepped.
+      const newFreq = osc.frequencyHz + (target - osc.frequencyHz) * 0.30;
+      osc.frequencyHz = newFreq;
+      engine.setFrequency(i, newFreq);
+    }
+
+    // ─── Pan ───
+    if (cfg.panMode === "glacial") {
+      glacialPanVoice(i, v, osc);
+    } else if (cfg.panMode && cfg.panMode !== "static") {
+      const panPhase = cfg.panPhase || 0;
+      const p = (rawProgress + panPhase) % 1;
+      const amount = cfg.panAmount != null ? cfg.panAmount : 1;
+      const target = Math.max(-1, Math.min(1, panShape(cfg.panMode, p) * amount));
+      const newPan = osc.pan + (target - osc.pan) * 0.20;
+      osc.pan = newPan;
+      engine.setPan(i, newPan);
+    }
   }
+
   renderAll();
 }
 
-function glacialTick() {
-  const now = Date.now();
-  const lerp = 0.05;
-  for (let i = 0; i < driftVoices.length; i++) {
-    const v = driftVoices[i];
-    const osc = state.oscillators[i];
-    if (!v || !osc) continue;
-
-    if (now >= v.nextRetargetAt) {
-      const cents = (Math.random() - 0.5) * 100;          // ±50 cents
-      v.freqTarget = v.baseFreq * Math.pow(2, cents / 1200);
-      v.panTarget  = Math.max(-1, Math.min(1, v.basePan + (Math.random() - 0.5) * 0.6));
-      v.ampTarget  = Math.max(0.1, Math.min(1, v.baseAmp + (Math.random() - 0.5) * 0.3));
-      v.nextRetargetAt = now + 30000 + Math.random() * 30000;
-    }
-
-    const newFreq = osc.frequencyHz + (v.freqTarget - osc.frequencyHz) * lerp;
-    const newPan  = osc.pan         + (v.panTarget  - osc.pan)         * lerp;
-    const newAmp  = osc.amplitude   + (v.ampTarget  - osc.amplitude)   * lerp;
-
-    osc.frequencyHz = newFreq;
-    osc.pan = newPan;
-    osc.amplitude = newAmp;
-    engine.setFrequency(i, newFreq);
-    engine.setPan(i, newPan);
-    engine.setAmplitude(i, newAmp);
+function pitchShape(mode, p) {
+  switch (mode) {
+    case "up":     return  p;
+    case "down":   return -p;
+    case "upDown": return p < 0.5 ?  p * 2          :  1 - (p - 0.5) * 2;
+    case "downUp": return p < 0.5 ? -p * 2          : -1 + (p - 0.5) * 2;
+    case "wave":   return Math.sin(p * Math.PI * 2);
+    default:       return 0;
+  }
+}
+function panShape(mode, p) {
+  switch (mode) {
+    case "sweepLR":     return -1 + p * 2;
+    case "sweepRL":     return  1 - p * 2;
+    case "pendulum":    return Math.sin(p * Math.PI * 4);
+    case "antiPendulum":return -Math.sin(p * Math.PI * 4);
+    default:            return 0;
   }
 }
 
-// Deterministic ±1-octave pitch journeys over sessionDuration.
-function journeyTick(mode) {
-  const sessionSec = state.sessionDuration > 0 ? state.sessionDuration : 15 * 60;
-  const progress = Math.min(1, Math.max(0, (Date.now() - driftStartMs) / (sessionSec * 1000)));
-
-  let octaveOffset = 0;
-  switch (mode) {
-    case "down":   octaveOffset = -progress; break;
-    case "up":     octaveOffset =  progress; break;
-    case "downup": octaveOffset = progress < 0.5 ? -progress * 2          : -1 + (progress - 0.5) * 2; break;
-    case "updown": octaveOffset = progress < 0.5 ?  progress * 2          :  1 - (progress - 0.5) * 2; break;
+// Per-voice random walk for the "glacial" pitch/pan modes. Re-targets every
+// 30–60 s, lerps slowly between targets — wandering, not chaotic.
+function glacialPitchVoice(i, v, osc) {
+  const now = Date.now();
+  if (now >= v.nextRetargetAt) {
+    const cents = (Math.random() - 0.5) * 100;
+    v.freqTarget = v.baseFreq * Math.pow(2, cents / 1200);
+    v.ampTarget  = Math.max(0.1, Math.min(1, v.baseAmp + (Math.random() - 0.5) * 0.3));
+    v.nextRetargetAt = now + 30000 + Math.random() * 30000;
   }
-
-  // Light smoothing so 1 Hz sample rate doesn't produce audible step-frets.
-  const lerp = 0.30;
-  for (let i = 0; i < driftVoices.length; i++) {
-    const v = driftVoices[i];
-    const osc = state.oscillators[i];
-    if (!v || !osc) continue;
-    const target = v.baseFreq * Math.pow(2, octaveOffset);
-    const newFreq = osc.frequencyHz + (target - osc.frequencyHz) * lerp;
-    osc.frequencyHz = newFreq;
-    engine.setFrequency(i, newFreq);
+  const lerp = 0.05;
+  const newFreq = osc.frequencyHz + (v.freqTarget - osc.frequencyHz) * lerp;
+  const newAmp  = osc.amplitude   + (v.ampTarget  - osc.amplitude)   * lerp;
+  osc.frequencyHz = newFreq;
+  osc.amplitude = newAmp;
+  engine.setFrequency(i, newFreq);
+  engine.setAmplitude(i, newAmp);
+}
+function glacialPanVoice(i, v, osc) {
+  // Re-target on the same cadence as glacialPitch but for pan only.
+  // (Sharing nextRetargetAt is fine — both modes can stay in sync.)
+  const now = Date.now();
+  if (now >= v.nextRetargetAt) {
+    v.panTarget = Math.max(-1, Math.min(1, v.basePan + (Math.random() - 0.5) * 0.8));
   }
+  const newPan = osc.pan + (v.panTarget - osc.pan) * 0.05;
+  osc.pan = newPan;
+  engine.setPan(i, newPan);
 }
 
 function restoreLfoTargetBase(oscIndex, target) {
@@ -679,7 +797,7 @@ renderAll();
 
 // Debug handle — read-only inspection from devtools / preview_eval.
 // Safe to leave in; no UI/audio behavior depends on it.
-window.__drone = { state, engine, actions };
+window.__drone = { state, engine, actions, DRIFT_SCENES };
 
 // ──────────────────────────────────────────────────
 // Pop-out Chladni window sync

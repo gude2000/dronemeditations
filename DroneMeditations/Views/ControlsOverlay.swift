@@ -101,15 +101,16 @@ struct ControlsOverlay: View {
                 .buttonStyle(.plain)
 
                 Menu {
-                    ForEach(DroneViewModel.DriftMode.allCases) { mode in
-                        Button {
-                            vm.setDriftMode(mode)
-                        } label: {
-                            if mode == vm.driftMode {
-                                Label(mode.label, systemImage: "checkmark")
-                            } else {
-                                Text(mode.label)
-                            }
+                    // Section 1: singles (off, glacial, simple all-voice journeys).
+                    Section {
+                        ForEach(DroneViewModel.driftScenes.filter { !$0.isCoordinated }) { scene in
+                            sceneMenuButton(scene)
+                        }
+                    }
+                    // Section 2: coordinated multi-voice scenes.
+                    Section("Coordinated scenes") {
+                        ForEach(DroneViewModel.driftScenes.filter { $0.isCoordinated }) { scene in
+                            sceneMenuButton(scene)
                         }
                     }
                 } label: {
@@ -138,10 +139,11 @@ struct ControlsOverlay: View {
         .padding(.top, 6)
     }
 
-    /// Pill that opens the drift-mode menu. Tinted when any active mode
-    /// (not .off) is selected; shows the current mode label.
+    /// Pill that opens the drift-scene menu. Tinted whenever the active
+    /// scene is anything other than "Off"; shows the current scene name.
     private var driftPill: some View {
-        let on = vm.driftMode != .off
+        let on = vm.driftSceneId != "off"
+        let label = vm.driftScene?.name ?? "Off"
         return HStack(spacing: 6) {
             Image(systemName: on ? "wind.circle.fill" : "wind.circle")
                 .font(.caption.weight(.semibold))
@@ -149,7 +151,7 @@ struct ControlsOverlay: View {
                 Text("DRIFT")
                     .font(.system(size: 9, weight: .bold))
                     .foregroundStyle(on ? Color(red: 0.55, green: 0.76, blue: 1.0) : .white.opacity(0.6))
-                Text(vm.driftMode.label)
+                Text(label)
                     .font(.system(.footnote, design: .rounded).weight(.semibold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
@@ -166,6 +168,18 @@ struct ControlsOverlay: View {
             Capsule().stroke(on ? Color(red: 0.55, green: 0.76, blue: 1.0).opacity(0.40) : .clear, lineWidth: 1)
         )
         .foregroundStyle(.white)
+    }
+
+    private func sceneMenuButton(_ scene: DroneViewModel.DriftScene) -> some View {
+        Button {
+            vm.setDriftScene(scene.id)
+        } label: {
+            if scene.id == vm.driftSceneId {
+                Label(scene.name, systemImage: "checkmark")
+            } else {
+                Text(scene.name)
+            }
+        }
     }
 
     // MARK: - Compact header (iPhone landscape)

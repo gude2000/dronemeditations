@@ -107,8 +107,9 @@ export function renderAll() {
     `${PITCH_CLASSES[s.keyId].name} ${CHORDS.find((c) => c.id === s.chordId).name}`;
   document.getElementById("preset-pill-value").textContent = s.activePresetName || "—";
   const driftPill = document.getElementById("drift-pill");
-  document.getElementById("drift-pill-value").textContent = DRIFT_MODE_LABELS[s.driftMode] || "Off";
-  driftPill.classList.toggle("active", s.driftMode !== "off");
+  const sceneLabel = (window.__drone?.DRIFT_SCENES || []).find((sc) => sc.id === s.driftSceneId)?.name || "Off";
+  document.getElementById("drift-pill-value").textContent = sceneLabel;
+  driftPill.classList.toggle("active", s.driftSceneId !== "off");
 
   document.getElementById("master-volume").value = s.masterVolume;
   document.getElementById("master-volume").style.setProperty("--fill", `${Math.round(s.masterVolume * 100)}%`);
@@ -810,54 +811,63 @@ function syncTransport() {
     s.sessionDuration > 0 ? `${Math.round(s.sessionDuration / 60)} min` : "Open";
 }
 
-// Drift mode dropdown — same little floating-menu pattern as the duration
-// picker. Listed in a meditative order: Off, Glacial (random wander), then
-// the deterministic ±1-octave journeys (Down, Up, Down/Up, Up/Down).
-const DRIFT_MODE_OPTIONS = [
-  { id: "off",     label: "Off",          hint: "No drift" },
-  { id: "glacial", label: "Glacial",      hint: "Gentle random wander" },
-  { id: "down",    label: "Down 1 oct",   hint: "Slowly descend an octave" },
-  { id: "up",      label: "Up 1 oct",     hint: "Slowly ascend an octave" },
-  { id: "downup",  label: "Down / Up",    hint: "Descend then return" },
-  { id: "updown",  label: "Up / Down",    hint: "Ascend then return" },
-];
-const DRIFT_MODE_LABELS = Object.fromEntries(DRIFT_MODE_OPTIONS.map((o) => [o.id, o.label]));
+// Drift scene dropdown. Scenes come from main.js (DRIFT_SCENES). The first
+// 6 are the "singles" (off + glacial + 4 simple journeys); the rest are
+// coordinated multi-voice scenes. A divider separates the two sections.
+const SCENE_SECTION_BREAK_AFTER = "upDown";  // last single-mode scene
 
 function openDriftMenu(e) {
   let menu = document.getElementById("drift-menu");
   if (menu) { menu.remove(); return; }
+
+  const scenes = (window.__drone?.DRIFT_SCENES) || [];
 
   menu = document.createElement("div");
   menu.id = "drift-menu";
   menu.style.cssText = `
     position: fixed; z-index: 30;
     background: #111; border: 1px solid rgba(255,255,255,0.10);
-    border-radius: 10px; padding: 6px; min-width: 220px;
+    border-radius: 10px; padding: 6px; min-width: 260px; max-height: 70vh; overflow-y: auto;
     display: flex; flex-direction: column; gap: 2px;
     box-shadow: 0 12px 28px rgba(0,0,0,0.5);
   `;
-  const current = getState().driftMode;
-  for (const opt of DRIFT_MODE_OPTIONS) {
+
+  const current = getState().driftSceneId;
+  for (const scene of scenes) {
     const b = document.createElement("button");
     b.type = "button";
+    const isCurrent = scene.id === current;
     b.style.cssText = `
       text-align: left; padding: 8px 12px; font-size: 13px;
-      color: #fff; background: ${opt.id === current ? "rgba(140,195,255,0.18)" : "transparent"};
+      color: #fff; background: ${isCurrent ? "rgba(140,195,255,0.18)" : "transparent"};
       border-radius: 6px;
     `;
-    b.innerHTML = `<div style="font-weight:600">${opt.label}</div>` +
-                  `<div style="font-size:11px;color:rgba(255,255,255,0.55);margin-top:2px">${opt.hint}</div>`;
+    b.innerHTML = `<div style="font-weight:600">${scene.name}</div>` +
+                  `<div style="font-size:11px;color:rgba(255,255,255,0.55);margin-top:2px">${scene.hint || ""}</div>`;
     b.addEventListener("mouseenter", () => {
-      if (opt.id !== getState().driftMode) b.style.background = "rgba(255,255,255,0.06)";
+      if (scene.id !== getState().driftSceneId) b.style.background = "rgba(255,255,255,0.06)";
     });
     b.addEventListener("mouseleave", () => {
-      b.style.background = opt.id === getState().driftMode ? "rgba(140,195,255,0.18)" : "transparent";
+      b.style.background = scene.id === getState().driftSceneId ? "rgba(140,195,255,0.18)" : "transparent";
     });
     b.addEventListener("click", () => {
-      dispatch.setDriftMode(opt.id);
+      dispatch.setDriftScene(scene.id);
       menu.remove();
     });
     menu.appendChild(b);
+
+    // Divider between "singles" and coordinated scenes.
+    if (scene.id === SCENE_SECTION_BREAK_AFTER) {
+      const sep = document.createElement("div");
+      sep.style.cssText = `
+        margin: 6px 0; padding: 6px 12px 2px 12px;
+        font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+        color: rgba(255,255,255,0.40); text-transform: uppercase;
+        border-top: 1px solid rgba(255,255,255,0.10);
+      `;
+      sep.textContent = "Coordinated scenes";
+      menu.appendChild(sep);
+    }
   }
 
   const rect = e.currentTarget.getBoundingClientRect();

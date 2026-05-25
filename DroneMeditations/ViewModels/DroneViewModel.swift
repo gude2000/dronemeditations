@@ -28,34 +28,103 @@ final class DroneViewModel: ObservableObject {
 
     @Published var userPresets: [UserPreset] = UserPresetStore.load()
 
-    /// Drift mode selection. `off` disables. `glacial` is the original random
-    /// wander. `down`, `up`, `downUp`, `upDown` are deterministic ±1-octave
-    /// pitch journeys spread across the meditation session duration.
-    enum DriftMode: String, CaseIterable, Identifiable {
-        case off, glacial, down, up, downUp, upDown
-        var id: String { rawValue }
-        var label: String {
-            switch self {
-            case .off:     return "Off"
-            case .glacial: return "Glacial"
-            case .down:    return "Down 1 oct"
-            case .up:      return "Up 1 oct"
-            case .downUp:  return "Down / Up"
-            case .upDown:  return "Up / Down"
-            }
-        }
-        var hint: String {
-            switch self {
-            case .off:     return "No drift"
-            case .glacial: return "Gentle random wander"
-            case .down:    return "Slowly descend an octave"
-            case .up:      return "Slowly ascend an octave"
-            case .downUp:  return "Descend then return"
-            case .upDown:  return "Ascend then return"
-            }
-        }
+    /// Per-voice drift configuration. Either field nil means "static".
+    struct DriftVoiceConfig {
+        enum PitchMode { case `static`, up, down, upDown, downUp, wave, glacial }
+        enum PanMode   { case `static`, sweepLR, sweepRL, pendulum, antiPendulum, glacial }
+        var pitchMode: PitchMode = .static
+        var pitchAmount: Double = 1.0
+        var pitchPhase: Double = 0
+        var panMode: PanMode = .static
+        var panAmount: Double = 1.0
+        var panPhase: Double = 0
     }
-    @Published private(set) var driftMode: DriftMode = .off
+
+    /// A scene is the per-voice drift assignment for all four oscillators.
+    struct DriftScene: Identifiable {
+        let id: String
+        let name: String
+        let hint: String
+        let voices: [DriftVoiceConfig]   // length 4
+        let isCoordinated: Bool          // true for multi-voice scenes (shows under divider)
+    }
+
+    static let driftScenes: [DriftScene] = {
+        func cfg(_ pitchMode: DriftVoiceConfig.PitchMode = .static,
+                 _ pitchAmount: Double = 1.0,
+                 _ pitchPhase: Double = 0,
+                 panMode: DriftVoiceConfig.PanMode = .static,
+                 panAmount: Double = 1.0,
+                 panPhase: Double = 0) -> DriftVoiceConfig {
+            DriftVoiceConfig(pitchMode: pitchMode, pitchAmount: pitchAmount,
+                             pitchPhase: pitchPhase,
+                             panMode: panMode, panAmount: panAmount, panPhase: panPhase)
+        }
+        return [
+            // Singles
+            DriftScene(id: "off",     name: "Off",         hint: "No drift",
+                       voices: Array(repeating: cfg(), count: 4), isCoordinated: false),
+            DriftScene(id: "glacial", name: "Glacial",     hint: "Gentle random wander on all voices",
+                       voices: Array(repeating: cfg(.glacial, panMode: .glacial), count: 4),
+                       isCoordinated: false),
+            DriftScene(id: "ascend",  name: "All Ascend",  hint: "Every voice climbs an octave",
+                       voices: Array(repeating: cfg(.up, 1), count: 4), isCoordinated: false),
+            DriftScene(id: "descend", name: "All Descend", hint: "Every voice falls an octave",
+                       voices: Array(repeating: cfg(.down, 1), count: 4), isCoordinated: false),
+            DriftScene(id: "downUp",  name: "All Down/Up", hint: "Every voice falls then returns",
+                       voices: Array(repeating: cfg(.downUp, 1), count: 4), isCoordinated: false),
+            DriftScene(id: "upDown",  name: "All Up/Down", hint: "Every voice rises then returns",
+                       voices: Array(repeating: cfg(.upDown, 1), count: 4), isCoordinated: false),
+            // Coordinated
+            DriftScene(id: "divergence", name: "Divergence",
+                       hint: "2 voices up, 2 voices down",
+                       voices: [cfg(.up, 1), cfg(.down, 1), cfg(.up, 1), cfg(.down, 1)],
+                       isCoordinated: true),
+            DriftScene(id: "convergence", name: "Convergence",
+                       hint: "Outer voices drift toward middle",
+                       voices: [cfg(.down, 0.5), cfg(), cfg(), cfg(.up, 0.5)],
+                       isCoordinated: true),
+            DriftScene(id: "crossing", name: "Crossing Paths",
+                       hint: "Pairs of V and ^ that cross at session mid",
+                       voices: [cfg(.downUp, 1), cfg(.upDown, 1),
+                                cfg(.downUp, 1, 0.25), cfg(.upDown, 1, 0.25)],
+                       isCoordinated: true),
+            DriftScene(id: "pendulum", name: "Pendulum",
+                       hint: "Outer voices swing pan + pitch; inner pair holds center",
+                       voices: [cfg(.up, 0.5, panMode: .pendulum),
+                                cfg(),
+                                cfg(),
+                                cfg(.down, 0.5, panMode: .antiPendulum)],
+                       isCoordinated: true),
+            DriftScene(id: "breathing", name: "Breathing",
+                       hint: "Down/Up on all voices, staggered phases",
+                       voices: [cfg(.downUp, 0.5, 0.00), cfg(.downUp, 0.5, 0.25),
+                                cfg(.downUp, 0.5, 0.50), cfg(.downUp, 0.5, 0.75)],
+                       isCoordinated: true),
+            DriftScene(id: "spiral", name: "Spiral",
+                       hint: "Up/Down with varying depths — voices spiral around the root",
+                       voices: [cfg(.upDown, 1.00),       cfg(.upDown, 0.75, 0.125),
+                                cfg(.upDown, 0.50, 0.25), cfg(.upDown, 0.25, 0.375)],
+                       isCoordinated: true),
+            DriftScene(id: "aurora", name: "Aurora",
+                       hint: "Glacial pitch + opposite slow pan sweeps",
+                       voices: [cfg(.glacial, panMode: .sweepLR),
+                                cfg(.glacial, panMode: .sweepRL),
+                                cfg(.glacial, panMode: .pendulum),
+                                cfg(.glacial, panMode: .antiPendulum)],
+                       isCoordinated: true),
+            DriftScene(id: "tidal", name: "Tidal",
+                       hint: "Slow sine wave on pitch, opposite pans for swelling space",
+                       voices: [cfg(.wave, 0.5, 0,    panMode: .sweepLR),
+                                cfg(.wave, 0.5, 0.5,  panMode: .sweepRL),
+                                cfg(.wave, 0.5, 0.25, panMode: .sweepLR),
+                                cfg(.wave, 0.5, 0.75, panMode: .sweepRL)],
+                       isCoordinated: true),
+        ]
+    }()
+
+    @Published private(set) var driftSceneId: String = "off"
+    var driftScene: DriftScene? { Self.driftScenes.first { $0.id == driftSceneId } }
 
     let audioEngine: AudioEngine
     let controller: DroneController
@@ -486,12 +555,14 @@ final class DroneViewModel: ObservableObject {
         activePresetName = nil
     }
 
-    // MARK: - Drift modes
+    // MARK: - Drift scenes
     //
-    // Off / Glacial = random wander around captured baselines.
-    // Down / Up / Down-Up / Up-Down = deterministic pitch journeys covering
-    // ±1 octave over the session duration (or a 15 min fallback for Open
-    // sessions). Snapshot baselines at mode-set time.
+    // Each scene assigns a per-voice pitch + pan motion profile. Baselines
+    // are snapshotted at scene-set time; progress = elapsed / sessionDuration
+    // (15 min fallback for Open sessions). Glacial-mode voices use random
+    // walks; deterministic modes use phase-shifted progress through their
+    // shape function (up/down/upDown/downUp/wave for pitch, sweep/pendulum
+    // for pan).
 
     private struct DriftVoice {
         var baseFreq: Double, basePan: Double, baseAmp: Double
@@ -502,16 +573,16 @@ final class DroneViewModel: ObservableObject {
     private var driftTimer: Timer?
     private var driftStart: Date = .distantPast
 
-    func setDriftMode(_ mode: DriftMode) {
-        guard mode != driftMode else { return }
-        if mode == .off {
+    func setDriftScene(_ sceneId: String) {
+        guard sceneId != driftSceneId else { return }
+        if sceneId == "off" {
             stopDrift()
-        } else {
-            startDrift(mode)
+        } else if Self.driftScenes.contains(where: { $0.id == sceneId }) {
+            startDrift(sceneId)
         }
     }
 
-    private func startDrift(_ mode: DriftMode) {
+    private func startDrift(_ sceneId: String) {
         driftVoices = oscillators.map {
             DriftVoice(
                 baseFreq: $0.frequencyHz, basePan: $0.pan, baseAmp: $0.amplitude,
@@ -519,7 +590,7 @@ final class DroneViewModel: ObservableObject {
                 nextRetargetAt: .distantPast
             )
         }
-        driftMode = mode
+        driftSceneId = sceneId
         driftStart = Date()
         driftTimer?.invalidate()
         driftTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
@@ -530,70 +601,94 @@ final class DroneViewModel: ObservableObject {
     private func stopDrift() {
         driftTimer?.invalidate()
         driftTimer = nil
-        driftMode = .off
+        driftSceneId = "off"
         driftVoices.removeAll()
     }
 
     private func driftTick() {
-        switch driftMode {
-        case .off: return
-        case .glacial: glacialTick()
-        default: journeyTick(driftMode)
-        }
-    }
+        guard let scene = driftScene, scene.id != "off" else { return }
+        let sessionSec = controller.sessionDuration > 0 ? controller.sessionDuration : 15 * 60
+        let rawProgress = min(1, max(0, Date().timeIntervalSince(driftStart) / sessionSec))
 
-    private func glacialTick() {
-        let now = Date()
-        let lerp = 0.05
         for i in 0..<driftVoices.count {
-            guard i < oscillators.count else { continue }
-            var v = driftVoices[i]
+            guard i < oscillators.count, i < scene.voices.count else { continue }
+            let cfg = scene.voices[i]
             let o = oscillators[i]
 
-            if now >= v.nextRetargetAt {
-                let cents = Double.random(in: -1...1) * 50.0
-                v.freqTarget = v.baseFreq * pow(2.0, cents / 1200.0)
-                v.panTarget  = max(-1, min(1, v.basePan + Double.random(in: -0.3...0.3)))
-                v.ampTarget  = max(0.1, min(1, v.baseAmp + Double.random(in: -0.15...0.15)))
-                v.nextRetargetAt = now.addingTimeInterval(30 + Double.random(in: 0...30))
+            // ─── Pitch ───
+            if cfg.pitchMode == .glacial {
+                glacialPitchVoice(i)
+            } else {
+                let p = (rawProgress + cfg.pitchPhase).truncatingRemainder(dividingBy: 1.0)
+                let octaveOffset = Self.pitchShape(cfg.pitchMode, p: p) * cfg.pitchAmount
+                let target = driftVoices[i].baseFreq * pow(2.0, octaveOffset)
+                let newFreq = o.frequencyHz + (target - o.frequencyHz) * 0.30
+                oscillators[i].frequencyHz = newFreq
+                audioEngine.setFrequency(newFreq, for: i)
             }
 
-            let newFreq = o.frequencyHz + (v.freqTarget - o.frequencyHz) * lerp
-            let newPan  = o.pan         + (v.panTarget  - o.pan)         * lerp
-            let newAmp  = o.amplitude   + (v.ampTarget  - o.amplitude)   * lerp
-
-            oscillators[i].frequencyHz = newFreq
-            oscillators[i].pan = newPan
-            oscillators[i].amplitude = newAmp
-            audioEngine.setFrequency(newFreq, for: i)
-            audioEngine.setPan(newPan, for: i)
-            audioEngine.setAmplitude(newAmp, for: i)
-            driftVoices[i] = v
+            // ─── Pan ───
+            if cfg.panMode == .glacial {
+                glacialPanVoice(i)
+            } else if cfg.panMode != .static {
+                let p = (rawProgress + cfg.panPhase).truncatingRemainder(dividingBy: 1.0)
+                let target = max(-1, min(1, Self.panShape(cfg.panMode, p: p) * cfg.panAmount))
+                let newPan = o.pan + (target - o.pan) * 0.20
+                oscillators[i].pan = newPan
+                audioEngine.setPan(newPan, for: i)
+            }
         }
     }
 
-    private func journeyTick(_ mode: DriftMode) {
-        let sessionSec = controller.sessionDuration > 0 ? controller.sessionDuration : 15 * 60
-        let progress = min(1, max(0, Date().timeIntervalSince(driftStart) / sessionSec))
-
-        let octaveOffset: Double
+    private static func pitchShape(_ mode: DriftVoiceConfig.PitchMode, p: Double) -> Double {
         switch mode {
-        case .down:   octaveOffset = -progress
-        case .up:     octaveOffset =  progress
-        case .downUp: octaveOffset = progress < 0.5 ? -progress * 2          : -1 + (progress - 0.5) * 2
-        case .upDown: octaveOffset = progress < 0.5 ?  progress * 2          :  1 - (progress - 0.5) * 2
-        default:      octaveOffset = 0
+        case .up:     return  p
+        case .down:   return -p
+        case .upDown: return p < 0.5 ?  p * 2          :  1 - (p - 0.5) * 2
+        case .downUp: return p < 0.5 ? -p * 2          : -1 + (p - 0.5) * 2
+        case .wave:   return sin(p * .pi * 2)
+        default:      return 0
         }
+    }
+    private static func panShape(_ mode: DriftVoiceConfig.PanMode, p: Double) -> Double {
+        switch mode {
+        case .sweepLR:      return -1 + p * 2
+        case .sweepRL:      return  1 - p * 2
+        case .pendulum:     return  sin(p * .pi * 4)
+        case .antiPendulum: return -sin(p * .pi * 4)
+        default:            return 0
+        }
+    }
 
-        let lerp = 0.30
-        for i in 0..<driftVoices.count {
-            guard i < oscillators.count else { continue }
-            let v = driftVoices[i]
-            let o = oscillators[i]
-            let target = v.baseFreq * pow(2.0, octaveOffset)
-            let newFreq = o.frequencyHz + (target - o.frequencyHz) * lerp
-            oscillators[i].frequencyHz = newFreq
-            audioEngine.setFrequency(newFreq, for: i)
+    private func glacialPitchVoice(_ i: Int) {
+        let now = Date()
+        var v = driftVoices[i]
+        let o = oscillators[i]
+        if now >= v.nextRetargetAt {
+            let cents = Double.random(in: -1...1) * 50.0
+            v.freqTarget = v.baseFreq * pow(2.0, cents / 1200.0)
+            v.ampTarget  = max(0.1, min(1, v.baseAmp + Double.random(in: -0.15...0.15)))
+            v.nextRetargetAt = now.addingTimeInterval(30 + Double.random(in: 0...30))
         }
+        let lerp = 0.05
+        let newFreq = o.frequencyHz + (v.freqTarget - o.frequencyHz) * lerp
+        let newAmp  = o.amplitude   + (v.ampTarget  - o.amplitude)   * lerp
+        oscillators[i].frequencyHz = newFreq
+        oscillators[i].amplitude = newAmp
+        audioEngine.setFrequency(newFreq, for: i)
+        audioEngine.setAmplitude(newAmp, for: i)
+        driftVoices[i] = v
+    }
+    private func glacialPanVoice(_ i: Int) {
+        let now = Date()
+        var v = driftVoices[i]
+        let o = oscillators[i]
+        if now >= v.nextRetargetAt {
+            v.panTarget = max(-1, min(1, v.basePan + Double.random(in: -0.4...0.4)))
+        }
+        let newPan = o.pan + (v.panTarget - o.pan) * 0.05
+        oscillators[i].pan = newPan
+        audioEngine.setPan(newPan, for: i)
+        driftVoices[i] = v
     }
 }
