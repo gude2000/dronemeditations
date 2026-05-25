@@ -3,8 +3,8 @@ import Foundation
 /// Per-voice drift configuration. Each oscillator stores its own copy; the
 /// drift tick reads from `OscillatorState.drift` directly. Global drift
 /// scenes are just templates that bulk-set this struct across all 4 voices.
-struct DriftVoiceConfig: Equatable {
-    enum PitchMode: String, CaseIterable, Identifiable {
+struct DriftVoiceConfig: Equatable, Codable {
+    enum PitchMode: String, CaseIterable, Identifiable, Codable {
         case `static`, up, down, upDown, downUp, wave, glacial
         var id: String { rawValue }
         var label: String {
@@ -19,7 +19,7 @@ struct DriftVoiceConfig: Equatable {
             }
         }
     }
-    enum PanMode: String, CaseIterable, Identifiable {
+    enum PanMode: String, CaseIterable, Identifiable, Codable {
         case `static`, sweepLR, sweepRL, pendulum, antiPendulum, glacial
         var id: String { rawValue }
         var label: String {

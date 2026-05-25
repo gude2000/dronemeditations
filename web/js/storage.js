@@ -76,3 +76,22 @@ export function newPresetId() {
 export function newSampleId() {
   return `sample-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
+
+// ─── per-voice presets (localStorage) ────────────────────────
+
+const VOICE_PRESETS_KEY = "dronemeditations:voice-presets";
+
+export function loadVoicePresets() {
+  try {
+    const raw = localStorage.getItem(VOICE_PRESETS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+export function saveVoicePresets(list) {
+  localStorage.setItem(VOICE_PRESETS_KEY, JSON.stringify(list));
+}
+
+export function newVoicePresetId() {
+  return `voice-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}

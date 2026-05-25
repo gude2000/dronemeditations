@@ -468,8 +468,57 @@ struct OscillatorStrip: View {
         return String(format: "RATE %.1fHz", hz)
     }
 
+    /// Sheet state for the rename/save-name prompt.
+    @State private var showingVoiceNamePrompt = false
+    @State private var voiceNameDraft: String = ""
+
     private var soloMuteCluster: some View {
         HStack(spacing: 8) {
+            // Per-voice preset menu — save current voice as a preset, or
+            // load any previously saved preset into THIS slot.
+            Menu {
+                Button {
+                    voiceNameDraft = "\(osc.waveform.displayName) \(String(format: "%.1f", osc.frequencyHz)) Hz"
+                    showingVoiceNamePrompt = true
+                } label: {
+                    Label("Save OSC \(index + 1) as preset…", systemImage: "square.and.arrow.down")
+                }
+                if !vm.voicePresets.isEmpty {
+                    Section("Load into this voice") {
+                        ForEach(vm.voicePresets) { p in
+                            Button {
+                                vm.loadVoicePreset(index, presetId: p.id)
+                            } label: {
+                                Label(p.name, systemImage: "star")
+                            }
+                        }
+                    }
+                    Section("Delete preset") {
+                        ForEach(vm.voicePresets) { p in
+                            Button(role: .destructive) {
+                                vm.deleteVoicePreset(p.id)
+                            } label: {
+                                Label(p.name, systemImage: "trash")
+                            }
+                        }
+                    }
+                }
+            } label: {
+                Image(systemName: "star.circle")
+                    .font(.system(.caption, design: .rounded).weight(.heavy))
+                    .frame(width: 26, height: 26)
+                    .background(Circle().fill(Color.white.opacity(0.10)))
+                    .foregroundStyle(.white)
+            }
+            .menuStyle(.borderlessButton)
+            .alert("Name this voice preset", isPresented: $showingVoiceNamePrompt) {
+                TextField("Name", text: $voiceNameDraft)
+                Button("Cancel", role: .cancel) {}
+                Button("Save") {
+                    vm.saveCurrentVoiceAsPreset(index, name: voiceNameDraft)
+                }
+            }
+
             // Per-voice drift menu — pitch + pan motion for just this voice.
             Menu {
                 Section("OSC \(index + 1) · Pitch") {

@@ -217,6 +217,7 @@ function buildStrip(index) {
       />
       <span class="strip-freq-unit">Hz</span>
       <div class="strip-buttons">
+        <button class="sm-button" data-role="voice-preset" type="button" title="Save / load presets for this single voice" aria-label="Voice presets">★</button>
         <button class="sm-button" data-role="voice-drift" type="button" title="Drift this voice independently — pitch + pan motion over the session" aria-label="Voice drift mode">∿</button>
         <button class="sm-button" data-role="randomize" type="button" title="Randomize this oscillator's parameters (level is preserved)" aria-label="Randomize parameters">⚄</button>
         <button class="sm-button" data-role="solo" type="button">S</button>
@@ -326,6 +327,7 @@ function buildStrip(index) {
   root.querySelector('[data-role="mute"]').addEventListener("click", () => dispatch.toggleMute(index));
   root.querySelector('[data-role="randomize"]').addEventListener("click", () => dispatch.randomizeOscillator(index));
   root.querySelector('[data-role="voice-drift"]').addEventListener("click", (e) => openVoiceDriftMenu(e, index));
+  root.querySelector('[data-role="voice-preset"]').addEventListener("click", (e) => openVoicePresetMenu(e, index));
 
   // Editable freq display — commit on Enter / blur; revert on Escape.
   const freqInput = root.querySelector('[data-role="freq-input"]');
@@ -1032,6 +1034,128 @@ function openVoiceDriftMenu(e, voiceIndex) {
     };
     document.addEventListener("click", closer);
   }, 0);
+}
+
+// Voice-preset dropdown — opens beside the strip's ★ button. Lets the
+// user save the current voice as a named preset and load any previously
+// saved voice into this slot. Presets are stored per-device in
+// localStorage and can be loaded into ANY oscillator slot, enabling
+// real mix-and-match across the four voices.
+function openVoicePresetMenu(e, voiceIndex) {
+  let menu = document.getElementById("voice-preset-menu");
+  if (menu) { menu.remove(); return; }
+
+  menu = document.createElement("div");
+  menu.id = "voice-preset-menu";
+  menu.style.cssText = `
+    position: fixed; z-index: 30;
+    background: #111; border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 10px; padding: 6px; min-width: 260px; max-height: 70vh; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 2px;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.5);
+  `;
+
+  // Top: save-current button.
+  const saveBtn = document.createElement("button");
+  saveBtn.type = "button";
+  saveBtn.style.cssText = `
+    text-align: left; padding: 8px 12px; font-size: 12px; font-weight: 600;
+    color: #fff; background: rgba(140,195,255,0.18); border-radius: 6px;
+  `;
+  saveBtn.innerHTML = `💾 &nbsp; Save OSC ${voiceIndex + 1} as preset…`;
+  saveBtn.addEventListener("click", () => {
+    const o = getState().oscillators[voiceIndex];
+    const defaultName = `${o.waveform === "sample" ? "Sample" : (o.waveform.charAt(0).toUpperCase()+o.waveform.slice(1))} ${o.frequencyHz.toFixed(1)} Hz`;
+    const name = window.prompt("Name this voice preset:", defaultName);
+    if (name === null) return;
+    dispatch.saveCurrentVoiceAsPreset(voiceIndex, name);
+    menu.remove();
+  });
+  menu.appendChild(saveBtn);
+
+  // List of saved voice presets.
+  const presets = getState().voicePresets || [];
+  if (presets.length === 0) {
+    const empty = document.createElement("div");
+    empty.style.cssText = "padding:12px;font-size:11px;color:rgba(255,255,255,0.45);text-align:center";
+    empty.textContent = "No saved voice presets yet.";
+    menu.appendChild(empty);
+  } else {
+    const header = document.createElement("div");
+    header.style.cssText = `
+      margin: 6px 0 2px 0; padding: 6px 12px 2px 12px;
+      font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+      color: rgba(255,255,255,0.40); text-transform: uppercase;
+      border-top: 1px solid rgba(255,255,255,0.10);
+    `;
+    header.textContent = "Load into this voice";
+    menu.appendChild(header);
+
+    for (const p of presets) {
+      const row = document.createElement("div");
+      row.style.cssText = "display:flex;align-items:center;gap:4px";
+      const loadBtn = document.createElement("button");
+      loadBtn.type = "button";
+      loadBtn.style.cssText = `
+        flex: 1; text-align: left; padding: 6px 12px; font-size: 12px;
+        color: #fff; background: transparent; border-radius: 6px;
+      `;
+      const date = new Date(p.createdAt || 0);
+      const stamp = date.getFullYear()
+        ? `${date.getMonth()+1}/${date.getDate()}`
+        : "";
+      loadBtn.innerHTML = `<div style="font-weight:500">${escapeHtml(p.name)}</div>` +
+                         `<div style="font-size:10px;color:rgba(255,255,255,0.45);margin-top:1px">${stamp} · ${p.voice?.frequencyHz?.toFixed(1) ?? "?"} Hz</div>`;
+      loadBtn.addEventListener("mouseenter", () => loadBtn.style.background = "rgba(255,255,255,0.06)");
+      loadBtn.addEventListener("mouseleave", () => loadBtn.style.background = "transparent");
+      loadBtn.addEventListener("click", () => {
+        dispatch.loadVoicePreset(voiceIndex, p.id);
+        menu.remove();
+      });
+      row.appendChild(loadBtn);
+
+      const delBtn = document.createElement("button");
+      delBtn.type = "button";
+      delBtn.title = "Delete preset";
+      delBtn.style.cssText = `
+        padding: 4px 8px; font-size: 14px; color: rgba(255,255,255,0.40);
+        background: transparent; border-radius: 6px; cursor: pointer;
+      `;
+      delBtn.textContent = "✕";
+      delBtn.addEventListener("mouseenter", () => { delBtn.style.color = "#e0524a"; delBtn.style.background = "rgba(224,82,74,0.10)"; });
+      delBtn.addEventListener("mouseleave", () => { delBtn.style.color = "rgba(255,255,255,0.40)"; delBtn.style.background = "transparent"; });
+      delBtn.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        if (confirm(`Delete "${p.name}"?`)) {
+          dispatch.deleteVoicePreset(p.id);
+          openVoicePresetMenu({ currentTarget: e.currentTarget }, voiceIndex);  // re-render menu
+        }
+      });
+      row.appendChild(delBtn);
+      menu.appendChild(row);
+    }
+  }
+
+  const rect = e.currentTarget.getBoundingClientRect();
+  menu.style.top = `${rect.bottom + 6}px`;
+  menu.style.left = `${Math.min(rect.left, window.innerWidth - 280)}px`;
+  document.body.appendChild(menu);
+
+  setTimeout(() => {
+    const closer = (ev) => {
+      if (!menu.contains(ev.target)) {
+        menu.remove();
+        document.removeEventListener("click", closer);
+      }
+    };
+    document.addEventListener("click", closer);
+  }, 0);
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
 }
 
 // Drift scene dropdown. Scenes come from main.js (DRIFT_SCENES). The first

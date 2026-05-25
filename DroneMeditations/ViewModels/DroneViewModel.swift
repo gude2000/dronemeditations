@@ -38,6 +38,9 @@ final class DroneViewModel: ObservableObject {
     }
 
     @Published var userPresets: [UserPreset] = UserPresetStore.load()
+    /// Per-voice presets — capture/restore a single oscillator's full state
+    /// so favorite voices can be mixed and matched across the four slots.
+    @Published var voicePresets: [VoicePreset] = VoicePresetStore.load()
 
     /// A scene is the per-voice drift assignment for all four oscillators.
     /// Scenes are *templates* — picking one bulk-copies its voice configs
@@ -478,6 +481,80 @@ final class DroneViewModel: ObservableObject {
             audioEngine.setMute(isSilentSlot, for: i)
         }
         activePresetName = preset.name
+    }
+
+    // MARK: - Per-voice presets
+
+    func saveCurrentVoiceAsPreset(_ index: Int, name: String? = nil) {
+        guard index >= 0 && index < oscillators.count else { return }
+        let o = oscillators[index]
+        let snap = VoicePreset.VoiceSnapshot(
+            frequencyHz: o.frequencyHz,
+            waveform: o.waveform,
+            amplitude: o.amplitude,
+            pan: o.pan,
+            filter: o.filter,
+            reverb: o.reverb,
+            delay: o.delay,
+            lfos: o.lfos,
+            drift: o.drift
+        )
+        let trimmed = (name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let chosenName = trimmed.isEmpty
+            ? "\(o.waveform.displayName) \(String(format: "%.1f", o.frequencyHz)) Hz"
+            : trimmed
+        let preset = VoicePreset(
+            id: "voice-" + UUID().uuidString.prefix(8).lowercased(),
+            name: chosenName,
+            createdAt: Date(),
+            voice: snap
+        )
+        voicePresets.insert(preset, at: 0)
+        VoicePresetStore.save(voicePresets)
+    }
+
+    func loadVoicePreset(_ index: Int, presetId: String) {
+        guard index >= 0 && index < oscillators.count,
+              let p = voicePresets.first(where: { $0.id == presetId }) else { return }
+        let v = p.voice
+        // Mutate model state.
+        oscillators[index].frequencyHz = v.frequencyHz
+        oscillators[index].waveform = v.waveform
+        oscillators[index].amplitude = v.amplitude
+        oscillators[index].pan = v.pan
+        oscillators[index].filter = v.filter
+        oscillators[index].reverb = v.reverb
+        oscillators[index].delay = v.delay
+        oscillators[index].lfos = v.lfos
+        oscillators[index].drift = v.drift
+        // Push to engine.
+        audioEngine.setFrequency(v.frequencyHz, for: index)
+        audioEngine.setWaveform(v.waveform, for: index)
+        audioEngine.setAmplitude(v.amplitude, for: index)
+        audioEngine.setPan(v.pan, for: index)
+        audioEngine.setFilterType(v.filter.type, for: index)
+        audioEngine.setFilterCutoff(v.filter.cutoffHz, for: index)
+        audioEngine.setFilterQ(v.filter.q, for: index)
+        audioEngine.setReverbDecay(v.reverb.decaySec, for: index)
+        audioEngine.setReverbMix(v.reverb.mix, for: index)
+        audioEngine.setDelayTime(v.delay.timeSec, for: index)
+        audioEngine.setDelayFeedback(v.delay.feedback, for: index)
+        audioEngine.setDelayMix(v.delay.mix, for: index)
+        for (i, lfo) in v.lfos.enumerated() {
+            audioEngine.setLfoShape(lfo.shape, for: index, lfoIndex: i)
+            audioEngine.setLfoTarget(lfo.target, for: index, lfoIndex: i)
+            audioEngine.setLfoRate(lfo.rateHz, for: index, lfoIndex: i)
+            audioEngine.setLfoDepth(lfo.depth, for: index, lfoIndex: i)
+        }
+        // Drift may have flipped from static to active.
+        reconcileDriftRunning(snapshotIfStarting: true)
+        driftSceneId = sceneIdMatchingVoices()
+        activePresetName = nil
+    }
+
+    func deleteVoicePreset(_ presetId: String) {
+        voicePresets.removeAll { $0.id == presetId }
+        VoicePresetStore.save(voicePresets)
     }
 
     // MARK: - Meditation journeys

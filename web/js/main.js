@@ -1,7 +1,7 @@
 // Bootstrap — owns app state, glues UI + audio + visualizations together.
 
 import {
-  CHORDS, PRESETS, JOURNEYS, journeyTotalSeconds, PITCH_CLASSES, TUNING_SYSTEMS,
+  CHORDS, PRESETS, WAVEFORMS, JOURNEYS, journeyTotalSeconds, PITCH_CLASSES, TUNING_SYSTEMS,
   pitchToFrequency, chordFrequencies, FREQ_MIN, FREQ_MAX
 } from "./music.js";
 import { AudioEngine } from "./audio.js";
@@ -9,6 +9,7 @@ import { initUI, renderAll } from "./ui.js";
 import { initVisualizations, setChladniVisible } from "./visualizations.js";
 import {
   loadUserPresets, saveUserPresets, newPresetId, newSampleId,
+  loadVoicePresets, saveVoicePresets, newVoicePresetId,
   putSample, getSample, deleteSample
 } from "./storage.js";
 
@@ -68,7 +69,12 @@ const state = {
   journeyStageEndsAt: 0,      // Date.now() ms when the current stage ends
 
   // User-saved presets
-  userPresets: loadUserPresets()
+  userPresets: loadUserPresets(),
+
+  // Per-voice presets — capture/restore a single oscillator's full state
+  // (freq, waveform, pan, amp, filter, reverb, delay, LFOs, drift) so the
+  // user can mix-and-match favorite voices across slots.
+  voicePresets: loadVoicePresets()
 };
 
 // Per-voice in-memory cache of loaded sample blobs (for save-current-as-preset).
@@ -470,6 +476,82 @@ const actions = {
 
   startJourney(id) { startJourney(id); },
   stopJourney()    { stopJourney(); },
+
+  // ─── Per-voice presets ──────────────────────────────────
+  saveCurrentVoiceAsPreset(oscIndex, name) {
+    const o = state.oscillators[oscIndex];
+    if (!o) return;
+    const voice = {
+      frequencyHz: o.frequencyHz,
+      waveform: o.waveform,
+      amplitude: o.amplitude,
+      pan: o.pan,
+      filter: { ...o.filter },
+      reverb: { ...o.reverb },
+      delay:  { ...o.delay },
+      lfos:   o.lfos.map((l) => ({ ...l })),
+      drift:  { ...o.drift }
+    };
+    const cleanName = (name || "").trim() ||
+      `${waveformLabel(voice.waveform)} ${voice.frequencyHz.toFixed(1)} Hz`;
+    state.voicePresets.unshift({
+      id: newVoicePresetId(),
+      name: cleanName,
+      voice,
+      createdAt: Date.now()
+    });
+    saveVoicePresets(state.voicePresets);
+    renderAll();
+  },
+
+  loadVoicePreset(oscIndex, presetId) {
+    const p = state.voicePresets.find((x) => x.id === presetId);
+    if (!p) return;
+    const v = p.voice;
+    const o = state.oscillators[oscIndex];
+    if (!o) return;
+    // Copy fields with defensive defaults so older presets (saved before
+    // drift was a field) still load cleanly.
+    o.frequencyHz = v.frequencyHz;
+    o.waveform = v.waveform;
+    o.amplitude = v.amplitude;
+    o.pan = v.pan;
+    o.filter = { ...defaultFilter(), ...(v.filter || {}) };
+    o.reverb = { ...defaultReverb(), ...(v.reverb || {}) };
+    o.delay  = { ...defaultDelay(),  ...(v.delay  || {}) };
+    o.lfos   = (v.lfos || defaultLfos()).map((l) => ({ ...l }));
+    o.drift  = { ...defaultDrift(),  ...(v.drift  || {}) };
+    // Push everything to the engine.
+    engine.setFrequency(oscIndex, o.frequencyHz);
+    engine.setWaveform(oscIndex, o.waveform);
+    engine.setAmplitude(oscIndex, o.amplitude);
+    engine.setPan(oscIndex, o.pan);
+    engine.setFilterType(oscIndex, o.filter.type);
+    engine.setFilterCutoff(oscIndex, o.filter.cutoffHz);
+    engine.setFilterQ(oscIndex, o.filter.q);
+    engine.setReverbDecay(oscIndex, o.reverb.decaySec);
+    engine.setReverbMix(oscIndex, o.reverb.mix);
+    engine.setDelayTime(oscIndex, o.delay.timeSec);
+    engine.setDelayFeedback(oscIndex, o.delay.feedback);
+    engine.setDelayMix(oscIndex, o.delay.mix);
+    for (let i = 0; i < o.lfos.length; i++) {
+      engine.setLfoShape(oscIndex, i, o.lfos[i].shape);
+      engine.setLfoTarget(oscIndex, i, o.lfos[i].target);
+      engine.setLfoRate(oscIndex, i, o.lfos[i].rateHz);
+      engine.setLfoDepth(oscIndex, i, o.lfos[i].depth);
+    }
+    // Drift may have flipped from static to active or vice versa.
+    reconcileDriftRunning();
+    state.activePresetName = null;
+    state.driftSceneId = sceneIdForCurrentVoices();
+    renderAll();
+  },
+
+  deleteVoicePreset(presetId) {
+    state.voicePresets = state.voicePresets.filter((p) => p.id !== presetId);
+    saveVoicePresets(state.voicePresets);
+    renderAll();
+  },
   setVoicePitchDrift(voiceIndex, mode) { setVoicePitchDrift(voiceIndex, mode); },
   setVoicePanDrift(voiceIndex, mode)   { setVoicePanDrift(voiceIndex, mode); },
 
@@ -863,6 +945,11 @@ function glacialPanVoice(i, v, osc) {
   const newPan = osc.pan + (v.panTarget - osc.pan) * 0.05;
   osc.pan = newPan;
   engine.setPan(i, newPan);
+}
+
+function waveformLabel(id) {
+  const wf = WAVEFORMS.find((w) => w.id === id);
+  return wf ? wf.name : "Voice";
 }
 
 function restoreLfoTargetBase(oscIndex, target) {
