@@ -220,6 +220,10 @@ const actions = {
     state.showControls = !state.showControls;
     renderAll();
   },
+  setShowControls(on) {
+    state.showControls = !!on;
+    renderAll();
+  },
   toggleChladni() {
     state.showChladni = !state.showChladni;
     setChladniVisible(state.showChladni);

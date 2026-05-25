@@ -54,7 +54,11 @@ struct ContentView: View {
                 )
                 .ignoresSafeArea()
 
-            if vm.showControls {
+            if vm.performanceMode {
+                // Cymatics-only Performance — everything except the pattern
+                // and a tiny Exit affordance is hidden.
+                performanceExit
+            } else if vm.showControls {
                 ControlsOverlay()
                     .environmentObject(vm)
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
@@ -72,10 +76,55 @@ struct ContentView: View {
                 .transition(.opacity)
             }
 
-            copyrightOverlay
+            if !vm.performanceMode {
+                copyrightOverlay
+            }
         }
         .background(Color.black.ignoresSafeArea())
         .statusBarHidden(true)
+    }
+
+    /// Tiny "Exit" pill in the top-left corner that fades back to faint
+    /// after a short delay so it doesn't intrude on the Performance view.
+    @State private var exitVisible: Bool = true
+    private var performanceExit: some View {
+        VStack {
+            HStack {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.22)) {
+                        vm.performanceMode = false
+                        vm.showControls = true
+                    }
+                } label: {
+                    Text("Exit")
+                        .font(.system(size: 12, weight: .medium))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule().fill(Color.black.opacity(0.45))
+                        )
+                        .overlay(
+                            Capsule().stroke(Color.white.opacity(0.25), lineWidth: 1)
+                        )
+                        .foregroundStyle(.white.opacity(0.85))
+                }
+                .buttonStyle(.plain)
+                .opacity(exitVisible ? 1.0 : 0.2)
+                .padding(.leading, 12)
+                .padding(.top, 12)
+                Spacer()
+            }
+            Spacer()
+        }
+        .ignoresSafeArea(.keyboard)
+        .onAppear {
+            // Auto-dim a few seconds after entering Performance.
+            exitVisible = true
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                withAnimation(.easeOut(duration: 0.5)) { exitVisible = false }
+            }
+        }
     }
 
     private var tapHint: some View {

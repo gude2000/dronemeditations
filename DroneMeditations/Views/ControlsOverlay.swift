@@ -113,6 +113,15 @@ struct ControlsOverlay: View {
                     pillLabel(title: "Listen", value: "Tune to room", system: "mic.circle")
                 }
                 .buttonStyle(.plain)
+
+                Button {
+                    withAnimation(.easeInOut(duration: 0.22)) {
+                        vm.performanceMode = true
+                    }
+                } label: {
+                    pillLabel(title: "Perform", value: "Cymatics", system: "rectangle.fill.on.rectangle.fill")
+                }
+                .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 14)

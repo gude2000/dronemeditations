@@ -53,6 +53,10 @@
         <span class="pill-label">LISTEN</span>
         <span id="listen-pill-value" class="pill-value">Tune to room</span>
       </button>
+      <button id="performance-pill" class="pill" type="button" title="Cymatics-only Performance view — hides every control element, leaving only the Chladni pattern. Esc to exit.">
+        <span class="pill-label">PERFORM</span>
+        <span id="performance-pill-value" class="pill-value">Cymatics fullscreen</span>
+      </button>
     </div>
 
     <section id="oscillator-strips" class="strips" aria-label="Oscillators"></section>
@@ -112,6 +116,10 @@
   <div id="hidden-hint" class="hidden-hint" aria-hidden="true">Tap to show controls</div>
 
   <div class="copyright" aria-hidden="true">© 2026 Jose Gude MD · All Rights Reserved</div>
+
+  <!-- Tiny exit affordance for Performance mode. Visible only while
+       body.performance — fades in on cursor activity then dims again. -->
+  <button id="performance-exit" type="button" aria-label="Exit Performance view" title="Exit Performance view (Esc)">Exit</button>
 
   <!-- Modal sheets -->
   <div id="chord-sheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="chord-sheet-title" hidden>

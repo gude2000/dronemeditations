@@ -21,6 +21,10 @@ final class DroneViewModel: ObservableObject {
     @Published var activePresetName: String? = nil
     /// True if Chladni overlay is drawn over the blob background.
     @Published var showChladni: Bool = true
+    /// Cymatics-only Performance fullscreen — hides every chrome element
+    /// (controls, mini-strip, tap hint, copyright) leaving only the pattern
+    /// and a tiny Exit affordance.
+    @Published var performanceMode: Bool = false
 
     @Published var userPresets: [UserPreset] = UserPresetStore.load()
 

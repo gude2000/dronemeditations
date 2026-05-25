@@ -44,6 +44,14 @@ export function initUI(state, actions) {
   document.getElementById("preset-pill").addEventListener("click", () => openSheet("preset-sheet"));
   document.getElementById("drift-pill").addEventListener("click", () => dispatch.toggleDrift());
   document.getElementById("listen-pill").addEventListener("click", openListenSheet);
+  document.getElementById("performance-pill").addEventListener("click", enterPerformance);
+  document.getElementById("performance-exit").addEventListener("click", exitPerformance);
+  // Esc exits Performance from anywhere on the page (in addition to the Exit button).
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && document.body.classList.contains("performance")) {
+      exitPerformance();
+    }
+  });
   document.querySelectorAll(".sheet-done").forEach((b) =>
     b.addEventListener("click", () => closeSheet(b.dataset.close))
   );
@@ -609,6 +617,21 @@ function stopListeningCleanup() {
   lastDetectedPitch = null;
   displayHz = 0;
   document.getElementById("listen-pill").classList.remove("listening");
+}
+
+// ───────── Performance view (cymatics-only fullscreen) ─────────
+
+function enterPerformance() {
+  document.body.classList.add("performance");
+  // Make sure the main controls panel is hidden too so it doesn't pop back
+  // on the next tap once Performance is exited.
+  dispatch.setShowControls(false);
+}
+function exitPerformance() {
+  document.body.classList.remove("performance");
+  // Bring the main controls back into view on exit so the user lands
+  // somewhere usable instead of a blank Chladni.
+  dispatch.setShowControls(true);
 }
 
 function buildKeyGrid() {
