@@ -130,7 +130,18 @@ const state = {
   // User-defined journeys — scripted multi-stage meditation sessions the
   // user has composed. Same shape as built-in JOURNEYS but persisted in
   // localStorage and shown above the factory list in the journey sheet.
-  userJourneys: loadUserJourneys()
+  userJourneys: loadUserJourneys(),
+
+  // ─── Morph between two presets ─────────────────────────────
+  // Pick a "From" preset and a "To" preset, then drag a 0–100% slider
+  // to interpolate every per-voice parameter continuously between them.
+  // morphAmount = 0 → exactly preset A; = 1 → exactly preset B; in
+  // between → log-interp on frequencies/cutoff/decay, linear on mix/
+  // depth/pan/drive, discrete swap on waveform/filter type/LFO
+  // shape+target/FM source/drift modes at the 0.5 boundary.
+  morphFromId: null,
+  morphToId: null,
+  morphAmount: 0
 };
 
 // Per-voice in-memory cache of loaded sample blobs (for save-current-as-preset).
@@ -269,6 +280,29 @@ const actions = {
       }
     }
     state.activePresetName = p.name;
+    renderAll();
+  },
+
+  // ─── Morph ──────────────────────────────────────────────
+  setMorphFrom(presetId) {
+    state.morphFromId = presetId || null;
+    if (state.morphFromId && state.morphToId) applyMorph(state.morphAmount);
+    renderAll();
+  },
+  setMorphTo(presetId) {
+    state.morphToId = presetId || null;
+    if (state.morphFromId && state.morphToId) applyMorph(state.morphAmount);
+    renderAll();
+  },
+  setMorphAmount(t) {
+    state.morphAmount = Math.max(0, Math.min(1, t));
+    if (state.morphFromId && state.morphToId) applyMorph(state.morphAmount);
+    renderAll();
+  },
+  clearMorph() {
+    state.morphFromId = null;
+    state.morphToId = null;
+    state.morphAmount = 0;
     renderAll();
   },
 
@@ -1315,6 +1349,123 @@ function sanitizeUserJourney(spec) {
     isUser: true,
     stages: cleanStages
   };
+}
+
+// ──────────────────────────────────────────────────
+// Morph — interpolate every per-voice parameter between two presets at
+// a continuous 0..1 amount. Called by setMorphAmount whenever the slider
+// moves; also re-triggered whenever From/To is repicked.
+// ──────────────────────────────────────────────────
+function applyMorph(t) {
+  const A = PRESETS.find((p) => p.id === state.morphFromId);
+  const B = PRESETS.find((p) => p.id === state.morphToId);
+  if (!A || !B) return;
+  const tClamped = Math.max(0, Math.min(1, t));
+
+  // Linear, log, and discrete interpolation helpers. Discrete picks A
+  // until t=0.5 then B — abrupt but predictable; smoothing discrete
+  // parameters would require crossfading nodes which is more work than
+  // it's worth here.
+  const lerp = (a, b, u) => a + (b - a) * u;
+  const logLerp = (a, b, u) => {
+    if (a <= 0 || b <= 0) return lerp(a, b, u);
+    return Math.exp(lerp(Math.log(a), Math.log(b), u));
+  };
+  const pick = (a, b, u) => (u < 0.5 ? a : b);
+
+  for (let i = 0; i < 4; i++) {
+    const va = A.voices[i] || {};
+    const vb = B.voices[i] || {};
+    // Fall back to current oscillator state for fields the preset didn't
+    // specify, so simple presets (hz + pan only) still morph cleanly into
+    // rich ones (everything specified) without snapping to defaults.
+    const o = state.oscillators[i];
+    const A_hz   = va.hz   ?? o.frequencyHz;
+    const B_hz   = vb.hz   ?? o.frequencyHz;
+    const A_pan  = va.pan  ?? o.pan;
+    const B_pan  = vb.pan  ?? o.pan;
+    const A_wave = va.wave ?? o.waveform;
+    const B_wave = vb.wave ?? o.waveform;
+    const A_amp  = (va.amp  != null) ? va.amp  : o.amplitude;
+    const B_amp  = (vb.amp  != null) ? vb.amp  : o.amplitude;
+    const A_drv  = (va.drive != null) ? va.drive : (o.drive || 1.0);
+    const B_drv  = (vb.drive != null) ? vb.drive : (o.drive || 1.0);
+
+    actions.setFrequency(i, logLerp(A_hz, B_hz, tClamped));
+    actions.setPan(i, lerp(A_pan, B_pan, tClamped));
+    actions.setAmplitude(i, lerp(A_amp, B_amp, tClamped));
+    actions.setDrive(i, lerp(A_drv, B_drv, tClamped));
+    // Mute follows the chosen side discretely so silent-slot presets
+    // don't suddenly half-bleed in at the midpoint.
+    const aMuted = !!va._silent;
+    const bMuted = !!vb._silent;
+    const wantMuted = pick(aMuted, bMuted, tClamped);
+    if (o.isMuted !== wantMuted) actions.toggleMute(i);
+
+    // Waveform is discrete. Skip when From and To agree, otherwise swap
+    // at t=0.5.
+    const wantWave = pick(A_wave, B_wave, tClamped);
+    if (o.waveform !== wantWave) actions.setWaveform(i, wantWave);
+
+    // Filter — log on cutoff/q, discrete on type.
+    const A_f = { ...(o.filter || {}), ...(va.filter || {}) };
+    const B_f = { ...(o.filter || {}), ...(vb.filter || {}) };
+    const wantType = pick(A_f.type, B_f.type, tClamped);
+    if (o.filter.type !== wantType) actions.setFilterType(i, wantType);
+    actions.setFilterCutoff(i, logLerp(A_f.cutoffHz || 4000, B_f.cutoffHz || 4000, tClamped));
+    actions.setFilterQ(i, logLerp(A_f.q || 0.7, B_f.q || 0.7, tClamped));
+
+    // Reverb — log on decay, linear on mix.
+    const A_r = { ...(o.reverb || {}), ...(va.reverb || {}) };
+    const B_r = { ...(o.reverb || {}), ...(vb.reverb || {}) };
+    actions.setReverbDecay(i, logLerp(A_r.decaySec || 2, B_r.decaySec || 2, tClamped));
+    actions.setReverbMix(i, lerp(A_r.mix || 0, B_r.mix || 0, tClamped));
+
+    // Delay — log on time, linear on mix/feedback, discrete on mode.
+    const A_d = { ...(o.delay || {}), ...(va.delay || {}) };
+    const B_d = { ...(o.delay || {}), ...(vb.delay || {}) };
+    actions.setDelayTime(i, logLerp(A_d.timeSec || 0.3, B_d.timeSec || 0.3, tClamped));
+    actions.setDelayFeedback(i, lerp(A_d.feedback || 0, B_d.feedback || 0, tClamped));
+    actions.setDelayMix(i, lerp(A_d.mix || 0, B_d.mix || 0, tClamped));
+    const wantDlyMode = pick(A_d.mode || "mono", B_d.mode || "mono", tClamped);
+    if (o.delay.mode !== wantDlyMode) actions.setDelayMode(i, wantDlyMode);
+
+    // Chorus — log on rate, linear on depth/width/mix.
+    const A_c = { ...(o.chorus || {}), ...(va.chorus || {}) };
+    const B_c = { ...(o.chorus || {}), ...(vb.chorus || {}) };
+    actions.setChorusRate(i,  logLerp(A_c.rateHz || 0.5, B_c.rateHz || 0.5, tClamped));
+    actions.setChorusDepth(i, lerp(A_c.depth   || 0, B_c.depth   || 0, tClamped));
+    actions.setChorusWidth(i, lerp(A_c.width   || 0, B_c.width   || 0, tClamped));
+    actions.setChorusMix(i,   lerp(A_c.mix     || 0, B_c.mix     || 0, tClamped));
+
+    // FM — discrete on source, log on index (linear below 1 Hz).
+    const A_fm = { ...(o.fm || {}), ...(va.fm || {}) };
+    const B_fm = { ...(o.fm || {}), ...(vb.fm || {}) };
+    const wantFMSrc = pick(A_fm.sourceIndex ?? -1, B_fm.sourceIndex ?? -1, tClamped);
+    if (o.fm.sourceIndex !== wantFMSrc) actions.setFMSource(i, wantFMSrc);
+    const Ai = A_fm.index || 0, Bi = B_fm.index || 0;
+    const idx = (Ai > 1 && Bi > 1) ? logLerp(Ai, Bi, tClamped) : lerp(Ai, Bi, tClamped);
+    actions.setFMIndex(i, idx);
+
+    // LFOs — interpolate rate (log) + depth (linear) where defined;
+    // discrete shape + target at midpoint.
+    const A_lfos = Array.isArray(va.lfos) ? va.lfos : [];
+    const B_lfos = Array.isArray(vb.lfos) ? vb.lfos : [];
+    for (let k = 0; k < 4; k++) {
+      const al = A_lfos[k] || o.lfos[k];
+      const bl = B_lfos[k] || o.lfos[k];
+      if (!al || !bl) continue;
+      actions.setLfoRate(i, k, logLerp(al.rateHz, bl.rateHz, tClamped));
+      actions.setLfoDepth(i, k, lerp(al.depth, bl.depth, tClamped));
+      const wantShape = pick(al.shape, bl.shape, tClamped);
+      if (o.lfos[k].shape !== wantShape) actions.setLfoShape(i, k, wantShape);
+      const wantTarget = pick(al.target, bl.target, tClamped);
+      if (o.lfos[k].target !== wantTarget) actions.setLfoTarget(i, k, wantTarget);
+    }
+  }
+  // Morphing is its own state, not a "named preset" — clear the active
+  // preset label so the user knows they're in a hybrid space.
+  state.activePresetName = `${A.name} → ${B.name} (${Math.round(tClamped * 100)}%)`;
 }
 
 function startJourney(id) {

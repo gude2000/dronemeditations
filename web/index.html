@@ -74,6 +74,10 @@
         <span class="pill-label">GALLERY</span>
         <span id="gallery-pill-value" class="pill-value">0</span>
       </button>
+      <button id="morph-pill" class="pill" type="button" title="Morph between two presets — pick From and To, then drag the slider to interpolate every per-voice parameter continuously">
+        <span class="pill-label">MORPH</span>
+        <span id="morph-pill-value" class="pill-value">Off</span>
+      </button>
     </div>
 
     <section id="oscillator-strips" class="strips" aria-label="Oscillators"></section>
@@ -206,6 +210,39 @@
           total; transport fades out at the end.
         </p>
         <div id="journey-list" class="preset-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Morph sheet — pick two presets + drag the slider to interpolate. -->
+  <div id="morph-sheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="morph-sheet-title" hidden>
+    <div class="sheet-panel morph-panel">
+      <header class="sheet-header">
+        <h2 id="morph-sheet-title">Morph Between Presets</h2>
+        <button class="sheet-done" data-close="morph-sheet" type="button">Done</button>
+      </header>
+      <div class="sheet-scroll">
+        <p class="preset-disclaimer">
+          Pick two presets, then drag the slider to interpolate every per-voice parameter continuously between them. Frequencies use log interpolation; mix and depth use linear. Discrete fields (waveform, filter type, LFO shape) swap at the midpoint.
+        </p>
+
+        <div class="morph-row">
+          <label>From</label>
+          <select id="morph-from"></select>
+        </div>
+        <div class="morph-row">
+          <label>To</label>
+          <select id="morph-to"></select>
+        </div>
+
+        <div class="morph-slider-wrap">
+          <div class="morph-end-label morph-end-from" id="morph-from-label">—</div>
+          <input id="morph-slider" type="range" min="0" max="1" step="0.001" value="0" />
+          <div class="morph-end-label morph-end-to" id="morph-to-label">—</div>
+        </div>
+        <div class="morph-readout" id="morph-readout">0%</div>
+
+        <button id="morph-reset" class="morph-reset" type="button">Reset (clear morph)</button>
       </div>
     </div>
   </div>

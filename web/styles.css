@@ -214,6 +214,74 @@ body:has(.controls.hidden) #zoom-wrap,
 }
 #journey-pill.active .pill-label { color: rgba(255, 220, 170, 0.95); }
 
+/* Morph pill — purple glow when a morph is active. */
+#morph-pill.active {
+  background: rgba(207, 182, 234, 0.20);
+  box-shadow: inset 0 0 0 1px rgba(207, 182, 234, 0.40);
+}
+#morph-pill.active .pill-label { color: rgba(220, 195, 245, 0.95); }
+
+/* Morph sheet — From/To dropdowns + big interpolation slider. */
+.morph-panel { max-width: 480px; }
+.morph-row {
+  display: grid;
+  grid-template-columns: 60px 1fr;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0;
+}
+.morph-row label {
+  font-size: 11px; font-weight: 600;
+  color: rgba(255, 255, 255, 0.65);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.morph-row select {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff;
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+.morph-slider-wrap {
+  display: grid;
+  grid-template-columns: max-content 1fr max-content;
+  align-items: center;
+  gap: 10px;
+  margin-top: 22px;
+}
+.morph-end-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.70);
+  max-width: 130px;
+  line-height: 1.2;
+}
+.morph-end-from { text-align: right; }
+.morph-end-to   { text-align: left; }
+#morph-slider { width: 100%; height: 24px; }
+.morph-readout {
+  text-align: center;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: 14px;
+  color: rgba(207, 182, 234, 0.95);
+  margin: 10px 0 18px;
+  font-weight: 600;
+}
+.morph-reset {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 13px;
+  cursor: pointer;
+}
+.morph-reset:hover { background: rgba(255, 255, 255, 0.14); }
+
 /* Gallery pill — cyan glow when at least one snapshot is saved. */
 #gallery-pill.active {
   background: rgba(120, 230, 220, 0.20);

@@ -56,6 +56,7 @@ export function initUI(state, actions) {
   document.getElementById("performance-pill").addEventListener("click", enterPerformance);
   document.getElementById("journey-pill").addEventListener("click", openJourneySheet);
   document.getElementById("gallery-pill").addEventListener("click", openGallerySheet);
+  document.getElementById("morph-pill").addEventListener("click", openMorphSheet);
 
   // Cross-window: the pop-out Chladni broadcasts "gallery-changed" after each
   // snapshot save so we can refresh the counter pill + sheet contents live.
@@ -150,6 +151,7 @@ export function renderAll() {
 
   syncJourneyPill();
   syncGalleryPill();
+  syncMorphPill();
 
   document.getElementById("master-volume").value = s.masterVolume;
   document.getElementById("master-volume").style.setProperty("--fill", `${Math.round(s.masterVolume * 100)}%`);
@@ -1274,6 +1276,100 @@ async function removeSnapshot(id) {
     syncGalleryPill();
   } catch (err) {
     console.warn("Snapshot delete failed:", err);
+  }
+}
+
+// ───────── Morph sheet ─────────
+
+function openMorphSheet() {
+  buildMorphSheet();
+  openSheet("morph-sheet");
+}
+
+function buildMorphSheet() {
+  const fromSel = document.getElementById("morph-from");
+  const toSel   = document.getElementById("morph-to");
+  const slider  = document.getElementById("morph-slider");
+  const readout = document.getElementById("morph-readout");
+  const fromLbl = document.getElementById("morph-from-label");
+  const toLbl   = document.getElementById("morph-to-label");
+
+  // Populate both dropdowns with grouped <optgroup>s by category +
+  // user presets at the top. Each option's value is the preset id.
+  const groups = {};
+  for (const p of PRESETS) {
+    (groups[p.category] = groups[p.category] || []).push(p);
+  }
+  // Morph only supports built-in presets for now — user presets have a
+  // different schema (full per-voice settings vs the V({...}) shape) and
+  // would need an adapter. Easy follow-up if there's demand.
+  const factoryOpts = PRESET_CATEGORIES
+    .filter((c) => groups[c]?.length)
+    .map((c) => `<optgroup label="${escapeHtml(c)}">${
+      groups[c].map((p) => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("")
+    }</optgroup>`).join("");
+  const allOpts = `<option value="">— pick —</option>` + factoryOpts;
+  fromSel.innerHTML = allOpts;
+  toSel.innerHTML   = allOpts;
+
+  const s = getState();
+  fromSel.value = s.morphFromId || "";
+  toSel.value   = s.morphToId   || "";
+  slider.value  = String(s.morphAmount || 0);
+  updateMorphLabels();
+  updateMorphReadout();
+
+  fromSel.onchange = () => {
+    dispatch.setMorphFrom(fromSel.value || null);
+    updateMorphLabels();
+  };
+  toSel.onchange = () => {
+    dispatch.setMorphTo(toSel.value || null);
+    updateMorphLabels();
+  };
+  slider.oninput = (e) => {
+    dispatch.setMorphAmount(parseFloat(e.target.value));
+    updateMorphReadout();
+  };
+  document.getElementById("morph-reset").onclick = () => {
+    dispatch.clearMorph();
+    fromSel.value = "";
+    toSel.value = "";
+    slider.value = "0";
+    updateMorphLabels();
+    updateMorphReadout();
+  };
+
+  function updateMorphLabels() {
+    const findName = (id) => id ? (PRESETS.find((p) => p.id === id)?.name || id) : "—";
+    fromLbl.textContent = findName(fromSel.value);
+    toLbl.textContent   = findName(toSel.value);
+  }
+  function updateMorphReadout() {
+    const t = parseFloat(slider.value);
+    readout.textContent = `${Math.round(t * 100)}%  ${fromSel.value && toSel.value ? "" : "(pick From + To)"}`;
+  }
+}
+
+function syncMorphPill() {
+  const s = getState();
+  const pill = document.getElementById("morph-pill");
+  const value = document.getElementById("morph-pill-value");
+  if (!pill || !value) return;
+  if (!s.morphFromId || !s.morphToId) {
+    value.textContent = "Off";
+    pill.classList.remove("active");
+  } else {
+    value.textContent = `${Math.round((s.morphAmount || 0) * 100)}%`;
+    pill.classList.add("active");
+  }
+  // If the morph sheet is open, keep its slider/labels live too.
+  const sheet = document.getElementById("morph-sheet");
+  if (sheet && !sheet.hidden) {
+    const slider = document.getElementById("morph-slider");
+    if (slider && document.activeElement !== slider) {
+      slider.value = String(s.morphAmount || 0);
+    }
   }
 }
 
