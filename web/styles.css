@@ -74,6 +74,7 @@ input[type="range"]::-moz-range-thumb {
   pointer-events: none;
 }
 #chladni-canvas { mix-blend-mode: plus-lighter; opacity: 0.55; }
+#spectrum-canvas { mix-blend-mode: screen; opacity: 0.75; }
 
 /* Zoom slider — vertical, tucked into the bottom-left corner just above
    the copyright notice so it doesn't sit on top of the main controls. */

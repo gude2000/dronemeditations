@@ -290,6 +290,16 @@ final class AudioEngine {
         guard voices.indices.contains(voiceIndex) else { return }
         voices[voiceIndex].delayMix = Float(max(0, min(1, mix)))
     }
+    func setDelayMode(_ mode: DelayState.Mode, for voiceIndex: Int) {
+        guard voices.indices.contains(voiceIndex) else { return }
+        let voiceMode: Voice.DelayMode
+        switch mode {
+        case .mono:     voiceMode = .mono
+        case .stereo:   voiceMode = .stereo
+        case .pingPong: voiceMode = .pingPong
+        }
+        voices[voiceIndex].delayMode = voiceMode
+    }
 
     /// Load an audio file into a voice's sample slot. The file is decoded with
     /// AVAudioFile, downmixed to mono, and stored as a Float buffer that the

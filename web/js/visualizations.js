@@ -10,12 +10,14 @@
 import { frequencyHue } from "./music.js";
 import { modePairForFreq } from "./chladni-modes.js";
 
-let bgCanvas, chladniCanvas, bgCtx;
+let bgCanvas, chladniCanvas, spectrumCanvas, bgCtx, spectrumCtx;
 let gl;                  // WebGL context for chladniCanvas (no 2D fallback used)
 let glProgram, glAttribs = {}, glUniforms = {};
 let getState;
 let getEngine;           // optional — returns AudioEngine for live (pitch-LFO-modulated) freqs
 let isShowingChladni = true;
+let isShowingSpectrum = false;
+let spectrumBuf = null;  // Uint8Array for AnalyserNode.getByteFrequencyData
 let lastSize = { w: 0, h: 0, dpr: 1 };
 
 const VS = `
@@ -94,7 +96,9 @@ export function initVisualizations(state, engineGetter) {
   getEngine = engineGetter || null;
   bgCanvas = document.getElementById("bg-canvas");
   chladniCanvas = document.getElementById("chladni-canvas");
+  spectrumCanvas = document.getElementById("spectrum-canvas");
   bgCtx = bgCanvas.getContext("2d");
+  if (spectrumCanvas) spectrumCtx = spectrumCanvas.getContext("2d");
   initWebGL();
   initZoomControls();
   resize();
@@ -105,6 +109,11 @@ export function initVisualizations(state, engineGetter) {
 export function setChladniVisible(visible) {
   isShowingChladni = visible;
   chladniCanvas.style.display = visible ? "" : "none";
+}
+
+export function setSpectrumVisible(visible) {
+  isShowingSpectrum = visible;
+  if (spectrumCanvas) spectrumCanvas.style.display = visible ? "" : "none";
 }
 
 function initWebGL() {
@@ -163,7 +172,9 @@ function resize() {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const w = window.innerWidth;
   const h = window.innerHeight;
-  for (const c of [bgCanvas, chladniCanvas]) {
+  const canvases = [bgCanvas, chladniCanvas];
+  if (spectrumCanvas) canvases.push(spectrumCanvas);
+  for (const c of canvases) {
     c.width = Math.round(w * dpr);
     c.height = Math.round(h * dpr);
     c.style.width = w + "px";
@@ -176,7 +187,51 @@ function resize() {
 function loop(t) {
   drawBlobs(t / 1000);
   if (isShowingChladni && gl) drawChladniGL();
+  if (isShowingSpectrum) drawSpectrum();
   requestAnimationFrame(loop);
+}
+
+// Spectrum analyzer — log-frequency bars sourced from the engine's
+// AnalyserNode. Skipped entirely when toggled off so the audio
+// graph stays cheap.
+function drawSpectrum() {
+  const engine = getEngine ? getEngine() : null;
+  const analyser = engine?.spectrumAnalyser;
+  if (!analyser || !spectrumCtx) return;
+  if (!spectrumBuf || spectrumBuf.length !== analyser.frequencyBinCount) {
+    spectrumBuf = new Uint8Array(analyser.frequencyBinCount);
+  }
+  analyser.getByteFrequencyData(spectrumBuf);
+
+  const { w, h, dpr } = lastSize;
+  spectrumCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  spectrumCtx.clearRect(0, 0, w, h);
+
+  const sr = engine.ctx?.sampleRate || 48000;
+  const nyquist = sr / 2;
+  // Show 20 Hz … 16 kHz on a log axis.
+  const minHz = 20, maxHz = 16000;
+  const logLo = Math.log2(minHz), logHi = Math.log2(maxHz);
+  // Bar grid — one bar every ~4 screen pixels so it stays smooth on phones.
+  const barW = 4;
+  const cols = Math.floor(w / barW);
+  for (let i = 0; i < cols; i++) {
+    const t = i / (cols - 1);
+    const hz = Math.pow(2, logLo + t * (logHi - logLo));
+    // Map Hz back to FFT bin.
+    const binIdx = Math.min(
+      spectrumBuf.length - 1,
+      Math.floor((hz / nyquist) * spectrumBuf.length)
+    );
+    const level = spectrumBuf[binIdx] / 255;  // 0..1
+    if (level < 0.02) continue;
+    const barH = Math.max(2, level * h * 0.7);
+    const y = h - barH;
+    // Hue rotates with frequency (low = warm, high = cool); same palette as Chladni.
+    const hue = 0.05 + 0.6 * t;
+    spectrumCtx.fillStyle = `hsla(${Math.round(hue * 360)}, 70%, 60%, ${0.35 + 0.5 * level})`;
+    spectrumCtx.fillRect(i * barW, y, barW - 1, barH);
+  }
 }
 
 // ──────────────────────────────────────────────────

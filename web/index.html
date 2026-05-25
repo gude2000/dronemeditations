@@ -10,6 +10,7 @@
 <body>
   <canvas id="bg-canvas" aria-hidden="true"></canvas>
   <canvas id="chladni-canvas" aria-hidden="true"></canvas>
+  <canvas id="spectrum-canvas" aria-hidden="true" style="display:none"></canvas>
 
   <!-- Tap-to-toggle layer (controls show/hide). Sits beneath the controls. -->
   <div id="tap-layer" aria-hidden="true"></div>
@@ -29,6 +30,14 @@
         <h1>Drone Meditations</h1>
         <p id="header-subtitle" class="header-subtitle">12-TET · Oct 3</p>
       </div>
+      <button id="spectrum-toggle" class="icon-button" title="Toggle FFT spectrum visualization" aria-label="Toggle spectrum analyzer">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+          <rect x="3"  y="12" width="3" height="9"/>
+          <rect x="8"  y="7"  width="3" height="14"/>
+          <rect x="13" y="3"  width="3" height="18"/>
+          <rect x="18" y="9"  width="3" height="12"/>
+        </svg>
+      </button>
       <button id="chladni-toggle" class="icon-button" title="Toggle Chladni overlay" aria-label="Toggle Chladni overlay">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
           <path d="M12 2l9 5.2v9.6L12 22l-9-5.2V7.2L12 2zm0 2.3L5 8.3v7.4l7 4 7-4V8.3l-7-4z"/>

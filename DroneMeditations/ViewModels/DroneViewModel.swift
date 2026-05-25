@@ -310,9 +310,7 @@ final class DroneViewModel: ObservableObject {
     func setDelayMode(_ mode: DelayState.Mode, for index: Int) {
         guard oscillators.indices.contains(index) else { return }
         oscillators[index].delay.mode = mode
-        // NOTE: audio-graph rework for stereo/ping-pong on iOS pending.
-        // Stored in state so UI + presets persist correctly. Web app
-        // already implements full ping-pong audio.
+        audioEngine.setDelayMode(mode, for: index)
     }
     func setDelayTiming(_ timing: DelayState.Timing, for index: Int) {
         guard oscillators.indices.contains(index) else { return }

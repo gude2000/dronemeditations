@@ -6,7 +6,7 @@ import {
 } from "./music.js";
 import { AudioEngine } from "./audio.js";
 import { initUI, renderAll } from "./ui.js";
-import { initVisualizations, setChladniVisible } from "./visualizations.js";
+import { initVisualizations, setChladniVisible, setSpectrumVisible } from "./visualizations.js";
 import {
   loadUserPresets, saveUserPresets, newPresetId, newSampleId,
   loadVoicePresets, saveVoicePresets, newVoicePresetId,
@@ -90,6 +90,7 @@ const state = {
   masterVolume: 0.30,
   showControls: true,
   showChladni: true,
+  showSpectrum: false,
   activePresetName: null,
 
   // Transport
@@ -283,6 +284,11 @@ const actions = {
   toggleChladni() {
     state.showChladni = !state.showChladni;
     setChladniVisible(state.showChladni);
+    renderAll();
+  },
+  toggleSpectrum() {
+    state.showSpectrum = !state.showSpectrum;
+    setSpectrumVisible(state.showSpectrum);
     renderAll();
   },
 

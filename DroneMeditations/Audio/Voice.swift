@@ -61,13 +61,18 @@ final class Voice {
     private var allpassBuffers: [[Float]] = []
     private var allpassWriteIdx: [Int] = [0, 0]
 
-    // Delay (circular buffer with feedback).
+    // Delay — two circular buffers (L, R) so we can support stereo +
+    // ping-pong properly. Mono mode just uses the L buffer; R sits silent.
+    enum DelayMode: Int { case mono = 0, stereo = 1, pingPong = 2 }
     var delayTimeSec: Double = 0.30
     var delayFeedback: Float = 0.40
     var delayMix: Float = 0.0
-    private var delayBuffer: [Float] = []
+    var delayMode: DelayMode = .mono
+    private var delayBufferL: [Float] = []
+    private var delayBufferR: [Float] = []
     private var delayBufferSize: Int = 0
-    private var delayWriteIdx: Int = 0
+    private var delayWriteIdxL: Int = 0
+    private var delayWriteIdxR: Int = 0
 
     // Render-thread state
     private var phase: Double = 0.0
@@ -98,10 +103,12 @@ final class Voice {
         self.panSlewPerSample = Float(1.0 / (levelMs * sampleRate))
 
         // Allocate reverb + delay buffers.
+        // (Note: delayBuffer is now two separate L/R circular buffers; see init below.)
         self.combBuffers = Voice.combLengths.map { Array(repeating: 0, count: $0) }
         self.allpassBuffers = Voice.allpassLengths.map { Array(repeating: 0, count: $0) }
         self.delayBufferSize = Int(sampleRate * 2.0)
-        self.delayBuffer = Array(repeating: 0, count: delayBufferSize)
+        self.delayBufferL = Array(repeating: 0, count: delayBufferSize)
+        self.delayBufferR = Array(repeating: 0, count: delayBufferSize)
     }
 
     /// Render `frameCount` stereo samples, summing into `left` and `right` (output is additive).
@@ -249,24 +256,60 @@ final class Voice {
             }
             let revWet = Float(ap)
 
-            // ── Delay (circular buffer + feedback).
-            var rIdx = delayWriteIdx - delayTapSamples
-            if rIdx < 0 { rIdx += delayBufferSize }
-            let delayOut = delayBuffer[rIdx]
-            delayBuffer[delayWriteIdx] = fxIn + delayOut * dlyFb
-            delayWriteIdx += 1
-            if delayWriteIdx >= delayBufferSize { delayWriteIdx = 0 }
+            // ── Delay (two circular buffers, mode-dependent feedback).
+            // Read current L + R taps before writing new samples.
+            var rIdxL = delayWriteIdxL - delayTapSamples
+            if rIdxL < 0 { rIdxL += delayBufferSize }
+            var rIdxR = delayWriteIdxR - delayTapSamples
+            if rIdxR < 0 { rIdxR += delayBufferSize }
+            let delayOutL = delayBufferL[rIdxL]
+            let delayOutR = delayBufferR[rIdxR]
 
-            // Combine: dry + wet sends (dry always at unity).
-            let voiceOut = fxIn + revWet * revMix + delayOut * dlyMix
+            // Write next samples per mode:
+            //   mono     — single tap; only L buffer fed (R sits at 0).
+            //   stereo   — both buffers fed identically with self-feedback.
+            //   pingPong — L gets dry + R's bounce; R gets L's bounce only.
+            switch delayMode {
+            case .mono:
+                delayBufferL[delayWriteIdxL] = fxIn + delayOutL * dlyFb
+                delayBufferR[delayWriteIdxR] = 0
+            case .stereo:
+                delayBufferL[delayWriteIdxL] = fxIn + delayOutL * dlyFb
+                delayBufferR[delayWriteIdxR] = fxIn + delayOutR * dlyFb
+            case .pingPong:
+                delayBufferL[delayWriteIdxL] = fxIn + delayOutR * dlyFb
+                delayBufferR[delayWriteIdxR] = delayOutL * dlyFb
+            }
+            delayWriteIdxL += 1
+            if delayWriteIdxL >= delayBufferSize { delayWriteIdxL = 0 }
+            delayWriteIdxR += 1
+            if delayWriteIdxR >= delayBufferSize { delayWriteIdxR = 0 }
 
-            // Equal-power pan: panT in [0, 0.5], gains cos(π·t), sin(π·t).
+            // Compose: dry + reverb get the equal-power pan. Delay output
+            // for stereo/pingPong goes directly to L/R unpanned, preserving
+            // the cross-feedback's left/right separation. Mono delay
+            // follows the dry pan.
+            let dryReverbOut = fxIn + revWet * revMix
             let panT = (Double(p) + 1.0) * 0.25
             let lGain = Float(__cospi(panT))
             let rGain = Float(__sinpi(panT))
 
-            left[i] += voiceOut * lGain
-            right[i] += voiceOut * rGain
+            let dryL = dryReverbOut * lGain
+            let dryR = dryReverbOut * rGain
+            let dlyL: Float
+            let dlyR: Float
+            switch delayMode {
+            case .mono:
+                let m = delayOutL * dlyMix
+                dlyL = m * lGain
+                dlyR = m * rGain
+            case .stereo, .pingPong:
+                dlyL = delayOutL * dlyMix
+                dlyR = delayOutR * dlyMix
+            }
+
+            left[i] += dryL + dlyL
+            right[i] += dryR + dlyR
         }
 
         phase = ph

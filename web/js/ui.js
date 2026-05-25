@@ -82,6 +82,9 @@ export function initUI(state, actions) {
   document.getElementById("chladni-toggle").addEventListener("click", () => {
     dispatch.toggleChladni();
   });
+  document.getElementById("spectrum-toggle").addEventListener("click", () => {
+    dispatch.toggleSpectrum();
+  });
 
   document.getElementById("duration-button").addEventListener("click", openDurationMenu);
 
@@ -146,6 +149,7 @@ export function renderAll() {
 
   // Chladni toggle button state
   document.getElementById("chladni-toggle").classList.toggle("active", s.showChladni);
+  document.getElementById("spectrum-toggle").classList.toggle("active", !!s.showSpectrum);
 }
 
 function renderStrips() {

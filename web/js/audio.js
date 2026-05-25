@@ -57,6 +57,13 @@ export class AudioEngine {
     this.master.connect(this.limiter);
     this.limiter.connect(this.ctx.destination);
 
+    // Spectrum-analysis tap — AnalyserNode reads the post-limiter signal.
+    // Visualizations.js polls getByteFrequencyData() to draw the bars.
+    this.spectrumAnalyser = this.ctx.createAnalyser();
+    this.spectrumAnalyser.fftSize = 2048;
+    this.spectrumAnalyser.smoothingTimeConstant = 0.78;
+    this.limiter.connect(this.spectrumAnalyser);
+
     // Recording tap — same signal that hits the speakers also flows into a
     // MediaStreamAudioDestinationNode so MediaRecorder can capture sessions
     // to a downloadable WebM/Opus file. Created lazily on first recording.
