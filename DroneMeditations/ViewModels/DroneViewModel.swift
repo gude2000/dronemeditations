@@ -330,6 +330,46 @@ final class DroneViewModel: ObservableObject {
         }
     }
 
+    // ── Chorus ───────────────────────────────────────────
+    func setChorusRate(_ hz: Double, for index: Int) {
+        guard oscillators.indices.contains(index) else { return }
+        let clamped = max(ChorusState.rateMin, min(ChorusState.rateMax, hz))
+        oscillators[index].chorus.rateHz = clamped
+        audioEngine.setChorusRate(clamped, for: index)
+    }
+    func setChorusDepth(_ depth: Double, for index: Int) {
+        guard oscillators.indices.contains(index) else { return }
+        let clamped = max(0, min(1, depth))
+        oscillators[index].chorus.depth = clamped
+        audioEngine.setChorusDepth(clamped, for: index)
+    }
+    func setChorusWidth(_ width: Double, for index: Int) {
+        guard oscillators.indices.contains(index) else { return }
+        let clamped = max(0, min(1, width))
+        oscillators[index].chorus.width = clamped
+        audioEngine.setChorusWidth(clamped, for: index)
+    }
+    func setChorusMix(_ mix: Double, for index: Int) {
+        guard oscillators.indices.contains(index) else { return }
+        let clamped = max(0, min(1, mix))
+        oscillators[index].chorus.mix = clamped
+        audioEngine.setChorusMix(clamped, for: index)
+    }
+
+    // ── FM ───────────────────────────────────────────────
+    func setFMSource(_ sourceIndex: Int, for index: Int) {
+        guard oscillators.indices.contains(index) else { return }
+        let src = sourceIndex == index ? -1 : sourceIndex
+        oscillators[index].fm.sourceIndex = src
+        audioEngine.setFMSource(src, for: index)
+    }
+    func setFMIndex(_ value: Double, for index: Int) {
+        guard oscillators.indices.contains(index) else { return }
+        let clamped = max(0, min(FMState.indexMax, value))
+        oscillators[index].fm.index = clamped
+        audioEngine.setFMIndex(clamped, for: index)
+    }
+
     /// Load an audio file from a URL into a voice's sample slot, and switch the
     /// voice's waveform to `.sample` so it plays. Also persists the file into
     /// `Documents/DroneSamples/` so it can be referenced by future preset
@@ -367,7 +407,8 @@ final class DroneViewModel: ObservableObject {
                 amplitude: o.amplitude, pan: o.pan,
                 isMuted: o.isMuted, isSoloed: o.isSoloed,
                 filter: o.filter, reverb: o.reverb, delay: o.delay,
-                lfos: o.lfos, sampleStoredFilename: o.sampleStoredFilename
+                lfos: o.lfos, sampleStoredFilename: o.sampleStoredFilename,
+                fm: o.fm, chorus: o.chorus
             )
         }
         let preset = UserPreset(
@@ -398,6 +439,15 @@ final class DroneViewModel: ObservableObject {
             setFilterType(v.filter.type, for: i)
             setFilterCutoff(v.filter.cutoffHz, for: i)
             setFilterQ(v.filter.q, for: i)
+            // FM + Chorus (optional in preset for backward compatibility).
+            let fm = v.fm ?? .defaults()
+            let ch = v.chorus ?? .defaults()
+            setFMSource(fm.sourceIndex, for: i)
+            setFMIndex(fm.index, for: i)
+            setChorusRate(ch.rateHz, for: i)
+            setChorusDepth(ch.depth, for: i)
+            setChorusWidth(ch.width, for: i)
+            setChorusMix(ch.mix, for: i)
             setReverbDecay(v.reverb.decaySec, for: i)
             setReverbMix(v.reverb.mix, for: i)
             setDelayTime(v.delay.timeSec, for: i)
@@ -519,7 +569,9 @@ final class DroneViewModel: ObservableObject {
             reverb: o.reverb,
             delay: o.delay,
             lfos: o.lfos,
-            drift: o.drift
+            drift: o.drift,
+            fm: o.fm,
+            chorus: o.chorus
         )
         let trimmed = (name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let chosenName = trimmed.isEmpty
@@ -549,6 +601,10 @@ final class DroneViewModel: ObservableObject {
         oscillators[index].delay = v.delay
         oscillators[index].lfos = v.lfos
         oscillators[index].drift = v.drift
+        let loadedFm = v.fm ?? .defaults()
+        let loadedCh = v.chorus ?? .defaults()
+        oscillators[index].fm = loadedFm
+        oscillators[index].chorus = loadedCh
         // Push to engine.
         audioEngine.setFrequency(v.frequencyHz, for: index)
         audioEngine.setWaveform(v.waveform, for: index)
@@ -557,6 +613,12 @@ final class DroneViewModel: ObservableObject {
         audioEngine.setFilterType(v.filter.type, for: index)
         audioEngine.setFilterCutoff(v.filter.cutoffHz, for: index)
         audioEngine.setFilterQ(v.filter.q, for: index)
+        audioEngine.setFMSource(loadedFm.sourceIndex, for: index)
+        audioEngine.setFMIndex(loadedFm.index, for: index)
+        audioEngine.setChorusRate(loadedCh.rateHz, for: index)
+        audioEngine.setChorusDepth(loadedCh.depth, for: index)
+        audioEngine.setChorusWidth(loadedCh.width, for: index)
+        audioEngine.setChorusMix(loadedCh.mix, for: index)
         audioEngine.setReverbDecay(v.reverb.decaySec, for: index)
         audioEngine.setReverbMix(v.reverb.mix, for: index)
         audioEngine.setDelayTime(v.delay.timeSec, for: index)
@@ -648,6 +710,12 @@ final class DroneViewModel: ObservableObject {
             audioEngine.setFilterType(osc.filter.type, for: osc.id)
             audioEngine.setFilterCutoff(osc.filter.cutoffHz, for: osc.id)
             audioEngine.setFilterQ(osc.filter.q, for: osc.id)
+            audioEngine.setFMSource(osc.fm.sourceIndex, for: osc.id)
+            audioEngine.setFMIndex(osc.fm.index, for: osc.id)
+            audioEngine.setChorusRate(osc.chorus.rateHz, for: osc.id)
+            audioEngine.setChorusDepth(osc.chorus.depth, for: osc.id)
+            audioEngine.setChorusWidth(osc.chorus.width, for: osc.id)
+            audioEngine.setChorusMix(osc.chorus.mix, for: osc.id)
             audioEngine.setReverbDecay(osc.reverb.decaySec, for: osc.id)
             audioEngine.setReverbMix(osc.reverb.mix, for: osc.id)
             audioEngine.setDelayTime(osc.delay.timeSec, for: osc.id)
@@ -701,6 +769,28 @@ final class DroneViewModel: ObservableObject {
         setDelayTime(Double.random(in: 0.08...0.8), for: index)
         setDelayFeedback(Double.random(in: 0...0.5), for: index)
         setDelayMix(Double.random(in: 0...0.4), for: index)
+
+        // Chorus — 40% chance off, otherwise musical defaults.
+        if Double.random(in: 0...1) < 0.4 {
+            setChorusMix(0, for: index)
+        } else {
+            setChorusRate(Double.random(in: 0.2...2.5), for: index)
+            setChorusDepth(Double.random(in: 0.2...0.7), for: index)
+            setChorusWidth(Double.random(in: 0.4...1.0), for: index)
+            setChorusMix(Double.random(in: 0.15...0.55), for: index)
+        }
+
+        // FM — 50% off, otherwise pick one of the other 3 with a modest index.
+        if Double.random(in: 0...1) < 0.5 {
+            setFMSource(-1, for: index)
+            setFMIndex(0, for: index)
+        } else {
+            let others = (0..<4).filter { $0 != index }
+            setFMSource(others.randomElement()!, for: index)
+            let bell = Double.random(in: 0...1) < 0.8
+            setFMIndex(bell ? Double.random(in: 5...80) : Double.random(in: 150...400),
+                       for: index)
+        }
 
         // LFOs — random shape + target, slow rate, modest depth.
         let shapes: [LfoState.Shape] = [.sine, .triangle, .square, .sampleAndHold]

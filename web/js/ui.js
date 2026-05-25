@@ -285,15 +285,35 @@ function buildStrip(index) {
         <input type="range" min="0" max="1" step="0.0001" data-role="filter-q" />
       </div>
     </div>
-    <div class="fx-row" data-role="rev-row">
-      <span class="strip-label">REV</span>
+    <!-- FX rows in user-requested vertical order: FM → Chorus → Delay → Reverb -->
+    <div class="fx-row" data-role="fm-row">
+      <span class="strip-label">FM</span>
+      <select class="fx-select" data-role="fm-source" title="FM modulator — pick which other oscillator drives this voice's pitch">
+        <option value="-1">Off</option>
+        ${[0, 1, 2, 3].filter((j) => j !== index).map((j) => `<option value="${j}">Osc ${j + 1}</option>`).join("")}
+      </select>
       <div class="mini-control">
-        <span class="mini-label" data-role="rev-decay-label">DECAY</span>
-        <input type="range" min="0" max="1" step="0.0001" data-role="rev-decay" />
+        <span class="mini-label" data-role="fm-index-label">INDEX</span>
+        <input type="range" min="0" max="1" step="0.0001" data-role="fm-index" title="Modulation index (0-800 Hz, log)" />
+      </div>
+    </div>
+    <div class="fx-row" data-role="ch-row">
+      <span class="strip-label">CHO</span>
+      <div class="mini-control">
+        <span class="mini-label" data-role="ch-rate-label">RATE</span>
+        <input type="range" min="0" max="1" step="0.0001" data-role="ch-rate" />
       </div>
       <div class="mini-control">
-        <span class="mini-label" data-role="rev-mix-label">MIX</span>
-        <input type="range" min="0" max="1" step="0.001" data-role="rev-mix" />
+        <span class="mini-label" data-role="ch-depth-label">DEPTH</span>
+        <input type="range" min="0" max="1" step="0.001" data-role="ch-depth" />
+      </div>
+      <div class="mini-control">
+        <span class="mini-label" data-role="ch-width-label">WIDTH</span>
+        <input type="range" min="0" max="1" step="0.001" data-role="ch-width" />
+      </div>
+      <div class="mini-control">
+        <span class="mini-label" data-role="ch-mix-label">MIX</span>
+        <input type="range" min="0" max="1" step="0.001" data-role="ch-mix" />
       </div>
     </div>
     <div class="fx-row" data-role="dly-row">
@@ -326,6 +346,17 @@ function buildStrip(index) {
       <div class="mini-control">
         <span class="mini-label" data-role="dly-mix-label">MIX</span>
         <input type="range" min="0" max="1" step="0.001" data-role="dly-mix" />
+      </div>
+    </div>
+    <div class="fx-row" data-role="rev-row">
+      <span class="strip-label">REV</span>
+      <div class="mini-control">
+        <span class="mini-label" data-role="rev-decay-label">DECAY</span>
+        <input type="range" min="0" max="1" step="0.0001" data-role="rev-decay" />
+      </div>
+      <div class="mini-control">
+        <span class="mini-label" data-role="rev-mix-label">MIX</span>
+        <input type="range" min="0" max="1" step="0.001" data-role="rev-mix" />
       </div>
     </div>
     <div class="lfo-rows">
@@ -458,6 +489,34 @@ function buildStrip(index) {
     dispatch.setDelayTiming(index, e.target.value);
   });
 
+  // ── FM ──
+  root.querySelector('[data-role="fm-source"]').addEventListener("change", (e) => {
+    dispatch.setFMSource(index, parseInt(e.target.value, 10));
+  });
+  root.querySelector('[data-role="fm-index"]').addEventListener("input", (e) => {
+    const t = parseFloat(e.target.value);
+    // Log scale, 0 → exactly 0 (off), otherwise 1 → 800 Hz.
+    const idx = t <= 0 ? 0 : Math.pow(10, Math.log10(1) + t * Math.log10(800));
+    dispatch.setFMIndex(index, idx);
+  });
+
+  // ── Chorus ──
+  root.querySelector('[data-role="ch-rate"]').addEventListener("input", (e) => {
+    const t = parseFloat(e.target.value);
+    // 0.05 – 6 Hz log
+    const hz = Math.pow(10, Math.log10(0.05) + t * (Math.log10(6.0) - Math.log10(0.05)));
+    dispatch.setChorusRate(index, hz);
+  });
+  root.querySelector('[data-role="ch-depth"]').addEventListener("input", (e) => {
+    dispatch.setChorusDepth(index, parseFloat(e.target.value));
+  });
+  root.querySelector('[data-role="ch-width"]').addEventListener("input", (e) => {
+    dispatch.setChorusWidth(index, parseFloat(e.target.value));
+  });
+  root.querySelector('[data-role="ch-mix"]').addEventListener("input", (e) => {
+    dispatch.setChorusMix(index, parseFloat(e.target.value));
+  });
+
   return root;
 }
 
@@ -547,6 +606,47 @@ function syncStrip(index, root) {
   if (document.activeElement !== qSlider) qSlider.value = qT.toFixed(4);
   qSlider.style.setProperty("--fill", `${Math.round(qT * 100)}%`);
   root.querySelector('[data-role="filter-q-label"]').textContent = `Q ${f.q.toFixed(2)}`;
+
+  // FM row
+  const fm = osc.fm || { sourceIndex: -1, index: 0 };
+  const fmActive = fm.sourceIndex >= 0 && fm.index > 0.5;
+  root.querySelector('[data-role="fm-row"]').classList.toggle("active", fmActive);
+  const fmSrcSel = root.querySelector('[data-role="fm-source"]');
+  if (document.activeElement !== fmSrcSel) fmSrcSel.value = String(fm.sourceIndex);
+  // Log map for FM index slider: 0 → 0, then 1..800 Hz log
+  const fmIdxSlider = root.querySelector('[data-role="fm-index"]');
+  const fmIdxT = fm.index <= 0 ? 0 :
+    (Math.log10(Math.max(1, fm.index)) - Math.log10(1)) / (Math.log10(800) - Math.log10(1));
+  if (document.activeElement !== fmIdxSlider) fmIdxSlider.value = fmIdxT.toFixed(4);
+  fmIdxSlider.style.setProperty("--fill", `${Math.round(fmIdxT * 100)}%`);
+  root.querySelector('[data-role="fm-index-label"]').textContent =
+    fm.index < 10 ? `INDEX ${fm.index.toFixed(1)}` : `INDEX ${Math.round(fm.index)}`;
+  // Lock the index slider when source is Off — no point modulating nothing.
+  fmIdxSlider.disabled = (fm.sourceIndex < 0);
+
+  // Chorus row
+  const ch = osc.chorus || { rateHz: 0.5, depth: 0, width: 0, mix: 0 };
+  const chActive = ch.mix > 0.001;
+  root.querySelector('[data-role="ch-row"]').classList.toggle("active", chActive);
+  const chRateLo = Math.log10(0.05), chRateHi = Math.log10(6.0);
+  const chRateT = (Math.log10(Math.max(0.05, ch.rateHz)) - chRateLo) / (chRateHi - chRateLo);
+  const chRateSlider = root.querySelector('[data-role="ch-rate"]');
+  const chDepthSlider = root.querySelector('[data-role="ch-depth"]');
+  const chWidthSlider = root.querySelector('[data-role="ch-width"]');
+  const chMixSlider = root.querySelector('[data-role="ch-mix"]');
+  if (document.activeElement !== chRateSlider) chRateSlider.value = chRateT.toFixed(4);
+  if (document.activeElement !== chDepthSlider) chDepthSlider.value = ch.depth.toFixed(3);
+  if (document.activeElement !== chWidthSlider) chWidthSlider.value = ch.width.toFixed(3);
+  if (document.activeElement !== chMixSlider) chMixSlider.value = ch.mix.toFixed(3);
+  chRateSlider.style.setProperty("--fill", `${Math.round(chRateT * 100)}%`);
+  chDepthSlider.style.setProperty("--fill", `${Math.round(ch.depth * 100)}%`);
+  chWidthSlider.style.setProperty("--fill", `${Math.round(ch.width * 100)}%`);
+  chMixSlider.style.setProperty("--fill", `${Math.round(ch.mix * 100)}%`);
+  root.querySelector('[data-role="ch-rate-label"]').textContent =
+    `RATE ${ch.rateHz < 1 ? ch.rateHz.toFixed(2) : ch.rateHz.toFixed(1)}Hz`;
+  root.querySelector('[data-role="ch-depth-label"]').textContent = `DEPTH ${Math.round(ch.depth * 100)}`;
+  root.querySelector('[data-role="ch-width-label"]').textContent = `WIDTH ${Math.round(ch.width * 100)}`;
+  root.querySelector('[data-role="ch-mix-label"]').textContent = `MIX ${Math.round(ch.mix * 100)}`;
 
   // Reverb / Delay rows
   const rv = osc.reverb;

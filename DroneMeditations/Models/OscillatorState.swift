@@ -139,6 +139,41 @@ struct DelayState: Equatable, Codable {
     }
 }
 
+/// Stereo chorus — two short delay lines, modulated by a sine LFO whose L/R
+/// phases are offset by `width × π` so the channels move in counter-phase
+/// without producing a fully detuned flanger.
+struct ChorusState: Equatable, Codable {
+    var rateHz: Double = 0.5    // 0.05 .. 6 Hz, log
+    var depth: Double  = 0.4    // 0..1 — scales the ±swing around the base 8 ms
+    var width: Double  = 0.7    // 0..1 — L/R LFO phase separation (1.0 = full π)
+    var mix: Double    = 0.0    // 0..1, dry/wet (default 0 = off)
+
+    static let rateMin: Double = 0.05
+    static let rateMax: Double = 6.0
+    /// Base center-delay (s) the LFO modulates around.
+    static let baseSec: Double = 0.008
+    /// Maximum LFO swing (s) at depth=1.
+    static let maxSwing: Double = 0.012
+
+    static func defaults() -> ChorusState { ChorusState() }
+}
+
+/// Cross-oscillator FM. `sourceIndex` picks one of the OTHER three voices
+/// whose raw oscillator signal modulates this voice's frequency. `index` is
+/// the modulation index in Hz (peak frequency excursion at modulator amp 1.0).
+struct FMState: Equatable, Codable {
+    /// -1 = off; otherwise 0..3, must differ from carrier.
+    var sourceIndex: Int = -1
+    /// Modulation index in Hz. 0 = no modulation; 800 = bell-like.
+    var index: Double = 0
+
+    static let indexMax: Double = 800.0
+
+    var isActive: Bool { sourceIndex >= 0 && index > 0.5 }
+
+    static func defaults() -> FMState { FMState() }
+}
+
 /// Per-oscillator biquad filter. Type LP/HP/BP. Modulatable via an LFO targeting `cutoff`.
 struct FilterState: Equatable, Codable {
     enum FilterType: String, Codable, CaseIterable, Identifiable {
@@ -177,6 +212,8 @@ struct OscillatorState: Identifiable, Equatable {
     var isMuted: Bool
     var isSoloed: Bool
     var filter: FilterState
+    var fm: FMState = .defaults()
+    var chorus: ChorusState = .defaults()
     var reverb: ReverbState = .defaults()
     var delay: DelayState = .defaults()
     var lfos: [LfoState]    // exactly 3 — see LfoState above

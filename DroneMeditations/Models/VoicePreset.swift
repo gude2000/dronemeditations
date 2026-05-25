@@ -20,6 +20,10 @@ struct VoicePreset: Codable, Identifiable {
         var delay: DelayState
         var lfos: [LfoState]
         var drift: DriftVoiceConfig
+        // FX added in T5 — optional for backward compatibility with voice
+        // presets saved before chorus + FM existed. nil → defaults on load.
+        var fm: FMState?
+        var chorus: ChorusState?
     }
 }
 

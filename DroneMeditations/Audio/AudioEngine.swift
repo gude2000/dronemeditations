@@ -68,9 +68,28 @@ final class AudioEngine {
                 anySoloed = true
                 break
             }
+            // For each voice, wire its FM input pointer to the source voice's
+            // PREVIOUS render's raw buffer (1-buffer latency — fine for FM at
+            // typical iOS buffer sizes ~5-10 ms). Voices read from `src.lastRawBuffer`
+            // which holds whatever was written last call; the new call updates
+            // each voice's own lastRawBuffer in place.
             for v in voices {
                 v.effectiveEnabled = anySoloed ? v.isSoloed : true
-                v.render(frameCount: n, left: left, right: right)
+                let srcIdx = v.fmSourceIndex
+                if srcIdx >= 0 && srcIdx < voices.count && srcIdx != v.id {
+                    let src = voices[srcIdx]
+                    src.lastRawBuffer.withUnsafeBufferPointer { srcPtr in
+                        v.fmInputBuffer = srcPtr.baseAddress
+                        v.fmInputCount = src.lastRawCount
+                        v.render(frameCount: n, left: left, right: right)
+                    }
+                    v.fmInputBuffer = nil
+                    v.fmInputCount = 0
+                } else {
+                    v.fmInputBuffer = nil
+                    v.fmInputCount = 0
+                    v.render(frameCount: n, left: left, right: right)
+                }
             }
             // Soft-limit summed output at -0.1 dB ceiling (≈ 0.989) via tanh saturation.
             // Keeps peaks bounded without the brutality of hard clipping.
@@ -299,6 +318,37 @@ final class AudioEngine {
         case .pingPong: voiceMode = .pingPong
         }
         voices[voiceIndex].delayMode = voiceMode
+    }
+
+    // ── Chorus ───────────────────────────────────────────
+    func setChorusRate(_ hz: Double, for voiceIndex: Int) {
+        guard voices.indices.contains(voiceIndex) else { return }
+        voices[voiceIndex].chorusRateHz = max(ChorusState.rateMin, min(ChorusState.rateMax, hz))
+    }
+    func setChorusDepth(_ depth: Double, for voiceIndex: Int) {
+        guard voices.indices.contains(voiceIndex) else { return }
+        voices[voiceIndex].chorusDepth = max(0, min(1, depth))
+    }
+    func setChorusWidth(_ width: Double, for voiceIndex: Int) {
+        guard voices.indices.contains(voiceIndex) else { return }
+        voices[voiceIndex].chorusWidth = max(0, min(1, width))
+    }
+    func setChorusMix(_ mix: Double, for voiceIndex: Int) {
+        guard voices.indices.contains(voiceIndex) else { return }
+        voices[voiceIndex].chorusMix = Float(max(0, min(1, mix)))
+    }
+
+    // ── FM (cross-osc) ───────────────────────────────────
+    /// Pass -1 to disable. Self-modulation is silently disabled.
+    func setFMSource(_ sourceIndex: Int, for voiceIndex: Int) {
+        guard voices.indices.contains(voiceIndex) else { return }
+        var src = sourceIndex
+        if src == voiceIndex { src = -1 }
+        voices[voiceIndex].fmSourceIndex = src
+    }
+    func setFMIndex(_ index: Double, for voiceIndex: Int) {
+        guard voices.indices.contains(voiceIndex) else { return }
+        voices[voiceIndex].fmIndex = max(0, min(FMState.indexMax, index))
     }
 
     /// Load an audio file into a voice's sample slot. The file is decoded with

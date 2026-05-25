@@ -30,6 +30,10 @@ struct UserPreset: Identifiable, Codable, Equatable {
         var delay: DelayState
         var lfos: [LfoState]
         var sampleStoredFilename: String?
+        // FX added in T5 — optional for backward compatibility with presets
+        // saved before chorus + FM existed.
+        var fm: FMState?
+        var chorus: ChorusState?
     }
 
     static func newId() -> String {

@@ -78,6 +78,12 @@ export class AudioEngine {
       const oscGain = this.ctx.createGain();
       // Sample bus — node created when a sample is loaded for this voice.
       const sampleGain = this.ctx.createGain();
+      // FM modulation input gain — other voices' raw oscillators get routed
+      // through this voice's `fmInput` (with their depth gain), and `fmInput`
+      // is connected to `osc.frequency`. Allows cross-voice FM. Default 1.0.
+      const fmInput = this.ctx.createGain();
+      fmInput.gain.value = 1.0;
+      fmInput.connect(osc.frequency);
       const filter = this.ctx.createBiquadFilter();
       // Reverb (ConvolverNode + wet-gain) and Delay.
       //
@@ -86,6 +92,30 @@ export class AudioEngine {
       // the various feedback edges. Wet is sent through a ChannelMerger
       // so we have proper L/R stereo separation independent of the dry
       // path's StereoPanner.
+      // Stereo chorus — two short delay lines (delayChL/R) modulated by two
+      // sinusoidal LFOs (chLfoL/R) whose phases are offset by `width × π`.
+      // Wet path passes through a ChannelMerger to keep L/R independent; the
+      // dry/wet balance is set by chDry + chWetL/R gains. Always in the
+      // signal chain; mix=0 just zeroes the wet gains.
+      const chorusDryL = this.ctx.createGain();
+      const chorusDryR = this.ctx.createGain();
+      const chorusDryMerger = this.ctx.createChannelMerger(2);
+      const chorusInSplitter = this.ctx.createChannelSplitter(2);  // not used yet (mono in)
+      const chorusDelayL = this.ctx.createDelay(0.05);
+      const chorusDelayR = this.ctx.createDelay(0.05);
+      const chLfoL = this.ctx.createOscillator();
+      const chLfoR = this.ctx.createOscillator();
+      chLfoL.type = "sine"; chLfoR.type = "sine";
+      const chLfoLGain = this.ctx.createGain();   // depth → delay-time modulation
+      const chLfoRGain = this.ctx.createGain();
+      const chCenterL = this.ctx.createConstantSource();  // base delay (~8 ms)
+      const chCenterR = this.ctx.createConstantSource();
+      const chorusWetL = this.ctx.createGain();
+      const chorusWetR = this.ctx.createGain();
+      const chorusOutMerger = this.ctx.createChannelMerger(2);  // wet L+R stereo
+      const chorusDry = this.ctx.createGain();                  // mono dry sum
+      const chorusOut = this.ctx.createGain();                  // post-chorus mix bus
+
       const reverb = this.ctx.createConvolver();
       const reverbWet = this.ctx.createGain();
       const delayL = this.ctx.createDelay(2.0);
@@ -120,6 +150,8 @@ export class AudioEngine {
       sampleGain.gain.value = isSample ? 1 : 0;
 
       // Initial FX values from state (or defaults).
+      const ch = v.chorus || { rateHz: 0.5, depth: 0.4, width: 0.7, mix: 0 };
+      const fm = v.fm     || { sourceIndex: -1, index: 0 };
       const r = v.reverb || { decaySec: 2.0, mix: 0 };
       const d = v.delay  || { timeSec: 0.30, feedback: 0.40, mix: 0, mode: "mono", timing: "free" };
       reverb.buffer = buildReverbIR(this.ctx, r.decaySec);
@@ -127,26 +159,63 @@ export class AudioEngine {
       delayL.delayTime.value = d.timeSec;
       delayR.delayTime.value = d.timeSec;
 
+      // Chorus initial values (audio nodes are wired below). depth=0.4 maps
+      // to a peak LFO swing of ~6 ms around the 8 ms base delay.
+      const CHORUS_BASE_SEC = 0.008;    // 8 ms midpoint
+      const CHORUS_MAX_SWING = 0.012;   // ±12 ms at depth=1
+      chCenterL.offset.value = CHORUS_BASE_SEC;
+      chCenterR.offset.value = CHORUS_BASE_SEC;
+      chCenterL.start();
+      chCenterR.start();
+      chLfoL.frequency.value = ch.rateHz;
+      chLfoR.frequency.value = ch.rateHz;
+      chLfoLGain.gain.value = ch.depth * CHORUS_MAX_SWING;
+      chLfoRGain.gain.value = ch.depth * CHORUS_MAX_SWING;
+      // Counter-phase between L and R for stereo width. ch.width=1 → full π.
+      chLfoR.start(this.ctx.currentTime + 0.0001);
+      chLfoL.start(this.ctx.currentTime + 0.0001 + (ch.width * 0.5 / Math.max(0.01, ch.rateHz)));
+      // Wet gains (per-channel) and dry gain are set by setChorusMix below.
+      chorusDry.gain.value = 1.0 - ch.mix;
+      chorusWetL.gain.value = ch.mix;
+      chorusWetR.gain.value = ch.mix;
+      chorusOut.gain.value = 1.0;
+
       // Routing:
-      //   osc/sample → filter
-      //              ─┬→ pan          (dry)
-      //               ├→ reverb → reverbWet → pan
-      //               ├→ delayL ─┐
-      //               └→ delayInR → delayR ─┤  (gates differ per mode; see _applyDelayMode)
-      //                          ┌────────┘
-      //                          └→ merger → gain  (skips pan to keep ping-pong stereo intact)
+      //   osc/sample → filter → chorus(dry+wet) → chorusOut
+      //                              ├→ pan          (dry)
+      //                              ├→ reverb → reverbWet → pan
+      //                              ├→ delayL ─┐
+      //                              └→ delayInR → delayR ─┤  (gates differ per mode)
+      //                                         ┌────────┘
+      //                                         └→ merger → gain
       osc.connect(oscGain);
       oscGain.connect(filter);
       sampleGain.connect(filter);
-      filter.connect(pan);                            // dry
-      filter.connect(reverb).connect(reverbWet).connect(pan);   // reverb wet send
 
-      // Delay topology: filter feeds both delays (delayR gated by delayInR
+      // — Chorus stage —
+      // Dry path: filter → chorusDry → chorusOut.
+      filter.connect(chorusDry).connect(chorusOut);
+      // Wet path: filter → delayChL/R → chorusWetL/R → merger(L,R) → chorusOut.
+      filter.connect(chorusDelayL);
+      filter.connect(chorusDelayR);
+      chorusDelayL.connect(chorusWetL).connect(chorusOutMerger, 0, 0);
+      chorusDelayR.connect(chorusWetR).connect(chorusOutMerger, 0, 1);
+      chorusOutMerger.connect(chorusOut);
+      // LFO drives each delay's delayTime around CHORUS_BASE_SEC.
+      chCenterL.connect(chorusDelayL.delayTime);
+      chCenterR.connect(chorusDelayR.delayTime);
+      chLfoL.connect(chLfoLGain).connect(chorusDelayL.delayTime);
+      chLfoR.connect(chLfoRGain).connect(chorusDelayR.delayTime);
+
+      chorusOut.connect(pan);                            // dry
+      chorusOut.connect(reverb).connect(reverbWet).connect(pan);   // reverb wet send
+
+      // Delay topology: chorusOut feeds both delays (delayR gated by delayInR
       // gain); each delay's output feeds back into both itself and the
       // other delay via four routing-gain nodes; both outputs land in the
       // merger as a true stereo pair.
-      filter.connect(delayL);
-      filter.connect(delayInR); delayInR.connect(delayR);
+      chorusOut.connect(delayL);
+      chorusOut.connect(delayInR); delayInR.connect(delayR);
 
       delayL.connect(fbSelfL);  fbSelfL.connect(delayL);
       delayR.connect(fbSelfR);  fbSelfR.connect(delayR);
@@ -165,11 +234,21 @@ export class AudioEngine {
       // Apply the saved mode and the saved mix to the routing gains.
       // Default mode is "mono" when nothing was saved.
       const voiceObj = {
-        osc, oscGain, sampleGain, filter, pan, gain,
+        osc, oscGain, sampleGain, fmInput, filter, pan, gain,
+        chorusDry, chorusDelayL, chorusDelayR,
+        chorusWetL, chorusWetR, chorusOutMerger, chorusOut,
+        chLfoL, chLfoR, chLfoLGain, chLfoRGain, chCenterL, chCenterR,
+        chorusBaseSec: CHORUS_BASE_SEC,
+        chorusMaxSwing: CHORUS_MAX_SWING,
         reverb, reverbWet,
         delayL, delayR, delayInR,
         fbSelfL, fbSelfR, fbCrossLR, fbCrossRL,
         wetL2L, wetL2R, wetR2R, delayMerger,
+        // FM patch state: which other voice modulates this carrier (if any),
+        // the depth gain node that scales modulator output → frequency Hz,
+        // and a reference back to the depth value so reroutes can rebuild.
+        fmSourceIndex: -1,
+        fmDepthGain: null,
         sampleSrc: null,         // AudioBufferSourceNode, created on loadSample
         sampleBuffer: null,      // decoded AudioBuffer
         // _effectiveFreq tracks the current playing frequency including pitch-LFO
@@ -185,6 +264,8 @@ export class AudioEngine {
           muted: v.isMuted,
           soloed: v.isSoloed,
           filter: { ...f },
+          chorus: { ...ch },
+          fm: { ...fm },
           reverb: { ...r },
           delay: { ...d },
           lfos: (v.lfos || [
@@ -205,6 +286,14 @@ export class AudioEngine {
     }
 
     this.started = true;
+    // Now that all 4 voices exist, wire any saved FM patches (cross-osc
+    // routing has to wait for the modulator voice to exist).
+    for (let i = 0; i < 4; i++) {
+      const fm = (initialVoiceState[i] && initialVoiceState[i].fm) || { sourceIndex: -1, index: 0 };
+      if (fm.sourceIndex >= 0 && fm.sourceIndex !== i) {
+        this._applyFMPatch(i, fm.sourceIndex, fm.index);
+      }
+    }
     // Apply initial state so the gains ramp from 0 to their targets cleanly.
     this.applySoloMuteLogic();
     for (let i = 0; i < 4; i++) this.applyVoiceGain(i);
@@ -584,6 +673,102 @@ export class AudioEngine {
     v.filter.Q.cancelScheduledValues(t);
     v.filter.Q.setValueAtTime(v.filter.Q.value, t);
     v.filter.Q.linearRampToValueAtTime(q, t + RAMP_TIME);
+  }
+
+  // ─── Chorus ───────────────────────────────────────────
+  setChorusRate(voiceIndex, rateHz) {
+    const v = this.voices[voiceIndex]; if (!v) return;
+    v.params.chorus.rateHz = rateHz;
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    for (const lfo of [v.chLfoL, v.chLfoR]) {
+      lfo.frequency.cancelScheduledValues(t);
+      lfo.frequency.setValueAtTime(lfo.frequency.value, t);
+      lfo.frequency.linearRampToValueAtTime(rateHz, t + RAMP_TIME);
+    }
+  }
+  setChorusDepth(voiceIndex, depth) {
+    const v = this.voices[voiceIndex]; if (!v) return;
+    v.params.chorus.depth = depth;
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const swing = depth * v.chorusMaxSwing;
+    for (const g of [v.chLfoLGain, v.chLfoRGain]) {
+      g.gain.cancelScheduledValues(t);
+      g.gain.setValueAtTime(g.gain.value, t);
+      g.gain.linearRampToValueAtTime(swing, t + RAMP_TIME);
+    }
+  }
+  setChorusWidth(voiceIndex, width) {
+    const v = this.voices[voiceIndex]; if (!v) return;
+    v.params.chorus.width = width;
+    // Width is realized as an LFO phase offset; we can't change phase live
+    // without restarting the LFO. To stay glitch-free, we approximate width
+    // changes by adjusting the *right* LFO's frequency briefly so it drifts
+    // into the new phase offset, then snap it back. For simplicity (and to
+    // avoid clicks), we leave the phase offset fixed at start time — width
+    // updates take full effect on the next play start.
+    // No-op at runtime is fine; the value is preserved in state and used by
+    // the next ensureStarted() call's chLfoL.start delay.
+  }
+  setChorusMix(voiceIndex, mix) {
+    const v = this.voices[voiceIndex]; if (!v) return;
+    v.params.chorus.mix = mix;
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const ramp = (g, val) => {
+      g.gain.cancelScheduledValues(t);
+      g.gain.setValueAtTime(g.gain.value, t);
+      g.gain.linearRampToValueAtTime(val, t + RAMP_TIME);
+    };
+    ramp(v.chorusDry,  1.0 - mix);
+    ramp(v.chorusWetL, mix);
+    ramp(v.chorusWetR, mix);
+  }
+
+  // ─── FM (cross-osc) ───────────────────────────────────
+  // sourceIndex: -1 disables; otherwise must differ from voiceIndex.
+  setFMSource(voiceIndex, sourceIndex) {
+    const v = this.voices[voiceIndex]; if (!v) return;
+    if (sourceIndex === voiceIndex) sourceIndex = -1;
+    v.params.fm.sourceIndex = sourceIndex;
+    this._applyFMPatch(voiceIndex, sourceIndex, v.params.fm.index || 0);
+  }
+  setFMIndex(voiceIndex, idx) {
+    const v = this.voices[voiceIndex]; if (!v) return;
+    v.params.fm.index = idx;
+    if (v.fmDepthGain && this.ctx) {
+      const t = this.ctx.currentTime;
+      v.fmDepthGain.gain.cancelScheduledValues(t);
+      v.fmDepthGain.gain.setValueAtTime(v.fmDepthGain.gain.value, t);
+      v.fmDepthGain.gain.linearRampToValueAtTime(idx, t + RAMP_TIME);
+    }
+  }
+  /// Disconnect any existing FM patch on this voice, then (if sourceIndex
+  /// is valid) wire `modulatorVoice.osc → newDepthGain → carrier.fmInput`
+  /// with the gain ramping from 0 to the target index over RAMP_TIME so
+  /// patch swaps don't click.
+  _applyFMPatch(carrierIndex, sourceIndex, depthHz) {
+    const carrier = this.voices[carrierIndex]; if (!carrier || !this.ctx) return;
+    // Tear down old patch
+    if (carrier.fmDepthGain) {
+      try { carrier.fmDepthGain.disconnect(); } catch {}
+      carrier.fmDepthGain = null;
+    }
+    carrier.fmSourceIndex = sourceIndex;
+    if (sourceIndex < 0 || sourceIndex >= this.voices.length || sourceIndex === carrierIndex) return;
+    const modulator = this.voices[sourceIndex];
+    if (!modulator || !modulator.osc) return;
+    const g = this.ctx.createGain();
+    g.gain.value = 0;
+    // Tap from the modulator's RAW osc so muting the modulator voice doesn't
+    // kill the FM effect — users usually want to hear ONE voice with the
+    // other shaping it timbrally.
+    modulator.osc.connect(g);
+    g.connect(carrier.fmInput);
+    carrier.fmDepthGain = g;
+    const t = this.ctx.currentTime;
+    g.gain.linearRampToValueAtTime(depthHz, t + RAMP_TIME);
   }
 
   setReverbDecay(voiceIndex, sec) {

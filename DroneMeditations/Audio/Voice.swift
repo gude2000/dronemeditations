@@ -74,6 +74,40 @@ final class Voice {
     private var delayWriteIdxL: Int = 0
     private var delayWriteIdxR: Int = 0
 
+    // Stereo chorus — two short delay lines modulated by a sine LFO whose
+    // L/R phases are offset by `chorusWidth × π` so the L and R wet signals
+    // breathe in counter-phase, giving width without flanging.
+    var chorusRateHz: Double = 0.5
+    var chorusDepth: Double  = 0.4
+    var chorusWidth: Double  = 0.7
+    var chorusMix: Float     = 0.0
+    private var chorusBufferL: [Float] = []
+    private var chorusBufferR: [Float] = []
+    private var chorusBufferSize: Int  = 0
+    private var chorusWriteIdx: Int    = 0
+    private var chorusLfoPhaseL: Double = 0
+    private var chorusLfoPhaseR: Double = 0
+    /// Last value of chorusWidth seen during render; used to re-seed R LFO
+    /// phase when the user changes width (otherwise width changes silently
+    /// take effect only on the next play start).
+    private var lastChorusWidth: Double = 0.7
+
+    // ── Cross-oscillator FM ───────────────────────────────────────────
+    // The carrier pulls samples from the modulator's raw oscillator output
+    // buffer (provided by AudioEngine each render call). 1-buffer latency
+    // is acceptable for FM at typical iOS buffer sizes (~5-10 ms).
+    var fmIndex: Double = 0          // modulation index in Hz (peak excursion)
+    /// -1 = no FM; otherwise the index (0..3) of the modulator voice. The
+    /// AudioEngine reads this each render to set fmInputBuffer below.
+    var fmSourceIndex: Int = -1
+    var fmInputBuffer: UnsafePointer<Float>? = nil
+    var fmInputCount: Int = 0
+    /// After render, holds the voice's raw oscillator output (post-FM,
+    /// pre-filter). AudioEngine snapshots this into its own storage for
+    /// the next render's FM source lookups.
+    private(set) var lastRawBuffer: [Float] = Array(repeating: 0, count: 4096)
+    private(set) var lastRawCount: Int = 0
+
     // Render-thread state
     private var phase: Double = 0.0
     private var currentFreq: Double = 220.0
@@ -109,6 +143,13 @@ final class Voice {
         self.delayBufferSize = Int(sampleRate * 2.0)
         self.delayBufferL = Array(repeating: 0, count: delayBufferSize)
         self.delayBufferR = Array(repeating: 0, count: delayBufferSize)
+        // Chorus circular buffer: 50 ms is plenty for the 8±12 ms swing range.
+        self.chorusBufferSize = max(32, Int(sampleRate * 0.05))
+        self.chorusBufferL = Array(repeating: 0, count: chorusBufferSize)
+        self.chorusBufferR = Array(repeating: 0, count: chorusBufferSize)
+        // Seed R-channel LFO phase by the width offset so L/R move counter-phase.
+        self.chorusLfoPhaseR = chorusWidth * 0.5
+        self.lastChorusWidth = chorusWidth
     }
 
     /// Render `frameCount` stereo samples, summing into `left` and `right` (output is additive).
@@ -179,6 +220,29 @@ final class Voice {
         let dlyMix = delayMix
         let dlyFb = delayFeedback
 
+        // Width changes can't apply mid-render without clicks; we snap the
+        // R-channel phase to the requested offset whenever width changes
+        // appreciably (>5% delta) at buffer boundaries.
+        if abs(chorusWidth - lastChorusWidth) > 0.05 {
+            chorusLfoPhaseR = chorusLfoPhaseL + chorusWidth * 0.5
+            chorusLfoPhaseR -= floor(chorusLfoPhaseR)
+            lastChorusWidth = chorusWidth
+        }
+        let chMix = chorusMix
+        let chSwing = chorusDepth * ChorusState.maxSwing
+        let chBaseSec = ChorusState.baseSec
+        let chRatePerSample = chorusRateHz
+
+        // FM source (1-buffer-latency raw signal from modulator voice).
+        let fmIdx = fmIndex
+        let fmSrcPtr = fmInputBuffer
+        let fmSrcCount = fmInputCount
+
+        // Resize lastRawBuffer if frame size grew.
+        if lastRawBuffer.count < frameCount {
+            lastRawBuffer = Array(repeating: 0, count: frameCount)
+        }
+
         let invSR = 1.0 / sampleRate
 
         var ph = phase
@@ -221,16 +285,70 @@ final class Voice {
                 }
             } else {
                 // Synth oscillator: advance phase + sample the waveform formula.
-                ph += f * invSR
+                // FM: add modulator * fmIndex (Hz) to the per-sample phase
+                // increment. Uses raw modulator output → instantaneous freq
+                // excursion of ±|fmIndex|·|modulator| Hz.
+                var freqInst = f
+                if fmIdx > 0.001, let src = fmSrcPtr, i < fmSrcCount {
+                    freqInst += Double(src[i]) * fmIdx
+                }
+                ph += freqInst * invSR
                 if ph >= 1.0 { ph -= floor(ph) }
+                if ph < 0    { ph += ceil(-ph) }   // negative FM excursions
                 raw = wave.sample(phase: ph)
             }
+            // Capture pre-filter raw for other voices' FM lookups next render.
+            lastRawBuffer[i] = Float(raw)
 
             // Biquad Direct Form II Transposed.
             let y = bqB0 * raw + bqS1
             bqS1 = bqB1 * raw - bqA1 * y + bqS2
             bqS2 = bqB2 * raw - bqA2 * y
             let fxIn = Float(y) * a
+
+            // ── Stereo Chorus ──
+            // Two delay lines fed identically by `fxIn`, each read at a
+            // sinusoidally-modulated tap length around the 8 ms base. The L
+            // and R LFOs run at the same rate but with a width-set phase
+            // offset, producing counter-phase L/R wet signals.
+            let chOutL: Float
+            let chOutR: Float
+            if chMix > 0.0001 {
+                chorusLfoPhaseL += chRatePerSample * invSR
+                if chorusLfoPhaseL >= 1.0 { chorusLfoPhaseL -= floor(chorusLfoPhaseL) }
+                chorusLfoPhaseR += chRatePerSample * invSR
+                if chorusLfoPhaseR >= 1.0 { chorusLfoPhaseR -= floor(chorusLfoPhaseR) }
+                let lfoL = sin(chorusLfoPhaseL * 2.0 * .pi)
+                let lfoR = sin(chorusLfoPhaseR * 2.0 * .pi)
+                let tapSecL = chBaseSec + lfoL * chSwing
+                let tapSecR = chBaseSec + lfoR * chSwing
+                let chWetL = chorusReadFractional(buffer: chorusBufferL,
+                                                  size: chorusBufferSize,
+                                                  writeIdx: chorusWriteIdx,
+                                                  tapSec: tapSecL)
+                let chWetR = chorusReadFractional(buffer: chorusBufferR,
+                                                  size: chorusBufferSize,
+                                                  writeIdx: chorusWriteIdx,
+                                                  tapSec: tapSecR)
+                chorusBufferL[chorusWriteIdx] = fxIn
+                chorusBufferR[chorusWriteIdx] = fxIn
+                chorusWriteIdx += 1
+                if chorusWriteIdx >= chorusBufferSize { chorusWriteIdx = 0 }
+                chOutL = fxIn * (1.0 - chMix) + chWetL * chMix
+                chOutR = fxIn * (1.0 - chMix) + chWetR * chMix
+            } else {
+                // Bypass: still write into the buffer so taking the slider up
+                // mid-play doesn't expose zeros, but skip the LFO math + read.
+                chorusBufferL[chorusWriteIdx] = fxIn
+                chorusBufferR[chorusWriteIdx] = fxIn
+                chorusWriteIdx += 1
+                if chorusWriteIdx >= chorusBufferSize { chorusWriteIdx = 0 }
+                chOutL = fxIn
+                chOutR = fxIn
+            }
+            // Mono sum drives reverb + delay (those stages stay mono-in).
+            let chMono = (chOutL + chOutR) * 0.5
+            let fxInMono = chMono
 
             // ── Reverb (Schroeder JCRev): 4 parallel combs + 2 series allpasses.
             var combSum: Double = 0
@@ -239,7 +357,7 @@ final class Voice {
                 var wIdx = combWriteIdx[k]
                 let combOut = combBuffers[k][wIdx]
                 combSum += Double(combOut)
-                combBuffers[k][wIdx] = Float(Double(fxIn) + Double(combOut) * combFb[k])
+                combBuffers[k][wIdx] = Float(Double(fxInMono) + Double(combOut) * combFb[k])
                 wIdx += 1; if wIdx >= bufLen { wIdx = 0 }
                 combWriteIdx[k] = wIdx
             }
@@ -271,13 +389,13 @@ final class Voice {
             //   pingPong — L gets dry + R's bounce; R gets L's bounce only.
             switch delayMode {
             case .mono:
-                delayBufferL[delayWriteIdxL] = fxIn + delayOutL * dlyFb
+                delayBufferL[delayWriteIdxL] = fxInMono + delayOutL * dlyFb
                 delayBufferR[delayWriteIdxR] = 0
             case .stereo:
-                delayBufferL[delayWriteIdxL] = fxIn + delayOutL * dlyFb
-                delayBufferR[delayWriteIdxR] = fxIn + delayOutR * dlyFb
+                delayBufferL[delayWriteIdxL] = fxInMono + delayOutL * dlyFb
+                delayBufferR[delayWriteIdxR] = fxInMono + delayOutR * dlyFb
             case .pingPong:
-                delayBufferL[delayWriteIdxL] = fxIn + delayOutR * dlyFb
+                delayBufferL[delayWriteIdxL] = fxInMono + delayOutR * dlyFb
                 delayBufferR[delayWriteIdxR] = delayOutL * dlyFb
             }
             delayWriteIdxL += 1
@@ -288,14 +406,21 @@ final class Voice {
             // Compose: dry + reverb get the equal-power pan. Delay output
             // for stereo/pingPong goes directly to L/R unpanned, preserving
             // the cross-feedback's left/right separation. Mono delay
-            // follows the dry pan.
-            let dryReverbOut = fxIn + revWet * revMix
+            // follows the dry pan. Chorus's "side" portion (deviation from
+            // mono) passes through unpanned so the stereo width persists
+            // regardless of pan position.
+            let dryReverbOut = fxInMono + revWet * revMix
             let panT = (Double(p) + 1.0) * 0.25
             let lGain = Float(__cospi(panT))
             let rGain = Float(__sinpi(panT))
 
             let dryL = dryReverbOut * lGain
             let dryR = dryReverbOut * rGain
+            // Chorus side signal (already part of fxInMono via the mid; we
+            // add the deviation here so L and R each carry their LFO-tapped
+            // tail independently of pan).
+            let sideL = chOutL - chMono
+            let sideR = chOutR - chMono
             let dlyL: Float
             let dlyR: Float
             switch delayMode {
@@ -308,14 +433,28 @@ final class Voice {
                 dlyR = delayOutR * dlyMix
             }
 
-            left[i] += dryL + dlyL
-            right[i] += dryR + dlyR
+            left[i]  += dryL + sideL + dlyL
+            right[i] += dryR + sideR + dlyR
         }
+        lastRawCount = frameCount
 
         phase = ph
         currentFreq = f
         currentAmp = a
         currentPan = p
+    }
+
+    // Linear-interpolated read from a circular chorus buffer.
+    @inline(__always)
+    private func chorusReadFractional(buffer: [Float], size: Int, writeIdx: Int, tapSec: Double) -> Float {
+        let tapSamples = max(1.0, min(Double(size - 2), tapSec * sampleRate))
+        let pos = Double(writeIdx) - tapSamples
+        var basePos = pos
+        while basePos < 0 { basePos += Double(size) }
+        let i0 = Int(basePos) % size
+        let i1 = (i0 + 1) % size
+        let frac = Float(basePos - floor(basePos))
+        return buffer[i0] * (1.0 - frac) + buffer[i1] * frac
     }
 
     /// Recompute biquad coefficients from current type / cutoff / Q.

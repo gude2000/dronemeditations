@@ -103,9 +103,11 @@ struct OscillatorStrip: View {
             Divider().background(Color.white.opacity(0.06))
             filterSection
 
-            // Reverb + Delay rows.
-            reverbSection
+            // FX rows — user-requested vertical order: FM → Chorus → Delay → Reverb.
+            fmSection
+            chorusSection
             delaySection
+            reverbSection
 
             // 3 LFO rows.
             VStack(spacing: 6) {
@@ -283,6 +285,134 @@ struct OscillatorStrip: View {
     private func cutoffLabel(_ hz: Double) -> String {
         hz < 1000 ? String(format: "CUTOFF %.0fHz", hz)
                   : String(format: "CUTOFF %.2fk", hz / 1000)
+    }
+
+    // MARK: - FM row (cross-osc)
+
+    @ViewBuilder
+    private var fmSection: some View {
+        let fm = osc.fm
+        let active = fm.isActive
+        HStack(spacing: 8) {
+            Text("FM")
+                .font(.system(size: 9, weight: .heavy))
+                .foregroundStyle(active ? Color.accentColor : .secondary)
+                .frame(width: 36, alignment: .leading)
+
+            // Source picker — Off + the other 3 oscillators.
+            Menu {
+                Button {
+                    vm.setFMSource(-1, for: index)
+                } label: {
+                    if fm.sourceIndex < 0 { Label("Off", systemImage: "checkmark") }
+                    else { Text("Off") }
+                }
+                ForEach(Array(0..<4).filter { $0 != index }, id: \.self) { j in
+                    Button {
+                        vm.setFMSource(j, for: index)
+                    } label: {
+                        if fm.sourceIndex == j { Label("Osc \(j + 1)", systemImage: "checkmark") }
+                        else                   { Text("Osc \(j + 1)") }
+                    }
+                }
+            } label: {
+                Text(fm.sourceIndex < 0 ? "Off" : "Osc \(fm.sourceIndex + 1)")
+                    .font(.system(size: 9, weight: .semibold))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(Color.white.opacity(0.10)))
+                    .foregroundStyle(.white)
+            }
+            .menuStyle(.borderlessButton)
+
+            VStack(alignment: .leading, spacing: 0) {
+                Text(fm.index < 10
+                     ? String(format: "INDEX %.1f", fm.index)
+                     : String(format: "INDEX %d", Int(fm.index)))
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.secondary)
+                LogScaleSlider(
+                    value: Binding(
+                        get: { max(0.01, fm.index) }, // log slider can't include 0
+                        set: { vm.setFMIndex($0, for: index) }
+                    ),
+                    minValue: 0.01,
+                    maxValue: FMState.indexMax
+                )
+                .disabled(fm.sourceIndex < 0)
+            }
+        }
+        .opacity(active ? 1.0 : 0.7)
+    }
+
+    // MARK: - Chorus row
+
+    @ViewBuilder
+    private var chorusSection: some View {
+        let ch = osc.chorus
+        let active = ch.mix > 0.001
+        HStack(spacing: 8) {
+            Text("CHO")
+                .font(.system(size: 9, weight: .heavy))
+                .foregroundStyle(active ? Color.accentColor : .secondary)
+                .frame(width: 36, alignment: .leading)
+
+            VStack(alignment: .leading, spacing: 0) {
+                Text(ch.rateHz < 1
+                     ? String(format: "RATE %.2fHz", ch.rateHz)
+                     : String(format: "RATE %.1fHz", ch.rateHz))
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.secondary)
+                LogScaleSlider(
+                    value: Binding(
+                        get: { ch.rateHz },
+                        set: { vm.setChorusRate($0, for: index) }
+                    ),
+                    minValue: ChorusState.rateMin,
+                    maxValue: ChorusState.rateMax
+                )
+            }
+
+            VStack(alignment: .leading, spacing: 0) {
+                Text("DEPTH \(Int(ch.depth * 100))")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.secondary)
+                Slider(
+                    value: Binding(
+                        get: { ch.depth },
+                        set: { vm.setChorusDepth($0, for: index) }
+                    ),
+                    in: 0.0...1.0
+                ).tint(.white.opacity(0.7))
+            }
+
+            VStack(alignment: .leading, spacing: 0) {
+                Text("WIDTH \(Int(ch.width * 100))")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.secondary)
+                Slider(
+                    value: Binding(
+                        get: { ch.width },
+                        set: { vm.setChorusWidth($0, for: index) }
+                    ),
+                    in: 0.0...1.0
+                ).tint(.white.opacity(0.7))
+            }
+
+            VStack(alignment: .leading, spacing: 0) {
+                Text("MIX \(Int(ch.mix * 100))")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.secondary)
+                Slider(
+                    value: Binding(
+                        get: { ch.mix },
+                        set: { vm.setChorusMix($0, for: index) }
+                    ),
+                    in: 0.0...1.0
+                ).tint(.white.opacity(0.7))
+            }
+        }
+        .opacity(active ? 1.0 : 0.7)
     }
 
     // MARK: - Reverb row

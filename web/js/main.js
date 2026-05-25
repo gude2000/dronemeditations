@@ -30,6 +30,21 @@ const defaultLfos = () => ([
 ]);
 const defaultFilter = () => ({ type: "lowpass", cutoffHz: 4000, q: 0.7 });
 const defaultReverb = () => ({ decaySec: 2.0, mix: 0 });
+// Stereo chorus — two short delay lines modulated by a 90°-offset LFO so the
+// L/R copies move in counter-phase, giving width without flanging artifacts.
+const defaultChorus = () => ({
+  rateHz: 0.5,   // 0.05 – 6 Hz, log
+  depth: 0.4,   // 0 – 1, scales delay modulation 1 – 15 ms peak-to-peak
+  width: 0.7,   // 0 – 1, L/R LFO phase separation (1.0 = full 180°)
+  mix: 0        // 0 – 1, dry→wet blend; default 0 = chorus off until user opens it
+});
+// Cross-osc FM. `sourceIndex` is the index of one of the OTHER three voices
+// whose raw oscillator output is routed into this voice's frequency param.
+// `index` is the modulation index in Hz (peak frequency excursion).
+const defaultFM = () => ({
+  sourceIndex: -1,  // -1 = off; otherwise 0..3 (must differ from carrier index)
+  index: 0          // 0 – 800 Hz, log; 0 = no modulation
+});
 const defaultDelay  = () => ({
   timeSec: 0.30,
   feedback: 0.40,
@@ -78,10 +93,10 @@ const defaultDrift  = () => ({
 
 const state = {
   oscillators: [
-    { id: 0, frequencyHz: 110.00, waveform: "sine", amplitude: 0.6,  pan: -0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), sampleName: null },
-    { id: 1, frequencyHz: 165.00, waveform: "sine", amplitude: 0.6,  pan:  0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), sampleName: null },
-    { id: 2, frequencyHz: 220.00, waveform: "sine", amplitude: 0.55, pan: -0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), sampleName: null },
-    { id: 3, frequencyHz: 277.18, waveform: "sine", amplitude: 0.5,  pan:  0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), sampleName: null }
+    { id: 0, frequencyHz: 110.00, waveform: "sine", amplitude: 0.6,  pan: -0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), sampleName: null },
+    { id: 1, frequencyHz: 165.00, waveform: "sine", amplitude: 0.6,  pan:  0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), sampleName: null },
+    { id: 2, frequencyHz: 220.00, waveform: "sine", amplitude: 0.55, pan: -0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), sampleName: null },
+    { id: 3, frequencyHz: 277.18, waveform: "sine", amplitude: 0.5,  pan:  0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), sampleName: null }
   ],
   keyId: 9,         // A
   octave: 3,
@@ -410,6 +425,41 @@ const actions = {
     renderAll();
   },
 
+  // Chorus
+  setChorusRate(oscIndex, rate) {
+    const clamped = Math.max(0.05, Math.min(6.0, rate));
+    state.oscillators[oscIndex].chorus.rateHz = clamped;
+    engine.setChorusRate(oscIndex, clamped);
+  },
+  setChorusDepth(oscIndex, depth) {
+    const clamped = Math.max(0, Math.min(1, depth));
+    state.oscillators[oscIndex].chorus.depth = clamped;
+    engine.setChorusDepth(oscIndex, clamped);
+  },
+  setChorusWidth(oscIndex, width) {
+    const clamped = Math.max(0, Math.min(1, width));
+    state.oscillators[oscIndex].chorus.width = clamped;
+    engine.setChorusWidth(oscIndex, clamped);
+  },
+  setChorusMix(oscIndex, mix) {
+    const clamped = Math.max(0, Math.min(1, mix));
+    state.oscillators[oscIndex].chorus.mix = clamped;
+    engine.setChorusMix(oscIndex, clamped);
+  },
+
+  // FM (cross-osc): sourceIndex = -1 disables; otherwise must differ from carrier.
+  setFMSource(oscIndex, sourceIndex) {
+    const src = sourceIndex === oscIndex ? -1 : sourceIndex;
+    state.oscillators[oscIndex].fm.sourceIndex = src;
+    engine.setFMSource(oscIndex, src);
+    renderAll();
+  },
+  setFMIndex(oscIndex, idx) {
+    const clamped = Math.max(0, Math.min(800, idx));
+    state.oscillators[oscIndex].fm.index = clamped;
+    engine.setFMIndex(oscIndex, clamped);
+  },
+
   clearSample(oscIndex) {
     engine.clearSample(oscIndex);
     state.oscillators[oscIndex].sampleName = null;
@@ -434,7 +484,10 @@ const actions = {
       return {
         frequencyHz: o.frequencyHz, waveform: o.waveform, amplitude: o.amplitude,
         pan: o.pan, isMuted: o.isMuted, isSoloed: o.isSoloed,
-        filter: { ...o.filter }, reverb: { ...o.reverb }, delay: { ...o.delay },
+        filter: { ...o.filter },
+        fm:     { ...o.fm },
+        chorus: { ...o.chorus },
+        reverb: { ...o.reverb }, delay: { ...o.delay },
         lfos: o.lfos.map((l) => ({ ...l })),
         sampleRef
       };
@@ -471,6 +524,15 @@ const actions = {
       actions.setFilterType(i, o.filter.type);
       actions.setFilterCutoff(i, o.filter.cutoffHz);
       actions.setFilterQ(i, o.filter.q);
+      // FM + Chorus migration — older presets won't have these; merge with defaults.
+      const fm     = { ...defaultFM(),     ...(o.fm     || {}) };
+      const chorus = { ...defaultChorus(), ...(o.chorus || {}) };
+      actions.setFMSource(i, fm.sourceIndex);
+      actions.setFMIndex(i, fm.index);
+      actions.setChorusRate(i, chorus.rateHz);
+      actions.setChorusDepth(i, chorus.depth);
+      actions.setChorusWidth(i, chorus.width);
+      actions.setChorusMix(i, chorus.mix);
       actions.setReverbDecay(i, o.reverb.decaySec);
       actions.setReverbMix(i, o.reverb.mix);
       actions.setDelayTime(i, o.delay.timeSec);
@@ -543,6 +605,8 @@ const actions = {
       amplitude: o.amplitude,
       pan: o.pan,
       filter: { ...o.filter },
+      fm:     { ...o.fm },
+      chorus: { ...o.chorus },
       reverb: { ...o.reverb },
       delay:  { ...o.delay },
       lfos:   o.lfos.map((l) => ({ ...l })),
@@ -573,6 +637,8 @@ const actions = {
     o.amplitude = v.amplitude;
     o.pan = v.pan;
     o.filter = { ...defaultFilter(), ...(v.filter || {}) };
+    o.fm     = { ...defaultFM(),     ...(v.fm     || {}) };
+    o.chorus = { ...defaultChorus(), ...(v.chorus || {}) };
     o.reverb = { ...defaultReverb(), ...(v.reverb || {}) };
     o.delay  = { ...defaultDelay(),  ...(v.delay  || {}) };
     o.lfos   = (v.lfos || defaultLfos()).map((l) => ({ ...l }));
@@ -585,6 +651,12 @@ const actions = {
     engine.setFilterType(oscIndex, o.filter.type);
     engine.setFilterCutoff(oscIndex, o.filter.cutoffHz);
     engine.setFilterQ(oscIndex, o.filter.q);
+    engine.setFMSource(oscIndex, o.fm.sourceIndex);
+    engine.setFMIndex(oscIndex, o.fm.index);
+    engine.setChorusRate(oscIndex, o.chorus.rateHz);
+    engine.setChorusDepth(oscIndex, o.chorus.depth);
+    engine.setChorusWidth(oscIndex, o.chorus.width);
+    engine.setChorusMix(oscIndex, o.chorus.mix);
     engine.setReverbDecay(oscIndex, o.reverb.decaySec);
     engine.setReverbMix(oscIndex, o.reverb.mix);
     engine.setDelayTime(oscIndex, o.delay.timeSec);
@@ -646,6 +718,27 @@ const actions = {
     actions.setDelayTime(index, rand(0.08, 0.8));
     actions.setDelayFeedback(index, rand(0, 0.5));
     actions.setDelayMix(index, rand(0, 0.4));
+
+    // Chorus — 40% chance of "off" (mix=0), otherwise musical defaults.
+    if (Math.random() < 0.4) {
+      actions.setChorusMix(index, 0);
+    } else {
+      actions.setChorusRate(index, rand(0.2, 2.5));
+      actions.setChorusDepth(index, rand(0.2, 0.7));
+      actions.setChorusWidth(index, rand(0.4, 1.0));
+      actions.setChorusMix(index, rand(0.15, 0.55));
+    }
+
+    // FM — 50% off, otherwise pick one of the other 3 voices with a small index.
+    if (Math.random() < 0.5) {
+      actions.setFMSource(index, -1);
+      actions.setFMIndex(index, 0);
+    } else {
+      const others = [0, 1, 2, 3].filter((j) => j !== index);
+      actions.setFMSource(index, choose(others));
+      // Log-musical index: mostly small (5-80 Hz), occasionally bell-like (200+).
+      actions.setFMIndex(index, Math.random() < 0.8 ? rand(5, 80) : rand(150, 400));
+    }
 
     // LFOs — random shape + target per LFO, slow rate, modest depth.
     const shapes = ["sine", "triangle", "square", "sh"];
