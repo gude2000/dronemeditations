@@ -4,19 +4,39 @@ Drop audio files (`.wav`, `.mp3`, `.m4a`, `.aac`, `.aif`/`.aiff`,
 `.caf`) into this folder and they'll appear in the **Bundled** picker
 that opens when you tap **Load file…** on an oscillator strip.
 
-## One-time Xcode setup
+This folder is registered in the Xcode project as a **folder
+reference** (NOT a group). That means files added here get bundled
+automatically on the next build — no Xcode edits needed.
 
-The folder needs to be referenced by the Xcode project as a **folder
-reference** (blue folder icon) so files added later get bundled
-automatically without re-editing the project.
+## If you re-create the project from scratch
 
-In Xcode:
-1. Drag the `Samples` folder from Finder into the project navigator.
-2. Choose **Create folder references** (NOT "Create groups").
-3. Make sure the **DroneMeditations** target is checked.
+The folder-reference wiring is in `project.pbxproj`:
 
-After that, any audio file dropped into this folder appears in the
-in-app picker on the next build, no further Xcode steps needed.
+- A `PBXFileReference` with `lastKnownFileType = folder` pointing at
+  this directory.
+- A matching `PBXBuildFile` and `PBXResourcesBuildPhase` entry so the
+  folder ships as a bundle resource.
+
+If you ever lose those entries (e.g. a manual project regeneration),
+re-add by dragging this folder into the Xcode project navigator and
+choosing **Create folder references** (NOT "Create groups") with the
+DroneMeditations target checked.
+
+## Sub-folder grouping
+
+`BundledSampleStore` reads the first path component under `Samples/`
+as the picker's section label. If you organize:
+
+```
+Samples/
+  Drones/
+    phi-drone.mp3
+  Themes/
+    sable.mp3
+```
+
+…the picker shows "Drones" and "Themes" headers. Flat structure (no
+subfolders) shows everything under a single "Samples" header.
 
 ## Tips
 
