@@ -38,15 +38,46 @@ final class DroneViewModel: ObservableObject {
     @Published private(set) var journeyStageEndsAt: Date? = nil
     private var journeyTimer: Timer?
 
-    var activeJourney: Journey? {
+    /// Unified Journey-or-UserJourney lookup result. We expose a tiny adapter
+    /// instead of merging the two model types so each side keeps its native
+    /// Codable shape. Used by advanceJourneyStage and the journey pill sync.
+    struct JourneyHandle: Equatable {
+        let id: String
+        let name: String
+        let description: String
+        let stages: [Journey.Stage]
+        var totalSeconds: TimeInterval { stages.reduce(0) { $0 + $1.durationSec } }
+    }
+
+    func journey(forId id: String) -> JourneyHandle? {
+        if let j = Journey.all.first(where: { $0.id == id }) {
+            return JourneyHandle(id: j.id, name: j.name, description: j.description, stages: j.stages)
+        }
+        if let u = userJourneys.first(where: { $0.id == id }) {
+            let mapped = u.stages.map {
+                Journey.Stage(durationSec: $0.durationSec,
+                              presetName: $0.presetName,
+                              driftSceneId: $0.driftSceneId,
+                              hint: $0.hint)
+            }
+            return JourneyHandle(id: u.id, name: u.name, description: u.description, stages: mapped)
+        }
+        return nil
+    }
+
+    var activeJourney: JourneyHandle? {
         guard let id = activeJourneyId else { return nil }
-        return Journey.all.first { $0.id == id }
+        return journey(forId: id)
     }
 
     @Published var userPresets: [UserPreset] = UserPresetStore.load()
     /// Per-voice presets — capture/restore a single oscillator's full state
     /// so favorite voices can be mixed and matched across the four slots.
     @Published var voicePresets: [VoicePreset] = VoicePresetStore.load()
+    /// User-composed journeys — scripted multi-stage sessions saved in
+    /// UserDefaults. Same shape as built-in `Journey`; resolved alongside
+    /// `Journey.all` at startJourney lookup time.
+    @Published var userJourneys: [UserJourney] = UserJourneyStore.load()
 
     /// A scene is the per-voice drift assignment for all four oscillators.
     /// Scenes are *templates* — picking one bulk-copies its voice configs
@@ -647,7 +678,7 @@ final class DroneViewModel: ObservableObject {
     /// total so the existing auto-stop fade kicks in at the end, then
     /// applies stage 0 immediately and schedules subsequent stages.
     func startJourney(_ id: String) {
-        guard let j = Journey.all.first(where: { $0.id == id }) else { return }
+        guard let j = journey(forId: id) else { return }
         // Cancel any previous journey *without* fully stopping the transport.
         // The full stop() schedules an 8-second master fadeOut + engine.stop()
         // task; if we then immediately call play() (which fades back IN over
@@ -676,6 +707,49 @@ final class DroneViewModel: ObservableObject {
         // feedback. The state.stopped Combine sink calls stopJourney back,
         // but the activeJourneyId guard above prevents infinite recursion.
         if controller.state != .stopped { controller.stop() }
+    }
+
+    // MARK: - User journeys (composer)
+
+    /// Save a user-composed journey. `existingId` (if non-nil) is removed
+    /// first so an edit replaces the original. Returns true on success.
+    @discardableResult
+    func saveUserJourney(name: String,
+                         description: String,
+                         stages: [UserJourney.Stage],
+                         existingId: String? = nil) -> Bool {
+        let cleanName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanName.isEmpty else { return false }
+        // Filter stages defensively — durations must be 30 s ≤ d ≤ 90 min,
+        // and the preset must still exist.
+        let validStages = stages.compactMap { s -> UserJourney.Stage? in
+            let dur = max(30, min(90 * 60, s.durationSec))
+            guard Preset.all.first(where: { $0.name == s.presetName }) != nil else { return nil }
+            return UserJourney.Stage(durationSec: dur,
+                                     presetName: s.presetName,
+                                     driftSceneId: s.driftSceneId,
+                                     hint: s.hint.isEmpty ? "\(s.presetName) · \(s.driftSceneId)" : s.hint)
+        }
+        guard !validStages.isEmpty else { return false }
+        if let existingId {
+            userJourneys.removeAll { $0.id == existingId }
+        }
+        let entry = UserJourney(
+            id: UserJourney.newId(),
+            name: String(cleanName.prefix(60)),
+            description: String(description.trimmingCharacters(in: .whitespacesAndNewlines).prefix(200)),
+            createdAt: Date(),
+            stages: validStages
+        )
+        userJourneys.insert(entry, at: 0)
+        UserJourneyStore.save(userJourneys)
+        return true
+    }
+
+    func deleteUserJourney(_ id: String) {
+        userJourneys.removeAll { $0.id == id }
+        UserJourneyStore.save(userJourneys)
+        if activeJourneyId == id { stopJourney() }
     }
 
     private func advanceJourneyStage() {

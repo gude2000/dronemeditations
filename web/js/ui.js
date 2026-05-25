@@ -861,45 +861,240 @@ function openJourneySheet() {
 function buildJourneyList() {
   const root = document.getElementById("journey-list");
   const activeId = getState().activeJourneyId;
+  const userJourneys = getState().userJourneys || [];
   root.innerHTML = "";
+
+  // Composer launcher — sits at the top so it's always discoverable.
+  const composerBtn = document.createElement("button");
+  composerBtn.type = "button";
+  composerBtn.textContent = "＋  Create your own journey";
+  composerBtn.style.cssText = "display:block;width:100%;padding:11px 14px;margin-bottom:12px;border-radius:10px;border:1px dashed rgba(255,255,255,0.30);background:rgba(255,255,255,0.04);color:#fff;font-size:13px;font-weight:600;cursor:pointer;letter-spacing:0.02em";
+  composerBtn.addEventListener("click", () => openJourneyComposer(null));
+  root.appendChild(composerBtn);
+
+  if (userJourneys.length > 0) {
+    const header = document.createElement("div");
+    header.style.cssText = "font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.50);margin:8px 0 6px;padding-left:2px";
+    header.textContent = "Your journeys";
+    root.appendChild(header);
+    for (const j of userJourneys) {
+      root.appendChild(renderJourneyCard(j, activeId, /*isUser=*/true));
+    }
+    const factoryHeader = document.createElement("div");
+    factoryHeader.style.cssText = "font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.50);margin:16px 0 6px;padding-left:2px";
+    factoryHeader.textContent = "Curated journeys";
+    root.appendChild(factoryHeader);
+  }
+
   for (const j of JOURNEYS) {
-    const total = journeyTotalSeconds(j);
-    const totalMin = Math.round(total / 60);
-    const isActive = j.id === activeId;
-    const card = document.createElement("div");
-    card.className = "preset-item" + (isActive ? " preset-active" : "");
-    card.style.cssText = "display:flex;flex-direction:column;gap:8px;padding:12px;cursor:pointer;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);margin-bottom:8px";
-    const stages = j.stages.map((s) =>
-      `<div style="font-size:11px;color:rgba(255,255,255,0.65);margin-left:8px;line-height:1.5">
-        · ${Math.round(s.durationSec/60)} min — ${s.hint}
-      </div>`
-    ).join("");
-    card.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-        <div>
-          <div style="font-size:14px;font-weight:600;color:#fff">${j.name}</div>
-          <div style="font-size:11px;color:rgba(255,255,255,0.55);margin-top:2px">${totalMin} min · ${j.stages.length} stages</div>
-        </div>
+    root.appendChild(renderJourneyCard(j, activeId, /*isUser=*/false));
+  }
+}
+
+function renderJourneyCard(j, activeId, isUser) {
+  const total = journeyTotalSeconds(j);
+  const totalMin = Math.round(total / 60);
+  const isActive = j.id === activeId;
+  const card = document.createElement("div");
+  card.className = "preset-item" + (isActive ? " preset-active" : "");
+  card.style.cssText = "display:flex;flex-direction:column;gap:8px;padding:12px;cursor:pointer;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid " +
+    (isUser ? "rgba(143,185,217,0.35)" : "rgba(255,255,255,0.08)") + ";margin-bottom:8px";
+  const stages = j.stages.map((s) =>
+    `<div style="font-size:11px;color:rgba(255,255,255,0.65);margin-left:8px;line-height:1.5">
+      · ${Math.round(s.durationSec/60)} min — ${escapeHtml(s.hint || '')}
+    </div>`
+  ).join("");
+  card.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <div>
+        <div style="font-size:14px;font-weight:600;color:#fff">${escapeHtml(j.name)}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.55);margin-top:2px">${totalMin} min · ${j.stages.length} stage${j.stages.length === 1 ? '' : 's'}</div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        ${isUser ? `<button type="button" data-edit="${j.id}" title="Edit"
+            style="width:26px;height:26px;border:0;border-radius:50%;background:rgba(255,255,255,0.08);color:#fff;cursor:pointer;font-size:12px">✎</button>
+          <button type="button" data-delete="${j.id}" title="Delete"
+            style="width:26px;height:26px;border:0;border-radius:50%;background:rgba(255,255,255,0.08);color:#fff;cursor:pointer;font-size:12px">×</button>` : ''}
         <button type="button" data-journey="${j.id}" class="${isActive ? "journey-stop-btn" : "journey-start-btn"}"
           style="padding:6px 14px;border-radius:999px;border:0;font-size:12px;font-weight:600;cursor:pointer;
                  background:${isActive ? "rgba(220,80,80,0.85)" : "var(--accent,#6aa9ff)"};color:#fff">
           ${isActive ? "Stop" : "Start"}
         </button>
       </div>
-      <div style="font-size:12px;color:rgba(255,255,255,0.75);line-height:1.4">${j.description}</div>
-      <div>${stages}</div>
-    `;
-    card.querySelector("button").addEventListener("click", (e) => {
+    </div>
+    <div style="font-size:12px;color:rgba(255,255,255,0.75);line-height:1.4">${escapeHtml(j.description || '')}</div>
+    <div>${stages}</div>
+  `;
+  card.querySelector('[data-journey]').addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (isActive) {
+      dispatch.stopJourney();
+    } else {
+      dispatch.startJourney(j.id);
+      closeSheet("journey-sheet");
+    }
+  });
+  const editBtn = card.querySelector('[data-edit]');
+  if (editBtn) {
+    editBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      if (isActive) {
-        dispatch.stopJourney();
-      } else {
-        dispatch.startJourney(j.id);
-        closeSheet("journey-sheet");
+      openJourneyComposer(j);
+    });
+  }
+  const delBtn = card.querySelector('[data-delete]');
+  if (delBtn) {
+    delBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (window.confirm(`Delete journey "${j.name}"?`)) {
+        dispatch.deleteUserJourney(j.id);
       }
     });
-    root.appendChild(card);
   }
+  return card;
+}
+
+// ───────── Journey composer ─────────
+//
+// Inline composer rendered into the same journey sheet. Lets the user
+// name a journey, pick any number of stages (preset + drift scene + minutes),
+// and save. Editing an existing journey pre-populates the form.
+function openJourneyComposer(existing) {
+  // Render INTO the journey-list container (not the parent sheet-scroll)
+  // so the "Back" button can simply call buildJourneyList() to restore the
+  // listing — the journey-list element stays in the DOM the whole time.
+  const root = document.getElementById("journey-list");
+  // Build a draft model. Each stage gets a stable nonce so we can re-render
+  // without losing focus on inputs.
+  const draft = {
+    name: existing?.name || "",
+    description: existing?.description || "",
+    stages: (existing?.stages || [{ durationSec: 300, presetId: PRESETS[0]?.id, driftSceneId: "off" }])
+      .map((s, i) => ({
+        nonce: i,
+        durationMin: Math.max(0.5, Math.round((s.durationSec / 60) * 10) / 10),
+        presetId: s.presetId,
+        driftSceneId: s.driftSceneId || "off"
+      }))
+  };
+  let nextNonce = draft.stages.length;
+
+  const driftScenes = (window.__drone?.DRIFT_SCENES || []);
+  const renderComposer = () => {
+    root.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <button type="button" id="composer-back" style="background:transparent;border:0;color:var(--accent);cursor:pointer;font-size:13px">‹ Back</button>
+        <div style="color:rgba(255,255,255,0.7);font-size:12px;font-weight:600">${existing ? 'Edit journey' : 'New journey'}</div>
+        <div style="width:46px"></div>
+      </div>
+      <label style="display:block;font-size:11px;color:rgba(255,255,255,0.55);letter-spacing:0.05em;text-transform:uppercase;margin-bottom:4px">Name</label>
+      <input id="composer-name" type="text" maxlength="60" value="${escapeHtml(draft.name)}"
+        placeholder="My evening journey…"
+        style="width:100%;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;font-size:13px;margin-bottom:12px" />
+      <label style="display:block;font-size:11px;color:rgba(255,255,255,0.55);letter-spacing:0.05em;text-transform:uppercase;margin-bottom:4px">Description (optional)</label>
+      <input id="composer-desc" type="text" maxlength="200" value="${escapeHtml(draft.description)}"
+        placeholder="What it's for…"
+        style="width:100%;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;font-size:13px;margin-bottom:18px" />
+
+      <div style="font-size:11px;color:rgba(255,255,255,0.55);letter-spacing:0.05em;text-transform:uppercase;margin-bottom:6px">Stages</div>
+      <div id="composer-stages"></div>
+      <button type="button" id="composer-add" style="display:block;width:100%;padding:8px;border-radius:8px;border:1px dashed rgba(255,255,255,0.25);background:rgba(255,255,255,0.03);color:rgba(255,255,255,0.8);font-size:12px;cursor:pointer;margin:8px 0 16px">＋ Add stage</button>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button type="button" id="composer-cancel" style="padding:8px 16px;border-radius:999px;background:rgba(255,255,255,0.08);color:#fff;border:0;font-size:13px;cursor:pointer">Cancel</button>
+        <button type="button" id="composer-save" style="padding:8px 18px;border-radius:999px;background:var(--accent,#6aa9ff);color:#fff;border:0;font-size:13px;font-weight:600;cursor:pointer">${existing ? 'Save changes' : 'Save journey'}</button>
+      </div>
+      <div id="composer-error" style="color:rgba(255,170,170,0.95);font-size:12px;margin-top:10px;display:none"></div>
+    `;
+    const stagesRoot = root.querySelector("#composer-stages");
+    stagesRoot.innerHTML = "";
+    const totalSec = draft.stages.reduce((acc, s) => acc + s.durationMin * 60, 0);
+    for (const stage of draft.stages) {
+      const row = document.createElement("div");
+      row.style.cssText = "display:grid;grid-template-columns:1fr 1fr 70px 28px;gap:6px;align-items:center;margin-bottom:6px;padding:8px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid rgba(255,255,255,0.08)";
+      row.innerHTML = `
+        <select data-role="preset" style="padding:5px;background:rgba(0,0,0,0.4);color:#fff;border:1px solid rgba(255,255,255,0.15);border-radius:6px;font-size:11px">
+          ${PRESETS.map((p) => `<option value="${p.id}" ${p.id === stage.presetId ? 'selected' : ''}>${escapeHtml(p.name)}</option>`).join("")}
+        </select>
+        <select data-role="drift" style="padding:5px;background:rgba(0,0,0,0.4);color:#fff;border:1px solid rgba(255,255,255,0.15);border-radius:6px;font-size:11px">
+          <option value="off" ${stage.driftSceneId === "off" ? "selected" : ""}>Drift off</option>
+          ${driftScenes.filter((d) => d.id !== "off").map((d) => `<option value="${d.id}" ${d.id === stage.driftSceneId ? "selected" : ""}>${escapeHtml(d.name)}</option>`).join("")}
+        </select>
+        <input data-role="dur" type="number" min="0.5" max="90" step="0.5" value="${stage.durationMin}"
+          style="padding:5px;background:rgba(0,0,0,0.4);color:#fff;border:1px solid rgba(255,255,255,0.15);border-radius:6px;font-size:11px;text-align:right" title="Minutes" />
+        <button type="button" data-role="remove" title="Remove stage" style="width:24px;height:24px;border-radius:50%;border:0;background:rgba(255,255,255,0.08);color:#fff;cursor:pointer;font-size:12px">×</button>
+      `;
+      row.querySelector('[data-role="preset"]').addEventListener("change", (e) => { stage.presetId = e.target.value; });
+      row.querySelector('[data-role="drift"]').addEventListener("change", (e) => { stage.driftSceneId = e.target.value; });
+      row.querySelector('[data-role="dur"]').addEventListener("input", (e) => {
+        const v = parseFloat(e.target.value);
+        stage.durationMin = isFinite(v) && v >= 0.5 ? Math.min(90, v) : stage.durationMin;
+        updateTotal();
+      });
+      row.querySelector('[data-role="remove"]').addEventListener("click", () => {
+        if (draft.stages.length <= 1) return;  // never remove the last stage
+        draft.stages = draft.stages.filter((s) => s.nonce !== stage.nonce);
+        renderComposer();
+      });
+      stagesRoot.appendChild(row);
+    }
+    const totalDiv = document.createElement("div");
+    totalDiv.id = "composer-total";
+    totalDiv.style.cssText = "font-size:11px;color:rgba(255,255,255,0.55);text-align:right;margin-top:4px";
+    totalDiv.textContent = `Total: ${formatTotal(totalSec)}`;
+    stagesRoot.appendChild(totalDiv);
+
+    function updateTotal() {
+      const total = draft.stages.reduce((a, s) => a + s.durationMin * 60, 0);
+      const el = root.querySelector("#composer-total");
+      if (el) el.textContent = `Total: ${formatTotal(total)}`;
+    }
+
+    root.querySelector("#composer-add").addEventListener("click", () => {
+      draft.stages.push({ nonce: nextNonce++, durationMin: 5, presetId: PRESETS[0].id, driftSceneId: "off" });
+      renderComposer();
+    });
+    root.querySelector("#composer-back").addEventListener("click", () => {
+      buildJourneyList();
+    });
+    root.querySelector("#composer-cancel").addEventListener("click", () => {
+      buildJourneyList();
+    });
+    root.querySelector("#composer-save").addEventListener("click", () => {
+      const nameEl = root.querySelector("#composer-name");
+      const descEl = root.querySelector("#composer-desc");
+      const errEl  = root.querySelector("#composer-error");
+      errEl.style.display = "none";
+      const spec = {
+        name: nameEl.value,
+        description: descEl.value,
+        stages: draft.stages.map((s) => ({
+          durationSec: Math.round(s.durationMin * 60),
+          presetId: s.presetId,
+          driftSceneId: s.driftSceneId,
+          hint: (PRESETS.find((p) => p.id === s.presetId)?.name || "Stage")
+                + (s.driftSceneId && s.driftSceneId !== "off" ? ` · ${s.driftSceneId}` : "")
+        }))
+      };
+      // If we're editing, delete the old entry first so the saved one
+      // replaces it (the save action prepends a new entry with a fresh id).
+      if (existing) dispatch.deleteUserJourney(existing.id);
+      const ok = dispatch.saveUserJourney(spec);
+      if (!ok) {
+        errEl.textContent = "Couldn't save — give the journey a name and at least one valid stage.";
+        errEl.style.display = "block";
+        return;
+      }
+      buildJourneyList();
+    });
+  };
+
+  function formatTotal(sec) {
+    if (sec < 60) return `${Math.round(sec)} s`;
+    const m = Math.round(sec / 60 * 10) / 10;
+    return m >= 60 ? `${Math.floor(m / 60)} h ${Math.round(m % 60)} min` : `${m} min`;
+  }
+
+  renderComposer();
 }
 
 // ───────── Web MIDI (controllers → chord root) ─────────

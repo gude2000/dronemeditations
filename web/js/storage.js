@@ -101,6 +101,29 @@ export function newVoicePresetId() {
   return `voice-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+// ─── user journeys (localStorage) ────────────────────────────
+//
+// Schema: { id, name, description, createdAt, stages: [{ durationSec,
+// presetId, driftSceneId, hint }] }. Validation lives in main.js so the
+// composer can show inline errors before persisting.
+
+const USER_JOURNEYS_KEY = "dronemeditations:user-journeys";
+
+export function loadUserJourneys() {
+  try {
+    const raw = localStorage.getItem(USER_JOURNEYS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+export function saveUserJourneys(list) {
+  localStorage.setItem(USER_JOURNEYS_KEY, JSON.stringify(list));
+}
+
+export function newUserJourneyId() {
+  return `userj-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 // ─── cymatics snapshots (IndexedDB blobs + localStorage metadata) ────────
 //
 // Blobs are large so they live in IndexedDB. Metadata (id, name, timestamp,

@@ -10,6 +10,7 @@ import { initVisualizations, setChladniVisible, setSpectrumVisible } from "./vis
 import {
   loadUserPresets, saveUserPresets, newPresetId, newSampleId,
   loadVoicePresets, saveVoicePresets, newVoicePresetId,
+  loadUserJourneys, saveUserJourneys, newUserJourneyId,
   putSample, getSample, deleteSample
 } from "./storage.js";
 
@@ -124,7 +125,12 @@ const state = {
   // Per-voice presets — capture/restore a single oscillator's full state
   // (freq, waveform, pan, amp, filter, reverb, delay, LFOs, drift) so the
   // user can mix-and-match favorite voices across slots.
-  voicePresets: loadVoicePresets()
+  voicePresets: loadVoicePresets(),
+
+  // User-defined journeys — scripted multi-stage meditation sessions the
+  // user has composed. Same shape as built-in JOURNEYS but persisted in
+  // localStorage and shown above the factory list in the journey sheet.
+  userJourneys: loadUserJourneys()
 };
 
 // Per-voice in-memory cache of loaded sample blobs (for save-current-as-preset).
@@ -594,6 +600,22 @@ const actions = {
 
   startJourney(id) { startJourney(id); },
   stopJourney()    { stopJourney(); },
+
+  // ─── User journeys (composer) ──────────────────────────
+  saveUserJourney(spec) {
+    const cleaned = sanitizeUserJourney(spec);
+    if (!cleaned) return false;
+    state.userJourneys.unshift(cleaned);
+    saveUserJourneys(state.userJourneys);
+    renderAll();
+    return true;
+  },
+  deleteUserJourney(id) {
+    state.userJourneys = state.userJourneys.filter((j) => j.id !== id);
+    saveUserJourneys(state.userJourneys);
+    if (state.activeJourneyId === id) stopJourney();
+    renderAll();
+  },
 
   // ─── Per-voice presets ──────────────────────────────────
   saveCurrentVoiceAsPreset(oscIndex, name) {
@@ -1167,8 +1189,53 @@ window.__drone = { state, engine, actions, DRIFT_SCENES, JOURNEYS };
 // ──────────────────────────────────────────────────
 let journeyAdvanceTimer = null;
 
+/// Resolve a journey by id, searching built-in JOURNEYS first then user
+/// journeys. Exported for UI to render unified Start/Stop labels.
+export function findJourney(id) {
+  if (!id) return null;
+  return JOURNEYS.find((x) => x.id === id) ||
+         state.userJourneys.find((x) => x.id === id) || null;
+}
+// Expose to UI without an import cycle.
+window.__drone = window.__drone || {};
+window.__drone.findJourney = findJourney;
+
+/// Validate + normalize a user-journey draft. Returns the sanitized spec
+/// (with a fresh id, createdAt, and totalSeconds) or null if invalid.
+function sanitizeUserJourney(spec) {
+  if (!spec || typeof spec.name !== "string") return null;
+  const name = spec.name.trim();
+  if (!name) return null;
+  const description = (spec.description || "").trim();
+  const stages = Array.isArray(spec.stages) ? spec.stages : [];
+  if (stages.length === 0) return null;
+  const cleanStages = [];
+  for (const s of stages) {
+    const dur = Number(s.durationSec);
+    if (!Number.isFinite(dur) || dur < 30 || dur > 90 * 60) continue;
+    const preset = PRESETS.find((p) => p.id === s.presetId);
+    if (!preset) continue;
+    const drift = s.driftSceneId || "off";
+    cleanStages.push({
+      durationSec: Math.round(dur),
+      presetId: preset.id,
+      driftSceneId: String(drift),
+      hint: (s.hint || `${preset.name} · ${drift}`).slice(0, 80)
+    });
+  }
+  if (cleanStages.length === 0) return null;
+  return {
+    id: newUserJourneyId(),
+    name: name.slice(0, 60),
+    description: description.slice(0, 200) || "Custom journey",
+    createdAt: Date.now(),
+    isUser: true,
+    stages: cleanStages
+  };
+}
+
 function startJourney(id) {
-  const j = JOURNEYS.find((x) => x.id === id);
+  const j = findJourney(id);
   if (!j) return;
   // Cancel any previous journey *without* fully stopping the transport.
   // The full stop() schedules an 8-second master fadeOut + engine.stop()
@@ -1209,7 +1276,7 @@ function stopJourney() {
 }
 
 function advanceJourneyStage() {
-  const j = JOURNEYS.find((x) => x.id === state.activeJourneyId);
+  const j = findJourney(state.activeJourneyId);
   if (!j) return;
   state.journeyStageIndex += 1;
   if (state.journeyStageIndex >= j.stages.length) {
