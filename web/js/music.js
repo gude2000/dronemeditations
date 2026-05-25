@@ -258,19 +258,26 @@ export const PRESETS = [
   { id: "ligeti_3", name: "Ligeti 3 — Microtone Cluster", category: "Mystic & Composers", sub: "Quartertone cluster around A3 — 215·220·225·230 Hz",   voices: [L(215), C(220), C(225), R(230)] },
 
   // Solfeggio
-  { id: "solf_396", name: "Solfeggio 396 Hz", category: "Solfeggio", sub: "Liberating guilt",     voices: [C(396), L(198),   R(594),    SILENT] },
-  { id: "solf_417", name: "Solfeggio 417 Hz", category: "Solfeggio", sub: "Facilitating change",  voices: [C(417), L(208.5), R(625.5),  SILENT] },
-  { id: "solf_528", name: "Solfeggio 528 Hz", category: "Solfeggio", sub: "Repair / DNA",         voices: [C(528), L(264),   R(792),    SILENT] },
-  { id: "solf_639", name: "Solfeggio 639 Hz", category: "Solfeggio", sub: "Connection",           voices: [C(639), L(319.5), R(958.5),  SILENT] },
-  { id: "solf_741", name: "Solfeggio 741 Hz", category: "Solfeggio", sub: "Awakening intuition",  voices: [C(741), L(370.5), R(1111.5), SILENT] },
-  { id: "solf_852", name: "Solfeggio 852 Hz", category: "Solfeggio", sub: "Returning to order",   voices: [C(852), L(426),   R(1278),   SILENT] },
+  //
+  // The Solfeggio frequencies are a modern (1970s, Puleo) numerological set
+  // popularly attributed with specific therapeutic effects. Those specific
+  // effects (DNA repair, detox, chakra activation, etc.) aren't clinically
+  // validated — the subtitles below reflect the *traditional associations*,
+  // not endorsed biological mechanisms. The meditative benefit comes from
+  // sustained drone-tone listening, not the integer Hz value.
+  { id: "solf_396", name: "Solfeggio 396 Hz", category: "Solfeggio", sub: "Traditionally associated with releasing fear & guilt", voices: [C(396), L(198),   R(594),    SILENT] },
+  { id: "solf_417", name: "Solfeggio 417 Hz", category: "Solfeggio", sub: "Traditionally associated with breaking patterns",      voices: [C(417), L(208.5), R(625.5),  SILENT] },
+  { id: "solf_528", name: "Solfeggio 528 Hz", category: "Solfeggio", sub: "Traditionally called the \"miracle\" tone",             voices: [C(528), L(264),   R(792),    SILENT] },
+  { id: "solf_639", name: "Solfeggio 639 Hz", category: "Solfeggio", sub: "Traditionally associated with relational harmony",     voices: [C(639), L(319.5), R(958.5),  SILENT] },
+  { id: "solf_741", name: "Solfeggio 741 Hz", category: "Solfeggio", sub: "Traditionally associated with insight",                voices: [C(741), L(370.5), R(1111.5), SILENT] },
+  { id: "solf_852", name: "Solfeggio 852 Hz", category: "Solfeggio", sub: "Traditionally associated with restoring balance",      voices: [C(852), L(426),   R(1278),   SILENT] },
 
   // Extended Solfeggio set + Verdi 432
-  { id: "solf_96",  name: "Solfeggio 96 Hz",          category: "Solfeggio", sub: "Sub-bass grounding anchor",       voices: [C(96),  L(48),    R(192),  SILENT] },
-  { id: "solf_174", name: "Solfeggio 174 Hz",         category: "Solfeggio", sub: "Pain relief / grounding",         voices: [C(174), L(87),    R(348),  SILENT] },
-  { id: "solf_285", name: "Solfeggio 285 Hz",         category: "Solfeggio", sub: "Tissue regeneration",             voices: [C(285), L(142.5), R(570),  SILENT] },
-  { id: "solf_432", name: "Solfeggio 432 Hz (Verdi)", category: "Solfeggio", sub: "Alternative natural-tuning A",    voices: [C(432), L(216),   R(864),  SILENT] },
-  { id: "solf_963", name: "Solfeggio 963 Hz",         category: "Solfeggio", sub: "Crown / pineal",                  voices: [C(963), L(481.5), R(1926), SILENT] }
+  { id: "solf_96",  name: "Solfeggio 96 Hz",          category: "Solfeggio", sub: "Sub-bass grounding tone",                         voices: [C(96),  L(48),    R(192),  SILENT] },
+  { id: "solf_174", name: "Solfeggio 174 Hz",         category: "Solfeggio", sub: "Traditionally associated with grounding",          voices: [C(174), L(87),    R(348),  SILENT] },
+  { id: "solf_285", name: "Solfeggio 285 Hz",         category: "Solfeggio", sub: "Traditionally associated with body restoration",   voices: [C(285), L(142.5), R(570),  SILENT] },
+  { id: "solf_432", name: "Solfeggio 432 Hz (Verdi)", category: "Solfeggio", sub: "Alternative natural-tuning A",                     voices: [C(432), L(216),   R(864),  SILENT] },
+  { id: "solf_963", name: "Solfeggio 963 Hz",         category: "Solfeggio", sub: "Traditionally associated with the crown chakra",   voices: [C(963), L(481.5), R(1926), SILENT] }
 ];
 
 // ────────────────────────────────────────────────────────────

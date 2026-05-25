@@ -117,19 +117,26 @@ extension Preset {
                [L(215), C(220), C(225), R(230)]),
 
         // MARK: Solfeggio
-        Preset("Solfeggio 396 Hz", .solfeggio, subtitle: "Liberating guilt",        [C(396), L(198), R(594), silent]),
-        Preset("Solfeggio 417 Hz", .solfeggio, subtitle: "Facilitating change",     [C(417), L(208.5), R(625.5), silent]),
-        Preset("Solfeggio 528 Hz", .solfeggio, subtitle: "Repair / DNA",            [C(528), L(264), R(792), silent]),
-        Preset("Solfeggio 639 Hz", .solfeggio, subtitle: "Connection",              [C(639), L(319.5), R(958.5), silent]),
-        Preset("Solfeggio 741 Hz", .solfeggio, subtitle: "Awakening intuition",     [C(741), L(370.5), R(1111.5), silent]),
-        Preset("Solfeggio 852 Hz", .solfeggio, subtitle: "Returning to order",      [C(852), L(426), R(1278), silent]),
+        //
+        // The Solfeggio frequencies are a modern (1970s, Puleo) numerological
+        // set popularly attributed with specific therapeutic effects. Those
+        // effects (DNA repair, detox, chakra activation, etc.) aren't
+        // clinically validated — the subtitles below reflect the *traditional
+        // associations*, not endorsed mechanisms. Meditative benefit comes
+        // from sustained drone-tone listening, not the integer Hz value.
+        Preset("Solfeggio 396 Hz", .solfeggio, subtitle: "Traditionally associated with releasing fear & guilt", [C(396), L(198),   R(594),    silent]),
+        Preset("Solfeggio 417 Hz", .solfeggio, subtitle: "Traditionally associated with breaking patterns",      [C(417), L(208.5), R(625.5),  silent]),
+        Preset("Solfeggio 528 Hz", .solfeggio, subtitle: "Traditionally called the \"miracle\" tone",             [C(528), L(264),   R(792),    silent]),
+        Preset("Solfeggio 639 Hz", .solfeggio, subtitle: "Traditionally associated with relational harmony",     [C(639), L(319.5), R(958.5),  silent]),
+        Preset("Solfeggio 741 Hz", .solfeggio, subtitle: "Traditionally associated with insight",                [C(741), L(370.5), R(1111.5), silent]),
+        Preset("Solfeggio 852 Hz", .solfeggio, subtitle: "Traditionally associated with restoring balance",      [C(852), L(426),   R(1278),   silent]),
 
         // Extended Solfeggio set + Verdi 432
-        Preset("Solfeggio 96 Hz",          .solfeggio, subtitle: "Sub-bass grounding anchor",    [C(96),  L(48),    R(192),  silent]),
-        Preset("Solfeggio 174 Hz",         .solfeggio, subtitle: "Pain relief / grounding",     [C(174), L(87),    R(348),  silent]),
-        Preset("Solfeggio 285 Hz",         .solfeggio, subtitle: "Tissue regeneration",         [C(285), L(142.5), R(570),  silent]),
-        Preset("Solfeggio 432 Hz (Verdi)", .solfeggio, subtitle: "Alternative natural-tuning A",[C(432), L(216),   R(864),  silent]),
-        Preset("Solfeggio 963 Hz",         .solfeggio, subtitle: "Crown / pineal",              [C(963), L(481.5), R(1926), silent])
+        Preset("Solfeggio 96 Hz",          .solfeggio, subtitle: "Sub-bass grounding tone",                       [C(96),  L(48),    R(192),  silent]),
+        Preset("Solfeggio 174 Hz",         .solfeggio, subtitle: "Traditionally associated with grounding",       [C(174), L(87),    R(348),  silent]),
+        Preset("Solfeggio 285 Hz",         .solfeggio, subtitle: "Traditionally associated with body restoration",[C(285), L(142.5), R(570),  silent]),
+        Preset("Solfeggio 432 Hz (Verdi)", .solfeggio, subtitle: "Alternative natural-tuning A",                  [C(432), L(216),   R(864),  silent]),
+        Preset("Solfeggio 963 Hz",         .solfeggio, subtitle: "Traditionally associated with the crown chakra",[C(963), L(481.5), R(1926), silent])
     ]
 
     static let byCategory: [Category: [Preset]] = {
