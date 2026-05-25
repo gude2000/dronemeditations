@@ -266,6 +266,7 @@ export const PRESETS = [
   { id: "solf_852", name: "Solfeggio 852 Hz", category: "Solfeggio", sub: "Returning to order",   voices: [C(852), L(426),   R(1278),   SILENT] },
 
   // Extended Solfeggio set + Verdi 432
+  { id: "solf_96",  name: "Solfeggio 96 Hz",          category: "Solfeggio", sub: "Sub-bass grounding anchor",       voices: [C(96),  L(48),    R(192),  SILENT] },
   { id: "solf_174", name: "Solfeggio 174 Hz",         category: "Solfeggio", sub: "Pain relief / grounding",         voices: [C(174), L(87),    R(348),  SILENT] },
   { id: "solf_285", name: "Solfeggio 285 Hz",         category: "Solfeggio", sub: "Tissue regeneration",             voices: [C(285), L(142.5), R(570),  SILENT] },
   { id: "solf_432", name: "Solfeggio 432 Hz (Verdi)", category: "Solfeggio", sub: "Alternative natural-tuning A",    voices: [C(432), L(216),   R(864),  SILENT] },
@@ -334,6 +335,107 @@ export const JOURNEYS = [
       { durationSec: 5 * 60,  presetId: "fifths_stack",     driftSceneId: "spiral",     hint: "Perfect fifths · spiral" },
       { durationSec: 10 * 60, presetId: "fibonacci_quartet",driftSceneId: "convergence",hint: "Fibonacci · converging" },
       { durationSec: 10 * 60, presetId: "octave_stack",     driftSceneId: "descend",    hint: "Octave stack · descending" }
+    ]
+  },
+  {
+    id: "bodyScan",
+    name: "Body Scan",
+    description: "Progressive solfeggio sweep — root chakra up through the crown. 20 min.",
+    stages: [
+      { durationSec: 4 * 60, presetId: "solf_174", driftSceneId: "off",       hint: "174 Hz · feet, grounding" },
+      { durationSec: 4 * 60, presetId: "solf_396", driftSceneId: "glacial",   hint: "396 Hz · root" },
+      { durationSec: 4 * 60, presetId: "solf_528", driftSceneId: "breathing", hint: "528 Hz · heart" },
+      { durationSec: 4 * 60, presetId: "solf_741", driftSceneId: "aurora",    hint: "741 Hz · throat / intuition" },
+      { durationSec: 4 * 60, presetId: "solf_963", driftSceneId: "tidal",     hint: "963 Hz · crown" }
+    ]
+  },
+  {
+    id: "cathedral",
+    name: "Cathedral",
+    description: "Sacred geometry — phi, just intonation, hypogeum resonance. 20 min.",
+    stages: [
+      { durationSec: 5 * 60,  presetId: "hypogeum",     driftSceneId: "aurora",   hint: "Hypogeum 111 Hz · aurora" },
+      { durationSec: 10 * 60, presetId: "just_major",   driftSceneId: "pendulum", hint: "Just major triad · pendulum" },
+      { durationSec: 5 * 60,  presetId: "phi_field",    driftSceneId: "glacial",  hint: "Phi field · settle" }
+    ]
+  },
+  {
+    id: "mountainClimb",
+    name: "Mountain Climb",
+    description: "Slowly ascending energy from deep root to crown. 30 min.",
+    stages: [
+      { durationSec: 10 * 60, presetId: "om",       driftSceneId: "off",      hint: "OM 136.1 Hz · steady" },
+      { durationSec: 10 * 60, presetId: "solf_528", driftSceneId: "ascend",   hint: "528 Hz · ascending" },
+      { durationSec: 10 * 60, presetId: "solf_963", driftSceneId: "spiral",   hint: "963 Hz · crown spiral" }
+    ]
+  },
+  {
+    id: "vespers",
+    name: "Vespers",
+    description: "Evening contemplation — mystic chords descending into rest. 20 min.",
+    stages: [
+      { durationSec: 5 * 60,  presetId: "solf_432",   driftSceneId: "downUp",   hint: "Verdi 432 · breath" },
+      { durationSec: 10 * 60, presetId: "scriabin_1", driftSceneId: "pendulum", hint: "Scriabin mystic · pendulum" },
+      { durationSec: 5 * 60,  presetId: "sable",      driftSceneId: "descend",  hint: "Sable's chord · settling" }
+    ]
+  },
+  {
+    id: "crystalCave",
+    name: "Crystal Cave",
+    description: "Bright high-frequency textures with stereo motion. 25 min.",
+    stages: [
+      { durationSec: 10 * 60, presetId: "just_major",        driftSceneId: "aurora",   hint: "Just major · aurora" },
+      { durationSec: 10 * 60, presetId: "fibonacci_quartet", driftSceneId: "crossing", hint: "Fibonacci · crossing paths" },
+      { durationSec: 5 * 60,  presetId: "phi_aug",           driftSceneId: "glacial",  hint: "Phi-augmented · resolve" }
+    ]
+  },
+  {
+    id: "phiSpiral",
+    name: "Phi Spiral",
+    description: "Golden-ratio frequencies, slowly turning. 30 min.",
+    stages: [
+      { durationSec: 10 * 60, presetId: "phi_field",  driftSceneId: "spiral",    hint: "Phi field · spiral" },
+      { durationSec: 10 * 60, presetId: "phi_aug",    driftSceneId: "breathing", hint: "Phi-augmented · breathing" },
+      { durationSec: 10 * 60, presetId: "sable",      driftSceneId: "downUp",    hint: "Sable · breath" }
+    ]
+  },
+  {
+    id: "quartz",
+    name: "Quartz",
+    description: "Clean integer-ratio harmonics — the bones of pitched sound. 15 min.",
+    stages: [
+      { durationSec: 5 * 60, presetId: "harmonic_series",  driftSceneId: "off",          hint: "1:2:3:4 · still" },
+      { durationSec: 5 * 60, presetId: "octave_stack",     driftSceneId: "ascend",       hint: "Octave stack · ascending" },
+      { durationSec: 5 * 60, presetId: "fibonacci_quartet",driftSceneId: "convergence",  hint: "Fibonacci · converging" }
+    ]
+  },
+  {
+    id: "lullaby",
+    name: "Lullaby",
+    description: "Short sleep-onset session — theta + delta carriers. 10 min.",
+    stages: [
+      { durationSec: 5 * 60, presetId: "theta_tri", driftSceneId: "breathing", hint: "Theta triad · breathing" },
+      { durationSec: 5 * 60, presetId: "delta_4",   driftSceneId: "downUp",    hint: "Delta 4 Hz · into sleep" }
+    ]
+  },
+  {
+    id: "tibetanBowl",
+    name: "Tibetan Bowl",
+    description: "Classic drone meditation — three deep tones, glacial throughout. 15 min.",
+    stages: [
+      { durationSec: 5 * 60, presetId: "om",       driftSceneId: "glacial", hint: "OM 136.1 Hz · settle" },
+      { durationSec: 5 * 60, presetId: "hypogeum", driftSceneId: "glacial", hint: "Hypogeum 111 Hz · deepen" },
+      { durationSec: 5 * 60, presetId: "earth",    driftSceneId: "glacial", hint: "Earth Schumann · resolve" }
+    ]
+  },
+  {
+    id: "stormFront",
+    name: "Storm Front",
+    description: "Tension building then resolving — Ligeti clusters into convergence. 12 min.",
+    stages: [
+      { durationSec: 4 * 60, presetId: "ligeti_1", driftSceneId: "glacial",     hint: "Chromatic cluster · wander" },
+      { durationSec: 4 * 60, presetId: "ligeti_3", driftSceneId: "crossing",    hint: "Quartertone cluster · crossing" },
+      { durationSec: 4 * 60, presetId: "om",       driftSceneId: "convergence", hint: "OM · convergence resolve" }
     ]
   }
 ];

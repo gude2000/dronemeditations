@@ -802,15 +802,23 @@ function syncJourneyPill() {
   if (!s.activeJourneyId) {
     value.textContent = "Off";
     pill.classList.remove("active");
-    return;
+  } else {
+    const j = JOURNEYS.find((x) => x.id === s.activeJourneyId);
+    if (j) {
+      const stage = j.stages[s.journeyStageIndex];
+      const stageNum = Math.min(s.journeyStageIndex + 1, j.stages.length);
+      value.textContent = `${j.name} · ${stageNum}/${j.stages.length}`;
+      pill.classList.add("active");
+      pill.title = stage ? `${j.name}\nStage ${stageNum}/${j.stages.length}: ${stage.hint}` : j.name;
+    } else {
+      value.textContent = "Off";
+      pill.classList.remove("active");
+    }
   }
-  const j = JOURNEYS.find((x) => x.id === s.activeJourneyId);
-  if (!j) { value.textContent = "Off"; pill.classList.remove("active"); return; }
-  const stage = j.stages[s.journeyStageIndex];
-  const stageNum = Math.min(s.journeyStageIndex + 1, j.stages.length);
-  value.textContent = `${j.name} · ${stageNum}/${j.stages.length}`;
-  pill.classList.add("active");
-  pill.title = stage ? `${j.name}\nStage ${stageNum}/${j.stages.length}: ${stage.hint}` : j.name;
+  // If the journey sheet is currently open, rebuild its card list so the
+  // Start/Stop button labels reflect current state instead of stale closures.
+  const sheet = document.getElementById("journey-sheet");
+  if (sheet && !sheet.hidden) buildJourneyList();
 }
 
 function buildKeyGrid() {

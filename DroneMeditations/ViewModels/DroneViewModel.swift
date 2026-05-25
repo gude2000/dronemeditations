@@ -592,6 +592,11 @@ final class DroneViewModel: ObservableObject {
         activeJourneyId = nil
         journeyStageIndex = 0
         journeyStageEndsAt = nil
+        // The journey IS the user's playback context — stopping it should
+        // fade audio out too, otherwise tapping Stop gives no audible
+        // feedback. The state.stopped Combine sink calls stopJourney back,
+        // but the activeJourneyId guard above prevents infinite recursion.
+        if controller.state != .stopped { controller.stop() }
     }
 
     private func advanceJourneyStage() {

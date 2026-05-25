@@ -1088,7 +1088,16 @@ function stopJourney() {
   state.activeJourneyId = null;
   state.journeyStageIndex = 0;
   state.journeyStageEndsAt = 0;
-  renderAll();
+  // The journey *is* the user's listening context, so stopping it should
+  // fade audio out — otherwise tapping Stop gives no audible feedback and
+  // the user assumes the button is broken. We clear our state FIRST so the
+  // transport's own stop()→stopJourney() guard sees no active journey and
+  // doesn't recurse.
+  if (state.transportState !== "stopped") {
+    actions.stop();
+  } else {
+    renderAll();
+  }
 }
 
 function advanceJourneyStage() {

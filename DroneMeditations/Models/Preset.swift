@@ -125,6 +125,7 @@ extension Preset {
         Preset("Solfeggio 852 Hz", .solfeggio, subtitle: "Returning to order",      [C(852), L(426), R(1278), silent]),
 
         // Extended Solfeggio set + Verdi 432
+        Preset("Solfeggio 96 Hz",          .solfeggio, subtitle: "Sub-bass grounding anchor",    [C(96),  L(48),    R(192),  silent]),
         Preset("Solfeggio 174 Hz",         .solfeggio, subtitle: "Pain relief / grounding",     [C(174), L(87),    R(348),  silent]),
         Preset("Solfeggio 285 Hz",         .solfeggio, subtitle: "Tissue regeneration",         [C(285), L(142.5), R(570),  silent]),
         Preset("Solfeggio 432 Hz (Verdi)", .solfeggio, subtitle: "Alternative natural-tuning A",[C(432), L(216),   R(864),  silent]),
