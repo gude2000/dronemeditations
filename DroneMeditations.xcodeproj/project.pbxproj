@@ -29,6 +29,8 @@
 		B00000000000000000000019 /* ChladniMiniControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000019 /* ChladniMiniControls.swift */; };
 		B00000000000000000000020 /* ShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000020 /* ShareSheet.swift */; };
 		B00000000000000000000021 /* NowPlayingBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000021 /* NowPlayingBridge.swift */; };
+		B00000000000000000000022 /* MicPitchDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000022 /* MicPitchDetector.swift */; };
+		B00000000000000000000023 /* ListenSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000023 /* ListenSheetView.swift */; };
 		B00000000000000000000014 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000014 /* Assets.xcassets */; };
 		B00000000000000000000016 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000016 /* Preview Assets.xcassets */; };
 		B00000000000000000000017 /* UserPreset.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000017 /* UserPreset.swift */; };
@@ -59,6 +61,8 @@
 		F00000000000000000000019 /* ChladniMiniControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChladniMiniControls.swift; sourceTree = "<group>"; };
 		F00000000000000000000020 /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheet.swift; sourceTree = "<group>"; };
 		F00000000000000000000021 /* NowPlayingBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingBridge.swift; sourceTree = "<group>"; };
+		F00000000000000000000022 /* MicPitchDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicPitchDetector.swift; sourceTree = "<group>"; };
+		F00000000000000000000023 /* ListenSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListenSheetView.swift; sourceTree = "<group>"; };
 		F00000000000000000000014 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F00000000000000000000015 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		F00000000000000000000016 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
@@ -121,6 +125,7 @@
 				F00000000000000000000009 /* AudioEngine.swift */,
 				F0000000000000000000000A /* DroneController.swift */,
 				F00000000000000000000021 /* NowPlayingBridge.swift */,
+				F00000000000000000000022 /* MicPitchDetector.swift */,
 				F00000000000000000000018 /* UserPresetStore.swift */,
 			);
 			path = Audio;
@@ -147,6 +152,7 @@
 				F00000000000000000000013 /* ChladniView.swift */,
 				F00000000000000000000019 /* ChladniMiniControls.swift */,
 				F00000000000000000000020 /* ShareSheet.swift */,
+				F00000000000000000000023 /* ListenSheetView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -248,6 +254,8 @@
 				B00000000000000000000009 /* AudioEngine.swift in Sources */,
 				B0000000000000000000000A /* DroneController.swift in Sources */,
 				B00000000000000000000021 /* NowPlayingBridge.swift in Sources */,
+				B00000000000000000000022 /* MicPitchDetector.swift in Sources */,
+				B00000000000000000000023 /* ListenSheetView.swift in Sources */,
 				B0000000000000000000000B /* DroneViewModel.swift in Sources */,
 				B0000000000000000000000C /* ContentView.swift in Sources */,
 				B0000000000000000000000D /* ControlsOverlay.swift in Sources */,

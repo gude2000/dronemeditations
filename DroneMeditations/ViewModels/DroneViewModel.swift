@@ -38,6 +38,11 @@ final class DroneViewModel: ObservableObject {
     /// pipelines below.
     private(set) var nowPlaying: NowPlayingBridge!
 
+    /// Mic-driven pitch detection ("tune to room"). Lazily reconfigures the
+    /// audio session for input on first start; restores playback-only when
+    /// stopped so the mic indicator doesn't linger.
+    private(set) var micPitch: MicPitchDetector!
+
     private var cancellables = Set<AnyCancellable>()
 
     init() {
@@ -47,6 +52,7 @@ final class DroneViewModel: ObservableObject {
         pushAllOscillatorsToEngine()
         audioEngine.masterVolume = Float(masterVolume)
         self.nowPlaying = NowPlayingBridge(controller: controller, vm: self)
+        self.micPitch = MicPitchDetector(engine: engine)
 
         // Mirror transport + preset changes into Now Playing.
         controller.$state.sink { [weak self] _ in

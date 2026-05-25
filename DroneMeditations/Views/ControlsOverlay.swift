@@ -6,6 +6,7 @@ struct ControlsOverlay: View {
     @EnvironmentObject var vm: DroneViewModel
     @State private var showingChordSheet = false
     @State private var showingPresetSheet = false
+    @State private var showingListenSheet = false
 
     // iPhone landscape reports verticalSizeClass == .compact. iPad and iPhone
     // portrait both report .regular. Use this to switch to space-efficient
@@ -49,6 +50,12 @@ struct ControlsOverlay: View {
         }
         .sheet(isPresented: $showingPresetSheet) {
             PresetPickerView()
+                .environmentObject(vm)
+        }
+        .sheet(isPresented: $showingListenSheet, onDismiss: {
+            vm.micPitch.stop()
+        }) {
+            ListenSheetView()
                 .environmentObject(vm)
         }
     }
@@ -97,6 +104,13 @@ struct ControlsOverlay: View {
                     vm.toggleDrift()
                 } label: {
                     driftPill
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    showingListenSheet = true
+                } label: {
+                    pillLabel(title: "Listen", value: "Tune to room", system: "mic.circle")
                 }
                 .buttonStyle(.plain)
             }
