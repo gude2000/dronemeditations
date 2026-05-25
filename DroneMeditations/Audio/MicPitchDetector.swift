@@ -41,11 +41,9 @@ final class MicPitchDetector: ObservableObject {
         // 1. Explicitly request mic permission. iOS won't prompt just from
         //    changing AVAudioSession category — without this, the session
         //    quietly fails to record and we get silent buffers.
-        let granted: Bool = await withCheckedContinuation { cont in
-            AVAudioSession.sharedInstance().requestRecordPermission { ok in
-                cont.resume(returning: ok)
-            }
-        }
+        //    iOS 17+ API (we deploy at 17.0 minimum). The older
+        //    AVAudioSession.requestRecordPermission was deprecated in 17.0.
+        let granted = await AVAudioApplication.requestRecordPermission()
         guard granted else {
             lastError = "Microphone permission denied. Enable it in Settings → Drone Meditations."
             return
