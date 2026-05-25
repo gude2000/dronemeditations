@@ -6,7 +6,7 @@ import {
   CHORDS, CHORD_CATEGORIES, PRESETS, PRESET_CATEGORIES,
   FREQ_MIN, FREQ_MAX, frequencyHue
 } from "./music.js";
-import { startListening, stopListening, freqToNote } from "./pitch-detect.js";
+import { startListening, stopListening, freqToNote, listInputDevices, switchInputDevice } from "./pitch-detect.js";
 
 const WAVEFORM_SVG = {
   sine:     '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12c3-7 7-7 10 0s7 7 10 0"/></svg>',
@@ -577,12 +577,42 @@ async function openListenSheet() {
   try {
     await startListening(onPitchTick);
     status.textContent = "Listening — hold a steady tone";
+    await populateInputDevices();
   } catch (err) {
     const msg = err && err.message ? err.message : "permission denied";
     status.textContent = "Microphone unavailable — " + msg;
     document.getElementById("listen-pill").classList.remove("listening");
     console.warn("[listen] getUserMedia failed:", err);
   }
+}
+
+// Populate the audio-input dropdown. Only show it when more than one
+// device is available so it doesn't take screen real estate for single-
+// mic users. Switching restarts the stream with the chosen deviceId.
+async function populateInputDevices() {
+  const row = document.getElementById("listen-source-row");
+  const select = document.getElementById("listen-source");
+  const devices = await listInputDevices();
+  if (devices.length < 2) { row.hidden = true; return; }
+  select.innerHTML = "";
+  for (const d of devices) {
+    const opt = document.createElement("option");
+    opt.value = d.deviceId;
+    opt.textContent = d.label;
+    select.appendChild(opt);
+  }
+  row.hidden = false;
+  select.onchange = async () => {
+    const status = document.getElementById("listen-status");
+    status.textContent = "Switching microphone…";
+    resetReadout();
+    try {
+      await switchInputDevice(select.value, onPitchTick);
+      status.textContent = "Listening — hold a steady tone";
+    } catch (err) {
+      status.textContent = "Couldn't switch — " + (err.message || "device unavailable");
+    }
+  };
 }
 
 function onPitchTick({ hz, level }) {

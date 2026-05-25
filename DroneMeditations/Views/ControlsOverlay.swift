@@ -203,15 +203,51 @@ struct ControlsOverlay: View {
 
             Spacer(minLength: 6)
 
-            Button { showingChordSheet = true } label: {
-                pillLabel(title: "Chord", value: "\(vm.currentKey.displayName) \(vm.currentChord.name)", system: "music.note.list")
-            }
-            .buttonStyle(.plain)
+            // All pills in a horizontal scroll so they fit on narrow
+            // landscape screens — previously only Chord + Preset were
+            // visible; Drift/Listen/Perform were cut off.
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    Button { showingChordSheet = true } label: {
+                        pillLabel(title: "Chord", value: "\(vm.currentKey.displayName) \(vm.currentChord.name)", system: "music.note.list")
+                    }
+                    .buttonStyle(.plain)
 
-            Button { showingPresetSheet = true } label: {
-                pillLabel(title: "Preset", value: vm.activePresetName ?? "—", system: "sparkles")
+                    Button { showingPresetSheet = true } label: {
+                        pillLabel(title: "Preset", value: vm.activePresetName ?? "—", system: "sparkles")
+                    }
+                    .buttonStyle(.plain)
+
+                    Menu {
+                        Section {
+                            ForEach(DroneViewModel.driftScenes.filter { !$0.isCoordinated }) { scene in
+                                sceneMenuButton(scene)
+                            }
+                        }
+                        Section("Coordinated scenes") {
+                            ForEach(DroneViewModel.driftScenes.filter { $0.isCoordinated }) { scene in
+                                sceneMenuButton(scene)
+                            }
+                        }
+                    } label: {
+                        driftPill
+                    }
+                    .menuStyle(.borderlessButton)
+
+                    Button { showingListenSheet = true } label: {
+                        pillLabel(title: "Listen", value: "Tune", system: "mic.circle")
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.22)) { vm.performanceMode = true }
+                    } label: {
+                        pillLabel(title: "Perform", value: "Cymatics", system: "rectangle.fill.on.rectangle.fill")
+                    }
+                    .buttonStyle(.plain)
+                }
             }
-            .buttonStyle(.plain)
+            .scrollClipDisabled()  // let menus open beyond the scroll bounds
 
             Button { vm.showChladni.toggle() } label: {
                 Image(systemName: vm.showChladni ? "circles.hexagongrid.fill" : "circles.hexagongrid")

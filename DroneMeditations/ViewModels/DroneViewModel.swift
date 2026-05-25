@@ -542,6 +542,20 @@ final class DroneViewModel: ObservableObject {
             setLfoDepth(Double.random(in: 0...0.6), for: index, lfoIndex: lfo)
         }
 
+        // Drift — random pitch + pan motion. "static" twice-weighted in
+        // each table so ~30% of voices in a roll come out quiet rather
+        // than every voice flailing.
+        let pitchPool: [DriftVoiceConfig.PitchMode] =
+            [.static, .static, .up, .down, .upDown, .downUp, .wave, .glacial]
+        let panPool: [DriftVoiceConfig.PanMode] =
+            [.static, .static, .sweepLR, .sweepRL, .pendulum, .antiPendulum, .glacial]
+        oscillators[index].drift.pitchAmount = Double.random(in: 0.25...1.5)
+        oscillators[index].drift.pitchPhase  = Double.random(in: 0...1)
+        oscillators[index].drift.panAmount   = Double.random(in: 0.5...1.0)
+        oscillators[index].drift.panPhase    = Double.random(in: 0...1)
+        setVoicePitchDrift(index, mode: pitchPool.randomElement()!)
+        setVoicePanDrift(index, mode: panPool.randomElement()!)
+
         // We've drifted away from any preset.
         activePresetName = nil
     }

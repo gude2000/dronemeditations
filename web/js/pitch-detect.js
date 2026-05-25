@@ -27,15 +27,15 @@ let rafId = null;
  * stable pitch) and level is the buffer RMS [0..1] for a live audio-level
  * indicator so the user can see the mic is alive even before a pitch lands.
  */
-export async function startListening(onUpdate) {
+export async function startListening(onUpdate, deviceId = null) {
   if (micStream) return;
-  micStream = await navigator.mediaDevices.getUserMedia({
-    audio: {
-      echoCancellation: false,
-      noiseSuppression: false,
-      autoGainControl: false
-    }
-  });
+  const audioConstraints = {
+    echoCancellation: false,
+    noiseSuppression: false,
+    autoGainControl: false
+  };
+  if (deviceId) audioConstraints.deviceId = { exact: deviceId };
+  micStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
   const AC = window.AudioContext || window.webkitAudioContext;
   micCtx = new AC();
   // Critical: AudioContext often spawns suspended in modern browsers
@@ -133,6 +133,30 @@ function autocorrelate(buf, sampleRate) {
     }
   }
   return sampleRate / refinedLag;
+}
+
+/**
+ * Enumerate available audio input devices. Labels are only populated after
+ * the user has granted mic permission at least once in this origin/session,
+ * so it's best to call this AFTER startListening() has succeeded once.
+ */
+export async function listInputDevices() {
+  if (!navigator.mediaDevices?.enumerateDevices) return [];
+  const all = await navigator.mediaDevices.enumerateDevices();
+  return all
+    .filter((d) => d.kind === "audioinput")
+    .map((d, i) => ({
+      deviceId: d.deviceId,
+      label: d.label || `Microphone ${i + 1}`
+    }));
+}
+
+/// Stop and immediately restart the mic stream on a different device.
+export async function switchInputDevice(deviceId, onUpdate) {
+  stopListening();
+  // Brief pause so the previous track has time to release the hardware.
+  await new Promise((r) => setTimeout(r, 120));
+  await startListening(onUpdate, deviceId);
 }
 
 // Convert a frequency to its nearest 12-TET note + cents-off.

@@ -227,6 +227,24 @@ body:has(.controls.hidden) #zoom-wrap,
   margin-bottom: 12px;
   min-height: 16px;
 }
+.listen-source-row {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 12px;
+}
+.listen-source-row label {
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+.listen-source-row select {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+}
 .listen-readout {
   display: flex; flex-direction: column; align-items: center;
   gap: 4px;

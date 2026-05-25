@@ -510,6 +510,20 @@ const actions = {
       actions.setLfoDepth(index, lfo, rand(0, 0.6));
     }
 
+    // Drift — random pitch + pan motion. 35% chance of static for either
+    // dimension so a randomize roll often produces a partially-quiet voice
+    // mixed with movement, rather than 4 voices all wildly drifting.
+    const pitchDriftModes = ["static", "static", "up", "down", "upDown", "downUp", "wave", "glacial"];
+    const panDriftModes   = ["static", "static", "sweepLR", "sweepRL", "pendulum", "antiPendulum", "glacial"];
+    o.drift.pitchAmount = rand(0.25, 1.5);
+    o.drift.pitchPhase  = Math.random();
+    o.drift.panAmount   = rand(0.5, 1.0);
+    o.drift.panPhase    = Math.random();
+    // Use the public setters so the drift timer reconciles itself and the
+    // header pill flips to "Custom" if voices no longer match a scene.
+    actions.setVoicePitchDrift(index, choose(pitchDriftModes));
+    actions.setVoicePanDrift(index, choose(panDriftModes));
+
     // Clear preset selection — randomization makes us "dirty".
     state.activePresetName = null;
     renderAll();
