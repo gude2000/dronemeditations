@@ -657,9 +657,21 @@ body.performance:hover { cursor: default; }
   font-size: 10px;
   color: rgba(255, 255, 255, 0.35);
   letter-spacing: 0.01em;
-  pointer-events: none;
+  pointer-events: none;  /* default: text doesn't intercept taps */
   z-index: 6;
   user-select: none;
+}
+/* Re-enable hit-testing on the inline Manual link so users can click it. */
+.copyright .copyright-link {
+  pointer-events: auto;
+  color: rgba(255, 255, 255, 0.55);
+  text-decoration: none;
+  border-bottom: 1px dotted rgba(255, 255, 255, 0.20);
+  margin-left: 2px;
+}
+.copyright .copyright-link:hover {
+  color: rgba(143, 185, 217, 0.95);
+  border-bottom-color: rgba(143, 185, 217, 0.60);
 }
 
 /* Modal sheets. */

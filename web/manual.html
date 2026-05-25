@@ -1,0 +1,812 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Drone Meditations — User Manual</title>
+<meta name="description" content="The complete graphic user manual for Drone Meditations: 4-oscillator drone synth with physically-calibrated Chladni visualization. Web + iOS." />
+<link rel="icon" href="data:," />
+<style>
+  :root {
+    --bg: #050505;
+    --panel: rgba(255,255,255,0.04);
+    --panel-edge: rgba(255,255,255,0.10);
+    --ink: #f3f3f3;
+    --muted: rgba(243,243,243,0.62);
+    --dim: rgba(243,243,243,0.42);
+    --accent: #8fb9d9;
+    --accent-2: #cfb6ea;
+    --warm: #ffc878;
+    --hot: #ff9892;
+    --green: #9fdfb4;
+    --max: 900px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background:
+      radial-gradient(1200px 700px at 80% -10%, rgba(143,185,217,0.10), transparent 60%),
+      radial-gradient(800px 500px at -10% 110%, rgba(207,182,234,0.08), transparent 60%),
+      var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", Segoe UI, Roboto, sans-serif;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid rgba(143,185,217,0.30); }
+  a:hover { border-bottom-color: var(--accent); }
+
+  header.hero {
+    padding: 60px 24px 30px;
+    text-align: center;
+    max-width: var(--max);
+    margin: 0 auto;
+  }
+  header.hero h1 {
+    margin: 0;
+    font-size: 38px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    background: linear-gradient(120deg, #fff 0%, var(--accent) 50%, var(--accent-2) 100%);
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent;
+  }
+  header.hero .tagline { color: var(--muted); margin-top: 8px; font-size: 15px; }
+  header.hero .meta { color: var(--dim); margin-top: 6px; font-size: 12px; letter-spacing: 0.04em; }
+
+  nav.toc {
+    max-width: var(--max);
+    margin: 30px auto 0;
+    padding: 16px 22px;
+    background: var(--panel);
+    border: 1px solid var(--panel-edge);
+    border-radius: 14px;
+    columns: 2;
+    column-gap: 30px;
+    font-size: 13px;
+  }
+  nav.toc h3 {
+    margin: 0 0 8px;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    column-span: all;
+  }
+  nav.toc ol {
+    margin: 0; padding-left: 18px;
+  }
+  nav.toc li { margin: 3px 0; break-inside: avoid; }
+
+  main {
+    max-width: var(--max);
+    margin: 0 auto;
+    padding: 24px 24px 100px;
+  }
+
+  section {
+    margin: 38px 0;
+    padding: 26px 28px;
+    background: var(--panel);
+    border: 1px solid var(--panel-edge);
+    border-radius: 18px;
+    scroll-margin-top: 16px;
+  }
+  section h2 {
+    font-size: 22px;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+    color: #fff;
+  }
+  section h2 .num {
+    display: inline-block;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    font-size: 14px;
+    color: var(--accent);
+    margin-right: 10px;
+    opacity: 0.85;
+  }
+  section .lede { color: var(--muted); margin: 0 0 18px; font-size: 14px; }
+  section h3 {
+    font-size: 16px;
+    margin: 22px 0 6px;
+    color: var(--accent);
+    font-weight: 600;
+    letter-spacing: 0.005em;
+  }
+  section h4 {
+    font-size: 13px;
+    margin: 14px 0 4px;
+    color: #fff;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    opacity: 0.85;
+  }
+  p { margin: 8px 0; }
+  ul, ol { padding-left: 22px; margin: 8px 0; }
+  li { margin: 4px 0; }
+
+  .callout {
+    background: rgba(143,185,217,0.06);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin: 12px 0;
+    font-size: 13px;
+    color: var(--ink);
+  }
+  .callout.warn { background: rgba(255,200,120,0.06); border-color: var(--warm); }
+  .callout.note { background: rgba(159,223,180,0.05); border-color: var(--green); }
+  .callout strong { color: var(--accent); }
+  .callout.warn strong { color: var(--warm); }
+  .callout.note strong { color: var(--green); }
+
+  kbd {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    font-size: 11px;
+    padding: 2px 6px;
+    background: rgba(255,255,255,0.10);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 5px;
+    color: #fff;
+  }
+  code {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    font-size: 12.5px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 4px;
+    padding: 1px 5px;
+    color: var(--accent);
+  }
+
+  .pill-row {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin: 10px 0;
+  }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--panel-edge);
+    font-size: 12px;
+    color: #fff;
+  }
+  .pill .swatch {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent);
+  }
+  .pill.warm .swatch { background: var(--warm); }
+  .pill.hot .swatch { background: var(--hot); }
+  .pill.green .swatch { background: var(--green); }
+  .pill.cyan .swatch { background: #78e6dc; }
+  .pill.pur .swatch { background: var(--accent-2); }
+
+  .grid-2 {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin: 14px 0;
+  }
+  @media (max-width: 720px) { .grid-2 { grid-template-columns: 1fr; } }
+
+  .card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--panel-edge);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .card h4 { margin-top: 0; }
+
+  /* Diagram styling */
+  .diagram {
+    margin: 18px -4px;
+    text-align: center;
+  }
+  .diagram svg {
+    max-width: 100%;
+    height: auto;
+    border-radius: 12px;
+    background: rgba(0,0,0,0.45);
+    border: 1px solid var(--panel-edge);
+  }
+  figcaption {
+    text-align: center;
+    font-size: 11.5px;
+    color: var(--muted);
+    margin-top: 8px;
+    font-style: italic;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 13px;
+  }
+  th, td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--panel-edge);
+    vertical-align: top;
+  }
+  th {
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  td:first-child { white-space: nowrap; color: var(--warm); font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12px; }
+
+  footer {
+    text-align: center;
+    color: var(--dim);
+    font-size: 11px;
+    padding: 30px 24px 60px;
+  }
+  footer .legal { margin-top: 6px; color: var(--muted); }
+
+  /* Anchors */
+  section[id] > h2 { position: relative; }
+  section[id]:target {
+    box-shadow: 0 0 0 1px var(--accent), 0 0 30px rgba(143,185,217,0.20);
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <h1>Drone Meditations</h1>
+  <div class="tagline">A 4-oscillator drone synth with physically-calibrated Chladni visualization.</div>
+  <div class="meta">User Manual · web + iOS</div>
+</header>
+
+<nav class="toc" aria-label="Contents">
+  <h3>Contents</h3>
+  <ol>
+    <li><a href="#start">Quick start</a></li>
+    <li><a href="#anatomy">Anatomy of the screen</a></li>
+    <li><a href="#oscillators">Oscillator strips</a></li>
+    <li><a href="#chord">Chord, key, octave</a></li>
+    <li><a href="#tuning">Tuning systems</a></li>
+    <li><a href="#presets">Presets &amp; voice presets</a></li>
+    <li><a href="#fx">Per-voice FX (filter, delay, reverb)</a></li>
+    <li><a href="#lfos">The 4 LFOs</a></li>
+    <li><a href="#samples">Samples</a></li>
+    <li><a href="#pills">Drift · Listen · Perform · Journey · Gallery</a></li>
+    <li><a href="#chladni">Chladni visualization</a></li>
+    <li><a href="#popup">Pop-out Chladni (web)</a></li>
+    <li><a href="#spectrum">Spectrum analyzer</a></li>
+    <li><a href="#transport">Transport &amp; recording</a></li>
+    <li><a href="#midi">MIDI input (web)</a></li>
+    <li><a href="#ios">iOS-only features</a></li>
+    <li><a href="#shortcuts">Keyboard shortcuts (web)</a></li>
+    <li><a href="#solfeggio">A note on Solfeggio claims</a></li>
+    <li><a href="#tips">Tips &amp; gotchas</a></li>
+    <li><a href="#credits">Credits</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<!-- ───────────────── Quick start ───────────────── -->
+<section id="start">
+  <h2><span class="num">1</span>Quick start</h2>
+  <p class="lede">Tap <strong>Play</strong>. Tweak. Breathe.</p>
+
+  <ol>
+    <li>Open the app (web at <a href="https://dronemeditations.com">dronemeditations.com</a> or the iOS app).</li>
+    <li>Press the round <strong>play</strong> button at the bottom. A 30-min session timer starts; audio fades in.</li>
+    <li>Try the <strong>PRESET</strong> pill — start with "Earth Drone" or "Tibetan Bowl."</li>
+    <li>To explore: drag any oscillator's <strong>frequency</strong> slider; toggle <strong>S</strong> (solo) and <strong>M</strong> (mute) to listen to one voice at a time.</li>
+    <li>Tap the screen anywhere outside controls to hide the panel and watch the <strong>Chladni</strong> visualization respond.</li>
+  </ol>
+
+  <div class="callout">
+    <strong>Headphones recommended.</strong> Many presets use stereo panning, binaural beats, or ping-pong delay that only land properly in stereo.
+  </div>
+</section>
+
+<!-- ───────────────── Anatomy ───────────────── -->
+<section id="anatomy">
+  <h2><span class="num">2</span>Anatomy of the screen</h2>
+  <p class="lede">Four floating zones: header, pill row, oscillator strips, transport.</p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 720 380" xmlns="http://www.w3.org/2000/svg" aria-label="Annotated screen anatomy">
+      <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#0a0a14"/>
+          <stop offset="100%" stop-color="#1a0a1f"/>
+        </linearGradient>
+        <radialGradient id="blob" cx="40%" cy="50%" r="40%">
+          <stop offset="0%" stop-color="#8fb9d9" stop-opacity="0.45"/>
+          <stop offset="100%" stop-color="#8fb9d9" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="blob2" cx="70%" cy="60%" r="35%">
+          <stop offset="0%" stop-color="#cfb6ea" stop-opacity="0.40"/>
+          <stop offset="100%" stop-color="#cfb6ea" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <rect width="720" height="380" rx="14" fill="url(#bg)"/>
+      <rect width="720" height="380" rx="14" fill="url(#blob)"/>
+      <rect width="720" height="380" rx="14" fill="url(#blob2)"/>
+
+      <!-- header -->
+      <rect x="20" y="14" width="680" height="38" rx="10" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.10)"/>
+      <text x="32" y="32" fill="#fff" font-family="-apple-system" font-size="13" font-weight="600">Drone Meditations</text>
+      <text x="32" y="46" fill="rgba(255,255,255,0.55)" font-size="9">12-TET · Oct 4</text>
+      <circle cx="640" cy="33" r="11" fill="rgba(255,255,255,0.08)"/>
+      <circle cx="670" cy="33" r="11" fill="rgba(255,255,255,0.08)"/>
+
+      <!-- pills -->
+      <g font-family="-apple-system" font-size="9" fill="#fff">
+        <rect x="20" y="62" width="62" height="22" rx="11" fill="rgba(255,255,255,0.06)"/><text x="51" y="76" text-anchor="middle">CHORD</text>
+        <rect x="88" y="62" width="62" height="22" rx="11" fill="rgba(255,255,255,0.06)"/><text x="119" y="76" text-anchor="middle">PRESET</text>
+        <rect x="156" y="62" width="62" height="22" rx="11" fill="rgba(140,195,255,0.20)" stroke="rgba(140,195,255,0.40)"/><text x="187" y="76" text-anchor="middle">DRIFT</text>
+        <rect x="224" y="62" width="62" height="22" rx="11" fill="rgba(255,255,255,0.06)"/><text x="255" y="76" text-anchor="middle">LISTEN</text>
+        <rect x="292" y="62" width="62" height="22" rx="11" fill="rgba(255,255,255,0.06)"/><text x="323" y="76" text-anchor="middle">PERFORM</text>
+        <rect x="360" y="62" width="62" height="22" rx="11" fill="rgba(255,195,120,0.20)" stroke="rgba(255,195,120,0.40)"/><text x="391" y="76" text-anchor="middle">JOURNEY</text>
+        <rect x="428" y="62" width="62" height="22" rx="11" fill="rgba(120,230,220,0.20)" stroke="rgba(120,230,220,0.40)"/><text x="459" y="76" text-anchor="middle">GALLERY</text>
+      </g>
+
+      <!-- 4 osc strips -->
+      <g>
+        <rect x="20" y="96" width="680" height="58" rx="10" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)"/>
+        <text x="34" y="112" fill="#fff" font-size="10" font-weight="600">OSC 1 · sine</text>
+        <text x="34" y="125" fill="rgba(255,255,255,0.6)" font-size="9">220.00 Hz</text>
+        <rect x="32" y="135" width="500" height="6" rx="3" fill="rgba(255,255,255,0.10)"/>
+        <rect x="32" y="135" width="180" height="6" rx="3" fill="#8fb9d9"/>
+        <g transform="translate(540,108)" font-size="9" fill="#fff">
+          <rect x="0"  y="0" width="20" height="20" rx="6" fill="rgba(255,255,255,0.08)"/><text x="10" y="14" text-anchor="middle">S</text>
+          <rect x="24" y="0" width="20" height="20" rx="6" fill="rgba(255,255,255,0.08)"/><text x="34" y="14" text-anchor="middle">M</text>
+          <rect x="48" y="0" width="20" height="20" rx="6" fill="rgba(255,255,255,0.08)"/><text x="58" y="14" text-anchor="middle">🎲</text>
+          <rect x="72" y="0" width="20" height="20" rx="6" fill="rgba(255,255,255,0.08)"/><text x="82" y="14" text-anchor="middle">⭐</text>
+          <rect x="96" y="0" width="20" height="20" rx="6" fill="rgba(255,255,255,0.08)"/><text x="106" y="14" text-anchor="middle">🌀</text>
+        </g>
+      </g>
+      <rect x="20" y="160" width="680" height="44" rx="10" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)"/>
+      <text x="34" y="186" fill="rgba(255,255,255,0.7)" font-size="10">OSC 2 · triangle · 330.00 Hz</text>
+      <rect x="20" y="210" width="680" height="44" rx="10" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)"/>
+      <text x="34" y="236" fill="rgba(255,255,255,0.7)" font-size="10">OSC 3 · sawtooth · 440.00 Hz</text>
+      <rect x="20" y="260" width="680" height="44" rx="10" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)"/>
+      <text x="34" y="286" fill="rgba(255,255,255,0.7)" font-size="10">OSC 4 · sine · 550.00 Hz</text>
+
+      <!-- master + transport -->
+      <rect x="20" y="312" width="680" height="50" rx="10" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.08)"/>
+      <text x="34" y="332" fill="#fff" font-size="10" font-weight="600">Master 65%</text>
+      <rect x="100" y="328" width="380" height="6" rx="3" fill="rgba(255,255,255,0.10)"/>
+      <rect x="100" y="328" width="245" height="6" rx="3" fill="#fff"/>
+      <circle cx="540" cy="338" r="16" fill="#8fb9d9"/>
+      <polygon points="535,331 535,346 549,338" fill="#fff"/>
+      <text x="580" y="342" fill="rgba(255,255,255,0.5)" font-size="9">29:42 / 30:00</text>
+
+      <!-- annotations -->
+      <g font-family="-apple-system" font-size="10" fill="#8fb9d9">
+        <text x="710" y="34"  text-anchor="end">→ Spectrum · Chladni toggles</text>
+        <text x="710" y="78"  text-anchor="end">↑ Pill row</text>
+        <text x="710" y="180" text-anchor="end">↑ 4 oscillator strips</text>
+        <text x="710" y="346" text-anchor="end">↑ Master vol + transport + timer</text>
+      </g>
+    </svg>
+    <figcaption>The five horizontal bands of the controls panel.</figcaption>
+  </figure>
+
+  <p>Tap or click <strong>anywhere outside</strong> a control to dismiss the panel and reveal the visualization full-screen. Tap again to bring it back. A slim "Tap to show controls" hint appears at the bottom when hidden, with mini freq + S/M controls so you can still adjust audio while watching the Chladni.</p>
+</section>
+
+<!-- ───────────────── Oscillators ───────────────── -->
+<section id="oscillators">
+  <h2><span class="num">3</span>Oscillator strips</h2>
+  <p class="lede">Four independent voices, each routed through its own FX chain to the master limiter.</p>
+
+  <h3>Per-strip controls</h3>
+  <table>
+    <tr><th>Control</th><th>What it does</th></tr>
+    <tr><td>Waveform</td><td>Sine, triangle, sawtooth, square, or loaded sample.</td></tr>
+    <tr><td>Frequency</td><td>Logarithmic 20–2000 Hz slider. Tap the readout to type an exact value (2 decimals).</td></tr>
+    <tr><td>Level</td><td>Per-voice volume, 0–100%.</td></tr>
+    <tr><td><kbd>S</kbd></td><td>Solo. Any voice soloed silences the unsoloed ones.</td></tr>
+    <tr><td><kbd>M</kbd></td><td>Mute.</td></tr>
+    <tr><td>🎲 Randomize</td><td>Re-rolls everything <em>except level</em>: waveform, freq, filter, all 4 LFOs, reverb, delay, drift. One tap = a new world.</td></tr>
+    <tr><td>⭐ Voice presets</td><td>Save / load / delete <em>just this oscillator</em>'s settings. Great for keeping a favorite bass + cycling through pads above.</td></tr>
+    <tr><td>🌀 Drift</td><td>Per-voice pitch &amp; pan drift (off, glacial up/down, octave up/down, slow pan, deep vibrato, etc.).</td></tr>
+    <tr><td>Pan</td><td>−1 (full left) to +1 (full right). 0 = center.</td></tr>
+  </table>
+
+  <h3>Filter</h3>
+  <p>Each voice has a state-variable filter with selectable mode (<strong>LP</strong>, <strong>HP</strong>, <strong>BP</strong>), cutoff (20 Hz – 8 kHz, log), and resonance (Q 0.3 – 20).</p>
+</section>
+
+<!-- ───────────────── Chord/Key/Octave ───────────────── -->
+<section id="chord">
+  <h2><span class="num">4</span>Chord, key, octave</h2>
+  <p class="lede">Press the <strong>CHORD</strong> pill to generate all 4 voice frequencies from a chord template.</p>
+  <p>Choose a root note (C, C♯, D…), an octave (1–6), and a chord type from one of these categories:</p>
+  <ul>
+    <li><strong>Common</strong> — Major, Minor, Sus2, Sus4, dim, aug, Maj7, m7, 7, 9, …</li>
+    <li><strong>Extended</strong> — 11, 13, add6, m9, maj9, mMaj7, 7♭9, 7♯11, …</li>
+    <li><strong>Modal</strong> — Lydian stack, Phrygian, Dorian 7th, …</li>
+    <li><strong>Cymatic</strong> — Tetrachord 4:5:6:7, 3:4:5:7, harmonic 6:8:10:13, etc. Chosen to give visually striking nodal patterns.</li>
+    <li><strong>Spectral</strong> — Sable's chord (Vingt Regards), Scriabin Mystic, Ligeti Lontano, …</li>
+  </ul>
+
+  <div class="callout note">
+    <strong>Tip.</strong> A chord overwrites all four frequencies, but solo/mute, waveform, FX, LFOs, and drift are kept. So you can dial in a sound, then sweep chords to try it in different harmonic contexts.
+  </div>
+</section>
+
+<!-- ───────────────── Tuning ───────────────── -->
+<section id="tuning">
+  <h2><span class="num">5</span>Tuning systems</h2>
+  <p class="lede">The frequencies the chord pill produces depend on the tuning you choose.</p>
+  <ul>
+    <li><strong>12-TET</strong> — modern equal temperament (default). 12 equal semitones per octave.</li>
+    <li><strong>Just Intonation</strong> — small-integer ratios. Beats less; sounds "locked."</li>
+    <li><strong>Pythagorean</strong> — stacks of 3:2 fifths. Bright, edgy.</li>
+    <li><strong>Verdi (432 Hz)</strong> — A4 = 432 Hz instead of 440.</li>
+    <li><strong>Lou Harrison Free JI</strong> — flexible just intervals tuned to a 1/1.</li>
+    <li><strong>Harry Partch 43-tone</strong> — Partch's 11-limit microtonal lattice.</li>
+    <li><strong>Wendy Carlos α (alpha)</strong> — 78¢ step, ~15.4 notes per octave.</li>
+    <li><strong>Wendy Carlos β (beta)</strong> — 63.8¢ step, ~18.8 notes per octave.</li>
+    <li><strong>Wendy Carlos γ (gamma)</strong> — 35.1¢ step, ~34.2 notes per octave.</li>
+  </ul>
+  <p>Tunings only affect how chord frequencies are computed; the per-voice frequency sliders remain free continuous controls so you can hand-tune outside the lattice anytime.</p>
+</section>
+
+<!-- ───────────────── Presets ───────────────── -->
+<section id="presets">
+  <h2><span class="num">6</span>Presets &amp; voice presets</h2>
+  <p class="lede">Two kinds: full <strong>presets</strong> (all 4 voices + master + FX) and per-voice <strong>voice presets</strong> (one strip at a time).</p>
+
+  <h3>Full presets</h3>
+  <p>Press the <strong>PRESET</strong> pill. Categories include:</p>
+  <ul>
+    <li><strong>Atmosphere</strong> — Earth Drone, Ocean Depth, Mountain Hum.</li>
+    <li><strong>Binaural</strong> — Theta, Alpha, Beta and Gamma beat presets (paired carriers ~7, 10, 17, 40 Hz apart).</li>
+    <li><strong>Solfeggio</strong> — 96, 174, 285, 396, 417, 528, 639, 741, 852 Hz singles + 528-based chords. See the <a href="#solfeggio">note on Solfeggio claims</a> below.</li>
+    <li><strong>Cymatics</strong> — chords chosen to produce especially symmetric Chladni patterns.</li>
+    <li><strong>Spectral</strong> — Scriabin Mystic, Sable's chord, Ligeti Lontano, Stimmung-style.</li>
+    <li><strong>Tibetan Bowl</strong>, <strong>Crystal Bowl</strong>, <strong>Solfeggio Bath</strong>, …</li>
+  </ul>
+  <p>Tap "Save as preset…" to capture the current full state under a custom name. User presets live alongside the factory list in their own section.</p>
+
+  <h3>Voice presets</h3>
+  <p>The <strong>⭐</strong> button on each oscillator strip opens a menu to <em>Save current</em>, <em>Load…</em>, or <em>Delete…</em> a single-voice snapshot — waveform, freq, level, pan, filter, all 4 LFOs, FX, drift. Useful for keeping a perfect bass and quickly swapping the pad above.</p>
+</section>
+
+<!-- ───────────────── FX ───────────────── -->
+<section id="fx">
+  <h2><span class="num">7</span>Per-voice FX — filter, delay, reverb</h2>
+  <p class="lede">Each oscillator has its own filter, delay, and reverb so voices can sit in very different spaces.</p>
+
+  <div class="grid-2">
+    <div class="card">
+      <h4>Filter</h4>
+      <p>Mode (LP / HP / BP), cutoff, resonance. LFO 2 by default modulates cutoff. Use BP + high Q for "vowel" sweeps; LP + low Q for warm pads.</p>
+    </div>
+    <div class="card">
+      <h4>Reverb</h4>
+      <p>Algorithmic reverb with <strong>decay time</strong> (0.1–10 s, log) and <strong>wet/dry mix</strong>. Long decay + low mix = ambient halo. Short decay + high mix = wet plate.</p>
+    </div>
+    <div class="card">
+      <h4>Delay — mode</h4>
+      <p>Three routings: <strong>Mono</strong> (both sides equal), <strong>Stereo</strong> (each side has its own line), <strong>Ping-Pong</strong> (echoes bounce L → R → L). Pick mode from the dropdown next to the delay sliders.</p>
+    </div>
+    <div class="card">
+      <h4>Delay — timing</h4>
+      <p>Either a manual <strong>time</strong> (20 ms – 2 s) <em>or</em> a musical division: 1/2, 1/3, 1/3t, 1/4, 1/4t, 1/8, 1/8t, 1/16, 1/16t. Musical timings sync to the global BPM (default 90 BPM).</p>
+    </div>
+  </div>
+  <p>The <strong>feedback</strong> slider controls how many echoes you get. Above ~0.85 it starts feeding into itself — use sparingly.</p>
+</section>
+
+<!-- ───────────────── LFOs ───────────────── -->
+<section id="lfos">
+  <h2><span class="num">8</span>The 4 LFOs per voice</h2>
+  <p class="lede">Each voice has four low-frequency oscillators that modulate a chosen target.</p>
+
+  <table>
+    <tr><th>LFO</th><th>Default target</th><th>Suggested use</th></tr>
+    <tr><td>LFO 1</td><td>Amplitude</td><td>Slow tremolo / breathing pad.</td></tr>
+    <tr><td>LFO 2</td><td>Filter cutoff</td><td>Vowel-like sweeps.</td></tr>
+    <tr><td>LFO 3</td><td>Pan</td><td>Stereo wander, auto-pan.</td></tr>
+    <tr><td>LFO 4</td><td>Pitch</td><td>Vibrato (small depth) or wobble (large).</td></tr>
+  </table>
+
+  <p>For each LFO you control:</p>
+  <ul>
+    <li><strong>Shape</strong> — Sine, Triangle, Sawtooth, Square.</li>
+    <li><strong>Target</strong> — Amplitude, Pan, Filter cutoff, or Pitch (any LFO can drive any target).</li>
+    <li><strong>Rate</strong> — 0.02 – 8 Hz (log).</li>
+    <li><strong>Depth</strong> — how strongly it modulates the target.</li>
+  </ul>
+</section>
+
+<!-- ───────────────── Samples ───────────────── -->
+<section id="samples">
+  <h2><span class="num">9</span>Samples (web)</h2>
+  <p class="lede">Any of the four voices can play back a looped audio sample instead of a generated wave.</p>
+  <ul>
+    <li>Switch the waveform picker to <strong>Sample</strong>; an upload button appears.</li>
+    <li>Drag in an audio file (WAV / MP3 / OGG / FLAC; mono or stereo). It's stored in your browser's IndexedDB so it persists across sessions.</li>
+    <li>The frequency slider becomes a <strong>playback rate</strong> control — sliding up resamples the file faster (higher pitch).</li>
+    <li>The same FX chain (filter / LFOs / reverb / delay / drift) applies to samples.</li>
+    <li>Samples are referenced by ID in presets, so multiple presets can share one file without duplication.</li>
+  </ul>
+  <div class="callout warn">
+    <strong>Storage.</strong> Browsers cap IndexedDB at a few hundred MB per origin. Long uncompressed WAVs add up fast — convert to OGG/MP3 for archival.
+  </div>
+</section>
+
+<!-- ───────────────── Pills ───────────────── -->
+<section id="pills">
+  <h2><span class="num">10</span>The pill row</h2>
+  <p class="lede">Shortcuts to the app's modal features.</p>
+  <div class="pill-row">
+    <span class="pill"><span class="swatch"></span>CHORD</span>
+    <span class="pill"><span class="swatch"></span>PRESET</span>
+    <span class="pill"><span class="swatch"></span>DRIFT</span>
+    <span class="pill hot"><span class="swatch"></span>LISTEN</span>
+    <span class="pill pur"><span class="swatch"></span>PERFORM</span>
+    <span class="pill warm"><span class="swatch"></span>JOURNEY</span>
+    <span class="pill cyan"><span class="swatch"></span>GALLERY</span>
+  </div>
+
+  <h3>DRIFT — generative slow motion</h3>
+  <p>Pick a <strong>drift scene</strong> and the app gently wanders the chosen parameters over minutes. Scenes include:</p>
+  <ul>
+    <li><strong>Glacial up / down</strong> — every voice slowly climbs or descends by a few cents.</li>
+    <li><strong>Octave up / down</strong> — voices migrate ±1 octave over the session.</li>
+    <li><strong>Opposite pan</strong> — voices 1&2 drift left, 3&4 right.</li>
+    <li><strong>Coordinated scenes</strong> — 2 voices up + 2 down, centered drone w/ pair drifting, full panning spiral, …</li>
+    <li><strong>Custom</strong> — set the dropdown on any single oscillator strip (🌀) to mix-and-match modes per voice.</li>
+  </ul>
+  <p>Drift speed is calibrated to your session length: the full arc completes by the time the timer ends.</p>
+
+  <h3>LISTEN — tune to room</h3>
+  <p>Pop the sheet, grant mic access, and play a sustained note from any instrument (voice, tuning fork, singing bowl). The app autocorrelates the pitch in real time, displays the nearest note + cents offset + Hz + live audio level, and a "Set as Root" button snaps the chord generator's root key to match.</p>
+  <p>On web there's a <strong>source picker</strong> dropdown — switch to a USB mic / interface input mid-session. iOS uses the system audio input.</p>
+
+  <h3>PERFORM — cymatics fullscreen</h3>
+  <p>Hides every control element, leaving only the live Chladni pattern (with sand particles + zoom). A tiny "Exit" pill stays in the top-left; on iOS it auto-dims after 3 s but never disappears, and tapping anywhere wakes it back to full brightness. <kbd>Esc</kbd> exits on web.</p>
+
+  <h3>JOURNEY — scripted meditations</h3>
+  <p>15 multi-stage timed journeys auto-advance through presets + drift scenes. Examples:</p>
+  <ul>
+    <li><strong>Sundown</strong> — 20 min, warm pad → bowl → slow descent.</li>
+    <li><strong>Awakening</strong> — 12 min, theta → alpha → beta binaural arc.</li>
+    <li><strong>Floating</strong> — 18 min, glacial drift with octave climb.</li>
+    <li><strong>Body Scan</strong>, <strong>Cathedral</strong>, <strong>Mountain Climb</strong>, <strong>Vespers</strong>, <strong>Crystal Cave</strong>, <strong>Phi Spiral</strong>, <strong>Quartz</strong>, <strong>Lullaby</strong>, <strong>Tibetan Bowl</strong>, <strong>Storm Front</strong>, <strong>Centering</strong>, <strong>Spiral Descent</strong>.</li>
+  </ul>
+  <p>The session timer auto-sets to the journey total. <strong>Stop</strong> halts both the journey scheduler and the transport.</p>
+
+  <h3>GALLERY — cymatics snapshots (web)</h3>
+  <p>Every snapshot you save in the pop-out Chladni window is mirrored here. Tap a thumbnail to re-download; the <strong>×</strong> button removes it from the gallery only — already-downloaded PNGs aren't touched. Capped at 200 to keep localStorage healthy.</p>
+</section>
+
+<!-- ───────────────── Chladni ───────────────── -->
+<section id="chladni">
+  <h2><span class="num">11</span>Chladni visualization</h2>
+  <p class="lede">A physically-calibrated render of how each frequency would vibrate a square plate.</p>
+
+  <p>The frequency → pattern mapping was fit from <strong>17 brusspup demo frames</strong> (345 Hz → 6051 Hz), where each frame was visually identified as a (m,n) antisymmetric eigenmode on a thin square plate:</p>
+  <p style="text-align:center; font-family: ui-monospace,monospace; font-size:14px; color:var(--accent); padding: 8px 0;">
+    f(m, n) ≈ K · (m² + n²),  K ≈ 18.6 ± 0.8 Hz
+  </p>
+  <p>For each voice, the renderer picks the two adjacent eigenmode pairs that bracket the live frequency and <strong>crossfades between them</strong>, so vibrato (pitch-LFO modulation) breathes smoothly between physical modes instead of snapping or following an arbitrary continuous curve.</p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 600 220" xmlns="http://www.w3.org/2000/svg" aria-label="Chladni eigenmode interpolation">
+      <rect width="600" height="220" rx="12" fill="rgba(0,0,0,0.5)"/>
+      <text x="60"  y="32" fill="#fff" font-size="11" font-weight="600">f = 460 Hz</text>
+      <text x="60"  y="46" fill="rgba(255,255,255,0.55)" font-size="9">crossfade 70% / 30%</text>
+
+      <!-- mode (3,5) -->
+      <g transform="translate(40,60)">
+        <rect width="120" height="120" fill="#000" stroke="rgba(255,255,255,0.20)"/>
+        <g stroke="#8fb9d9" stroke-width="0.8" fill="none">
+          <path d="M0,30 Q60,40 120,30"/>
+          <path d="M0,90 Q60,80 120,90"/>
+          <path d="M30,0 Q40,60 30,120"/>
+          <path d="M70,0 Q60,60 70,120"/>
+          <path d="M100,0 Q90,60 100,120"/>
+        </g>
+        <text x="60" y="138" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-size="9">(3, 5) · w 0.7</text>
+      </g>
+
+      <text x="195" y="125" fill="rgba(255,255,255,0.4)" font-size="18">+</text>
+
+      <!-- mode (4,5) -->
+      <g transform="translate(220,60)">
+        <rect width="120" height="120" fill="#000" stroke="rgba(255,255,255,0.20)"/>
+        <g stroke="#cfb6ea" stroke-width="0.8" fill="none">
+          <path d="M0,20 Q60,30 120,20"/>
+          <path d="M0,55 Q60,45 120,55"/>
+          <path d="M0,95 Q60,105 120,95"/>
+          <path d="M20,0 L20,120"/>
+          <path d="M55,0 L55,120"/>
+          <path d="M85,0 L85,120"/>
+        </g>
+        <text x="60" y="138" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-size="9">(4, 5) · w 0.3</text>
+      </g>
+
+      <text x="375" y="125" fill="rgba(255,255,255,0.4)" font-size="18">=</text>
+
+      <!-- composite -->
+      <g transform="translate(400,60)">
+        <rect width="160" height="120" fill="#000" stroke="rgba(255,255,255,0.20)"/>
+        <g stroke="#fff" stroke-width="0.7" opacity="0.85" fill="none">
+          <path d="M0,28 Q80,38 160,28"/>
+          <path d="M0,55 Q80,50 160,55"/>
+          <path d="M0,92 Q80,82 160,92"/>
+          <path d="M30,0 Q40,60 30,120"/>
+          <path d="M70,0 Q60,60 70,120"/>
+          <path d="M105,0 Q95,60 105,120"/>
+        </g>
+        <text x="80" y="138" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-size="9">live pattern</text>
+      </g>
+    </svg>
+    <figcaption>Two adjacent eigenmodes are crossfaded by their relative distance to the live frequency.</figcaption>
+  </figure>
+
+  <p>The Chladni renderer also adds a small center "driver bolt" (brusspup's plate is center-driven), and a thin nodal ring at small radius, on top of every frame.</p>
+
+  <h3>Tiling</h3>
+  <p>The Chladni cos math is naturally periodic, so the pattern <strong>tiles</strong> to fill the viewport at any zoom level. You'll never see a clipped plate boundary — even zoomed all the way out, the whole screen is filled.</p>
+
+  <h3>Zoom</h3>
+  <p>The vertical zoom slider on the left (web) or pinch gesture (iOS) controls plate scale, 0.25× to 4×. Persists across launches. On iOS the slider/pinch fades when the main controls are visible so it never competes with the panel.</p>
+</section>
+
+<!-- ───────────────── Pop-out ───────────────── -->
+<section id="popup">
+  <h2><span class="num">12</span>Pop-out Chladni (web)</h2>
+  <p class="lede">A dedicated window with WebGL-accelerated rendering, 3000 sand particles, and snapshot export.</p>
+  <ul>
+    <li>Open from the Chladni toggle's pop-out arrow.</li>
+    <li>Receives live oscillator state from the main window via <code>BroadcastChannel</code> — frequencies, mutes, solos, vibrato all sync at ~15 fps.</li>
+    <li>3000 sand grains drift along the gradient toward nodal lines. Particles physically migrate to new positions when frequencies change.</li>
+    <li>Bottom controls strip mirrors frequency/solo/mute for each voice — adjust without flipping back to the main window.</li>
+    <li>The <strong>📷 snapshot</strong> button (or <kbd>S</kbd>) saves a PNG to Downloads <em>and</em> mirrors it into the in-app <a href="#pills">Gallery</a>.</li>
+    <li>The <strong>sand</strong> toggle (or <kbd>G</kbd>) removes the particle layer for a cleaner shader-only image.</li>
+    <li>Scroll wheel zooms; <kbd>Esc</kbd> closes the window.</li>
+  </ul>
+</section>
+
+<!-- ───────────────── Spectrum ───────────────── -->
+<section id="spectrum">
+  <h2><span class="num">13</span>Spectrum analyzer</h2>
+  <p class="lede">Real-time FFT view tapped post-limiter.</p>
+  <p>Toggle the chart-bar button in the header to overlay a log-frequency spectrum bar graph (20 Hz – 16 kHz). It's a quick way to verify what's actually leaving the master bus — useful when chasing why a "bass-only" preset isn't producing low energy (often a runaway high-pass filter or an LFO killing the fundamental).</p>
+  <p>The web version uses <code>AnalyserNode.getByteFrequencyData</code>; iOS uses vDSP forward FFT with a Hann window on a tap installed on <code>engine.outputNode</code>.</p>
+</section>
+
+<!-- ───────────────── Transport ───────────────── -->
+<section id="transport">
+  <h2><span class="num">14</span>Transport &amp; recording</h2>
+
+  <h3>Play / pause / stop</h3>
+  <p>The round play button fades audio in over ~1 s. Pause fades it down quickly; stop also resets the timer.</p>
+
+  <h3>Session timer</h3>
+  <p>Default 30 min. Tap the timer readout to change the duration. The app fades out gently in the last few seconds. Useful when you're using Drone Meditations as a sleep aid — set 20 min and trust it to fade itself.</p>
+
+  <h3>Recording (web + iOS)</h3>
+  <p>The record button writes the master output to a file:</p>
+  <ul>
+    <li><strong>Web</strong> — WebM/Opus or WebM/PCM (whatever your browser supports), saved to Downloads.</li>
+    <li><strong>iOS</strong> — CAF (uncompressed Linear PCM) saved to the app's documents directory; share via the system share sheet.</li>
+  </ul>
+  <p>Recording captures whatever is going through the master limiter — so all FX, drift, LFO modulation, journeys, etc. — exactly as you hear them.</p>
+</section>
+
+<!-- ───────────────── MIDI ───────────────── -->
+<section id="midi">
+  <h2><span class="num">15</span>MIDI input (web)</h2>
+  <p class="lede">Any connected MIDI controller can drive the chord generator's root key.</p>
+  <p>Connect a USB MIDI keyboard / controller and press any key. The chord generator's root key snaps to the played note (octave clamped to the 1–6 range); the active chord template stays the same so you can play the chord type by sliding around the keyboard.</p>
+  <p>Web MIDI is initialized on first user gesture (click anywhere). Browsers that don't support Web MIDI (Safari without flags) silently fall back to no-MIDI.</p>
+</section>
+
+<!-- ───────────────── iOS ───────────────── -->
+<section id="ios">
+  <h2><span class="num">16</span>iOS-only features</h2>
+
+  <h3>Now Playing / Lock Screen</h3>
+  <p>While playing, iOS shows Drone Meditations on the Lock Screen and Control Center with play / pause controls. Plays through silent mode (the audio session uses the <code>.playback</code> category) and supports background audio so you can lock the screen mid-session.</p>
+
+  <h3>Haptics</h3>
+  <p>Optional. When enabled (haptic button in the controls panel), the device taps in sync with the slowest active LFO. Most noticeable with a 0.5–1 Hz amplitude LFO.</p>
+
+  <h3>Photos library snapshot</h3>
+  <p>The 📷 camera button renders a 1500×1500 frame of the current Chladni state and saves it directly to your Photos library (add-only permission — the app never reads your existing photos). First save prompts for permission; subsequent saves are silent. A "Saved to Photos" toast confirms.</p>
+
+  <h3>Pinch zoom</h3>
+  <p>Two-finger pinch on the Chladni view zooms in and out. Persists across launches.</p>
+
+  <h3>Performance exit safety</h3>
+  <p>In cymatics fullscreen, the tiny "Exit" pill dims to 45% after 3 seconds, but <strong>never fully disappears</strong>, and tapping anywhere on screen brings it back to full brightness. (You can't get stuck.)</p>
+</section>
+
+<!-- ───────────────── Shortcuts ───────────────── -->
+<section id="shortcuts">
+  <h2><span class="num">17</span>Keyboard shortcuts (web)</h2>
+  <table>
+    <tr><th>Key</th><th>Action</th></tr>
+    <tr><td><kbd>Space</kbd></td><td>Play / pause transport.</td></tr>
+    <tr><td><kbd>Esc</kbd></td><td>Close any open sheet; exit Performance mode; close the pop-out Chladni window.</td></tr>
+    <tr><td><kbd>S</kbd> (pop-out)</td><td>Take a snapshot.</td></tr>
+    <tr><td><kbd>G</kbd> (pop-out)</td><td>Toggle sand particles.</td></tr>
+    <tr><td>Scroll wheel</td><td>Zoom Chladni in the pop-out window.</td></tr>
+  </table>
+</section>
+
+<!-- ───────────────── Solfeggio note ───────────────── -->
+<section id="solfeggio">
+  <h2><span class="num">18</span>A note on the Solfeggio claims</h2>
+  <p class="lede">An honest, evidence-based take.</p>
+  <p>The Solfeggio preset descriptions in this app use language like <em>"Traditionally associated with…"</em> — and that wording is deliberate.</p>
+  <p>The popular Solfeggio system (174, 285, 396, 417, 528, 639, 741, 852, 963 Hz) is a <strong>20th-century invention</strong>. It was published in 1999 by Joseph Puleo and Leonard Horowitz; the frequencies were derived numerologically (each reduces to a single digit in a specific Pythagorean scheme), not from any medieval chant or ancient text. The medieval "ut/re/mi/fa/sol/la" was a solmization system, not a list of frequencies.</p>
+  <p>There is no peer-reviewed evidence that 528 Hz "repairs DNA," that 396 Hz "liberates guilt," or any of the other claims that circulate around these tones. A handful of papers in low-rigor journals (including predatory or low-impact outlets) discuss possible psychoacoustic effects, but these don't replicate at the level mainstream medicine would accept.</p>
+  <p>That said: <strong>specific frequencies <em>do</em> affect mood, attention, and physiology</strong> — and so does sitting still for 20 minutes listening to anything calming. The presets are included because <em>people enjoy them</em> and the harmonic context is interesting, not as a medical claim. If you find them useful for relaxation or focus, that's a real and welcome outcome — just don't expect the literal claims attached to them in pop wellness culture.</p>
+</section>
+
+<!-- ───────────────── Tips ───────────────── -->
+<section id="tips">
+  <h2><span class="num">19</span>Tips &amp; gotchas</h2>
+  <div class="grid-2">
+    <div class="card">
+      <h4>Use the dice.</h4>
+      <p>🎲 randomize is the fastest way to find new sounds. Hit it on one strip while leaving the other three steady — instant variation against a stable base.</p>
+    </div>
+    <div class="card">
+      <h4>Solo to learn.</h4>
+      <p>S a single voice and slowly walk through every parameter (filter, LFOs, drift). It's the best way to learn what each control sounds like in isolation.</p>
+    </div>
+    <div class="card">
+      <h4>Master volume defaults to 65%.</h4>
+      <p>Four voices summed through FX into a limiter can clip easily. The limiter at −0.1 dB protects your ears, but if it's working too hard you'll hear pumping — pull master down.</p>
+    </div>
+    <div class="card">
+      <h4>Long delay + slow drift = drone.</h4>
+      <p>For ambient pieces, try delay time 1.5 s, feedback 0.7, plus a glacial-up drift scene. The delay keeps reintroducing past frequencies as the present drifts up.</p>
+    </div>
+    <div class="card">
+      <h4>Voice presets compose.</h4>
+      <p>Save four favorites — a deep sub, a singing pad, a slow bell, a ping-pong glitch — then load them into different strips for instant 4-voice arrangements.</p>
+    </div>
+    <div class="card">
+      <h4>Tune to room before recording.</h4>
+      <p>If you're recording with an acoustic instrument or singing bowl in the room, use LISTEN to snap the chord generator to its pitch so the drone won't beat against it.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────── Credits ───────────────── -->
+<section id="credits">
+  <h2><span class="num">20</span>Credits</h2>
+  <p>Drone Meditations is a personal project by <strong>Jose Gude MD</strong>, designed and shipped on both web and iOS in 2026.</p>
+  <p>Special thanks to:</p>
+  <ul>
+    <li><strong>brusspup</strong> (Eric Roner) — for the Chladni demo footage used to physically calibrate the visualization.</li>
+    <li>The Web Audio, AVAudioEngine, and SwiftUI teams — for primitives stable enough to ship a 4-voice synth in a weekend.</li>
+    <li>Wendy Carlos, Harry Partch, Lou Harrison — for the tuning systems that broaden what "in tune" can mean.</li>
+  </ul>
+
+  <p style="margin-top: 30px;">
+    <a href="./">← Back to Drone Meditations</a>
+  </p>
+</section>
+
+</main>
+
+<footer>
+  <div>© 2026 Jose Gude MD · All Rights Reserved</div>
+  <div class="legal">dronemeditations.com · the iOS app is provided as-is for personal meditation use</div>
+</footer>
+
+</body>
+</html>
