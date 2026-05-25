@@ -10,6 +10,11 @@ enum TuningSystem: String, CaseIterable, Identifiable, Codable {
     case wholeTone       = "Whole Tone"    // 6-TET (whole tone scale)
     case justIntonation  = "Just"          // 5-limit just intonation
     case pythagorean     = "Pythagorean"   // 3-limit Pythagorean
+    case harrisonFreeJI  = "Harrison JI"   // Lou Harrison 7-tone JI (5 + 7 limit)
+    case partch43        = "Partch 43"     // Harry Partch's 43-tone JI
+    case carlosAlpha     = "Carlos α"      // 78.0 c/step non-octave equal
+    case carlosBeta      = "Carlos β"      // 63.8 c/step non-octave equal
+    case carlosGamma     = "Carlos γ"      // 35.1 c/step non-octave equal
     case phi             = "Phi (φ)"       // φ:1 pseudo-octave / 13 steps
 
     var id: String { rawValue }
@@ -52,6 +57,27 @@ enum TuningSystem: String, CaseIterable, Identifiable, Codable {
         1109.775      // 243/128
     ]
 
+    /// Lou Harrison "Free-Style" JI — 7-tone scale he used across his
+    /// gamelan + chamber works. Ratios: 1/1 9/8 5/4 4/3 3/2 5/3 7/4.
+    private static let harrisonCents: [Double] = [
+        0, 203.910, 386.314, 498.045, 701.955, 884.359, 968.826
+    ]
+
+    /// Harry Partch's 43-tone JI scale, cents from 1/1.
+    private static let partch43Cents: [Double] = [
+        0, 21.51, 53.27, 84.47, 111.73, 150.64, 165.00, 182.40, 203.91,
+        231.17, 266.87, 294.13, 315.64, 347.41, 386.31, 417.51, 435.08,
+        470.78, 498.04, 519.55, 551.32, 582.51, 617.49, 648.68, 680.45,
+        701.96, 729.22, 764.92, 782.49, 813.69, 852.59, 884.36, 905.87,
+        933.13, 968.83, 996.09, 1017.60, 1034.99, 1049.36, 1088.27,
+        1115.53, 1146.73, 1178.49
+    ]
+
+    // Wendy Carlos non-octave equal-step tunings (cents per step).
+    private static let carlosAlphaStep: Double = 78.0
+    private static let carlosBetaStep:  Double = 63.8
+    private static let carlosGammaStep: Double = 35.1
+
     /// Snap a target interval (cents from root) to this tuning's grid. Returns cents.
     func snap(cents: Double) -> Double {
         switch self {
@@ -67,6 +93,16 @@ enum TuningSystem: String, CaseIterable, Identifiable, Codable {
             return Self.snapTable(cents: cents, table: Self.justCents, periodCents: 1200.0)
         case .pythagorean:
             return Self.snapTable(cents: cents, table: Self.pythagCents, periodCents: 1200.0)
+        case .harrisonFreeJI:
+            return Self.snapTable(cents: cents, table: Self.harrisonCents, periodCents: 1200.0)
+        case .partch43:
+            return Self.snapTable(cents: cents, table: Self.partch43Cents, periodCents: 1200.0)
+        case .carlosAlpha:
+            return Self.snapEqual(cents: cents, stepCents: Self.carlosAlphaStep)
+        case .carlosBeta:
+            return Self.snapEqual(cents: cents, stepCents: Self.carlosBetaStep)
+        case .carlosGamma:
+            return Self.snapEqual(cents: cents, stepCents: Self.carlosGammaStep)
         case .phi:
             // 13 equal steps within a φ-octave (≈ 833.09 cents).
             let stepCents = Self.phiOctaveCents / 13.0
@@ -85,9 +121,10 @@ enum TuningSystem: String, CaseIterable, Identifiable, Codable {
     /// won't correspond to standard western intonation — we surface that in the UI.
     var supportsStandardNoteNames: Bool {
         switch self {
-        case .equal12, .equal24, .equal72, .wholeTone, .justIntonation, .pythagorean:
+        case .equal12, .equal24, .equal72, .wholeTone, .justIntonation, .pythagorean, .harrisonFreeJI:
             return true
-        case .phi:
+        case .partch43, .carlosAlpha, .carlosBeta, .carlosGamma, .phi:
+            // Microtonal / non-octave systems don't map cleanly to C/D/E etc.
             return false
         }
     }

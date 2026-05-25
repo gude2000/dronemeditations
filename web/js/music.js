@@ -54,6 +54,34 @@ const PHI_OCTAVE_CENTS = Math.log2(PHI) * 1200;
 const JUST_CENTS = [0, 111.731, 203.910, 315.641, 386.314, 498.045, 582.512, 701.955, 813.686, 884.359, 1017.596, 1088.269];
 const PYTHAG_CENTS = [0, 113.685, 203.910, 294.135, 407.820, 498.045, 611.730, 701.955, 792.180, 905.865, 996.090, 1109.775];
 
+// Lou Harrison "Free-Style" JI — heptatonic 5-limit + 7th-partial scale he
+// used across his gamelan + chamber works. Ratios 1/1, 9/8, 5/4, 4/3, 3/2,
+// 5/3, 7/4, 2/1 → cents below.
+const HARRISON_CENTS = [0, 203.910, 386.314, 498.045, 701.955, 884.359, 968.826];
+
+// Harry Partch's 43-tone JI scale, cents from 1/1. Builds a dense
+// microtonal lattice in a single octave; every chord voice snaps to the
+// nearest of these 43 degrees per octave.
+const PARTCH_43 = [
+  0, 21.51, 53.27, 84.47, 111.73, 150.64, 165.00, 182.40, 203.91,
+  231.17, 266.87, 294.13, 315.64, 347.41, 386.31, 417.51, 435.08,
+  470.78, 498.04, 519.55, 551.32, 582.51, 617.49, 648.68, 680.45,
+  701.96, 729.22, 764.92, 782.49, 813.69, 852.59, 884.36, 905.87,
+  933.13, 968.83, 996.09, 1017.60, 1034.99, 1049.36, 1088.27,
+  1115.53, 1146.73, 1178.49
+];
+
+// Wendy Carlos "Alpha/Beta/Gamma" — non-octave-repeating equal divisions
+// designed to better fit triadic harmony than 12-TET:
+//   α = 78.0 cents/step
+//   β = 63.8 cents/step
+//   γ = 35.1 cents/step
+// snapEqual already does the right thing — these scales just don't wrap
+// at the octave, so consonant intervals land in surprising places.
+const CARLOS_ALPHA_STEP = 78.0;
+const CARLOS_BETA_STEP  = 63.8;
+const CARLOS_GAMMA_STEP = 35.1;
+
 function snapEqual(cents, step) {
   return Math.round(cents / step) * step;
 }
@@ -74,13 +102,18 @@ function snapTable(cents, table, periodCents) {
 }
 
 export const TUNING_SYSTEMS = [
-  { id: "equal12",        name: "12-TET",      snap: (c) => snapEqual(c, 100) },
-  { id: "equal24",        name: "24-TET",      snap: (c) => snapEqual(c, 50) },
-  { id: "equal72",        name: "72-TET",      snap: (c) => snapEqual(c, 1200 / 72) },
-  { id: "wholeTone",      name: "Whole Tone",  snap: (c) => snapEqual(c, 200) },
-  { id: "justIntonation", name: "Just",        snap: (c) => snapTable(c, JUST_CENTS, 1200) },
-  { id: "pythagorean",    name: "Pythagorean", snap: (c) => snapTable(c, PYTHAG_CENTS, 1200) },
-  { id: "phi",            name: "Phi (φ)",     snap: (c) => snapEqual(c, PHI_OCTAVE_CENTS / 13) }
+  { id: "equal12",        name: "12-TET",         snap: (c) => snapEqual(c, 100) },
+  { id: "equal24",        name: "24-TET",         snap: (c) => snapEqual(c, 50) },
+  { id: "equal72",        name: "72-TET",         snap: (c) => snapEqual(c, 1200 / 72) },
+  { id: "wholeTone",      name: "Whole Tone",     snap: (c) => snapEqual(c, 200) },
+  { id: "justIntonation", name: "Just",           snap: (c) => snapTable(c, JUST_CENTS, 1200) },
+  { id: "pythagorean",    name: "Pythagorean",    snap: (c) => snapTable(c, PYTHAG_CENTS, 1200) },
+  { id: "harrisonFreeJI", name: "Harrison JI",    snap: (c) => snapTable(c, HARRISON_CENTS, 1200) },
+  { id: "partch43",       name: "Partch 43-tone", snap: (c) => snapTable(c, PARTCH_43, 1200) },
+  { id: "carlosAlpha",    name: "Carlos α",       snap: (c) => snapEqual(c, CARLOS_ALPHA_STEP) },
+  { id: "carlosBeta",     name: "Carlos β",       snap: (c) => snapEqual(c, CARLOS_BETA_STEP) },
+  { id: "carlosGamma",    name: "Carlos γ",       snap: (c) => snapEqual(c, CARLOS_GAMMA_STEP) },
+  { id: "phi",            name: "Phi (φ)",        snap: (c) => snapEqual(c, PHI_OCTAVE_CENTS / 13) }
 ];
 
 /** Compute the frequency for a target interval (cents) above a root, snapped to tuning. */
