@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Drone Meditations privacy manifest.
+	     Required by Apple for App Store submissions since May 2024
+	     (https://developer.apple.com/support/third-party-SDK-requirements/).
+
+	     Drone Meditations is a fully offline drone synthesizer + cymatics
+	     visualizer. It does not transmit any user data, does not run
+	     analytics, does not use third-party SDKs, and does not track
+	     users across apps or websites. The only "required reason" API
+	     it touches is NSUserDefaults via SwiftUI's @AppStorage — used
+	     to persist user-facing UI settings (last preset name, master
+	     volume, onboarding-completion flag, Chladni zoom level). That
+	     is reason CA92.1 in Apple's required-reason API list. -->
+
+	<key>NSPrivacyTracking</key>
+	<false/>
+
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<!-- CA92.1: Access info from the same app, per its
+				     documentation. Used by @AppStorage for last-preset,
+				     master volume, onboarding flag, Chladni zoom. -->
+				<string>CA92.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>
