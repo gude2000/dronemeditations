@@ -21,6 +21,13 @@ Package.resolved
 ## CocoaPods (not used, but just in case)
 Pods/
 
+## Raw simulator captures for App Store / preview work. These are large
+## (~5 MB per shot × 16 shots ≈ 50 MB) and bloat the repo for no
+## runtime / deploy benefit. The web-optimized JPEGs at web/manual-images/
+## (~50 KB each) are what the manual + Pages actually serve; the originals
+## can always be regenerated with scripts/screenshot.sh.
+screenshots/
+
 ## Claude Code — keep shared launch + settings, but settings.local.json
 ## is per-machine (simulator IDs, personal paths, accumulated allowlists)
 .claude/settings.local.json

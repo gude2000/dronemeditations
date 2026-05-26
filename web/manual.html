@@ -137,6 +137,60 @@
     font-size: 13px;
     color: var(--ink);
   }
+
+  /* In-section screenshots. Phone shots are tall; cap at ~320px wide so
+     two can sit side-by-side on desktop, and a single one centers neatly
+     on mobile. */
+  figure.shot {
+    margin: 16px 0 8px;
+    text-align: center;
+  }
+  figure.shot img {
+    display: inline-block;
+    max-width: 320px;
+    width: 100%;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.10);
+    box-shadow: 0 12px 36px rgba(0,0,0,0.45);
+  }
+  figure.shot figcaption {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--dim);
+    font-style: italic;
+  }
+  /* Pair of screenshots side-by-side (e.g. before/after, or two related
+     features). Falls back to stacked on narrow screens. */
+  .shot-pair {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin: 16px 0 8px;
+  }
+  .shot-pair figure.shot { flex: 1 1 240px; min-width: 200px; margin: 0; }
+  .shot-pair figure.shot img { max-width: 280px; }
+
+  /* Placeholder card for shots we haven't captured yet — keeps the
+     manual visually honest about what's coming without leaving holes. */
+  figure.shot-todo {
+    margin: 16px auto;
+    max-width: 320px;
+    padding: 28px 18px;
+    border: 1px dashed rgba(255,255,255,0.18);
+    border-radius: 16px;
+    text-align: center;
+    color: var(--dim);
+    font-size: 12px;
+    background: rgba(255,255,255,0.02);
+  }
+  figure.shot-todo::before {
+    content: "📸";
+    display: block;
+    font-size: 24px;
+    margin-bottom: 8px;
+    opacity: 0.7;
+  }
   .callout.warn { background: rgba(255,200,120,0.06); border-color: var(--warm); }
   .callout.note { background: rgba(159,223,180,0.05); border-color: var(--green); }
   .callout strong { color: var(--accent); }
@@ -272,7 +326,7 @@
     <li><a href="#chord">Chord, key, octave</a></li>
     <li><a href="#tuning">Tuning systems</a></li>
     <li><a href="#presets">Presets &amp; voice presets</a></li>
-    <li><a href="#waveforms">Waveforms (incl. white &amp; pink noise)</a></li>
+    <li><a href="#waveforms">Waveforms (sine, sawtooth, white/pink noise, granular, sample…)</a></li>
     <li><a href="#fx">Per-voice FX (filter, drive, FM, chorus, delay, reverb)</a></li>
     <li><a href="#lfos">The 4 LFOs</a></li>
     <li><a href="#samples">Samples (upload + bundled)</a></li>
@@ -297,6 +351,11 @@
   <h2><span class="num">1</span>Quick start</h2>
   <p class="lede">Tap <strong>Play</strong>. Tweak. Breathe.</p>
 
+  <figure class="shot">
+    <img src="manual-images/01-hero.jpg" alt="Drone Meditations on iPhone showing the live Chladni pattern in Performance mode — a circular nodal ring intersected by a diagonal line on a green field" loading="lazy" />
+    <figcaption>Performance mode: the live cymatics pattern fills the screen while a slim Exit pill stays in the corner.</figcaption>
+  </figure>
+
   <ol>
     <li>Open the app (web at <a href="https://dronemeditations.com">dronemeditations.com</a> or the iOS app).</li>
     <li>Press the round <strong>play</strong> button at the bottom. A 30-min session timer starts; audio fades in.</li>
@@ -308,12 +367,30 @@
   <div class="callout">
     <strong>Headphones recommended.</strong> Many presets use stereo panning, binaural beats, or ping-pong delay that only land properly in stereo.
   </div>
+
+  <div class="callout note">
+    <strong>New in v1.0.</strong>
+    <ul style="margin: 6px 0 0;">
+      <li><strong>Granular waveform</strong> — pink noise chopped into Hann-windowed grains (geiger / rain / cloud textures). See <a href="#waveforms">§7</a>.</li>
+      <li><strong>Sample play window</strong> — trim start/end + per-loop fade-in/out on any loaded sample. See <a href="#samples">§10</a>.</li>
+      <li><strong>Ocean drift + per-voice amount/period</strong> — perpetual ±¼ semitone tide, plus chip overrides so each voice can drift on its own clock. See <a href="#pills">§11 → DRIFT</a>.</li>
+      <li><strong>Auto-morph</strong> — duration-driven 0→100% morph between two presets, with ping-pong looping. See <a href="#pills">§11 → MORPH</a>.</li>
+      <li><strong>38 Drone Artists presets</strong> — originals + granular / fading variants + a Drift Showcase set.</li>
+      <li><strong>Tune to Room</strong> (LISTEN) — YIN pitch detection from the mic, snap chord root to the pitch you sing or play.</li>
+      <li><strong>Mastered .m4a export</strong> (iOS) — record a session and export with loudness normalization + 2 s/4 s fades + metadata.</li>
+    </ul>
+  </div>
 </section>
 
 <!-- ───────────────── Anatomy ───────────────── -->
 <section id="anatomy">
   <h2><span class="num">2</span>Anatomy of the screen</h2>
   <p class="lede">Four floating zones: header, pill row, oscillator strips, transport.</p>
+
+  <figure class="shot">
+    <img src="manual-images/02-main-ui.jpg" alt="Drone Meditations main screen on iPhone showing the header, chord/preset/drift/listen pill row, oscillator 1 strip with frequency / pan / level / filter / FX / 4 LFO rows, the play-stop-record transport, and the copyright + Manual link inlined at the very bottom" loading="lazy" />
+    <figcaption>The full controls panel — header, pill row, oscillator strips with FX + LFOs, transport, and the new inline copyright / Manual row at the bottom edge.</figcaption>
+  </figure>
 
   <figure class="diagram">
     <svg viewBox="0 0 720 380" xmlns="http://www.w3.org/2000/svg" aria-label="Annotated screen anatomy">
@@ -406,7 +483,7 @@
   <h3>Per-strip controls</h3>
   <table>
     <tr><th>Control</th><th>What it does</th></tr>
-    <tr><td>Waveform</td><td>Sine, triangle, sawtooth, square, or loaded sample.</td></tr>
+    <tr><td>Waveform</td><td>Sine, triangle, sawtooth, square, white / pink noise, granular, or loaded sample. Picking <em>Granular</em> reveals a GRAIN row; picking <em>Sample</em> reveals a sample-row + amber WINDOW row for trim &amp; per-loop fades.</td></tr>
     <tr><td>Frequency</td><td>Logarithmic 20–2000 Hz slider. Tap the readout to type an exact value (2 decimals).</td></tr>
     <tr><td>Level</td><td>Per-voice volume, 0–100%.</td></tr>
     <tr><td><kbd>S</kbd></td><td>Solo. Any voice soloed silences the unsoloed ones.</td></tr>
@@ -465,8 +542,13 @@
 
   <h3>Full presets</h3>
   <p>Press the <strong>PRESET</strong> pill. Categories include:</p>
+
+  <figure class="shot">
+    <img src="manual-images/03-preset-picker.jpg" alt="The preset picker sheet listing categories: Drone Artists, Binaural, Natural Resonance, Cymatics, Mystic, Solfeggio — with named entries underneath" loading="lazy" />
+    <figcaption>Preset picker — each category groups dozens of named factory presets. User-saved presets appear in a "Your presets" section above the factory list.</figcaption>
+  </figure>
   <ul>
-    <li><strong>Drone Artists</strong> — 14 character-rich tributes that capture each artist's signature waveforms + FX + LFOs, not just their pitches: Pauline Oliveros (sympathetic A drone), Terry Riley (rainbow-cascade ping-pong), Éliane Radigue (4¢ microtonal beating), Stars of the Lid (filtered-string halo), Sunn O))) (sub-bass tremolo — drop master volume first), William Basinski (tape-loop decay), Phill Niblock (4-voice cluster), Charlemagne Palestine (just-thirds + sustain wash), Yoshi Wada (bagpipe just-intonation), Harold Budd (breathing pad), Alice Coltrane (Leslie organ), Earth (low-B doom), Nurse With Wound (cross-osc FM collage), Keiji Haino (D drone + HP shimmer).</li>
+    <li><strong>Drone Artists</strong> — 38 character-rich presets that capture each artist's signature waveforms + FX + LFOs, not just their pitches: Pauline Oliveros, Terry Riley, Éliane Radigue, Stars of the Lid, Sunn O))) (drop master volume first), William Basinski, Phill Niblock, Charlemagne Palestine, Yoshi Wada, Harold Budd, Alice Coltrane, Earth, Nurse With Wound, Keiji Haino — most appear twice, once as the original tribute and again as a <em>(Granular)</em> or <em>(Fading)</em> variant that exploits the new granular waveform and per-loop sample fades. A final <strong>Drift Showcase</strong> sub-set (Tide Breath, Detune Choir, Quarter-Tone Cluster, Pendulum Dawn, Tibetan Bowl Cycle, Microtonal Dance) demos the new per-voice drift amount / period overrides — each preset uses a different drift shape so you can hear what the Ocean / Wave / configurable-period modes actually do.</li>
     <li><strong>Binaural</strong> — Theta, Alpha, Beta and Gamma beat presets (paired carriers ~7, 10, 17, 40 Hz apart).</li>
     <li><strong>Natural Resonance</strong> — Earth, OM 136.1, Sun 126.22, Moon 210.42, Phi-augmented chord, Sable's chord.</li>
     <li><strong>Cymatics</strong> — chords chosen to produce especially symmetric Chladni patterns.</li>
@@ -485,7 +567,7 @@
 <!-- ───────────────── Waveforms ───────────────── -->
 <section id="waveforms">
   <h2><span class="num">7</span>Waveforms</h2>
-  <p class="lede">Seven source options per voice — four periodic, two stochastic, plus user samples.</p>
+  <p class="lede">Eight source options per voice — four periodic, three stochastic (incl. granular), plus user samples.</p>
 
   <table>
     <tr><th>Waveform</th><th>Character</th><th>Best for</th></tr>
@@ -495,9 +577,26 @@
     <tr><td>Square</td><td>Hollow, odd harmonics only.</td><td>Doom octaves, NWW textures, Earth dyads.</td></tr>
     <tr><td><strong>White noise</strong></td><td>Flat spectrum — equal energy at every frequency.</td><td>Tape hiss, wind, breath, NWW bursts. Frequency knob has no effect.</td></tr>
     <tr><td><strong>Pink noise</strong></td><td>1/f spectrum — natural-sounding, warmer than white.</td><td>Surf, rain, Basinski tape-decay layer, ambient ground floor.</td></tr>
+    <tr><td><strong>Granular</strong></td><td>Pink noise chopped into Hann-windowed grains scheduled at a chosen density. Each grain gets a random stereo placement so the texture breathes.</td><td>Geiger counters, rain drops, sparse crackle clouds — the negative-space between grains is what makes the texture feel alive. See the four <em>(Granular)</em> Drone Artists presets.</td></tr>
     <tr><td>Sample</td><td>User-loaded audio file looped at chosen pitch.</td><td>Tibetan bowls, field recordings, your own loops.</td></tr>
   </table>
   <p>Noise voices ignore the frequency slider and just hiss. They still pass through every per-voice control downstream: filter (HP for airy hiss, BP for vowel-noise), drive (warmer texture), chorus, delay, reverb, LFOs (S&amp;H on cutoff gives the gritty pattern shifts in the Nurse With Wound preset). Pink noise is generated by Paul Kellet's economy variant of the Voss-McCartney filter; white is uniform random.</p>
+
+  <h3>Granular synthesis (the <em>Granular</em> waveform)</h3>
+
+  <figure class="shot">
+    <img src="manual-images/05-granular.jpg" alt="Oscillator strip with the Granular waveform selected — a blue GRAIN row sits under the waveform picker with SIZE, DENSITY, JITTER, and SPREAD sliders" loading="lazy" />
+    <figcaption>The GRAIN row appears in blue under the waveform picker whenever Granular is the chosen waveform.</figcaption>
+  </figure>
+
+  <p>When you pick <strong>Granular</strong> as the waveform, a <strong>GRAIN</strong> row appears under the picker with four sliders:</p>
+  <ul>
+    <li><strong>SIZE</strong> — grain length, <strong>5–500 ms</strong> (log). Short grains read as <em>clicks</em>; medium grains (~25–80 ms) sound like <em>raindrops</em>; long grains (~200–500 ms) bleed into soft <em>clouds</em>.</li>
+    <li><strong>DENSITY</strong> — average grains per second, <strong>0.5–50/s</strong> (log). Below 1/s the readout flips to <em>N/min</em> for the geiger-counter range. Combine sparse density + short grains for "rare events," or dense + medium for a downpour.</li>
+    <li><strong>JITTER</strong> — randomness in inter-grain timing, <strong>0–100 %</strong>. 0 = perfectly clocked; 100 = pure Poisson scatter (each grain feels independent).</li>
+    <li><strong>SPREAD</strong> — random per-grain stereo placement, <strong>0–100 %</strong>. Acts on top of the voice's main pan slider, so you can offset the grain field while keeping its center.</li>
+  </ul>
+  <p>The source material is pink noise (warmer than white for meditation). Filter and reverb apply downstream, so a high-pass + plate-reverb stack turns granular noise into raindrops landing in a glass-walled room. Stack two granular voices panned opposite for stereo rain showers — the Sparse Rain and Rain Shower presets do exactly this.</p>
 </section>
 
 <!-- ───────────────── FX ───────────────── -->
@@ -566,6 +665,12 @@
   <p class="lede">Any of the four voices can play back a looped audio sample instead of a generated wave. Two ways to load one:</p>
 
   <h3>Bundled samples</h3>
+
+  <figure class="shot">
+    <img src="manual-images/08-samples.jpg" alt="The bundled samples picker showing categories Atmospheric, Cosmic, Field, Instruments, Urban with named audio files underneath each" loading="lazy" />
+    <figcaption>The bundled samples picker groups all 41 shipped files into categories (Atmospheric, Cosmic, Field, Instruments, Urban).</figcaption>
+  </figure>
+
   <p>The <strong>Bundled ▾</strong> button on each oscillator strip opens a small picker of audio files shipped with the app. Tap one and it loads instantly — no upload dialog, no Files-app round-trip. Web sources files from <code>web/samples/</code> via a manifest (<code>web/samples/index.json</code>); iOS sources from a <code>Samples</code> folder inside the app bundle. Both folders have a README explaining how to drop in your own audio. The picker groups entries by an optional category (e.g. "Bowls", "Field", "Keys").</p>
 
   <h3>Upload your own</h3>
@@ -581,6 +686,21 @@
     <li>The same FX chain (filter / drive / chorus / delay / reverb / LFOs / drift) applies to samples.</li>
     <li>Samples are referenced by ID in user presets, so multiple presets can share one file without duplication.</li>
   </ul>
+
+  <h3>Sample play window — trim, loop, fade</h3>
+
+  <figure class="shot-todo">
+    Screenshot of the amber <strong>WINDOW</strong> row — coming with the next build.
+  </figure>
+
+  <p>Once a file is loaded, a <strong>WINDOW</strong> row (amber-tinted) appears under the sample row with four sliders that shape <em>which slice</em> of the file loops:</p>
+  <ul>
+    <li><strong>START</strong> (0–100%) — where in the file looping begins. Skip past silence, bowing scrapes, or a recording's noisy intro.</li>
+    <li><strong>END</strong> (0–100%) — where the loop wraps back to START. Trim off the decay tail so the loop point lands somewhere musically useful.</li>
+    <li><strong>FADE IN</strong> (0–10 s) — each loop pass fades up over this duration. Set to ~0.5–2 s to soften the loop-start seam on percussive material.</li>
+    <li><strong>FADE OUT</strong> (0–10 s) — each loop pass fades down toward END. The classic trick: equal fade-in and fade-out at ~⅓ of the window length give you a continuous breathing loop with no audible seam, even on harsh source material.</li>
+  </ul>
+  <p>The window + fade settings are saved with full presets, so a bundled Tibetan-bowl sample with a 4-second window + 1-second fades becomes a fixed instrument inside the preset rather than the raw recording. Many of the new <em>(Granular)</em> and faded Drone Artists presets rely on this — the Basinski tape-decay cycle, for instance, uses a tight window with long crossfades to suggest the original loop is wearing away.</p>
 
   <div class="callout warn">
     <strong>Storage.</strong> Browsers cap IndexedDB at a few hundred MB per origin. iOS shares the app's container with everything else you've saved. Long uncompressed WAVs add up fast — convert to OGG/MP3/M4A for archival.
@@ -602,17 +722,38 @@
   </div>
 
   <h3>DRIFT — generative slow motion</h3>
+
+  <figure class="shot-todo">
+    Screenshot of the per-voice 🌀 Drift menu with Pitch / Amount / Period / Pan sections — coming with the next build.
+  </figure>
+
   <p>Pick a <strong>drift scene</strong> and the app gently wanders the chosen parameters over minutes. Scenes include:</p>
   <ul>
     <li><strong>Glacial up / down</strong> — every voice slowly climbs or descends by a few cents.</li>
     <li><strong>Octave up / down</strong> — voices migrate ±1 octave over the session.</li>
+    <li><strong>Wave / Ocean</strong> — sine-shaped pitch sway that breathes up <em>and</em> down forever. <strong>Wave</strong> is the slow up-and-back swing tied to the session timer; <strong>Ocean</strong> is a perpetual ~90-second ±¼ semitone tide that never resolves — the closest thing to a "still" preset that still feels alive.</li>
     <li><strong>Opposite pan</strong> — voices 1&2 drift left, 3&4 right.</li>
     <li><strong>Coordinated scenes</strong> — 2 voices up + 2 down, centered drone w/ pair drifting, full panning spiral, …</li>
     <li><strong>Custom</strong> — set the dropdown on any single oscillator strip (🌀) to mix-and-match modes per voice.</li>
   </ul>
-  <p>Drift speed is calibrated to your session length: the full arc completes by the time the timer ends.</p>
+  <p>Drift speed is calibrated to your session length: the full arc completes by the time the timer ends — unless you override it.</p>
+
+  <h4>Per-voice drift overrides (Amount + Period)</h4>
+  <p>Each oscillator strip's <strong>🌀 Drift</strong> menu has four sections: <strong>Pitch</strong> (the motion shape), <strong>Amount</strong> (how far it travels), <strong>Period</strong> (how long one cycle lasts), and <strong>Pan</strong> (the stereo motion). Defaults follow the scene; pick a chip in Amount or Period to override that voice individually.</p>
+  <ul>
+    <li><strong>Amount</strong> — ½ · 1 · 2 · 3 · 5 · 12 · 24 semitones. Lets you turn a glacial 12-cent drift into a 1- or 2-octave migration, or pull a 1-semitone bend down to a near-static ½-semitone breath.</li>
+    <li><strong>Period</strong> — 10 s · 30 s · 1 / 3 / 5 / 10 / 20 min (Ocean defaults to ~90 s if you don't override). Slower periods turn drift into pure ambience; faster periods make it audibly cyclic.</li>
+    <li>An <em>Auto</em> chip in each section resets that voice to the scene's default amount/period.</li>
+  </ul>
+  <p>These overrides make every voice's motion independent of session length, so you can build slow-bloom textures inside a long meditation: a 20-minute glacial-up bass paired with a 30-second wave on a high pad creates intentional layered motion that the simple "scene" presets can't produce alone.</p>
 
   <h3>LISTEN — tune to room</h3>
+
+  <figure class="shot">
+    <img src="manual-images/06-listen.jpg" alt="The Listen / Tune to Room sheet showing a large note readout, Hz value, cents-off-tuning bar, audio input level meter, and a Set as Root button" loading="lazy" />
+    <figcaption>The Listen sheet detects the nearest note + cents offset in real time. Tap "Set as Root" to snap the chord generator to the pitch you're playing.</figcaption>
+  </figure>
+
   <p>Pop the sheet, grant mic access, and play a sustained note from any instrument (voice, tuning fork, singing bowl). The app runs <strong>YIN pitch detection</strong> (de Cheveigné &amp; Kawahara) in real time, displays the nearest note + cents offset + Hz + live audio level, and a "Set as Root" button snaps the chord generator's root key to match.</p>
   <p>The displayed pitch is <strong>held on screen</strong> until you tap <em>Reset</em> or sing a new stable pitch — you don't have to race the readout to hit Set as Root. A subtle "HELD" badge appears when the value is sticky (mic went quiet). The status line reads "Held — tap Set as Root, or sing a new note".</p>
   <p>On web there's a <strong>source picker</strong> dropdown — switch to a USB mic / interface input mid-session. iOS uses the system audio input.</p>
@@ -621,6 +762,12 @@
   <p>Hides every control element, leaving only the live Chladni pattern (with sand particles + zoom). A tiny "Exit" pill stays in the top-left; on iOS it auto-dims after 3 s but never disappears, and tapping anywhere wakes it back to full brightness. <kbd>Esc</kbd> exits on web.</p>
 
   <h3>JOURNEY — scripted meditations</h3>
+
+  <figure class="shot">
+    <img src="manual-images/07-journeys.jpg" alt="The Journey picker sheet showing General, Drone Artists, and Your Journeys sections with named multi-stage timed meditation sequences" loading="lazy" />
+    <figcaption>25 curated journeys plus a composer for your own — each is a sequence of preset + drift + duration stages.</figcaption>
+  </figure>
+
   <p>25 multi-stage timed journeys auto-advance through presets + drift scenes. <strong>15 general</strong> + <strong>10 drone-artist</strong>:</p>
   <ul>
     <li><strong>General:</strong> Sundown, Awakening, Floating, Body Scan, Cathedral, Mountain Climb, Vespers, Crystal Cave, Phi Spiral, Quartz, Lullaby, Tibetan Bowl, Storm Front, Centering, Spiral Descent.</li>
@@ -631,13 +778,21 @@
   <p><strong>Compose your own.</strong> The "＋ Create your own journey" button at the top of the Journey sheet opens a composer where you name a journey and add any number of stages — each one a preset + drift scene + duration (0.5–90 minutes). User journeys are saved locally and appear in a "Your journeys" section above the curated list, with pencil (edit) and × (delete) controls.</p>
 
   <h3>MORPH — interpolate between two presets</h3>
+
+  <figure class="shot">
+    <img src="manual-images/04-morph.jpg" alt="The Morph sheet showing From and To preset dropdowns, a 0–100% slider, and an Auto-morph panel with duration choices and Play / Pause / Reset buttons" loading="lazy" />
+    <figcaption>Morph sheet — drag the slider manually, or set a duration and hit Play to auto-morph between any two presets over time.</figcaption>
+  </figure>
+
   <p>The MORPH pill opens a sheet with two preset dropdowns and a 0–100% slider. As you drag, <em>every</em> per-voice parameter is interpolated between A and B in real time:</p>
   <ul>
     <li><strong>Log interpolation</strong> on frequencies, filter cutoff &amp; Q, reverb decay, delay time, chorus rate, FM index (musically smoother than linear across octaves).</li>
     <li><strong>Linear</strong> on mix / depth / pan / drive / feedback / width.</li>
     <li><strong>Discrete swap</strong> at the midpoint (≥ 50%) on waveform, filter type, delay mode, FM source, LFO shape + target.</li>
   </ul>
-  <p>The preset name flips to <em>"A → B (NN%)"</em> while morphing. <strong>Reset</strong> clears the morph and returns to plain preset behavior. Especially fun between Drone Artists presets — try morphing Oliveros → Stars of the Lid, or Sunn O))) → Earth.</p>
+  <p>The preset name flips to <em>"A → B (NN%)"</em> while morphing. <strong>Clear morph</strong> wipes the From/To pair and returns to plain preset behavior.</p>
+
+  <p><strong>Auto-morph (time-driven).</strong> Below the slider, the <em>Auto-morph</em> panel lets you pick a duration (30 s · 1 / 3 / 5 / 10 / 20 / 30 / 60 min) and tap <strong>▶ Play</strong>. The morph slider then crawls from 0 → 100 % over that duration, applying every parameter blend continuously — a 20-minute Oliveros → Basinski morph becomes a guided meditation in itself. <strong>⏸ Pause</strong> freezes mid-morph; <strong>↺ Reset</strong> snaps back to 0 % without losing the From/To selection. Tick <strong>Ping-pong</strong> to bounce back and forth between A and B forever. The timer keeps running when you close the sheet, so you can dismiss the controls and watch Chladni evolve through the full duration. Especially fun between Drone Artists presets — try morphing Oliveros → Stars of the Lid, or Sunn O))) → Earth.</p>
 
   <h3>GALLERY — cymatics snapshots (web)</h3>
   <p>Every snapshot you save in the pop-out Chladni window is mirrored here. Tap a thumbnail to re-download; the <strong>×</strong> button removes it from the gallery only — already-downloaded PNGs aren't touched. Capped at 200 to keep localStorage healthy.</p>
@@ -736,6 +891,11 @@
 <section id="spectrum">
   <h2><span class="num">14</span>Spectrum analyzer</h2>
   <p class="lede">Real-time FFT view tapped post-limiter.</p>
+
+  <figure class="shot-todo">
+    Screenshot of the live spectrum analyzer overlay — coming with the next build.
+  </figure>
+
   <p>Toggle the chart-bar button in the header to overlay a log-frequency spectrum bar graph (20 Hz – 16 kHz). It's a quick way to verify what's actually leaving the master bus — useful when chasing why a "bass-only" preset isn't producing low energy (often a runaway high-pass filter or an LFO killing the fundamental).</p>
   <p>The web version uses <code>AnalyserNode.getByteFrequencyData</code>; iOS uses vDSP forward FFT with a Hann window on a tap installed on <code>engine.outputNode</code>.</p>
 </section>
@@ -770,6 +930,14 @@
 <!-- ───────────────── iOS ───────────────── -->
 <section id="ios">
   <h2><span class="num">17</span>iOS-only features</h2>
+
+  <h3>First-launch tour</h3>
+  <p>The first time you open the iOS app, a 5-card tour walks you through Play / Preset / Tweak / Cymatics / Go Further. Swipe through or tap <strong>Next</strong>; <strong>Skip</strong> jumps to the synth. You can re-open the tour any time from the <strong>?</strong> button in the controls header.</p>
+
+  <figure class="shot">
+    <img src="manual-images/09-onboarding.jpg" alt="The Welcome to Drone Meditations onboarding card on first launch — sound-wave glyph, intro text crediting Pauline Oliveros, Éliane Radigue, Stars of the Lid, Sunn O))), and a Next button with five page-dots" loading="lazy" />
+    <figcaption>First-launch onboarding card 1 of 5 (Welcome).</figcaption>
+  </figure>
 
   <h3>Now Playing / Lock Screen</h3>
   <p>While playing, iOS shows Drone Meditations on the Lock Screen and Control Center with play / pause controls. Plays through silent mode (the audio session uses the <code>.playback</code> category) and supports background audio so you can lock the screen mid-session.</p>
