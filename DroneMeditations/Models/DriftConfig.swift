@@ -5,7 +5,7 @@ import Foundation
 /// scenes are just templates that bulk-set this struct across all 4 voices.
 struct DriftVoiceConfig: Equatable, Codable {
     enum PitchMode: String, CaseIterable, Identifiable, Codable {
-        case `static`, up, down, upDown, downUp, wave, glacial
+        case `static`, up, down, upDown, downUp, wave, ocean, glacial
         var id: String { rawValue }
         var label: String {
             switch self {
@@ -15,6 +15,7 @@ struct DriftVoiceConfig: Equatable, Codable {
             case .upDown:  return "Up / Down (^)"
             case .downUp:  return "Down / Up (V)"
             case .wave:    return "Wave (sine)"
+            case .ocean:   return "Ocean (±¼ semi · 90 s)"
             case .glacial: return "Glacial wander"
             }
         }
@@ -39,6 +40,19 @@ struct DriftVoiceConfig: Equatable, Codable {
     var panMode: PanMode = .static
     var panAmount: Double = 1.0
     var panPhase: Double = 0
+
+    /// Custom pitch-drift amplitude in semitones (if set, overrides the
+    /// default amplitude of `pitchAmount * 1 octave`). Range 0.1 – 24
+    /// semitones (¼ semitone up to 2 octaves). nil = use existing
+    /// pitchAmount (= 1.0 = full octave) for backward compat with
+    /// presets saved before this field existed.
+    var pitchSemitones: Double? = nil
+
+    /// Custom pitch-drift period in seconds (if set, the cycle repeats
+    /// every N sec using absolute time; otherwise the cycle scales to
+    /// the full session length). Range 10 – 1200 sec (10s – 20 min).
+    /// nil = use session-progress behavior (default for existing presets).
+    var pitchPeriodSec: Double? = nil
 
     /// Convenience for the static (no-drift) default.
     static let off = DriftVoiceConfig()

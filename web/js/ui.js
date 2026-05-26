@@ -22,6 +22,8 @@ const WAVEFORM_SVG = {
   whiteNoise: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2 17l1-7 1 5 1-9 1 8 1-4 1 6 1-7 1 9 1-5 1 7 1-8 1 4 1-6 1 8 1-9 1 5 1-7 1 6 1-4 1 7"/></svg>',
   // Pink noise — softer, lower-frequency hill silhouette.
   pinkNoise:  '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 16q3-4 5-1t3 3 3-6 4 4 5-2"/></svg>',
+  // Granular — discrete grains (six raindrop/teardrop shapes across the baseline).
+  granular: '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" stroke="none"><circle cx="3" cy="12" r="1.4"/><circle cx="7" cy="12" r="1.4"/><circle cx="11" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/><circle cx="23" cy="12" r="1.4"/></svg>',
   sample:   '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14l4-8 4 12 3-9 3 6 4-4"/></svg>'
 };
 
@@ -308,6 +310,11 @@ const DLY_MIN = 0.02, DLY_MAX = 2.0;
 // Filter cutoff range, log-scaled.
 const FILT_MIN = 20;
 const FILT_MAX = 8000;
+// Granular slider ranges (mirror GrainState on iOS).
+const GRAIN_SIZE_MIN = 5;     // ms
+const GRAIN_SIZE_MAX = 500;
+const GRAIN_DENS_MIN = 0.5;   // grains/sec
+const GRAIN_DENS_MAX = 50;
 const Q_MIN = 0.3;
 const Q_MAX = 20;
 
@@ -384,6 +391,51 @@ function buildStrip(index) {
       <button type="button" class="sample-button" data-role="sample-load">Load file…</button>
       <span class="sample-name" data-role="sample-name" title="">—</span>
       <button type="button" class="sample-clear" data-role="sample-clear" hidden>Clear</button>
+    </div>
+    <!-- Sample window row: shown when waveform === "sample" AND a sample is
+         loaded. Four sliders trim the playback window inside the loaded
+         file (start/end fractions) and apply per-loop fade-in / fade-out so
+         the looped slice doesn't tick at the seam. -->
+    <div class="filter-row sample-window-row" data-role="sample-window-row" hidden>
+      <span class="strip-label">WINDOW</span>
+      <div class="mini-control">
+        <span class="mini-label" data-role="sample-start-label">START</span>
+        <input type="range" min="0" max="1" step="0.001" data-role="sample-start" title="Where in the sample looping begins (0 = file start)" />
+      </div>
+      <div class="mini-control">
+        <span class="mini-label" data-role="sample-end-label">END</span>
+        <input type="range" min="0" max="1" step="0.001" data-role="sample-end" title="Where in the sample looping wraps back (1 = file end)" />
+      </div>
+      <div class="mini-control">
+        <span class="mini-label" data-role="sample-fadein-label">FADE IN</span>
+        <input type="range" min="0" max="1" step="0.001" data-role="sample-fadein" title="Per-loop fade-in length, 0–10 sec" />
+      </div>
+      <div class="mini-control">
+        <span class="mini-label" data-role="sample-fadeout-label">FADE OUT</span>
+        <input type="range" min="0" max="1" step="0.001" data-role="sample-fadeout" title="Per-loop fade-out length, 0–10 sec" />
+      </div>
+    </div>
+    <!-- Granular row: shown only when waveform === "granular". Four sliders
+         shape the grain texture (size + density log-scaled; jitter + spread
+         linear 0-1). -->
+    <div class="filter-row grain-row" data-role="grain-row" hidden>
+      <span class="strip-label">GRAIN</span>
+      <div class="mini-control">
+        <span class="mini-label" data-role="grain-size-label">SIZE</span>
+        <input type="range" min="0" max="1" step="0.0001" data-role="grain-size" title="Grain length, 5–500 ms (log)" />
+      </div>
+      <div class="mini-control">
+        <span class="mini-label" data-role="grain-density-label">DENSITY</span>
+        <input type="range" min="0" max="1" step="0.0001" data-role="grain-density" title="Grains per second, 0.5–50 (log)" />
+      </div>
+      <div class="mini-control">
+        <span class="mini-label" data-role="grain-jitter-label">JITTER</span>
+        <input type="range" min="0" max="1" step="0.001" data-role="grain-jitter" title="Random inter-grain timing (0 = clockwork, 1 = Poisson)" />
+      </div>
+      <div class="mini-control">
+        <span class="mini-label" data-role="grain-spread-label">SPREAD</span>
+        <input type="range" min="0" max="1" step="0.001" data-role="grain-spread" title="Random per-grain stereo placement" />
+      </div>
     </div>
     <div class="filter-row">
       <span class="strip-label">FILT</span>
@@ -570,6 +622,23 @@ function buildStrip(index) {
   });
   root.querySelector('[data-role="sample-clear"]').addEventListener("click", () => dispatch.clearSample(index));
 
+  // Sample window sliders. Start/end are 0..1 fractions; fade-in/out are
+  // 0..1 slider positions mapped to 0–10 seconds (linear).
+  root.querySelector('[data-role="sample-start"]').addEventListener("input", (e) => {
+    dispatch.setSampleStart(index, parseFloat(e.target.value));
+  });
+  root.querySelector('[data-role="sample-end"]').addEventListener("input", (e) => {
+    dispatch.setSampleEnd(index, parseFloat(e.target.value));
+  });
+  root.querySelector('[data-role="sample-fadein"]').addEventListener("input", (e) => {
+    const t = parseFloat(e.target.value);
+    dispatch.setSampleFadeIn(index, t * 10);
+  });
+  root.querySelector('[data-role="sample-fadeout"]').addEventListener("input", (e) => {
+    const t = parseFloat(e.target.value);
+    dispatch.setSampleFadeOut(index, t * 10);
+  });
+
   root.querySelectorAll('[data-filter-type]').forEach((btn) => {
     btn.addEventListener("click", () => dispatch.setFilterType(index, btn.dataset.filterType));
   });
@@ -586,6 +655,25 @@ function buildStrip(index) {
 
   root.querySelector('[data-role="drive"]').addEventListener("input", (e) => {
     dispatch.setDrive(index, parseFloat(e.target.value));
+  });
+
+  // Granular sliders. Size + density are log-scaled in [GRAIN_*_MIN, MAX];
+  // jitter + spread are linear 0..1.
+  root.querySelector('[data-role="grain-size"]').addEventListener("input", (e) => {
+    const t = parseFloat(e.target.value);
+    const ms = GRAIN_SIZE_MIN * Math.pow(GRAIN_SIZE_MAX / GRAIN_SIZE_MIN, t);
+    dispatch.setGrainSize(index, ms);
+  });
+  root.querySelector('[data-role="grain-density"]').addEventListener("input", (e) => {
+    const t = parseFloat(e.target.value);
+    const hz = GRAIN_DENS_MIN * Math.pow(GRAIN_DENS_MAX / GRAIN_DENS_MIN, t);
+    dispatch.setGrainDensity(index, hz);
+  });
+  root.querySelector('[data-role="grain-jitter"]').addEventListener("input", (e) => {
+    dispatch.setGrainJitter(index, parseFloat(e.target.value));
+  });
+  root.querySelector('[data-role="grain-spread"]').addEventListener("input", (e) => {
+    dispatch.setGrainPanSpread(index, parseFloat(e.target.value));
   });
 
   // Reverb + delay sliders
@@ -709,6 +797,81 @@ function syncStrip(index, root) {
     root.querySelector('[data-role="sample-clear"]').hidden = !osc.sampleName;
     root.querySelector('[data-role="sample-load"]').textContent =
       osc.sampleName ? "Replace…" : "Load file…";
+  }
+
+  // Sample window row visible only when sample mode AND a sample is loaded.
+  const sampleWindowRow = root.querySelector('[data-role="sample-window-row"]');
+  const sampleWindowVisible = osc.waveform === "sample" && !!osc.sampleName;
+  sampleWindowRow.hidden = !sampleWindowVisible;
+  if (sampleWindowVisible) {
+    const startFrac = osc.sampleStartFrac ?? 0;
+    const endFrac = osc.sampleEndFrac ?? 1;
+    const fadeInSec = osc.sampleFadeInSec ?? 0;
+    const fadeOutSec = osc.sampleFadeOutSec ?? 0;
+
+    const startSlider = root.querySelector('[data-role="sample-start"]');
+    if (document.activeElement !== startSlider) startSlider.value = startFrac.toFixed(3);
+    startSlider.style.setProperty("--fill", `${Math.round(startFrac * 100)}%`);
+    root.querySelector('[data-role="sample-start-label"]').textContent =
+      `START ${Math.round(startFrac * 100)}%`;
+
+    const endSlider = root.querySelector('[data-role="sample-end"]');
+    if (document.activeElement !== endSlider) endSlider.value = endFrac.toFixed(3);
+    endSlider.style.setProperty("--fill", `${Math.round(endFrac * 100)}%`);
+    root.querySelector('[data-role="sample-end-label"]').textContent =
+      `END ${Math.round(endFrac * 100)}%`;
+
+    const fadeInSlider = root.querySelector('[data-role="sample-fadein"]');
+    const fadeInT = Math.min(1, fadeInSec / 10);
+    if (document.activeElement !== fadeInSlider) fadeInSlider.value = fadeInT.toFixed(3);
+    fadeInSlider.style.setProperty("--fill", `${Math.round(fadeInT * 100)}%`);
+    root.querySelector('[data-role="sample-fadein-label"]').textContent =
+      fadeInSec < 0.05 ? "FADE IN off" : `FADE IN ${fadeInSec.toFixed(1)}s`;
+
+    const fadeOutSlider = root.querySelector('[data-role="sample-fadeout"]');
+    const fadeOutT = Math.min(1, fadeOutSec / 10);
+    if (document.activeElement !== fadeOutSlider) fadeOutSlider.value = fadeOutT.toFixed(3);
+    fadeOutSlider.style.setProperty("--fill", `${Math.round(fadeOutT * 100)}%`);
+    root.querySelector('[data-role="sample-fadeout-label"]').textContent =
+      fadeOutSec < 0.05 ? "FADE OUT off" : `FADE OUT ${fadeOutSec.toFixed(1)}s`;
+  }
+
+  // Granular row visible only when waveform === "granular".
+  const grainRow = root.querySelector('[data-role="grain-row"]');
+  const grainVisible = osc.waveform === "granular";
+  grainRow.hidden = !grainVisible;
+  if (grainVisible) {
+    const g = osc.grain || { sizeMs: 80, densityHz: 8, jitter: 0.6, panSpread: 0.5 };
+    // Size (log)
+    const sizeT = Math.log(Math.max(GRAIN_SIZE_MIN, g.sizeMs) / GRAIN_SIZE_MIN) /
+                  Math.log(GRAIN_SIZE_MAX / GRAIN_SIZE_MIN);
+    const sizeSlider = root.querySelector('[data-role="grain-size"]');
+    if (document.activeElement !== sizeSlider) sizeSlider.value = sizeT.toFixed(4);
+    sizeSlider.style.setProperty("--fill", `${Math.round(sizeT * 100)}%`);
+    root.querySelector('[data-role="grain-size-label"]').textContent =
+      `SIZE ${Math.round(g.sizeMs)}ms`;
+    // Density (log) — show as /s for ≥1, /min otherwise (sparse geiger feel)
+    const densT = Math.log(Math.max(GRAIN_DENS_MIN, g.densityHz) / GRAIN_DENS_MIN) /
+                  Math.log(GRAIN_DENS_MAX / GRAIN_DENS_MIN);
+    const densSlider = root.querySelector('[data-role="grain-density"]');
+    if (document.activeElement !== densSlider) densSlider.value = densT.toFixed(4);
+    densSlider.style.setProperty("--fill", `${Math.round(densT * 100)}%`);
+    root.querySelector('[data-role="grain-density-label"]').textContent =
+      g.densityHz >= 1
+        ? `DENSITY ${Math.round(g.densityHz)}/s`
+        : `DENSITY ${Math.round(g.densityHz * 60)}/min`;
+    // Jitter (linear)
+    const jitSlider = root.querySelector('[data-role="grain-jitter"]');
+    if (document.activeElement !== jitSlider) jitSlider.value = g.jitter.toFixed(3);
+    jitSlider.style.setProperty("--fill", `${Math.round(g.jitter * 100)}%`);
+    root.querySelector('[data-role="grain-jitter-label"]').textContent =
+      `JITTER ${Math.round(g.jitter * 100)}`;
+    // Spread (linear)
+    const sprSlider = root.querySelector('[data-role="grain-spread"]');
+    if (document.activeElement !== sprSlider) sprSlider.value = g.panSpread.toFixed(3);
+    sprSlider.style.setProperty("--fill", `${Math.round(g.panSpread * 100)}%`);
+    root.querySelector('[data-role="grain-spread-label"]').textContent =
+      `SPREAD ${Math.round(g.panSpread * 100)}`;
   }
 
   // Filter row
@@ -1404,21 +1567,27 @@ function buildMorphSheet() {
   const fromLbl = document.getElementById("morph-from-label");
   const toLbl   = document.getElementById("morph-to-label");
 
-  // Populate both dropdowns with grouped <optgroup>s by category +
-  // user presets at the top. Each option's value is the preset id.
+  // Populate both dropdowns with grouped <optgroup>s. User-saved presets
+  // come first under "My Presets" so they're easy to find; built-in
+  // presets follow grouped by category. The morph applier resolves IDs
+  // back to voices via morphSourceFor() in main.js (handles both shapes).
   const groups = {};
   for (const p of PRESETS) {
     (groups[p.category] = groups[p.category] || []).push(p);
   }
-  // Morph only supports built-in presets for now — user presets have a
-  // different schema (full per-voice settings vs the V({...}) shape) and
-  // would need an adapter. Easy follow-up if there's demand.
+  const s0 = getState();
+  const userOpts = (s0.userPresets || []).length
+    ? `<optgroup label="My Presets">${
+        s0.userPresets.map((p) =>
+          `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join("")
+      }</optgroup>`
+    : "";
   const factoryOpts = PRESET_CATEGORIES
     .filter((c) => groups[c]?.length)
     .map((c) => `<optgroup label="${escapeHtml(c)}">${
       groups[c].map((p) => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("")
     }</optgroup>`).join("");
-  const allOpts = `<option value="">— pick —</option>` + factoryOpts;
+  const allOpts = `<option value="">— pick —</option>` + userOpts + factoryOpts;
   fromSel.innerHTML = allOpts;
   toSel.innerHTML   = allOpts;
 
@@ -1438,6 +1607,8 @@ function buildMorphSheet() {
     updateMorphLabels();
   };
   slider.oninput = (e) => {
+    // Manual drag pauses the auto-morph so the user can scrub freely.
+    if (s.morphIsRunning) dispatch.pauseMorph();
     dispatch.setMorphAmount(parseFloat(e.target.value));
     updateMorphReadout();
   };
@@ -1448,17 +1619,95 @@ function buildMorphSheet() {
     slider.value = "0";
     updateMorphLabels();
     updateMorphReadout();
+    updateAutoControls();
   };
 
+  // ── Auto-morph controls ──
+  const chipBox = document.getElementById("morph-duration-chips");
+  chipBox.querySelectorAll("button").forEach((b) => {
+    b.onclick = () => {
+      dispatch.setMorphDuration(parseFloat(b.dataset.sec));
+      updateAutoControls();
+    };
+  });
+
+  const playBtn = document.getElementById("morph-play");
+  playBtn.onclick = () => {
+    const st = getState();
+    if (st.morphIsRunning) {
+      dispatch.pauseMorph();
+    } else {
+      dispatch.startMorph();
+    }
+    updateAutoControls();
+  };
+
+  document.getElementById("morph-reset-pos").onclick = () => {
+    dispatch.resetMorphPosition();
+    slider.value = "0";
+    updateMorphReadout();
+    updateAutoControls();
+  };
+
+  const pingPong = document.getElementById("morph-pingpong");
+  pingPong.onchange = () => {
+    dispatch.setMorphPingPong(pingPong.checked);
+  };
+
+  updateAutoControls();
+
   function updateMorphLabels() {
-    const findName = (id) => id ? (PRESETS.find((p) => p.id === id)?.name || id) : "—";
+    // Look in built-in first, then user presets — matches morphSourceFor.
+    const findName = (id) => {
+      if (!id) return "—";
+      const built = PRESETS.find((p) => p.id === id);
+      if (built) return built.name;
+      const st = getState();
+      const user = (st.userPresets || []).find((p) => p.id === id);
+      return user ? user.name : id;
+    };
     fromLbl.textContent = findName(fromSel.value);
     toLbl.textContent   = findName(toSel.value);
   }
   function updateMorphReadout() {
     const t = parseFloat(slider.value);
-    readout.textContent = `${Math.round(t * 100)}%  ${fromSel.value && toSel.value ? "" : "(pick From + To)"}`;
+    const st = getState();
+    const dirGlyph = st.morphIsRunning
+      ? (st.morphIsPingPong
+          ? (st.morphAmount < 1.0 ? "▶ " : "◀ ")
+          : "▶ ")
+      : "";
+    readout.textContent = `${dirGlyph}${Math.round(t * 100)}%  ${fromSel.value && toSel.value ? "" : "(pick From + To)"}`;
   }
+  function updateAutoControls() {
+    const st = getState();
+    // Duration chips
+    chipBox.querySelectorAll("button").forEach((b) => {
+      const sec = parseFloat(b.dataset.sec);
+      b.classList.toggle("active", Math.abs(sec - st.morphDurationSec) < 0.5);
+    });
+    document.getElementById("morph-duration-readout").textContent =
+      `Duration: ${formatMorphDuration(st.morphDurationSec)}`;
+    // Play/pause label
+    playBtn.textContent = st.morphIsRunning ? "⏸ Pause" : "▶ Play";
+    playBtn.classList.toggle("running", st.morphIsRunning);
+    const hasBoth = !!st.morphFromId && !!st.morphToId;
+    playBtn.disabled = !hasBoth;
+    pingPong.checked = st.morphIsPingPong;
+    // Live slider tracking while running (don't fight an active drag).
+    if (st.morphIsRunning && document.activeElement !== slider) {
+      slider.value = String(st.morphAmount || 0);
+      updateMorphReadout();
+    }
+  }
+}
+
+function formatMorphDuration(sec) {
+  const s = Math.round(sec);
+  if (s < 60) return `${s} s`;
+  const m = Math.floor(s / 60);
+  const rem = s % 60;
+  return rem === 0 ? `${m} min` : `${m} min ${rem} s`;
 }
 
 function syncMorphPill() {
@@ -1470,15 +1719,30 @@ function syncMorphPill() {
     value.textContent = "Off";
     pill.classList.remove("active");
   } else {
-    value.textContent = `${Math.round((s.morphAmount || 0) * 100)}%`;
+    const pct = Math.round((s.morphAmount || 0) * 100);
+    value.textContent = s.morphIsRunning ? `▶ ${pct}%` : `${pct}%`;
     pill.classList.add("active");
   }
-  // If the morph sheet is open, keep its slider/labels live too.
+  // If the morph sheet is open, keep its slider/labels/transport live too.
   const sheet = document.getElementById("morph-sheet");
   if (sheet && !sheet.hidden) {
     const slider = document.getElementById("morph-slider");
     if (slider && document.activeElement !== slider) {
       slider.value = String(s.morphAmount || 0);
+    }
+    const readout = document.getElementById("morph-readout");
+    if (readout) {
+      const dirGlyph = s.morphIsRunning
+        ? (s.morphIsPingPong
+            ? (s.morphAmount < 1.0 ? "▶ " : "◀ ")
+            : "▶ ")
+        : "";
+      readout.textContent = `${dirGlyph}${Math.round((s.morphAmount || 0) * 100)}%`;
+    }
+    const playBtn = document.getElementById("morph-play");
+    if (playBtn) {
+      playBtn.textContent = s.morphIsRunning ? "⏸ Pause" : "▶ Play";
+      playBtn.classList.toggle("running", s.morphIsRunning);
     }
   }
 }
@@ -1666,6 +1930,7 @@ const VOICE_PITCH_DRIFT_MODES = [
   { id: "upDown",  label: "Up / Down (^)" },
   { id: "downUp",  label: "Down / Up (V)" },
   { id: "wave",    label: "Wave (sine)" },
+  { id: "ocean",   label: "Ocean (±¼ semi · 90 s)" },
   { id: "glacial", label: "Glacial wander" }
 ];
 const VOICE_PAN_DRIFT_MODES = [

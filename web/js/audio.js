@@ -93,10 +93,17 @@ export class AudioEngine {
       const noiseGain = this.ctx.createGain();
       noiseGain.gain.value = 0;
       const noiseSrc = this.ctx.createBufferSource();
-      noiseSrc.buffer = (v.waveform === "pinkNoise")
+      // Granular mode reuses pink noise as its source — warmer / more
+      // meditation-friendly than white. White/pink modes pick their own.
+      noiseSrc.buffer = (v.waveform === "pinkNoise" || v.waveform === "granular")
         ? this._pinkNoiseBuffer()
         : this._whiteNoiseBuffer();
       noiseSrc.loop = true;
+      // Per-grain pan offset. Always in the noise signal path — when not in
+      // granular mode it sits at 0 (center, no effect). The grain scheduler
+      // updates this around the voice's base pan with random offsets.
+      const grainPan = this.ctx.createStereoPanner();
+      grainPan.pan.value = 0;
       // FM modulation input gain — other voices' raw oscillators get routed
       // through this voice's `fmInput` (with their depth gain), and `fmInput`
       // is connected to `osc.frequency`. Allows cross-voice FM. Default 1.0.
@@ -172,11 +179,13 @@ export class AudioEngine {
       // Three-way crossfade across osc / sample / noise so the active source
       // drives the chain at unity and the others sit at 0.
       const isSample = v.waveform === "sample";
-      const isNoise  = (v.waveform === "whiteNoise" || v.waveform === "pinkNoise");
+      const isNoise  = (v.waveform === "whiteNoise" || v.waveform === "pinkNoise" || v.waveform === "granular");
       const isOsc    = !isSample && !isNoise;
+      const isGranular = v.waveform === "granular";
       oscGain.gain.value    = isOsc    ? 1 : 0;
       sampleGain.gain.value = isSample ? 1 : 0;
-      noiseGain.gain.value  = isNoise  ? 1 : 0;
+      // Granular starts closed — the scheduler opens it per-grain.
+      noiseGain.gain.value  = (isNoise && !isGranular) ? 1 : 0;
 
       // Per-voice drive — WaveShaperNode using a precomputed tanh curve.
       // drive = 1.0 → identity (no audible change). drive ∈ (1, 12] →
@@ -233,7 +242,9 @@ export class AudioEngine {
       noiseSrc.start();
       oscGain.connect(drive);
       sampleGain.connect(drive);
-      noiseGain.connect(drive);
+      // Noise → grainPan (per-grain stereo offset) → drive. In non-granular
+      // modes grainPan is at 0 and acts as a no-op.
+      noiseGain.connect(grainPan).connect(drive);
       drive.connect(filter);
 
       // — Chorus stage —
@@ -285,7 +296,7 @@ export class AudioEngine {
       // Apply the saved mode and the saved mix to the routing gains.
       // Default mode is "mono" when nothing was saved.
       const voiceObj = {
-        osc, oscGain, sampleGain, noiseSrc, noiseGain, drive, fmInput, filter, pan, gain, envelopeGain,
+        osc, oscGain, sampleGain, noiseSrc, noiseGain, grainPan, drive, fmInput, filter, pan, gain, envelopeGain,
         chorusDry, chorusDelayL, chorusDelayR,
         chorusWetL, chorusWetR, chorusOutMerger, chorusOut,
         chLfoL, chLfoR, chLfoLGain, chLfoRGain, chCenterL, chCenterR,
@@ -324,6 +335,10 @@ export class AudioEngine {
           // fades out over 8s once it's played that long. 0 = no fade-out.
           startDelaySec: v.startDelaySec || 0,
           playDurationSec: v.playDurationSec || 0,
+          // Granular synth params. Only audible when waveform === "granular".
+          // The tick scheduler reads these on every tick to queue future
+          // grain envelopes via setValueAtTime / linearRampToValueAtTime.
+          grain: v.grain || { sizeMs: 80, densityHz: 8, jitter: 0.6, panSpread: 0.5 },
           lfos: (v.lfos || [
             { shape: "sine", target: "pan",    rateHz: 0.25, depth: 0 },
             { shape: "sh",   target: "amp",    rateHz: 0.50, depth: 0 },
@@ -333,6 +348,10 @@ export class AudioEngine {
         },
         _lfoPhase: [0, 0, 0, 0],
         _lfoHold: [0, 0, 0, 0],
+        // Granular scheduler state: nextGrainTime is the audio-context time
+        // at which the next grain should start. Scheduler runs each tick
+        // and queues any grains falling within the next ~200ms.
+        _nextGrainTime: 0,
         _audible: true
       };
       this.voices.push(voiceObj);
@@ -439,8 +458,83 @@ export class AudioEngine {
     for (let i = 0; i < this.voices.length; i++) {
       this._applyLfosForVoice(i, dt, now);
       this._applyTimingEnvelope(i, now);
+      this._scheduleGrains(i, now);
     }
   };
+
+  // ───── Granular scheduler ─────
+  /// For voices in granular mode, schedule a few grains' worth of envelope
+  /// ramps ahead of `now`. Each grain is a triangular envelope on noiseGain
+  /// (ramp up over half the grain, ramp down over the other half). Per-grain
+  /// pan is randomized around 0 (the grainPan node sits in series before
+  /// the voice's main pan, so the result is base_pan ± grainPanSpread).
+  _scheduleGrains(i, now) {
+    const v = this.voices[i];
+    if (!v || v.params.waveform !== "granular") return;
+    const g = v.params.grain || { sizeMs: 80, densityHz: 8, jitter: 0.6, panSpread: 0.5 };
+    const LOOKAHEAD = 0.20;  // schedule grains starting within next 200 ms
+    // Don't start grain trains until just before now if we've fallen behind
+    // (e.g. after a long pause). Avoids piling up dozens of overdue grains.
+    if (v._nextGrainTime < now - 0.05) v._nextGrainTime = now + 0.005;
+
+    while (v._nextGrainTime < now + LOOKAHEAD) {
+      const startT  = v._nextGrainTime;
+      const lenSec  = Math.max(0.005, Math.min(0.500, (g.sizeMs || 80) / 1000));
+      const halfLen = lenSec * 0.5;
+      const endT    = startT + lenSec;
+
+      // Triangular envelope on noiseGain. Boost peak to 3.0 to compensate
+      // for the duty-cycle silence so loudness sits in the same neighborhood
+      // as continuous pink at the same amp setting.
+      try {
+        v.noiseGain.gain.cancelScheduledValues(startT);
+        v.noiseGain.gain.setValueAtTime(0, startT);
+        v.noiseGain.gain.linearRampToValueAtTime(3.0, startT + halfLen);
+        v.noiseGain.gain.linearRampToValueAtTime(0, endT);
+      } catch {}
+
+      // Per-grain pan: jump to a new random offset at grain start, hold
+      // for the grain's life. Adds to the voice's main pan downstream.
+      const spread = Math.max(0, Math.min(1, g.panSpread || 0));
+      const panOffset = (Math.random() * 2 - 1) * spread;
+      try {
+        v.grainPan.pan.cancelScheduledValues(startT);
+        v.grainPan.pan.setValueAtTime(panOffset, startT);
+      } catch {}
+
+      // Schedule the next grain. Mean gap from density; jitter randomizes
+      // multiplicatively so high-jitter sounds Poisson-y.
+      const meanGap = 1.0 / Math.max(0.5, g.densityHz || 1);
+      const jit = Math.max(0, Math.min(1, g.jitter || 0));
+      const lo = Math.max(0.05, 1 - jit * 0.7);
+      const hi = 1 + jit * 1.5;
+      const gap = meanGap * (lo + Math.random() * (hi - lo));
+      // Don't allow the next grain to start before this one finishes.
+      v._nextGrainTime = startT + Math.max(lenSec + 0.005, gap);
+    }
+  }
+
+  // ───── Granular setters ─────
+  setGrainSize(index, ms) {
+    const v = this.voices[index]; if (!v) return;
+    if (!v.params.grain) v.params.grain = { sizeMs: 80, densityHz: 8, jitter: 0.6, panSpread: 0.5 };
+    v.params.grain.sizeMs = Math.max(5, Math.min(500, ms));
+  }
+  setGrainDensity(index, hz) {
+    const v = this.voices[index]; if (!v) return;
+    if (!v.params.grain) v.params.grain = { sizeMs: 80, densityHz: 8, jitter: 0.6, panSpread: 0.5 };
+    v.params.grain.densityHz = Math.max(0.5, Math.min(50, hz));
+  }
+  setGrainJitter(index, j) {
+    const v = this.voices[index]; if (!v) return;
+    if (!v.params.grain) v.params.grain = { sizeMs: 80, densityHz: 8, jitter: 0.6, panSpread: 0.5 };
+    v.params.grain.jitter = Math.max(0, Math.min(1, j));
+  }
+  setGrainPanSpread(index, s) {
+    const v = this.voices[index]; if (!v) return;
+    if (!v.params.grain) v.params.grain = { sizeMs: 80, densityHz: 8, jitter: 0.6, panSpread: 0.5 };
+    v.params.grain.panSpread = Math.max(0, Math.min(1, s));
+  }
 
   /// Per-voice timing envelope, driven by transportElapsed:
   ///   t < startDelay                          → silent
@@ -660,15 +754,18 @@ export class AudioEngine {
 
   setWaveform(index, waveform) {
     const v = this.voices[index]; if (!v) return;
+    const prevWaveform = v.params.waveform;
     v.params.waveform = waveform;
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
 
     // Three-way crossfade across osc / sample / noise so exactly one source
-    // is audible at a time.
-    const isSample = waveform === "sample";
-    const isNoise  = (waveform === "whiteNoise" || waveform === "pinkNoise");
-    const isOsc    = !isSample && !isNoise;
+    // is audible at a time. Granular is a sub-mode of noise — same noiseGain
+    // path, but the scheduler keeps it mostly closed.
+    const isSample   = waveform === "sample";
+    const isGranular = waveform === "granular";
+    const isNoise    = (waveform === "whiteNoise" || waveform === "pinkNoise" || isGranular);
+    const isOsc      = !isSample && !isNoise;
     const ramp = (param, target) => {
       param.cancelScheduledValues(t);
       param.setValueAtTime(param.value, t);
@@ -676,15 +773,17 @@ export class AudioEngine {
     };
     ramp(v.oscGain.gain,    isOsc    ? 1 : 0);
     ramp(v.sampleGain.gain, isSample ? 1 : 0);
-    ramp(v.noiseGain.gain,  isNoise  ? 1 : 0);
+    // For continuous noise: open to 1. For granular: close — scheduler will
+    // open it per-grain. For non-noise: close.
+    ramp(v.noiseGain.gain,  (isNoise && !isGranular) ? 1 : 0);
 
-    // For noise: swap the buffer between white and pink if the active type
-    // changed. AudioBufferSourceNode lets you only set buffer once OR while
-    // not started — so we hot-swap by stopping + recreating the source.
+    // For noise: swap the buffer between white / pink / granular (uses pink)
+    // when the active type changes. AudioBufferSourceNode lets you only set
+    // buffer once OR while not started — so we hot-swap by stopping +
+    // recreating the source.
     if (isNoise) {
-      const wantBuffer = (waveform === "pinkNoise")
-        ? this._pinkNoiseBuffer()
-        : this._whiteNoiseBuffer();
+      const wantPink = (waveform === "pinkNoise" || waveform === "granular");
+      const wantBuffer = wantPink ? this._pinkNoiseBuffer() : this._whiteNoiseBuffer();
       if (v.noiseSrc.buffer !== wantBuffer) {
         try { v.noiseSrc.stop(); v.noiseSrc.disconnect(); } catch {}
         const ns = this.ctx.createBufferSource();
@@ -694,6 +793,24 @@ export class AudioEngine {
         ns.start();
         v.noiseSrc = ns;
       }
+    }
+
+    // Granular mode transition housekeeping.
+    if (isGranular) {
+      // (Re-)arm the scheduler. The tick will start firing grains.
+      v._nextGrainTime = t + 0.02;
+    } else if (prevWaveform === "granular") {
+      // Leaving granular — cancel any scheduled grain ramps and re-center
+      // grainPan so a future return finds a clean slate. Also force the
+      // noiseGain ramp above to win.
+      try {
+        v.noiseGain.gain.cancelScheduledValues(t);
+        v.noiseGain.gain.setValueAtTime(v.noiseGain.gain.value, t);
+        v.noiseGain.gain.linearRampToValueAtTime(isNoise ? 1 : 0, t + 0.04);
+        v.grainPan.pan.cancelScheduledValues(t);
+        v.grainPan.pan.setValueAtTime(v.grainPan.pan.value, t);
+        v.grainPan.pan.linearRampToValueAtTime(0, t + 0.04);
+      } catch {}
     }
 
     // For periodic waveforms: brief dip on the master gain to hide the synth
@@ -797,12 +914,47 @@ export class AudioEngine {
     const src = this.ctx.createBufferSource();
     src.buffer = audioBuffer;
     src.loop = true;
-    src.loopStart = 0;
-    src.loopEnd = audioBuffer.duration;
+    // Honour any pre-set play-window (sampleStartFrac, sampleEndFrac).
+    // Defaults to whole-sample loop if no window was set.
+    const startFrac = (v.params.sampleStartFrac != null) ? v.params.sampleStartFrac : 0;
+    const endFrac = (v.params.sampleEndFrac != null) ? v.params.sampleEndFrac : 1;
+    src.loopStart = audioBuffer.duration * Math.max(0, Math.min(0.999, startFrac));
+    src.loopEnd = audioBuffer.duration * Math.max(0.001, Math.min(1, endFrac));
     src.playbackRate.value = Math.max(0.05, Math.min(20, v.params.freq / 220));
     src.connect(v.sampleGain);
-    src.start();
+    // Start playback from the window start so the first cycle plays the
+    // user's selected region too (not just subsequent loops).
+    src.start(0, src.loopStart);
     v.sampleSrc = src;
+  }
+
+  /// Update the sample play-window without reloading the buffer. Called
+  /// when the user drags the start/end sliders.
+  setSampleWindow(index, startFrac, endFrac) {
+    const v = this.voices[index]; if (!v) return;
+    if (v.params) {
+      v.params.sampleStartFrac = startFrac;
+      v.params.sampleEndFrac = endFrac;
+    }
+    if (v.sampleSrc && v.sampleBuffer) {
+      v.sampleSrc.loopStart = v.sampleBuffer.duration * Math.max(0, Math.min(0.999, startFrac));
+      v.sampleSrc.loopEnd = v.sampleBuffer.duration * Math.max(0.001, Math.min(1, endFrac));
+    }
+  }
+
+  /// Fade-in / fade-out seconds at the loop boundary. v1 web stores these
+  /// on the voice for preset persistence + morph plumbing but does NOT
+  /// audibly apply them — AudioBufferSourceNode has no native crossfade.
+  /// A v1.1 follow-up could implement scheduled-gain crossfades using
+  /// the loop period and the audio clock. iOS implements the full
+  /// crossfade in Voice.swift.
+  setSampleFadeIn(index, sec) {
+    const v = this.voices[index]; if (!v?.params) return;
+    v.params.sampleFadeInSec = Math.max(0, Math.min(10, sec));
+  }
+  setSampleFadeOut(index, sec) {
+    const v = this.voices[index]; if (!v?.params) return;
+    v.params.sampleFadeOutSec = Math.max(0, Math.min(10, sec));
   }
 
   /// Clear the loaded sample.

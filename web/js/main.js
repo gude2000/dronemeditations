@@ -58,6 +58,14 @@ const defaultFM = () => ({
   sourceIndex: -1,  // -1 = off; otherwise 0..3 (must differ from carrier index)
   index: 0          // 0 – 800 Hz, log; 0 = no modulation
 });
+// Granular synth defaults. Only audible when waveform === "granular".
+const defaultGrain  = () => ({
+  sizeMs: 80,        // 5..500 ms (log slider)
+  densityHz: 8,      // 0.5..50 grains/sec (log slider)
+  jitter: 0.6,       // 0..1 — randomizes inter-grain timing
+  panSpread: 0.5     // 0..1 — random per-grain stereo placement
+});
+
 const defaultDelay  = () => ({
   timeSec: 0.30,
   feedback: 0.40,
@@ -106,10 +114,10 @@ const defaultDrift  = () => ({
 
 const state = {
   oscillators: [
-    { id: 0, frequencyHz: 110.00, waveform: "sine", amplitude: 0.6,  pan: -0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), sampleName: null, startDelaySec: 0, playDurationSec: 0 },
-    { id: 1, frequencyHz: 165.00, waveform: "sine", amplitude: 0.6,  pan:  0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), sampleName: null, startDelaySec: 0, playDurationSec: 0 },
-    { id: 2, frequencyHz: 220.00, waveform: "sine", amplitude: 0.55, pan: -0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), sampleName: null, startDelaySec: 0, playDurationSec: 0 },
-    { id: 3, frequencyHz: 277.18, waveform: "sine", amplitude: 0.5,  pan:  0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), sampleName: null, startDelaySec: 0, playDurationSec: 0 }
+    { id: 0, frequencyHz: 110.00, waveform: "sine", amplitude: 0.6,  pan: -0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), grain: defaultGrain(), sampleName: null, startDelaySec: 0, playDurationSec: 0, sampleStartFrac: 0, sampleEndFrac: 1, sampleFadeInSec: 0, sampleFadeOutSec: 0 },
+    { id: 1, frequencyHz: 165.00, waveform: "sine", amplitude: 0.6,  pan:  0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), grain: defaultGrain(), sampleName: null, startDelaySec: 0, playDurationSec: 0, sampleStartFrac: 0, sampleEndFrac: 1, sampleFadeInSec: 0, sampleFadeOutSec: 0 },
+    { id: 2, frequencyHz: 220.00, waveform: "sine", amplitude: 0.55, pan: -0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), grain: defaultGrain(), sampleName: null, startDelaySec: 0, playDurationSec: 0, sampleStartFrac: 0, sampleEndFrac: 1, sampleFadeInSec: 0, sampleFadeOutSec: 0 },
+    { id: 3, frequencyHz: 277.18, waveform: "sine", amplitude: 0.5,  pan:  0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), grain: defaultGrain(), sampleName: null, startDelaySec: 0, playDurationSec: 0, sampleStartFrac: 0, sampleEndFrac: 1, sampleFadeInSec: 0, sampleFadeOutSec: 0 }
   ],
   keyId: 9,         // A
   octave: 3,
@@ -153,8 +161,22 @@ const state = {
   // shape+target/FM source/drift modes at the 0.5 boundary.
   morphFromId: null,
   morphToId: null,
-  morphAmount: 0
+  morphAmount: 0,
+
+  // Auto-morph: drive morphAmount from 0→1 over morphDurationSec. When
+  // ping-pong is on, it bounces back to 0 after reaching 1 and keeps going.
+  // The timer keeps ticking when the sheet is closed so the user can watch
+  // Chladni evolve through a long slow morph in Performance mode.
+  morphDurationSec: 300,  // 5 min default
+  morphIsRunning: false,
+  morphIsPingPong: false,
+  morphDirection: 1       // 1 = forward (0→1), -1 = reverse (1→0)
 };
+
+// Auto-morph driver — wall-clock based so pause/resume picks up where it
+// left off without drift.
+let morphIntervalId = null;
+let morphLastTickMs = 0;
 
 // Per-voice in-memory cache of loaded sample blobs (for save-current-as-preset).
 const sampleCache = [null, null, null, null];  // each: { id, name, blob, type } | null
@@ -278,6 +300,14 @@ const actions = {
         engine.setFMSource(i, fm.sourceIndex);
         engine.setFMIndex(i, fm.index);
       }
+      if (v.grain) {
+        const gr = { ...defaultGrain(), ...v.grain };
+        state.oscillators[i].grain = gr;
+        engine.setGrainSize(i, gr.sizeMs);
+        engine.setGrainDensity(i, gr.densityHz);
+        engine.setGrainJitter(i, gr.jitter);
+        engine.setGrainPanSpread(i, gr.panSpread);
+      }
       if (Array.isArray(v.lfos)) {
         // The preset may supply nulls for "leave this LFO alone" — only
         // overwrite the indexes it specified explicitly.
@@ -321,9 +351,50 @@ const actions = {
     renderAll();
   },
   clearMorph() {
+    stopMorphTimer();
     state.morphFromId = null;
     state.morphToId = null;
     state.morphAmount = 0;
+    state.morphIsRunning = false;
+    state.morphDirection = 1;
+    renderAll();
+  },
+
+  // ── Auto-morph ──
+  setMorphDuration(sec) {
+    state.morphDurationSec = Math.max(1, sec);
+    renderAll();
+  },
+  setMorphPingPong(on) {
+    state.morphIsPingPong = !!on;
+    renderAll();
+  },
+  startMorph() {
+    if (!state.morphFromId || !state.morphToId) return;
+    // If at the end of travel, restart from the opposite end so Play always
+    // does something visible.
+    if (state.morphDirection === 1 && state.morphAmount >= 1 - 1e-6) {
+      state.morphAmount = 0;
+    } else if (state.morphDirection === -1 && state.morphAmount <= 1e-6) {
+      state.morphDirection = 1;
+    }
+    state.morphIsRunning = true;
+    morphLastTickMs = performance.now();
+    if (morphIntervalId) clearInterval(morphIntervalId);
+    morphIntervalId = setInterval(tickMorph, 100);  // 10 Hz
+    renderAll();
+  },
+  pauseMorph() {
+    state.morphIsRunning = false;
+    stopMorphTimer();
+    renderAll();
+  },
+  resetMorphPosition() {
+    stopMorphTimer();
+    state.morphIsRunning = false;
+    state.morphDirection = 1;
+    state.morphAmount = 0;
+    if (state.morphFromId && state.morphToId) applyMorph(0);
     renderAll();
   },
 
@@ -503,6 +574,66 @@ const actions = {
     const clamped = Math.max(0, Math.min(60 * 60, sec || 0));
     state.oscillators[oscIndex].playDurationSec = clamped;
     engine.setPlayDuration(oscIndex, clamped);
+    renderAll();
+  },
+
+  // ── Granular (only audible when waveform === "granular") ──
+  setGrainSize(oscIndex, ms) {
+    const clamped = Math.max(5, Math.min(500, ms));
+    if (!state.oscillators[oscIndex].grain) state.oscillators[oscIndex].grain = defaultGrain();
+    state.oscillators[oscIndex].grain.sizeMs = clamped;
+    engine.setGrainSize(oscIndex, clamped);
+    renderAll();
+  },
+  setGrainDensity(oscIndex, hz) {
+    const clamped = Math.max(0.5, Math.min(50, hz));
+    if (!state.oscillators[oscIndex].grain) state.oscillators[oscIndex].grain = defaultGrain();
+    state.oscillators[oscIndex].grain.densityHz = clamped;
+    engine.setGrainDensity(oscIndex, clamped);
+    renderAll();
+  },
+  setGrainJitter(oscIndex, j) {
+    const clamped = Math.max(0, Math.min(1, j));
+    if (!state.oscillators[oscIndex].grain) state.oscillators[oscIndex].grain = defaultGrain();
+    state.oscillators[oscIndex].grain.jitter = clamped;
+    engine.setGrainJitter(oscIndex, clamped);
+    renderAll();
+  },
+  setGrainPanSpread(oscIndex, s) {
+    const clamped = Math.max(0, Math.min(1, s));
+    if (!state.oscillators[oscIndex].grain) state.oscillators[oscIndex].grain = defaultGrain();
+    state.oscillators[oscIndex].grain.panSpread = clamped;
+    engine.setGrainPanSpread(oscIndex, clamped);
+    renderAll();
+  },
+
+  // ── Sample play-window (only audible when waveform === "sample") ──
+  setSampleStart(oscIndex, frac) {
+    const clamped = Math.max(0, Math.min(0.999, frac));
+    const o = state.oscillators[oscIndex];
+    if (clamped >= (o.sampleEndFrac ?? 1) - 0.01) return;
+    o.sampleStartFrac = clamped;
+    engine.setSampleWindow(oscIndex, clamped, o.sampleEndFrac ?? 1);
+    renderAll();
+  },
+  setSampleEnd(oscIndex, frac) {
+    const clamped = Math.max(0.001, Math.min(1, frac));
+    const o = state.oscillators[oscIndex];
+    if (clamped <= (o.sampleStartFrac ?? 0) + 0.01) return;
+    o.sampleEndFrac = clamped;
+    engine.setSampleWindow(oscIndex, o.sampleStartFrac ?? 0, clamped);
+    renderAll();
+  },
+  setSampleFadeIn(oscIndex, sec) {
+    const clamped = Math.max(0, Math.min(10, sec));
+    state.oscillators[oscIndex].sampleFadeInSec = clamped;
+    engine.setSampleFadeIn(oscIndex, clamped);
+    renderAll();
+  },
+  setSampleFadeOut(oscIndex, sec) {
+    const clamped = Math.max(0, Math.min(10, sec));
+    state.oscillators[oscIndex].sampleFadeOutSec = clamped;
+    engine.setSampleFadeOut(oscIndex, clamped);
     renderAll();
   },
   setFilterQ(oscIndex, q) {
@@ -976,7 +1107,7 @@ const actions = {
     // Drift — random pitch + pan motion. 35% chance of static for either
     // dimension so a randomize roll often produces a partially-quiet voice
     // mixed with movement, rather than 4 voices all wildly drifting.
-    const pitchDriftModes = ["static", "static", "up", "down", "upDown", "downUp", "wave", "glacial"];
+    const pitchDriftModes = ["static", "static", "up", "down", "upDown", "downUp", "wave", "ocean", "glacial"];
     const panDriftModes   = ["static", "static", "sweepLR", "sweepRL", "pendulum", "antiPendulum", "glacial"];
     o.drift.pitchAmount = rand(0.25, 1.5);
     o.drift.pitchPhase  = Math.random();
@@ -1243,10 +1374,42 @@ function driftTick() {
     // ─── Pitch ───
     if (cfg.pitchMode === "glacial") {
       glacialPitchVoice(i, v, osc);
+    } else if (cfg.pitchMode === "ocean") {
+      // Ocean: subtle slow sine wave around the base pitch.
+      // Defaults: ±0.25 semi, 90 s period. Per-voice overrides
+      // (pitchSemitones, pitchPeriodSec) take precedence if set.
+      const oceanPeriod = (cfg.pitchPeriodSec != null) ? cfg.pitchPeriodSec : 90.0;
+      let amplitudeOctaves;
+      if (cfg.pitchSemitones != null) {
+        amplitudeOctaves = cfg.pitchSemitones / 12;
+      } else {
+        const amount = cfg.pitchAmount != null ? cfg.pitchAmount : 1;
+        amplitudeOctaves = (0.25 / 12) * amount;
+      }
+      const t = (Date.now() - driftStartMs) / 1000;
+      const phase = ((t / oceanPeriod) + (cfg.pitchPhase || 0)) % 1;
+      const octaveOffset = Math.sin(phase * Math.PI * 2) * amplitudeOctaves;
+      const target = v.baseFreq * Math.pow(2, octaveOffset);
+      const newFreq = osc.frequencyHz + (target - osc.frequencyHz) * 0.30;
+      osc.frequencyHz = newFreq;
+      engine.setFrequency(i, newFreq);
     } else if (cfg.pitchMode && cfg.pitchMode !== "static") {
-      const p = (rawProgress + (cfg.pitchPhase || 0)) % 1;
-      const amount = cfg.pitchAmount != null ? cfg.pitchAmount : 1;
-      const octaveOffset = pitchShape(cfg.pitchMode, p) * amount;
+      // Phase: absolute-time period if override set, else session-progress.
+      let phase;
+      if (cfg.pitchPeriodSec != null && cfg.pitchPeriodSec > 0) {
+        const t = (Date.now() - driftStartMs) / 1000;
+        phase = ((t / cfg.pitchPeriodSec) + (cfg.pitchPhase || 0)) % 1;
+      } else {
+        phase = (rawProgress + (cfg.pitchPhase || 0)) % 1;
+      }
+      // Amplitude: semitones override if set, else pitchAmount * 1 octave.
+      let amplitudeOctaves;
+      if (cfg.pitchSemitones != null) {
+        amplitudeOctaves = cfg.pitchSemitones / 12;
+      } else {
+        amplitudeOctaves = cfg.pitchAmount != null ? cfg.pitchAmount : 1;
+      }
+      const octaveOffset = pitchShape(cfg.pitchMode, phase) * amplitudeOctaves;
       const target = v.baseFreq * Math.pow(2, octaveOffset);
       const newFreq = osc.frequencyHz + (target - osc.frequencyHz) * 0.30;
       osc.frequencyHz = newFreq;
@@ -1443,22 +1606,107 @@ function sanitizeUserJourney(spec) {
 // a continuous 0..1 amount. Called by setMorphAmount whenever the slider
 // moves; also re-triggered whenever From/To is repicked.
 // ──────────────────────────────────────────────────
+
+/// Resolve a morph source by id. Checks built-in PRESETS first, then
+/// adapts user-saved presets into the V({...}) shape the morph applier
+/// expects. Returns null if no match.
+function morphSourceFor(id) {
+  if (!id) return null;
+  const builtIn = PRESETS.find((p) => p.id === id);
+  if (builtIn) return builtIn;
+  const user = state.userPresets?.find((p) => p.id === id);
+  if (!user) return null;
+  // Adapter: user presets store full state per voice; the morph applier
+  // reads va.hz / va.wave / va.amp / va.filter / etc. as optional overrides.
+  return {
+    id: user.id, name: user.name,
+    voices: (user.oscillators || []).map((o) => ({
+      hz: o.frequencyHz, pan: o.pan,
+      wave: o.waveform, amp: o.amplitude,
+      drive: o.drive,
+      startDelaySec: o.startDelaySec,
+      playDurationSec: o.playDurationSec,
+      filter: o.filter, reverb: o.reverb,
+      delay: o.delay, chorus: o.chorus,
+      fm: o.fm, grain: o.grain,
+      lfos: o.lfos,
+      _silent: o.isMuted === true
+    }))
+  };
+}
+
+/// Stop the wall-clock interval that drives auto-morph. Used on pause,
+/// reset, and clear.
+function stopMorphTimer() {
+  if (morphIntervalId) {
+    clearInterval(morphIntervalId);
+    morphIntervalId = null;
+  }
+  morphLastTickMs = 0;
+}
+
+/// Advance morphAmount by (elapsed/duration) on each tick. Reverses
+/// direction at endpoints when ping-pong is on; otherwise stops at the
+/// end of travel.
+function tickMorph() {
+  if (!state.morphIsRunning) return;
+  const now = performance.now();
+  const dtSec = (now - morphLastTickMs) / 1000;
+  morphLastTickMs = now;
+  const step = dtSec / Math.max(1, state.morphDurationSec);
+  let next = state.morphAmount + state.morphDirection * step;
+  if (next >= 1) {
+    if (state.morphIsPingPong) {
+      next = 1;
+      state.morphDirection = -1;
+    } else {
+      next = 1;
+      state.morphIsRunning = false;
+      stopMorphTimer();
+    }
+  } else if (next <= 0) {
+    if (state.morphIsPingPong) {
+      next = 0;
+      state.morphDirection = 1;
+    } else {
+      next = 0;
+      state.morphIsRunning = false;
+      stopMorphTimer();
+    }
+  }
+  state.morphAmount = next;
+  applyMorph(next);
+  renderAll();
+}
+
 function applyMorph(t) {
-  const A = PRESETS.find((p) => p.id === state.morphFromId);
-  const B = PRESETS.find((p) => p.id === state.morphToId);
+  const A = morphSourceFor(state.morphFromId);
+  const B = morphSourceFor(state.morphToId);
   if (!A || !B) return;
   const tClamped = Math.max(0, Math.min(1, t));
 
   // Linear, log, and discrete interpolation helpers. Discrete picks A
-  // until t=0.5 then B — abrupt but predictable; smoothing discrete
-  // parameters would require crossfading nodes which is more work than
-  // it's worth here.
+  // until t=0.5 then B. To hide the abrupt swap, we also compute a notch
+  // amp multiplier that dips voices through silence around t=0.5 ONLY
+  // for voices that have a discrete change (waveform / filter type /
+  // FM source) between A and B.
   const lerp = (a, b, u) => a + (b - a) * u;
   const logLerp = (a, b, u) => {
     if (a <= 0 || b <= 0) return lerp(a, b, u);
     return Math.exp(lerp(Math.log(a), Math.log(b), u));
   };
   const pick = (a, b, u) => (u < 0.5 ? a : b);
+
+  // 8 s window around the discrete swap, expressed in morph-amount units.
+  // For very short morph durations we clamp so the notch can't consume
+  // more than the middle ±45 % of the morph.
+  const FADE_WINDOW_SEC = 8.0;
+  const halfWidth = Math.min(0.45,
+    FADE_WINDOW_SEC / Math.max(8.0, state.morphDurationSec || 300) / 2.0);
+  const dist = Math.abs(tClamped - 0.5);
+  const notchMul = (dist >= halfWidth || halfWidth <= 0)
+    ? 1.0
+    : 0.5 - 0.5 * Math.cos(Math.PI * dist / halfWidth);
 
   for (let i = 0; i < 4; i++) {
     const va = A.voices[i] || {};
@@ -1478,9 +1726,21 @@ function applyMorph(t) {
     const A_drv  = (va.drive != null) ? va.drive : (o.drive || 1.0);
     const B_drv  = (vb.drive != null) ? vb.drive : (o.drive || 1.0);
 
+    // Apply the discrete-change notch only when this voice actually has
+    // a discrete change between A and B. Voices that only differ in
+    // continuous params stay at the smoothly-lerped amplitude.
+    const va_fm = (va.fm || {});
+    const vb_fm = (vb.fm || {});
+    const a_ftype = ((va.filter || {}).type) || o.filter.type;
+    const b_ftype = ((vb.filter || {}).type) || o.filter.type;
+    const a_fmSrc = (va_fm.sourceIndex != null) ? va_fm.sourceIndex : (o.fm?.sourceIndex ?? -1);
+    const b_fmSrc = (vb_fm.sourceIndex != null) ? vb_fm.sourceIndex : (o.fm?.sourceIndex ?? -1);
+    const hasDiscreteChange = (A_wave !== B_wave) || (a_ftype !== b_ftype) || (a_fmSrc !== b_fmSrc);
+    const voiceAmpMul = hasDiscreteChange ? notchMul : 1.0;
+
     actions.setFrequency(i, logLerp(A_hz, B_hz, tClamped));
     actions.setPan(i, lerp(A_pan, B_pan, tClamped));
-    actions.setAmplitude(i, lerp(A_amp, B_amp, tClamped));
+    actions.setAmplitude(i, lerp(A_amp, B_amp, tClamped) * voiceAmpMul);
     actions.setDrive(i, lerp(A_drv, B_drv, tClamped));
     // Mute follows the chosen side discretely so silent-slot presets
     // don't suddenly half-bleed in at the midpoint.
@@ -1533,6 +1793,15 @@ function applyMorph(t) {
     const Ai = A_fm.index || 0, Bi = B_fm.index || 0;
     const idx = (Ai > 1 && Bi > 1) ? logLerp(Ai, Bi, tClamped) : lerp(Ai, Bi, tClamped);
     actions.setFMIndex(i, idx);
+
+    // Granular — log on size + density, linear on jitter + panSpread. Only
+    // audibly affects the voice when waveform is .granular.
+    const A_g = { ...defaultGrain(), ...(o.grain || {}), ...(va.grain || {}) };
+    const B_g = { ...defaultGrain(), ...(o.grain || {}), ...(vb.grain || {}) };
+    actions.setGrainSize(i,      logLerp(A_g.sizeMs,    B_g.sizeMs,    tClamped));
+    actions.setGrainDensity(i,   logLerp(A_g.densityHz, B_g.densityHz, tClamped));
+    actions.setGrainJitter(i,    lerp(A_g.jitter,       B_g.jitter,    tClamped));
+    actions.setGrainPanSpread(i, lerp(A_g.panSpread,    B_g.panSpread, tClamped));
 
     // LFOs — interpolate rate (log) + depth (linear) where defined;
     // discrete shape + target at midpoint.

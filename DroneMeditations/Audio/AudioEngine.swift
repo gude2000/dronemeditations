@@ -165,6 +165,11 @@ final class AudioEngine {
             return nil
         }
 
+        // mainMixerNode bus 0 is shared with SpectrumTap. installTap throws
+        // an NSException (uncatchable from Swift) if a tap is already
+        // present, so pre-emptively remove any existing one. SpectrumTap
+        // will need to be restarted by the user after recording stops.
+        mixer.removeTap(onBus: 0)
         mixer.installTap(onBus: 0, bufferSize: 4096, format: format) { [weak self] buffer, _ in
             guard let file = self?.recordingFile else { return }
             do { try file.write(from: buffer) } catch { /* drop on error */ }
@@ -189,14 +194,26 @@ final class AudioEngine {
     /// Gently ramp master output up to `masterTarget` over `seconds`. Used by
     /// DroneController on play to avoid a hard cut-in.
     func fadeInMaster(seconds: Double = 3.0) {
-        rampMaster(to: masterTarget, over: seconds)
+        rampMaster(to: masterTarget, over: seconds, curve: .equalPower)
     }
 
-    /// Gently ramp master output to silence over `seconds`. Awaits completion
-    /// so callers can `engine.stop()` cleanly after.
-    func fadeOutMaster(seconds: Double = 8.0) async {
-        rampMaster(to: 0, over: seconds)
-        try? await Task.sleep(nanoseconds: UInt64((seconds + 0.05) * 1_000_000_000))
+    /// Ramp master output to silence over `seconds` with the chosen
+    /// curve. Long fades (e.g. stop) should use `.smoothstep` for an
+    /// even, gradual feel. Short fades (e.g. pause) can use
+    /// `.exponential` for a snappier response. Awaits completion + a
+    /// substantial post-silence buffer so a follow-up `engine.stop()`
+    /// can't introduce a DC click.
+    func fadeOutMaster(seconds: Double = 5.0, curve: FadeCurve = .smoothstep) async {
+        rampMaster(to: 0, over: seconds, curve: curve)
+        // Wait for the fade to fully complete.
+        try? await Task.sleep(nanoseconds: UInt64((seconds + 0.10) * 1_000_000_000))
+        // Snap to exact zero — floating-point dust at very low volumes
+        // can still click on engine.stop().
+        engine.mainMixerNode.outputVolume = 0
+        // 200 ms of explicit silence at zero before any stop() runs.
+        // Lets the hardware's downstream output buffer fully drain to
+        // silence, so engine.stop() never interrupts non-zero samples.
+        try? await Task.sleep(nanoseconds: 200_000_000)
     }
 
     /// Cancel any in-progress fade (without snapping volume).
@@ -205,7 +222,16 @@ final class AudioEngine {
         fadeTimer = nil
     }
 
-    private func rampMaster(to target: Float, over duration: Double) {
+    /// Curve shape for `rampMaster`.
+    ///  - equalPower: sin-shaped, gentle onset — used for fade-ins.
+    ///  - exponential: sharp early drop, gradual tail — "snappy" stop.
+    ///  - smoothstep: slow start, faster middle, slow end (Hermite cubic).
+    ///    Sounds most "gradual" of all curves; used for the meditation
+    ///    stop fade so the user perceives a smooth even taper rather
+    ///    than a sudden drop.
+    enum FadeCurve { case linear, equalPower, exponential, smoothstep }
+
+    private func rampMaster(to target: Float, over duration: Double, curve: FadeCurve = .linear) {
         cancelFade()
         guard duration > 0 else {
             engine.mainMixerNode.outputVolume = target
@@ -213,14 +239,34 @@ final class AudioEngine {
         }
         let startVolume = engine.mainMixerNode.outputVolume
         let startDate = Date()
-        // ~30 fps tick is smooth enough for multi-second meditation fades
-        // and well under any audible zipper rate.
+        // ~60 fps tick is buttery smooth for multi-second meditation fades
+        // and well under any audible zipper-noise rate.
         let mixer = engine.mainMixerNode
-        fadeTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] timer in
+        fadeTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60.0, repeats: true) { [weak self] timer in
             let elapsed = Date().timeIntervalSince(startDate)
-            let t = min(1.0, elapsed / duration)
+            let tLin = min(1.0, elapsed / duration)
+            let t: Double
+            switch curve {
+            case .linear:
+                t = tLin
+            case .equalPower:
+                // sin curve — gentle onset, used for fade-in.
+                t = sin(tLin * .pi / 2)
+            case .exponential:
+                // 1 - (1-t)^3 — sharp early drop, gradual tail. Feels
+                // "snappy" for short fades, "abrupt at the start" for
+                // long fades.
+                t = 1 - pow(1 - tLin, 3)
+            case .smoothstep:
+                // Hermite cubic 3t² - 2t³ — slow at both endpoints,
+                // faster in the middle. Feels uniformly gradual to the
+                // ear because the rate of change is symmetric and gentle
+                // on both sides. Best curve for long meditation fade-outs.
+                t = tLin * tLin * (3 - 2 * tLin)
+            }
             mixer.outputVolume = startVolume + (target - startVolume) * Float(t)
-            if t >= 1.0 {
+            if tLin >= 1.0 {
+                mixer.outputVolume = target
                 timer.invalidate()
                 self?.fadeTimer = nil
             }
@@ -315,6 +361,42 @@ final class AudioEngine {
     func setDrive(_ d: Double, for voiceIndex: Int) {
         guard voices.indices.contains(voiceIndex) else { return }
         voices[voiceIndex].drive = max(1.0, min(12.0, d))
+    }
+
+    // MARK: - Granular (only active when waveform == .granular)
+    func setGrainSize(_ ms: Double, for voiceIndex: Int) {
+        guard voices.indices.contains(voiceIndex) else { return }
+        voices[voiceIndex].grainSizeMs = max(GrainState.sizeMinMs, min(GrainState.sizeMaxMs, ms))
+    }
+    func setGrainDensity(_ hz: Double, for voiceIndex: Int) {
+        guard voices.indices.contains(voiceIndex) else { return }
+        voices[voiceIndex].grainDensityHz = max(GrainState.densityMin, min(GrainState.densityMax, hz))
+    }
+    func setGrainJitter(_ j: Double, for voiceIndex: Int) {
+        guard voices.indices.contains(voiceIndex) else { return }
+        voices[voiceIndex].grainJitter = max(0, min(1, j))
+    }
+    func setGrainPanSpread(_ s: Double, for voiceIndex: Int) {
+        guard voices.indices.contains(voiceIndex) else { return }
+        voices[voiceIndex].grainPanSpread = max(0, min(1, s))
+    }
+
+    // MARK: - Sample play-window (only audible when waveform == .sample)
+    func setSampleStart(_ frac: Double, for voiceIndex: Int) {
+        guard voices.indices.contains(voiceIndex) else { return }
+        voices[voiceIndex].sampleStartFrac = max(0, min(0.999, frac))
+    }
+    func setSampleEnd(_ frac: Double, for voiceIndex: Int) {
+        guard voices.indices.contains(voiceIndex) else { return }
+        voices[voiceIndex].sampleEndFrac = max(0.001, min(1, frac))
+    }
+    func setSampleFadeIn(_ sec: Double, for voiceIndex: Int) {
+        guard voices.indices.contains(voiceIndex) else { return }
+        voices[voiceIndex].sampleFadeInSec = max(0, min(10, sec))
+    }
+    func setSampleFadeOut(_ sec: Double, for voiceIndex: Int) {
+        guard voices.indices.contains(voiceIndex) else { return }
+        voices[voiceIndex].sampleFadeOutSec = max(0, min(10, sec))
     }
 
     func setReverbDecay(_ sec: Double, for voiceIndex: Int) {

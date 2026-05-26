@@ -223,7 +223,7 @@
       </header>
       <div class="sheet-scroll">
         <p class="preset-disclaimer">
-          Pick two presets, then drag the slider to interpolate every per-voice parameter continuously between them. Frequencies use log interpolation; mix and depth use linear. Discrete fields (waveform, filter type, LFO shape) swap at the midpoint.
+          Pick two presets, then drag the slider for a manual morph OR pick a duration + hit Play to auto-morph every parameter over time. Frequencies use log interpolation; mix and depth use linear. Discrete fields (waveform, filter type, LFO shape) swap at the midpoint.
         </p>
 
         <div class="morph-row">
@@ -242,7 +242,38 @@
         </div>
         <div class="morph-readout" id="morph-readout">0%</div>
 
-        <button id="morph-reset" class="morph-reset" type="button">Reset (clear morph)</button>
+        <!-- Auto-morph controls: duration chips + play/pause/reset + ping-pong. -->
+        <div class="morph-auto-section">
+          <div class="morph-section-label">Auto-morph duration</div>
+          <div class="morph-duration-chips" id="morph-duration-chips">
+            <button type="button" data-sec="30">30 s</button>
+            <button type="button" data-sec="60">1 min</button>
+            <button type="button" data-sec="180">3 min</button>
+            <button type="button" data-sec="300">5 min</button>
+            <button type="button" data-sec="600">10 min</button>
+            <button type="button" data-sec="1200">20 min</button>
+            <button type="button" data-sec="1800">30 min</button>
+            <button type="button" data-sec="3600">60 min</button>
+          </div>
+          <div class="morph-duration-readout" id="morph-duration-readout">Duration: 5 min</div>
+
+          <div class="morph-transport-row">
+            <button id="morph-play" class="morph-play" type="button">▶ Play</button>
+            <button id="morph-reset-pos" class="morph-reset-pos" type="button">↺ Reset</button>
+          </div>
+
+          <label class="morph-pingpong">
+            <input id="morph-pingpong" type="checkbox" />
+            <span>
+              <strong>Ping-pong</strong>
+              <em>Bounce back and forth between From and To</em>
+            </span>
+          </label>
+
+          <p class="morph-auto-hint">The morph keeps running when you close this sheet — watch Chladni evolve through the full duration.</p>
+        </div>
+
+        <button id="morph-reset" class="morph-reset" type="button">Clear morph</button>
       </div>
     </div>
   </div>

@@ -98,6 +98,14 @@ struct OscillatorStrip: View {
                 Divider().background(Color.white.opacity(0.06))
                 sampleSection
             }
+            // Granular row, only visible when waveform == .granular. Shown
+            // here (right under the waveform picker) so it lives in the same
+            // visual region as the sample row — same "shape" of contextual
+            // expansion.
+            if osc.waveform == .granular {
+                Divider().background(Color.white.opacity(0.06))
+                granularSection
+            }
 
             // Filter row.
             Divider().background(Color.white.opacity(0.06))
@@ -260,6 +268,167 @@ struct OscillatorStrip: View {
                 .buttonStyle(.plain)
             }
         }
+
+        // Play-window sub-row: only shown when a sample is actually loaded.
+        // Lets the user trim the start/end of the sample and add
+        // fade-in/fade-out at the loop boundary for seamless ambient loops.
+        if osc.sampleName != nil {
+            sampleWindowRow
+        }
+    }
+
+    // MARK: - Sample play-window row (shown when a sample is loaded)
+
+    @ViewBuilder
+    private var sampleWindowRow: some View {
+        // All four values are direct 0..1 (start/end) or 0..10 (fades)
+        // sliders. Showing two pairs on one row keeps the visual footprint
+        // compact while still being clearly self-explanatory.
+        HStack(spacing: 10) {
+            Text("WINDOW")
+                .font(.system(size: 9, weight: .heavy))
+                .foregroundStyle(Color(red: 0.97, green: 0.79, blue: 0.28))
+                .frame(width: 56, alignment: .leading)
+
+            // Start (0..1)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("start · \(Int(osc.sampleStartFrac * 100))%")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                Slider(value: Binding(
+                    get: { osc.sampleStartFrac },
+                    set: { vm.setSampleStart(min($0, osc.sampleEndFrac - 0.01), for: index) }
+                ), in: 0...1)
+                .tint(Color(red: 0.97, green: 0.79, blue: 0.28))
+            }
+
+            // End (0..1)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("end · \(Int(osc.sampleEndFrac * 100))%")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                Slider(value: Binding(
+                    get: { osc.sampleEndFrac },
+                    set: { vm.setSampleEnd(max($0, osc.sampleStartFrac + 0.01), for: index) }
+                ), in: 0...1)
+                .tint(Color(red: 0.97, green: 0.79, blue: 0.28))
+            }
+
+            // Fade-in (0..10s)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("fade-in · \(String(format: "%.1fs", osc.sampleFadeInSec))")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                Slider(value: Binding(
+                    get: { osc.sampleFadeInSec },
+                    set: { vm.setSampleFadeIn($0, for: index) }
+                ), in: 0...10)
+                .tint(Color(red: 0.97, green: 0.79, blue: 0.28))
+            }
+
+            // Fade-out (0..10s)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("fade-out · \(String(format: "%.1fs", osc.sampleFadeOutSec))")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                Slider(value: Binding(
+                    get: { osc.sampleFadeOutSec },
+                    set: { vm.setSampleFadeOut($0, for: index) }
+                ), in: 0...10)
+                .tint(Color(red: 0.97, green: 0.79, blue: 0.28))
+            }
+        }
+    }
+
+    // MARK: - Granular row (shown only when waveform == .granular)
+
+    @ViewBuilder
+    private var granularSection: some View {
+        let g = osc.grain
+        // Density (log) — geiger ≈ 1, rain ≈ 30
+        let densT = log(max(GrainState.densityMin, g.densityHz) / GrainState.densityMin) /
+                    log(GrainState.densityMax / GrainState.densityMin)
+        let sizeT = log(max(GrainState.sizeMinMs, g.sizeMs) / GrainState.sizeMinMs) /
+                    log(GrainState.sizeMaxMs / GrainState.sizeMinMs)
+
+        HStack(spacing: 10) {
+            Text("GRAIN")
+                .font(.system(size: 9, weight: .heavy))
+                .foregroundStyle(Color(red: 0.72, green: 0.86, blue: 1.0))
+                .frame(width: 56, alignment: .leading)
+
+            // Size slider (log scale)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("size · \(Int(g.sizeMs)) ms")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                Slider(value: Binding(
+                    get: { sizeT },
+                    set: { t in
+                        let ms = GrainState.sizeMinMs *
+                                 pow(GrainState.sizeMaxMs / GrainState.sizeMinMs, t)
+                        vm.setGrainSize(ms, for: index)
+                    }
+                ), in: 0...1)
+                .tint(Color(red: 0.72, green: 0.86, blue: 1.0))
+            }
+
+            // Density slider (log scale)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("density · \(formatDensity(g.densityHz))")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                Slider(value: Binding(
+                    get: { densT },
+                    set: { t in
+                        let hz = GrainState.densityMin *
+                                 pow(GrainState.densityMax / GrainState.densityMin, t)
+                        vm.setGrainDensity(hz, for: index)
+                    }
+                ), in: 0...1)
+                .tint(Color(red: 0.72, green: 0.86, blue: 1.0))
+            }
+
+            // Jitter slider (linear 0..1)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("jitter · \(Int(g.jitter * 100))")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                Slider(value: Binding(
+                    get: { g.jitter },
+                    set: { vm.setGrainJitter($0, for: index) }
+                ), in: 0...1)
+                .tint(Color(red: 0.72, green: 0.86, blue: 1.0))
+            }
+
+            // Pan-spread slider (linear 0..1)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("spread · \(Int(g.panSpread * 100))")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                Slider(value: Binding(
+                    get: { g.panSpread },
+                    set: { vm.setGrainPanSpread($0, for: index) }
+                ), in: 0...1)
+                .tint(Color(red: 0.72, green: 0.86, blue: 1.0))
+            }
+        }
+    }
+
+    /// Format density as "N/s" for ≥1 grain/sec or "N/min" for sparser
+    /// values so the sparse range (geiger-style) reads correctly.
+    private func formatDensity(_ hz: Double) -> String {
+        if hz >= 1.0 { return "\(Int(hz.rounded()))/s" }
+        let perMin = Int((hz * 60).rounded())
+        return "\(perMin)/min"
     }
 
     // MARK: - Filter row
@@ -347,6 +516,48 @@ struct OscillatorStrip: View {
             vm.setPlayDuration(sec, for: index)
         } label: {
             if abs(osc.playDurationSec - sec) < 0.5 {
+                Label(label, systemImage: "checkmark")
+            } else {
+                Text(label)
+            }
+        }
+    }
+
+    /// "Amount" chip in the drift menu. Tapping sets the per-voice pitch
+    /// drift amplitude in semitones (nil = use mode default).
+    @ViewBuilder
+    private func driftSemitoneButton(label: String, semis: Double?) -> some View {
+        let isActive: Bool = {
+            if let s = semis {
+                return osc.drift.pitchSemitones.map { abs($0 - s) < 0.05 } ?? false
+            }
+            return osc.drift.pitchSemitones == nil
+        }()
+        Button {
+            vm.setVoicePitchSemitones(index, semitones: semis)
+        } label: {
+            if isActive {
+                Label(label, systemImage: "checkmark")
+            } else {
+                Text(label)
+            }
+        }
+    }
+
+    /// "Period" chip in the drift menu. Tapping sets the per-voice pitch
+    /// drift period in seconds (nil = whole session length).
+    @ViewBuilder
+    private func driftPeriodButton(label: String, sec: Double?) -> some View {
+        let isActive: Bool = {
+            if let s = sec {
+                return osc.drift.pitchPeriodSec.map { abs($0 - s) < 0.5 } ?? false
+            }
+            return osc.drift.pitchPeriodSec == nil
+        }()
+        Button {
+            vm.setVoicePitchPeriodSec(index, sec: sec)
+        } label: {
+            if isActive {
                 Label(label, systemImage: "checkmark")
             } else {
                 Text(label)
@@ -765,7 +976,9 @@ struct OscillatorStrip: View {
                 }
             }
 
-            // Per-voice drift menu — pitch + pan motion for just this voice.
+            // Per-voice drift menu — pitch + pan motion for just this voice,
+            // plus optional amount-in-semitones + period-in-seconds overrides
+            // (the "Ocean" mode demonstrates this — slow ±¼-semi wave).
             Menu {
                 Section("OSC \(index + 1) · Pitch") {
                     ForEach(DriftVoiceConfig.PitchMode.allCases) { mode in
@@ -779,6 +992,25 @@ struct OscillatorStrip: View {
                             }
                         }
                     }
+                }
+                Section("OSC \(index + 1) · Amount") {
+                    driftSemitoneButton(label: "Default", semis: nil)
+                    driftSemitoneButton(label: "± ¼ semi", semis: 0.25)
+                    driftSemitoneButton(label: "± ½ semi", semis: 0.5)
+                    driftSemitoneButton(label: "± 1 semi", semis: 1)
+                    driftSemitoneButton(label: "± 2 semi", semis: 2)
+                    driftSemitoneButton(label: "± ½ oct",  semis: 6)
+                    driftSemitoneButton(label: "± 1 oct",  semis: 12)
+                    driftSemitoneButton(label: "± 2 oct",  semis: 24)
+                }
+                Section("OSC \(index + 1) · Period") {
+                    driftPeriodButton(label: "Whole session", sec: nil)
+                    driftPeriodButton(label: "30 s",  sec: 30)
+                    driftPeriodButton(label: "1 min", sec: 60)
+                    driftPeriodButton(label: "2 min", sec: 120)
+                    driftPeriodButton(label: "5 min", sec: 300)
+                    driftPeriodButton(label: "10 min", sec: 600)
+                    driftPeriodButton(label: "20 min", sec: 1200)
                 }
                 Section("OSC \(index + 1) · Pan") {
                     ForEach(DriftVoiceConfig.PanMode.allCases) { mode in

@@ -74,6 +74,23 @@ final class Voice {
     private var pinkB5: Double = 0
     private var pinkB6: Double = 0
 
+    // Granular mode — UI-writable targets. Only consumed when waveform ==
+    // .granular. The scheduler fires Hann-windowed pink-noise grains at the
+    // requested density; `grainJitter` randomizes inter-grain timing; each
+    // grain gets a random pan offset scaled by `grainPanSpread`. See
+    // GrainState for value ranges + meanings.
+    var grainSizeMs: Double      = 80
+    var grainDensityHz: Double   = 8
+    var grainJitter: Double      = 0.6
+    var grainPanSpread: Double   = 0.5
+    // Scheduler state — samples until the next grain fires; the currently
+    // active grain's length + position; per-grain pan offset added to the
+    // smoothed `p` only for the equal-power pan calc (slew untouched).
+    private var grainSamplesUntilNext: Int = 0
+    private var grainCurrentLength: Int    = 0
+    private var grainCurrentPos: Int       = 0
+    private var grainCurrentPanOffset: Float = 0
+
     private var bqB0: Double = 1.0
     private var bqB1: Double = 0.0
     private var bqB2: Double = 0.0
@@ -86,6 +103,15 @@ final class Voice {
     var sampleData: [Float]? = nil
     var sampleNativeRate: Double = 44100
     private var samplePosition: Double = 0
+    // Sample play-window — fractions of the loaded sample length (0..1).
+    // Playback loops between sampleStartFrac and sampleEndFrac. Defaults
+    // to (0, 1) = play whole sample. `sampleFadeInSec` / `sampleFadeOutSec`
+    // apply a crossfade gain at the loop boundary for seamless ambient
+    // loops. All four are UI-writable via AudioEngine setters.
+    var sampleStartFrac: Double = 0.0
+    var sampleEndFrac: Double = 1.0
+    var sampleFadeInSec: Double = 0.0
+    var sampleFadeOutSec: Double = 0.0
 
     // Reverb (Schroeder JCRev: 4 parallel combs + 2 series allpasses).
     var reverbDecaySec: Double = 2.0
@@ -329,6 +355,17 @@ final class Voice {
             : 0
         // Snapshot the array's storage pointer outside the loop to avoid per-sample ARC.
         let sampleCount = sampleData?.count ?? 0
+        // Precompute play-window in frames + fade lengths in samples once
+        // per render block — these are user-set and stable across one
+        // buffer. Clamp endFrac > startFrac and bound to [1, sampleCount].
+        let startClamped = max(0.0, min(0.999, sampleStartFrac))
+        let endClamped = max(startClamped + 0.001, min(1.0, sampleEndFrac))
+        let windowStartFrame = Double(sampleCount) * startClamped
+        let windowEndFrame = Double(sampleCount) * endClamped
+        let windowLength = max(1.0, windowEndFrame - windowStartFrame)
+        // Fade lengths in sample frames at the sample's native rate.
+        let fadeInFrames = max(0.0, sampleFadeInSec * sampleNativeRate)
+        let fadeOutFrames = max(0.0, sampleFadeOutSec * sampleNativeRate)
 
         for i in 0..<frameCount {
             f += (effectiveFreqTarget - f) * fStep
@@ -337,6 +374,12 @@ final class Voice {
 
             var raw: Double
             if isSampleMode, sampleCount > 0 {
+                // Bring samplePosition into [windowStart, windowEnd) on
+                // first frame and on every wrap. Per-sample loop logic
+                // wraps cheaply when we reach windowEnd.
+                if samplePosition < windowStartFrame || samplePosition >= windowEndFrame {
+                    samplePosition = windowStartFrame
+                }
                 let pos = samplePosition
                 let i0 = Int(pos) % sampleCount
                 let i1 = (i0 + 1) % sampleCount
@@ -344,9 +387,33 @@ final class Voice {
                 let s0 = Double(sampleData![i0])
                 let s1 = Double(sampleData![i1])
                 raw = s0 * (1.0 - frac) + s1 * frac
+
+                // Crossfade gain at loop boundaries — linear ramps.
+                // Distance from windowStart / to windowEnd governs the
+                // fade-in / fade-out gain respectively.
+                if fadeInFrames > 0 || fadeOutFrames > 0 {
+                    let posInWindow = pos - windowStartFrame
+                    var fadeMul: Double = 1.0
+                    if fadeInFrames > 0 && posInWindow < fadeInFrames {
+                        fadeMul *= posInWindow / fadeInFrames
+                    }
+                    let posFromEnd = windowEndFrame - pos
+                    if fadeOutFrames > 0 && posFromEnd < fadeOutFrames {
+                        fadeMul *= posFromEnd / fadeOutFrames
+                    }
+                    raw *= fadeMul
+                }
+
                 samplePosition += sampleIncrement
-                if samplePosition >= Double(sampleCount) {
-                    samplePosition -= Double(sampleCount)
+                if samplePosition >= windowEndFrame {
+                    // Wrap back to start of the play window (NOT 0).
+                    let overshoot = samplePosition - windowEndFrame
+                    samplePosition = windowStartFrame + overshoot
+                    // If overshoot > windowLength (e.g. very high pitch
+                    // shift), just snap to start.
+                    if samplePosition >= windowEndFrame {
+                        samplePosition = windowStartFrame
+                    }
                 }
             } else if wave.isNoise {
                 // Noise voices skip phase math + FM entirely (no periodic
@@ -356,7 +423,8 @@ final class Voice {
                 } else {
                     // Pink noise (Paul Kellet). Six leaky integrators + a HF
                     // compensation tap on the raw white sample. Output gain
-                    // 0.11 keeps peaks roughly in [-1, 1].
+                    // 0.11 keeps peaks roughly in [-1, 1]. Reused as the
+                    // source for granular mode below.
                     let white = Double.random(in: -1.0 ... 1.0)
                     pinkB0 = 0.99886 * pinkB0 + white * 0.0555179
                     pinkB1 = 0.99332 * pinkB1 + white * 0.0750759
@@ -367,6 +435,44 @@ final class Voice {
                     raw = (pinkB0 + pinkB1 + pinkB2 + pinkB3 + pinkB4
                            + pinkB5 + pinkB6 + white * 0.5362) * 0.11
                     pinkB6 = white * 0.115926
+
+                    // Granular: window the running pink-noise sample with a
+                    // Hann envelope, gated by a Poisson-ish scheduler. When
+                    // no grain is active, output silence — the negative-space
+                    // is what makes geiger / rain textures feel sparse and
+                    // organic. Boost active samples by 3× to compensate for
+                    // the duty cycle so perceived loudness stays in the same
+                    // ballpark as continuous pink noise.
+                    if wave == .granular {
+                        if grainSamplesUntilNext <= 0 {
+                            // Start a new grain.
+                            let lenSamples = max(8, Int(grainSizeMs * 0.001 * sampleRate))
+                            grainCurrentLength = lenSamples
+                            grainCurrentPos = 0
+                            grainCurrentPanOffset = Float(Double.random(in: -1.0 ... 1.0) * grainPanSpread)
+                            // Mean inter-grain spacing from density. jitter
+                            // randomizes the gap multiplicatively — at
+                            // jitter=1 the gap varies 0.3×..2.5× the mean,
+                            // producing markedly irregular grain trains.
+                            let meanGap = sampleRate / max(0.5, grainDensityHz)
+                            let lo = max(0.05, 1.0 - grainJitter * 0.7)
+                            let hi = 1.0 + grainJitter * 1.5
+                            let gap = meanGap * Double.random(in: lo...hi)
+                            // Don't schedule next grain to start before the
+                            // current one finishes (avoid overlap pile-up at
+                            // sparse density + long grains).
+                            grainSamplesUntilNext = max(lenSamples + 8, Int(gap))
+                        }
+                        if grainCurrentPos < grainCurrentLength {
+                            let t = Double(grainCurrentPos) / Double(grainCurrentLength)
+                            let window = 0.5 * (1.0 - cos(2.0 * .pi * t))
+                            raw *= window * 3.0
+                            grainCurrentPos += 1
+                        } else {
+                            raw = 0
+                        }
+                        grainSamplesUntilNext -= 1
+                    }
                 }
             } else {
                 // Synth oscillator: advance phase + sample the waveform formula.
@@ -502,7 +608,13 @@ final class Voice {
             // mono) passes through unpanned so the stereo width persists
             // regardless of pan position.
             let dryReverbOut = fxInMono + revWet * revMix
-            let panT = (Double(p) + 1.0) * 0.25
+            // Granular per-grain pan offset is added on top of the smoothed
+            // pan target so each grain lands in a random stereo location
+            // without disturbing the voice's base pan slew.
+            let pPlusGrain = (wave == .granular)
+                ? max(-1.0, min(1.0, Double(p) + Double(grainCurrentPanOffset)))
+                : Double(p)
+            let panT = (pPlusGrain + 1.0) * 0.25
             let lGain = Float(__cospi(panT))
             let rGain = Float(__sinpi(panT))
 

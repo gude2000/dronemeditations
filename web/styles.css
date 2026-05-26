@@ -282,6 +282,121 @@ body:has(.controls.hidden) #zoom-wrap,
 }
 .morph-reset:hover { background: rgba(255, 255, 255, 0.14); }
 
+/* ── Auto-morph controls (added with T13) ── */
+.morph-auto-section {
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 12px;
+  background: rgba(207, 181, 235, 0.08);
+  border: 1px solid rgba(207, 181, 235, 0.18);
+}
+.morph-section-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(207, 181, 235, 0.85);
+  margin-bottom: 8px;
+}
+.morph-duration-chips {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.morph-duration-chips button {
+  padding: 8px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+.morph-duration-chips button:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+.morph-duration-chips button.active {
+  background: rgba(207, 181, 235, 0.32);
+  color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(207, 181, 235, 0.50);
+}
+.morph-duration-readout {
+  text-align: center;
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: rgba(255, 255, 255, 0.65);
+  margin-bottom: 10px;
+}
+.morph-transport-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.morph-transport-row button {
+  padding: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 0;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.morph-play {
+  background: rgba(207, 181, 235, 0.30);
+  color: #fff;
+}
+.morph-play:hover:not(:disabled) {
+  background: rgba(207, 181, 235, 0.42);
+}
+.morph-play.running {
+  background: rgba(255, 199, 115, 0.30);
+  color: #fff;
+}
+.morph-play.running:hover {
+  background: rgba(255, 199, 115, 0.42);
+}
+.morph-play:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.morph-reset-pos {
+  background: rgba(255, 255, 255, 0.10);
+  color: rgba(255, 255, 255, 0.85);
+}
+.morph-reset-pos:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+.morph-pingpong {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.morph-pingpong input { width: 18px; height: 18px; cursor: pointer; }
+.morph-pingpong strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+}
+.morph-pingpong em {
+  display: block;
+  font-style: normal;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+}
+.morph-auto-hint {
+  margin: 10px 0 0;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+  line-height: 1.4;
+}
+
 /* Gallery pill — cyan glow when at least one snapshot is saved. */
 #gallery-pill.active {
   background: rgba(120, 230, 220, 0.20);
@@ -992,6 +1107,25 @@ body.performance:hover { cursor: default; }
   margin-top: 2px;
   border-top: 1px dashed rgba(255, 255, 255, 0.06);
 }
+
+/* Grain row — same look as filter-row but only 4 mini-controls (no segmented
+   type picker). Tinted slider thumbs to match the iOS grain row's blue. */
+.grain-row {
+  grid-template-columns: 36px 1fr 1fr 1fr 1fr;
+}
+.grain-row .strip-label { color: #b8dcff; }
+.grain-row input[type="range"]::-webkit-slider-thumb { background: #b8dcff; }
+.grain-row input[type="range"]::-moz-range-thumb { background: #b8dcff; }
+
+/* Sample window row — same grid as grain (4 mini-controls). Tinted amber
+   to match the iOS sample-window row, signaling it's a per-sample DSP
+   tool (start/end loop points + per-loop fade-in/out). */
+.sample-window-row {
+  grid-template-columns: 36px 1fr 1fr 1fr 1fr;
+}
+.sample-window-row .strip-label { color: #ffcf80; }
+.sample-window-row input[type="range"]::-webkit-slider-thumb { background: #ffcf80; }
+.sample-window-row input[type="range"]::-moz-range-thumb { background: #ffcf80; }
 
 /* Segmented control (filter type, LFO shape, LFO target). */
 .seg {

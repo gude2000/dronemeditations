@@ -11,12 +11,14 @@ export const WAVEFORMS = [
   { id: "square",     name: "Square",     symbol: "square" },
   { id: "whiteNoise", name: "White Noise", symbol: "noise" },
   { id: "pinkNoise",  name: "Pink Noise",  symbol: "pinknoise" },
+  { id: "granular",   name: "Granular",   symbol: "granular" },
   { id: "sample",     name: "Sample",     symbol: "sample" }
 ];
 
-/// True for waveform IDs that are stochastic noise (not periodic).
+/// True for waveform IDs that are stochastic noise (not periodic). Granular
+/// reuses pink noise as its source so it also counts as noise.
 export function isNoiseWaveform(id) {
-  return id === "whiteNoise" || id === "pinkNoise";
+  return id === "whiteNoise" || id === "pinkNoise" || id === "granular";
 }
 
 /// Reference frequency used as the "unity pitch" anchor when a sample is loaded.
@@ -687,6 +689,564 @@ export const PRESETS = [
       V({ hz: 220.00, pan:  0.0, wave: "square",   amp: 0.25,
           filter: { type: "lowpass", cutoffHz: 1500, q: 1.0 },
           reverb: { decaySec: 5.0, mix: 0.40 } })
+    ]
+  },
+
+  // ─── Granular presets (T14) ─────────────────────────────────────────────
+  // Four atmospheric pieces showing the range of granular textures, from
+  // sparse geiger / rain drops up to dense crackle clouds.
+
+  // Geiger Counter — sparse, very short grains, slight randomness. Drone
+  // bed is a separate low sine; the granular voice supplies the clicks.
+  {
+    id: "granular_geiger", name: "Geiger Counter (Granular)", category: "Drone Artists",
+    sub: "Granular · isolated clicks every ~1 s · soft sine bed · medium reverb",
+    voices: [
+      V({ hz: 110.00, pan: 0.0, wave: "sine", amp: 0.40,
+          filter: { type: "lowpass", cutoffHz: 1200, q: 0.7 },
+          reverb: { decaySec: 4.5, mix: 0.45 } }),
+      V({ hz: 220.00, pan: 0.0, wave: "granular", amp: 0.55,
+          filter: { type: "highpass", cutoffHz: 1400, q: 1.0 },
+          reverb: { decaySec: 4.5, mix: 0.45 },
+          grain: { sizeMs: 12, densityHz: 1.2, jitter: 0.85, panSpread: 0.85 } }),
+      V({ hz: 110, pan: 0, amp: 0, _silent: true }),
+      V({ hz: 110, pan: 0, amp: 0, _silent: true })
+    ]
+  },
+
+  // Sparse Rain — distinct drops on a wide stereo field. Bigger grains
+  // than Geiger so each event has body.
+  {
+    id: "granular_sparse_rain", name: "Sparse Rain (Granular)", category: "Drone Artists",
+    sub: "Granular · soft droplets · open-room reverb · ambient sub-bass",
+    voices: [
+      V({ hz:  55.00, pan: 0.0, wave: "sine", amp: 0.30,
+          filter: { type: "lowpass", cutoffHz: 600, q: 0.7 },
+          reverb: { decaySec: 6.0, mix: 0.55 } }),
+      V({ hz: 220.00, pan: -0.5, wave: "granular", amp: 0.45,
+          filter: { type: "bandpass", cutoffHz: 2000, q: 2.5 },
+          reverb: { decaySec: 6.0, mix: 0.55 },
+          grain: { sizeMs: 35, densityHz: 4, jitter: 0.75, panSpread: 0.7 } }),
+      V({ hz: 220.00, pan:  0.5, wave: "granular", amp: 0.42,
+          startDelaySec: 8,
+          filter: { type: "bandpass", cutoffHz: 2200, q: 2.5 },
+          reverb: { decaySec: 6.0, mix: 0.55 },
+          grain: { sizeMs: 40, densityHz: 5, jitter: 0.85, panSpread: 0.8 } }),
+      V({ hz: 110, pan: 0, amp: 0, _silent: true })
+    ]
+  },
+
+  // Rain Shower — dense, fast grains across the stereo field. Light pitch
+  // bed for harmonic ground.
+  {
+    id: "granular_rain", name: "Rain Shower (Granular)", category: "Drone Artists",
+    sub: "Granular · dense pattering · two stereo layers · airy reverb",
+    voices: [
+      V({ hz: 110.00, pan: 0.0, wave: "triangle", amp: 0.25,
+          filter: { type: "lowpass", cutoffHz: 800, q: 0.7 },
+          reverb: { decaySec: 3.5, mix: 0.40 } }),
+      V({ hz: 220.00, pan: -0.6, wave: "granular", amp: 0.50,
+          filter: { type: "highpass", cutoffHz: 1000, q: 1.0 },
+          reverb: { decaySec: 3.5, mix: 0.40 },
+          grain: { sizeMs: 25, densityHz: 28, jitter: 0.55, panSpread: 0.8 } }),
+      V({ hz: 220.00, pan:  0.6, wave: "granular", amp: 0.48,
+          filter: { type: "highpass", cutoffHz: 1100, q: 1.0 },
+          reverb: { decaySec: 3.5, mix: 0.40 },
+          grain: { sizeMs: 22, densityHz: 32, jitter: 0.60, panSpread: 0.8 } }),
+      V({ hz: 110, pan: 0, amp: 0, _silent: true })
+    ]
+  },
+
+  // Stone Tape — sparse low-frequency grains, long reverb, very few grains
+  // per minute. Slow emerging haunted texture for deep meditation / sleep.
+  {
+    id: "granular_stone_tape", name: "Stone Tape (Granular)", category: "Drone Artists",
+    sub: "Granular · rare low grains · long-tail reverb · sub-bass drone bed",
+    voices: [
+      V({ hz:  41.20, pan: 0.0, wave: "sine", amp: 0.35,
+          filter: { type: "lowpass", cutoffHz: 350, q: 0.7 },
+          reverb: { decaySec: 9.0, mix: 0.55 } }),
+      V({ hz: 220.00, pan: 0.0, wave: "granular", amp: 0.55,
+          filter: { type: "lowpass", cutoffHz: 800, q: 1.5 },
+          reverb: { decaySec: 9.0, mix: 0.55 },
+          grain: { sizeMs: 180, densityHz: 0.7, jitter: 0.95, panSpread: 0.9 } }),
+      V({ hz: 220.00, pan: 0.0, wave: "granular", amp: 0.30,
+          startDelaySec: 30,
+          filter: { type: "lowpass", cutoffHz: 500, q: 1.5 },
+          reverb: { decaySec: 9.0, mix: 0.55 },
+          grain: { sizeMs: 240, densityHz: 0.5, jitter: 0.95, panSpread: 0.85 } }),
+      V({ hz: 110, pan: 0, amp: 0, _silent: true })
+    ]
+  },
+
+  // ─── T15: One new "granular + timed fade" piece per Drone Master ───────
+  // Each combines the granular waveform with per-voice timing envelopes
+  // so the texture evolves across the session — voices enter and recede.
+
+  // Basinski — Tape Decay Cycle (user-requested follow-up). The triangle
+  // "loop" fades out at 4 min while two granular crackle layers fade in,
+  // dramatizing tape disintegration. By 4:08 the source is silent; only
+  // the decay remains.
+  {
+    id: "basinski_decay_cycle", name: "Basinski — Tape Decay Cycle", category: "Drone Artists",
+    sub: "Basinski · loop fades out as granular crackle takes over · 5-min arc",
+    voices: [
+      V({ hz: 261.63, pan: 0.0, wave: "triangle", amp: 0.55, drive: 1.5,
+          playDurationSec: 240,
+          filter: { type: "lowpass", cutoffHz: 1500, q: 1.0 },
+          reverb: { decaySec: 8.0, mix: 0.50 },
+          delay:  { timeSec: 0.50, feedback: 0.65, mix: 0.40, mode: "pingPong", timing: "1/4" },
+          lfos: [{ shape: "sine", target: "amp", rateHz: 0.06, depth: 0.40 }, null, null, null] }),
+      V({ hz: 130.81, pan: 0.0, wave: "sine", amp: 0.35,
+          reverb: { decaySec: 8.0, mix: 0.50 } }),
+      V({ hz: 220.00, pan: -0.4, wave: "granular", amp: 0.45,
+          startDelaySec: 30,
+          filter: { type: "highpass", cutoffHz: 1200, q: 1.2 },
+          reverb: { decaySec: 8.0, mix: 0.50 },
+          grain: { sizeMs: 45, densityHz: 2.5, jitter: 0.90, panSpread: 0.75 } }),
+      V({ hz: 220.00, pan:  0.4, wave: "granular", amp: 0.50,
+          startDelaySec: 120,
+          filter: { type: "bandpass", cutoffHz: 800, q: 2.0 },
+          reverb: { decaySec: 8.0, mix: 0.50 },
+          grain: { sizeMs: 120, densityHz: 1.2, jitter: 0.95, panSpread: 0.85 } })
+    ]
+  },
+
+  // Oliveros — Sonic Meditation (Granular Breath).
+  {
+    id: "oliveros_breath", name: "Oliveros — Sonic Meditation (Granular)", category: "Drone Artists",
+    sub: "Oliveros · A-drone pairs enter at 0 / 60 / 120 s · granular breath fades after 4 min",
+    voices: [
+      V({ hz: 110.00, pan: -0.3, wave: "sine", amp: 0.50, reverb: { decaySec: 6.0, mix: 0.50 } }),
+      V({ hz: 220.00, pan:  0.3, wave: "sine", amp: 0.45,
+          startDelaySec: 60, reverb: { decaySec: 6.0, mix: 0.50 } }),
+      V({ hz:  55.00, pan: 0.0, wave: "sine", amp: 0.40,
+          startDelaySec: 120, reverb: { decaySec: 6.0, mix: 0.50 } }),
+      V({ hz: 220.00, pan: 0.0, wave: "granular", amp: 0.30,
+          playDurationSec: 240,
+          filter: { type: "bandpass", cutoffHz: 1200, q: 1.5 },
+          reverb: { decaySec: 6.0, mix: 0.50 },
+          grain: { sizeMs: 80, densityHz: 6, jitter: 0.65, panSpread: 0.85 } })
+    ]
+  },
+
+  // Riley — Granular Cascade.
+  {
+    id: "riley_granular_cascade", name: "Riley — Granular Cascade", category: "Drone Artists",
+    sub: "Riley · triangle cascade · granular sparkle 0:30–4:00 · ping-pong delays",
+    voices: [
+      V({ hz: 164.81, pan: -0.5, wave: "triangle", amp: 0.45,
+          reverb: { decaySec: 4.0, mix: 0.35 },
+          delay: { timeSec: 0.375, feedback: 0.55, mix: 0.55, mode: "pingPong", timing: "1/8" } }),
+      V({ hz: 246.94, pan:  0.5, wave: "triangle", amp: 0.40,
+          startDelaySec: 15,
+          reverb: { decaySec: 4.0, mix: 0.35 },
+          delay: { timeSec: 0.375, feedback: 0.55, mix: 0.55, mode: "pingPong", timing: "1/8" } }),
+      V({ hz: 329.63, pan: -0.3, wave: "triangle", amp: 0.35,
+          startDelaySec: 45,
+          reverb: { decaySec: 4.0, mix: 0.35 },
+          delay: { timeSec: 0.375, feedback: 0.55, mix: 0.55, mode: "pingPong", timing: "1/8" } }),
+      V({ hz: 220.00, pan: 0.0, wave: "granular", amp: 0.30,
+          startDelaySec: 30, playDurationSec: 210,
+          filter: { type: "highpass", cutoffHz: 2500, q: 1.5 },
+          reverb: { decaySec: 4.0, mix: 0.35 },
+          grain: { sizeMs: 18, densityHz: 14, jitter: 0.55, panSpread: 0.85 } })
+    ]
+  },
+
+  // Radigue — Île Granular Beats.
+  {
+    id: "radigue_ile_granular", name: "Radigue — Île Granular", category: "Drone Artists",
+    sub: "Radigue · 0.4 Hz binaural beat · granular clouds bloom 1:00–6:00",
+    voices: [
+      V({ hz: 440.00, pan: -0.7, wave: "sine", amp: 0.45, reverb: { decaySec: 10.0, mix: 0.55 } }),
+      V({ hz: 440.40, pan:  0.7, wave: "sine", amp: 0.45, reverb: { decaySec: 10.0, mix: 0.55 } }),
+      V({ hz: 110.00, pan: 0.0, wave: "sine", amp: 0.35,
+          reverb: { decaySec: 10.0, mix: 0.55 },
+          lfos: [null, { shape: "sine", target: "amp", rateHz: 0.04, depth: 0.30 }, null, null] }),
+      V({ hz: 220.00, pan: 0.0, wave: "granular", amp: 0.40,
+          startDelaySec: 60, playDurationSec: 300,
+          filter: { type: "lowpass", cutoffHz: 1500, q: 1.0 },
+          reverb: { decaySec: 10.0, mix: 0.55 },
+          grain: { sizeMs: 350, densityHz: 0.8, jitter: 0.90, panSpread: 0.95 } })
+    ]
+  },
+
+  // Stars of the Lid — Granular Halo.
+  {
+    id: "sotl_granular_halo", name: "Stars of the Lid — Granular Halo", category: "Drone Artists",
+    sub: "SOTL · orchestral pad · granular dust enters at 60 s and stays",
+    voices: [
+      V({ hz: 220.00, pan: -0.3, wave: "sawtooth", amp: 0.40,
+          filter: { type: "lowpass", cutoffHz: 900, q: 0.8 },
+          reverb: { decaySec: 6.5, mix: 0.50 },
+          chorus: { rateHz: 0.4, depth: 0.6, width: 1.0, mix: 0.35 } }),
+      V({ hz: 329.63, pan:  0.3, wave: "sawtooth", amp: 0.35,
+          startDelaySec: 30,
+          filter: { type: "lowpass", cutoffHz: 900, q: 0.8 },
+          reverb: { decaySec: 6.5, mix: 0.50 },
+          chorus: { rateHz: 0.4, depth: 0.6, width: 1.0, mix: 0.35 } }),
+      V({ hz: 440.00, pan: 0.0, wave: "sawtooth", amp: 0.25,
+          startDelaySec: 90,
+          filter: { type: "lowpass", cutoffHz: 900, q: 0.8 },
+          reverb: { decaySec: 6.5, mix: 0.50 },
+          chorus: { rateHz: 0.4, depth: 0.6, width: 1.0, mix: 0.35 } }),
+      V({ hz: 220.00, pan: 0.0, wave: "granular", amp: 0.25,
+          startDelaySec: 60,
+          filter: { type: "highpass", cutoffHz: 2000, q: 1.0 },
+          reverb: { decaySec: 6.5, mix: 0.50 },
+          grain: { sizeMs: 60, densityHz: 18, jitter: 0.50, panSpread: 0.90 } })
+    ]
+  },
+
+  // Sunn O))) — Granular Tar Pit.
+  {
+    id: "sunn_granular_tar", name: "Sunn O))) — Granular Tar Pit", category: "Drone Artists",
+    sub: "Sunn O))) · sub-bass + amp-decay granular crackle from 1:00 · drop master volume",
+    voices: [
+      V({ hz: 41.20, pan: -0.4, wave: "sawtooth", amp: 0.75, drive: 6.5,
+          filter: { type: "lowpass", cutoffHz: 600, q: 1.5 },
+          reverb: { decaySec: 5.0, mix: 0.30 } }),
+      V({ hz: 41.55, pan:  0.4, wave: "square", amp: 0.65, drive: 5.5,
+          filter: { type: "lowpass", cutoffHz: 700, q: 1.5 },
+          reverb: { decaySec: 5.0, mix: 0.30 } }),
+      V({ hz: 220.00, pan: 0.0, wave: "granular", amp: 0.40,
+          startDelaySec: 60,
+          filter: { type: "highpass", cutoffHz: 1500, q: 1.2 },
+          reverb: { decaySec: 5.0, mix: 0.30 },
+          grain: { sizeMs: 30, densityHz: 8, jitter: 0.80, panSpread: 0.80 } }),
+      V({ hz: 220.00, pan: 0.0, wave: "granular", amp: 0.35,
+          startDelaySec: 180,
+          filter: { type: "bandpass", cutoffHz: 2500, q: 2.0 },
+          reverb: { decaySec: 5.0, mix: 0.30 },
+          grain: { sizeMs: 18, densityHz: 22, jitter: 0.70, panSpread: 0.85 } })
+    ]
+  },
+
+  // Niblock — Granular Cluster.
+  {
+    id: "niblock_granular_cluster", name: "Niblock — Granular Cluster", category: "Drone Artists",
+    sub: "Niblock · 3-voice microtonal cluster · granular peppering on slow LFO",
+    voices: [
+      V({ hz: 220.00, pan: -0.7, wave: "sawtooth", amp: 0.40,
+          filter: { type: "lowpass", cutoffHz: 1800, q: 0.7 },
+          reverb: { decaySec: 3.5, mix: 0.25 } }),
+      V({ hz: 222.30, pan:  0.0, wave: "sawtooth", amp: 0.40,
+          startDelaySec: 30,
+          filter: { type: "lowpass", cutoffHz: 1800, q: 0.7 },
+          reverb: { decaySec: 3.5, mix: 0.25 } }),
+      V({ hz: 218.10, pan:  0.7, wave: "sawtooth", amp: 0.40,
+          startDelaySec: 60,
+          filter: { type: "lowpass", cutoffHz: 1800, q: 0.7 },
+          reverb: { decaySec: 3.5, mix: 0.25 } }),
+      V({ hz: 220.00, pan: 0.0, wave: "granular", amp: 0.45,
+          startDelaySec: 90,
+          filter: { type: "bandpass", cutoffHz: 1500, q: 1.8 },
+          reverb: { decaySec: 3.5, mix: 0.25 },
+          grain: { sizeMs: 28, densityHz: 5, jitter: 0.75, panSpread: 0.75 },
+          lfos: [null, { shape: "sine", target: "amp", rateHz: 0.05, depth: 0.6 }, null, null] })
+    ]
+  },
+
+  // Palestine — Granular Strumming.
+  {
+    id: "palestine_granular_strum", name: "Palestine — Granular Strumming", category: "Drone Artists",
+    sub: "Palestine · just-D triangles · granular bell grains depart at 3:00",
+    voices: [
+      V({ hz: 73.42, pan: -0.2, wave: "triangle", amp: 0.55,
+          reverb: { decaySec: 5.5, mix: 0.40 },
+          chorus: { rateHz: 0.45, depth: 0.65, width: 1.0, mix: 0.40 } }),
+      V({ hz: 91.78, pan:  0.2, wave: "triangle", amp: 0.45,
+          startDelaySec: 20,
+          reverb: { decaySec: 5.5, mix: 0.40 },
+          chorus: { rateHz: 0.45, depth: 0.65, width: 1.0, mix: 0.40 } }),
+      V({ hz: 146.83, pan: 0.0, wave: "triangle", amp: 0.40,
+          startDelaySec: 50,
+          reverb: { decaySec: 5.5, mix: 0.40 },
+          chorus: { rateHz: 0.45, depth: 0.65, width: 1.0, mix: 0.40 } }),
+      V({ hz: 220.00, pan: 0.0, wave: "granular", amp: 0.30,
+          playDurationSec: 180,
+          filter: { type: "highpass", cutoffHz: 2500, q: 2.0 },
+          reverb: { decaySec: 5.5, mix: 0.40 },
+          grain: { sizeMs: 22, densityHz: 10, jitter: 0.60, panSpread: 0.80 } })
+    ]
+  },
+
+  // Wada — Granular Bagpipe Breath.
+  {
+    id: "wada_granular_breath", name: "Wada — Granular Bagpipe Breath", category: "Drone Artists",
+    sub: "Wada · just-intoned drone · granular wind enters 1:00, departs 5:00",
+    voices: [
+      V({ hz: 146.83, pan: -0.4, wave: "sawtooth", amp: 0.50, drive: 2.0,
+          filter: { type: "lowpass", cutoffHz: 1500, q: 0.9 },
+          reverb: { decaySec: 5.0, mix: 0.35 } }),
+      V({ hz: 220.00, pan:  0.4, wave: "sawtooth", amp: 0.45, drive: 2.0,
+          filter: { type: "lowpass", cutoffHz: 1500, q: 0.9 },
+          reverb: { decaySec: 5.0, mix: 0.35 } }),
+      V({ hz: 293.66, pan: 0.0, wave: "sawtooth", amp: 0.30, drive: 1.8,
+          startDelaySec: 30,
+          filter: { type: "lowpass", cutoffHz: 1700, q: 0.9 },
+          reverb: { decaySec: 5.0, mix: 0.35 } }),
+      V({ hz: 220.00, pan: 0.0, wave: "granular", amp: 0.35,
+          startDelaySec: 60, playDurationSec: 240,
+          filter: { type: "bandpass", cutoffHz: 1200, q: 1.5 },
+          reverb: { decaySec: 5.0, mix: 0.35 },
+          grain: { sizeMs: 100, densityHz: 12, jitter: 0.65, panSpread: 0.90 } })
+    ]
+  },
+
+  // Budd — Granular Pearl Drops.
+  {
+    id: "budd_granular_pearls", name: "Budd — Granular Pearl Drops", category: "Drone Artists",
+    sub: "Budd · soft pad · sparse granular pebbles · 5-min arc",
+    voices: [
+      V({ hz: 174.61, pan: -0.3, wave: "sine", amp: 0.45,
+          filter: { type: "lowpass", cutoffHz: 1200, q: 0.7 },
+          reverb: { decaySec: 7.0, mix: 0.55 },
+          chorus: { rateHz: 0.3, depth: 0.6, width: 1.0, mix: 0.30 } }),
+      V({ hz: 261.63, pan:  0.3, wave: "sine", amp: 0.40,
+          startDelaySec: 30,
+          filter: { type: "lowpass", cutoffHz: 1200, q: 0.7 },
+          reverb: { decaySec: 7.0, mix: 0.55 },
+          chorus: { rateHz: 0.3, depth: 0.6, width: 1.0, mix: 0.30 } }),
+      V({ hz: 220.00, pan: -0.5, wave: "granular", amp: 0.35,
+          startDelaySec: 60, playDurationSec: 240,
+          filter: { type: "bandpass", cutoffHz: 2400, q: 2.5 },
+          reverb: { decaySec: 7.0, mix: 0.55 },
+          grain: { sizeMs: 14, densityHz: 3, jitter: 0.85, panSpread: 0.70 } }),
+      V({ hz: 220.00, pan:  0.5, wave: "granular", amp: 0.35,
+          startDelaySec: 120, playDurationSec: 180,
+          filter: { type: "bandpass", cutoffHz: 3000, q: 2.5 },
+          reverb: { decaySec: 7.0, mix: 0.55 },
+          grain: { sizeMs: 12, densityHz: 4, jitter: 0.85, panSpread: 0.75 } })
+    ]
+  },
+
+  // Coltrane — Spiritual Granular.
+  {
+    id: "coltrane_spiritual_granular", name: "Coltrane — Spiritual Granular", category: "Drone Artists",
+    sub: "Coltrane · Leslie organ · granular tabla blooms 1:00–4:00",
+    voices: [
+      V({ hz: 110.00, pan: -0.4, wave: "triangle", amp: 0.50, drive: 1.8,
+          filter: { type: "lowpass", cutoffHz: 2000, q: 1.0 },
+          reverb: { decaySec: 3.5, mix: 0.30 },
+          chorus: { rateHz: 5.5, depth: 0.50, width: 1.0, mix: 0.40 } }),
+      V({ hz: 165.00, pan:  0.4, wave: "triangle", amp: 0.45, drive: 1.8,
+          startDelaySec: 30,
+          filter: { type: "lowpass", cutoffHz: 2000, q: 1.0 },
+          reverb: { decaySec: 3.5, mix: 0.30 },
+          chorus: { rateHz: 5.5, depth: 0.50, width: 1.0, mix: 0.40 } }),
+      V({ hz: 220.00, pan: 0.0, wave: "granular", amp: 0.40,
+          startDelaySec: 60, playDurationSec: 180,
+          filter: { type: "bandpass", cutoffHz: 1400, q: 2.0 },
+          reverb: { decaySec: 3.5, mix: 0.30 },
+          grain: { sizeMs: 35, densityHz: 6, jitter: 0.70, panSpread: 0.75 } }),
+      V({ hz: 55.00, pan: 0.0, wave: "sine", amp: 0.35,
+          reverb: { decaySec: 3.5, mix: 0.30 } })
+    ]
+  },
+
+  // Earth — Granular Tar.
+  {
+    id: "earth_granular_tar", name: "Earth — Granular Tar", category: "Drone Artists",
+    sub: "Earth · low-B doom dyad · dense granular grit 1:30–6:00",
+    voices: [
+      V({ hz: 30.87, pan: -0.5, wave: "sawtooth", amp: 0.70, drive: 5.0,
+          filter: { type: "lowpass", cutoffHz: 500, q: 1.8 },
+          reverb: { decaySec: 5.0, mix: 0.30 } }),
+      V({ hz: 46.25, pan:  0.5, wave: "sawtooth", amp: 0.60, drive: 4.5,
+          startDelaySec: 30,
+          filter: { type: "lowpass", cutoffHz: 550, q: 1.8 },
+          reverb: { decaySec: 5.0, mix: 0.30 } }),
+      V({ hz: 220.00, pan: 0.0, wave: "granular", amp: 0.45,
+          startDelaySec: 90, playDurationSec: 270,
+          filter: { type: "bandpass", cutoffHz: 1200, q: 1.8 },
+          reverb: { decaySec: 5.0, mix: 0.30 },
+          grain: { sizeMs: 22, densityHz: 16, jitter: 0.65, panSpread: 0.85 } }),
+      V({ hz: 110, pan: 0, amp: 0, _silent: true })
+    ]
+  },
+
+  // Nurse With Wound — Granular Tableau.
+  {
+    id: "nww_granular_tableau", name: "Nurse With Wound — Granular Tableau", category: "Drone Artists",
+    sub: "NWW · FM weirdness · two granular interference waves at 0:30 + 2:30",
+    voices: [
+      V({ hz: 110.00, pan: -0.5, wave: "square", amp: 0.40, drive: 2.5,
+          filter: { type: "lowpass", cutoffHz: 1800, q: 2.0 },
+          reverb: { decaySec: 4.0, mix: 0.35 },
+          fm: { sourceIndex: 1, index: 80 } }),
+      V({ hz: 165.00, pan:  0.5, wave: "sawtooth", amp: 0.35,
+          filter: { type: "bandpass", cutoffHz: 900, q: 3.0 },
+          reverb: { decaySec: 4.0, mix: 0.35 } }),
+      V({ hz: 220.00, pan: -0.3, wave: "granular", amp: 0.40,
+          startDelaySec: 30, playDurationSec: 90,
+          filter: { type: "highpass", cutoffHz: 1800, q: 1.5 },
+          reverb: { decaySec: 4.0, mix: 0.35 },
+          grain: { sizeMs: 8, densityHz: 35, jitter: 0.50, panSpread: 0.85 } }),
+      V({ hz: 220.00, pan:  0.3, wave: "granular", amp: 0.40,
+          startDelaySec: 150, playDurationSec: 90,
+          filter: { type: "bandpass", cutoffHz: 2200, q: 2.5 },
+          reverb: { decaySec: 4.0, mix: 0.35 },
+          grain: { sizeMs: 15, densityHz: 25, jitter: 0.85, panSpread: 0.90 } })
+    ]
+  },
+
+  // Haino — Granular Spectral.
+  {
+    id: "haino_granular_spectral", name: "Haino — Granular Spectral", category: "Drone Artists",
+    sub: "Haino · D drone · two granular shimmer layers cross-fade 1:00–5:00",
+    voices: [
+      V({ hz: 73.42, pan: 0.0, wave: "sawtooth", amp: 0.55, drive: 3.0,
+          filter: { type: "lowpass", cutoffHz: 800, q: 1.8 },
+          reverb: { decaySec: 5.5, mix: 0.45 },
+          chorus: { rateHz: 1.2, depth: 0.65, width: 1.0, mix: 0.45 } }),
+      V({ hz: 146.83, pan: 0.0, wave: "square", amp: 0.25,
+          startDelaySec: 30,
+          filter: { type: "lowpass", cutoffHz: 1200, q: 1.5 },
+          reverb: { decaySec: 5.5, mix: 0.45 } }),
+      V({ hz: 220.00, pan: -0.6, wave: "granular", amp: 0.40,
+          startDelaySec: 60, playDurationSec: 180,
+          filter: { type: "highpass", cutoffHz: 2500, q: 1.8 },
+          reverb: { decaySec: 5.5, mix: 0.45 },
+          grain: { sizeMs: 25, densityHz: 16, jitter: 0.60, panSpread: 0.85 } }),
+      V({ hz: 220.00, pan:  0.6, wave: "granular", amp: 0.35,
+          startDelaySec: 180,
+          filter: { type: "highpass", cutoffHz: 1500, q: 1.8 },
+          reverb: { decaySec: 5.5, mix: 0.45 },
+          grain: { sizeMs: 40, densityHz: 12, jitter: 0.70, panSpread: 0.85 } })
+    ]
+  },
+
+  // ─── T-Drift: 6 presets showcasing per-voice configurable drift ──────
+  // pitchSemitones + pitchPeriodSec overrides on each voice's drift let
+  // every voice cycle at its own amplitude and tempo.
+
+  {
+    id: "drift_tide_breath", name: "Tide Breath", category: "Drone Artists",
+    sub: "Just-A chord · four voices breathe out of sync · Ocean drift",
+    voices: [
+      V({ hz: 110.00, pan: -0.4, wave: "sine", amp: 0.45,
+          reverb: { decaySec: 8.0, mix: 0.50 },
+          drift: { pitchMode: "ocean", pitchPhase: 0.0, pitchSemitones: 0.25, pitchPeriodSec: 90 } }),
+      V({ hz: 164.81, pan: -0.1, wave: "sine", amp: 0.40,
+          reverb: { decaySec: 8.0, mix: 0.50 },
+          drift: { pitchMode: "ocean", pitchPhase: 0.25, pitchSemitones: 0.25, pitchPeriodSec: 90 } }),
+      V({ hz: 220.00, pan:  0.1, wave: "sine", amp: 0.40,
+          reverb: { decaySec: 8.0, mix: 0.50 },
+          drift: { pitchMode: "ocean", pitchPhase: 0.5, pitchSemitones: 0.25, pitchPeriodSec: 90 } }),
+      V({ hz: 277.18, pan:  0.4, wave: "sine", amp: 0.35,
+          reverb: { decaySec: 8.0, mix: 0.50 },
+          drift: { pitchMode: "ocean", pitchPhase: 0.75, pitchSemitones: 0.25, pitchPeriodSec: 90 } })
+    ]
+  },
+
+  {
+    id: "drift_detune_choir", name: "Detune Choir", category: "Drone Artists",
+    sub: "Unison triangle quartet · independent ±¼-semi drift periods · natural chorusing",
+    voices: [
+      V({ hz: 220.00, pan: -0.7, wave: "triangle", amp: 0.40,
+          reverb: { decaySec: 5.0, mix: 0.40 },
+          drift: { pitchMode: "wave", pitchPhase: 0.0, pitchSemitones: 0.25, pitchPeriodSec: 45 } }),
+      V({ hz: 220.00, pan: -0.2, wave: "triangle", amp: 0.40,
+          reverb: { decaySec: 5.0, mix: 0.40 },
+          drift: { pitchMode: "wave", pitchPhase: 0.3, pitchSemitones: 0.25, pitchPeriodSec: 60 } }),
+      V({ hz: 220.00, pan:  0.2, wave: "triangle", amp: 0.40,
+          reverb: { decaySec: 5.0, mix: 0.40 },
+          drift: { pitchMode: "wave", pitchPhase: 0.6, pitchSemitones: 0.25, pitchPeriodSec: 75 } }),
+      V({ hz: 220.00, pan:  0.7, wave: "triangle", amp: 0.40,
+          reverb: { decaySec: 5.0, mix: 0.40 },
+          drift: { pitchMode: "wave", pitchPhase: 0.1, pitchSemitones: 0.25, pitchPeriodSec: 90 } })
+    ]
+  },
+
+  {
+    id: "drift_quartertone_cluster", name: "Quarter-Tone Cluster", category: "Drone Artists",
+    sub: "4-voice sawtooth cluster · each voice wanders ±½ semi at its own tempo",
+    voices: [
+      V({ hz: 220.00, pan: -0.8, wave: "sawtooth", amp: 0.40,
+          filter: { type: "lowpass", cutoffHz: 2200, q: 0.7 },
+          reverb: { decaySec: 3.5, mix: 0.30 },
+          drift: { pitchMode: "wave", pitchSemitones: 0.5, pitchPeriodSec: 60 } }),
+      V({ hz: 222.30, pan: -0.3, wave: "sawtooth", amp: 0.40,
+          filter: { type: "lowpass", cutoffHz: 2200, q: 0.7 },
+          reverb: { decaySec: 3.5, mix: 0.30 },
+          drift: { pitchMode: "wave", pitchSemitones: 0.5, pitchPeriodSec: 95 } }),
+      V({ hz: 218.10, pan:  0.3, wave: "sawtooth", amp: 0.40,
+          filter: { type: "lowpass", cutoffHz: 2200, q: 0.7 },
+          reverb: { decaySec: 3.5, mix: 0.30 },
+          drift: { pitchMode: "wave", pitchSemitones: 0.5, pitchPeriodSec: 130 } }),
+      V({ hz: 221.40, pan:  0.8, wave: "sawtooth", amp: 0.40,
+          filter: { type: "lowpass", cutoffHz: 2200, q: 0.7 },
+          reverb: { decaySec: 3.5, mix: 0.30 },
+          drift: { pitchMode: "wave", pitchSemitones: 0.5, pitchPeriodSec: 175 } })
+    ]
+  },
+
+  {
+    id: "drift_pendulum_dawn", name: "Pendulum Dawn", category: "Drone Artists",
+    sub: "Voices swing wide L↔R while pitch breathes — Ocean + Pendulum",
+    voices: [
+      V({ hz: 130.81, pan: 0.0, wave: "triangle", amp: 0.45,
+          reverb: { decaySec: 7.0, mix: 0.55 },
+          chorus: { rateHz: 0.4, depth: 0.5, width: 1.0, mix: 0.30 },
+          drift: { pitchMode: "ocean", pitchPhase: 0.0, panMode: "pendulum", panPhase: 0.0,
+                   pitchSemitones: 0.25, pitchPeriodSec: 120 } }),
+      V({ hz: 196.00, pan: 0.0, wave: "triangle", amp: 0.40,
+          reverb: { decaySec: 7.0, mix: 0.55 },
+          chorus: { rateHz: 0.4, depth: 0.5, width: 1.0, mix: 0.30 },
+          drift: { pitchMode: "ocean", pitchPhase: 0.33, panMode: "pendulum", panPhase: 0.25,
+                   pitchSemitones: 0.25, pitchPeriodSec: 120 } }),
+      V({ hz: 261.63, pan: 0.0, wave: "triangle", amp: 0.35,
+          reverb: { decaySec: 7.0, mix: 0.55 },
+          chorus: { rateHz: 0.4, depth: 0.5, width: 1.0, mix: 0.30 },
+          drift: { pitchMode: "ocean", pitchPhase: 0.66, panMode: "pendulum", panPhase: 0.5,
+                   pitchSemitones: 0.25, pitchPeriodSec: 120 } }),
+      V({ hz: 392.00, pan: 0.0, wave: "sine", amp: 0.25,
+          reverb: { decaySec: 7.0, mix: 0.55 },
+          chorus: { rateHz: 0.4, depth: 0.5, width: 1.0, mix: 0.30 },
+          drift: { pitchMode: "ocean", pitchPhase: 0.5, panMode: "pendulum", panPhase: 0.75,
+                   pitchSemitones: 0.25, pitchPeriodSec: 120 } })
+    ]
+  },
+
+  {
+    id: "drift_tibetan_bowl", name: "Tibetan Bowl Cycle", category: "Drone Artists",
+    sub: "Bowl-like wobble · ±½ semi every 3 min · long-tail reverb",
+    voices: [
+      V({ hz: 146.83, pan: 0.0, wave: "triangle", amp: 0.55,
+          filter: { type: "lowpass", cutoffHz: 1800, q: 0.9 },
+          reverb: { decaySec: 9.0, mix: 0.60 },
+          drift: { pitchMode: "wave", pitchPhase: 0.0, pitchSemitones: 0.5, pitchPeriodSec: 180 } }),
+      V({ hz: 220.00, pan: -0.4, wave: "sine", amp: 0.40,
+          reverb: { decaySec: 9.0, mix: 0.60 },
+          drift: { pitchMode: "wave", pitchPhase: 0.4, pitchSemitones: 0.5, pitchPeriodSec: 180 } }),
+      V({ hz: 293.66, pan:  0.4, wave: "sine", amp: 0.30, startDelaySec: 30,
+          reverb: { decaySec: 9.0, mix: 0.60 },
+          drift: { pitchMode: "wave", pitchPhase: 0.7, pitchSemitones: 0.5, pitchPeriodSec: 180 } }),
+      V({ hz: 587.33, pan: 0.0, wave: "sine", amp: 0.15, startDelaySec: 60,
+          filter: { type: "highpass", cutoffHz: 400, q: 0.7 },
+          reverb: { decaySec: 9.0, mix: 0.60 },
+          drift: { pitchMode: "wave", pitchPhase: 0.2, pitchSemitones: 0.5, pitchPeriodSec: 180 } })
+    ]
+  },
+
+  {
+    id: "drift_microtonal_dance", name: "Microtonal Dance", category: "Drone Artists",
+    sub: "Polyrhythmic drift · periods 30/60/120/240 s · aligns every 4 min",
+    voices: [
+      V({ hz: 220.00, pan: -0.7, wave: "triangle", amp: 0.40,
+          reverb: { decaySec: 5.0, mix: 0.40 },
+          drift: { pitchMode: "wave", pitchSemitones: 1.0, pitchPeriodSec: 30 } }),
+      V({ hz: 277.18, pan: -0.2, wave: "triangle", amp: 0.40,
+          reverb: { decaySec: 5.0, mix: 0.40 },
+          drift: { pitchMode: "wave", pitchSemitones: 0.5, pitchPeriodSec: 60 } }),
+      V({ hz: 329.63, pan:  0.2, wave: "triangle", amp: 0.40,
+          reverb: { decaySec: 5.0, mix: 0.40 },
+          drift: { pitchMode: "wave", pitchSemitones: 0.25, pitchPeriodSec: 120 } }),
+      V({ hz: 110.00, pan: 0.0, wave: "sine", amp: 0.35,
+          reverb: { decaySec: 5.0, mix: 0.40 },
+          drift: { pitchMode: "wave", pitchSemitones: 2.0, pitchPeriodSec: 240 } })
     ]
   }
 ];

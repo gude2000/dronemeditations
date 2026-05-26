@@ -35,6 +35,8 @@ struct Preset: Identifiable, Hashable {
         let delay: DelayState?
         let chorus: ChorusState?
         let fm: FMState?
+        /// Granular synth settings — only consumed when wave == .granular.
+        let grain: GrainState?
         /// Per-LFO overrides. nil entries (or fewer than 4) leave the
         /// corresponding LFO alone; non-nil entries replace it.
         let lfos: [LfoState?]?
@@ -50,6 +52,7 @@ struct Preset: Identifiable, Hashable {
              delay: DelayState? = nil,
              chorus: ChorusState? = nil,
              fm: FMState? = nil,
+             grain: GrainState? = nil,
              lfos: [LfoState?]? = nil,
              drift: DriftVoiceConfig? = nil) {
             self.hz = hz; self.pan = pan
@@ -59,7 +62,8 @@ struct Preset: Identifiable, Hashable {
             self.playDurationSec = playDurationSec
             self.filter = filter; self.reverb = reverb
             self.delay = delay; self.chorus = chorus
-            self.fm = fm; self.lfos = lfos; self.drift = drift
+            self.fm = fm; self.grain = grain
+            self.lfos = lfos; self.drift = drift
         }
     }
 
@@ -491,6 +495,661 @@ extension Preset {
                     Voice(hz:  220.00, pan:  0.0, wave: .square,   amp: 0.25,
                           filter: FilterState(type: .lowpass, cutoffHz: 1500, q: 1.0),
                           reverb: rev)
+                   ]
+               }()),
+
+        // ─── Granular presets (T14) ─────────────────────────────────────
+        // Four atmospheric pieces showing the range of granular textures —
+        // from sparse geiger / rain drops up to dense crackle clouds.
+
+        // Geiger Counter — sparse, very short grains, slight randomness.
+        // Frequency knob is irrelevant for noise; the drone bed is a
+        // separate low sine. Mostly demonstrates "rare events" feel.
+        Preset("Geiger Counter (Granular)", .droneArtists,
+               subtitle: "Granular · isolated clicks every ~1 s · soft sine bed · medium reverb",
+               {
+                   let rev = ReverbState(decaySec: 4.5, mix: 0.45)
+                   return [
+                    Voice(hz: 110.00, pan: 0.0, wave: .sine, amp: 0.40,
+                          filter: FilterState(type: .lowpass, cutoffHz: 1200, q: 0.7),
+                          reverb: rev),
+                    Voice(hz: 220.00, pan: 0.0, wave: .granular, amp: 0.55,
+                          filter: FilterState(type: .highpass, cutoffHz: 1400, q: 1.0),
+                          reverb: rev,
+                          grain: GrainState(sizeMs: 12, densityHz: 1.2, jitter: 0.85, panSpread: 0.85)),
+                    Voice(hz: 0, pan: 0, wave: nil, amp: 0),
+                    Voice(hz: 0, pan: 0, wave: nil, amp: 0)
+                   ]
+               }()),
+
+        // Sparse Rain — distinct drops on a wide stereo field. Bigger
+        // grains than Geiger so each event has a little body to it.
+        Preset("Sparse Rain (Granular)", .droneArtists,
+               subtitle: "Granular · soft droplets · open-room reverb · ambient sub-bass",
+               {
+                   let rev = ReverbState(decaySec: 6.0, mix: 0.55)
+                   return [
+                    Voice(hz:  55.00, pan: 0.0, wave: .sine,     amp: 0.30,
+                          filter: FilterState(type: .lowpass, cutoffHz: 600, q: 0.7),
+                          reverb: rev),
+                    Voice(hz: 220.00, pan: -0.5, wave: .granular, amp: 0.45,
+                          filter: FilterState(type: .bandpass, cutoffHz: 2000, q: 2.5),
+                          reverb: rev,
+                          grain: GrainState(sizeMs: 35, densityHz: 4, jitter: 0.75, panSpread: 0.7)),
+                    Voice(hz: 220.00, pan:  0.5, wave: .granular, amp: 0.42,
+                          startDelaySec: 8,
+                          filter: FilterState(type: .bandpass, cutoffHz: 2200, q: 2.5),
+                          reverb: rev,
+                          grain: GrainState(sizeMs: 40, densityHz: 5, jitter: 0.85, panSpread: 0.8)),
+                    Voice(hz: 0, pan: 0, wave: nil, amp: 0)
+                   ]
+               }()),
+
+        // Rain Shower — dense, fast grains across the stereo field,
+        // medium grain size for "pattering" texture. Slight pitch bed
+        // for harmonic ground.
+        Preset("Rain Shower (Granular)", .droneArtists,
+               subtitle: "Granular · dense pattering · two stereo layers · airy reverb",
+               {
+                   let rev = ReverbState(decaySec: 3.5, mix: 0.40)
+                   return [
+                    Voice(hz: 110.00, pan: 0.0, wave: .triangle, amp: 0.25,
+                          filter: FilterState(type: .lowpass, cutoffHz: 800, q: 0.7),
+                          reverb: rev),
+                    Voice(hz: 220.00, pan: -0.6, wave: .granular, amp: 0.50,
+                          filter: FilterState(type: .highpass, cutoffHz: 1000, q: 1.0),
+                          reverb: rev,
+                          grain: GrainState(sizeMs: 25, densityHz: 28, jitter: 0.55, panSpread: 0.8)),
+                    Voice(hz: 220.00, pan:  0.6, wave: .granular, amp: 0.48,
+                          filter: FilterState(type: .highpass, cutoffHz: 1100, q: 1.0),
+                          reverb: rev,
+                          grain: GrainState(sizeMs: 22, densityHz: 32, jitter: 0.60, panSpread: 0.8)),
+                    Voice(hz: 0, pan: 0, wave: nil, amp: 0)
+                   ]
+               }()),
+
+        // Stone Tape — sparse low-frequency grains over a sub drone,
+        // long reverb, very few grains per minute. Slowly emerging haunted
+        // texture for deep meditation / sleep onset.
+        Preset("Stone Tape (Granular)", .droneArtists,
+               subtitle: "Granular · rare low grains · long-tail reverb · sub-bass drone bed",
+               {
+                   let rev = ReverbState(decaySec: 9.0, mix: 0.55)
+                   return [
+                    Voice(hz:  41.20, pan: 0.0, wave: .sine, amp: 0.35,
+                          filter: FilterState(type: .lowpass, cutoffHz: 350, q: 0.7),
+                          reverb: rev),
+                    Voice(hz: 220.00, pan: 0.0, wave: .granular, amp: 0.55,
+                          filter: FilterState(type: .lowpass, cutoffHz: 800, q: 1.5),
+                          reverb: rev,
+                          grain: GrainState(sizeMs: 180, densityHz: 0.7, jitter: 0.95, panSpread: 0.9)),
+                    Voice(hz: 220.00, pan: 0.0, wave: .granular, amp: 0.30,
+                          startDelaySec: 30,
+                          filter: FilterState(type: .lowpass, cutoffHz: 500, q: 1.5),
+                          reverb: rev,
+                          grain: GrainState(sizeMs: 240, densityHz: 0.5, jitter: 0.95, panSpread: 0.85)),
+                    Voice(hz: 0, pan: 0, wave: nil, amp: 0)
+                   ]
+               }()),
+
+        // ─── T15: One new "granular + timed fade" piece per Drone Master ───
+        // Each combines the new granular waveform with the per-voice timing
+        // envelope (startDelaySec / playDurationSec) to evolve over a
+        // session — voices enter and recede so the texture is never static.
+
+        // Basinski II — Tape Decay Cycle. The user-requested follow-up:
+        // a melodic triangle "loop" fades OUT over 4 min while two granular
+        // crackle layers fade IN, dramatizing tape disintegration as time
+        // advances. By the end the source is gone and only the decay remains.
+        Preset("Basinski — Tape Decay Cycle", .droneArtists,
+               subtitle: "Basinski · loop fades out as granular crackle takes over · 5-min arc",
+               {
+                   let rev = ReverbState(decaySec: 8.0, mix: 0.50)
+                   return [
+                    // The "loop" — triangle melody on a 1/4-note ping-pong
+                    // delay. playDurationSec = 240 → fades out across 8 s
+                    // starting at t = 240s (4 min). By 4:08 the source is
+                    // silent; only the granular tape-decay remains.
+                    Voice(hz: 261.63, pan: 0.0, wave: .triangle, amp: 0.55, drive: 1.5,
+                          playDurationSec: 240,
+                          filter: FilterState(type: .lowpass, cutoffHz: 1500, q: 1.0),
+                          reverb: rev,
+                          delay: DelayState(timeSec: 0.50, feedback: 0.65, mix: 0.40, mode: .pingPong, timing: .quarter),
+                          lfos: [LfoState(shape: .sine, target: .amplitude, rateHz: 0.06, depth: 0.40), nil, nil, nil]),
+                    // Sub bed — sine drone, always present, harmonic ground.
+                    Voice(hz: 130.81, pan: 0.0, wave: .sine, amp: 0.35, reverb: rev),
+                    // First decay layer — sparse granular crackle, enters at
+                    // 30 s and fades in over 8 s. Medium grains so each
+                    // event has tactile body. HP filter for "tape oxide" sheen.
+                    Voice(hz: 220.00, pan: -0.4, wave: .granular, amp: 0.45,
+                          startDelaySec: 30,
+                          filter: FilterState(type: .highpass, cutoffHz: 1200, q: 1.2),
+                          reverb: rev,
+                          grain: GrainState(sizeMs: 45, densityHz: 2.5, jitter: 0.90, panSpread: 0.75)),
+                    // Deeper decay layer — even sparser, longer grains, low
+                    // BP filter. Enters at 120 s — by then the listener has
+                    // settled into the loop and the gradual "wear" feels
+                    // organic rather than imposed.
+                    Voice(hz: 220.00, pan:  0.4, wave: .granular, amp: 0.50,
+                          startDelaySec: 120,
+                          filter: FilterState(type: .bandpass, cutoffHz: 800, q: 2.0),
+                          reverb: rev,
+                          grain: GrainState(sizeMs: 120, densityHz: 1.2, jitter: 0.95, panSpread: 0.85))
+                   ]
+               }()),
+
+        // Oliveros II — Sonic Meditation (Granular Breath). Slow A drones
+        // arrive in pairs (60s, 120s); granular pink-noise "breath" weaves
+        // throughout but withdraws at 4 min, leaving the sustained drone.
+        Preset("Oliveros — Sonic Meditation (Granular)", .droneArtists,
+               subtitle: "Oliveros · A-drone pairs enter at 0 / 60 / 120 s · granular breath fades after 4 min",
+               {
+                   let rev = ReverbState(decaySec: 6.0, mix: 0.50)
+                   return [
+                    Voice(hz: 110.00, pan: -0.3, wave: .sine, amp: 0.50, reverb: rev),
+                    Voice(hz: 220.00, pan:  0.3, wave: .sine, amp: 0.45,
+                          startDelaySec: 60, reverb: rev),
+                    Voice(hz:  55.00, pan: 0.0, wave: .sine, amp: 0.40,
+                          startDelaySec: 120, reverb: rev),
+                    // Granular "breath" — soft, medium-density, withdraws
+                    // after 4 min so the final stretch is pure drone.
+                    Voice(hz: 220.00, pan: 0.0, wave: .granular, amp: 0.30,
+                          playDurationSec: 240,
+                          filter: FilterState(type: .bandpass, cutoffHz: 1200, q: 1.5),
+                          reverb: rev,
+                          grain: GrainState(sizeMs: 80, densityHz: 6, jitter: 0.65, panSpread: 0.85))
+                   ]
+               }()),
+
+        // Riley II — Granular Cascade. Triangle voices on staggered ping-pong
+        // delays, granular sparkle that ARRIVES at 30 s and DEPARTS at 4 min.
+        Preset("Riley — Granular Cascade", .droneArtists,
+               subtitle: "Riley · triangle cascade · granular sparkle 0:30–4:00 · ping-pong delays",
+               {
+                   let rev = ReverbState(decaySec: 4.0, mix: 0.35)
+                   let dly = DelayState(timeSec: 0.375, feedback: 0.55, mix: 0.55, mode: .pingPong, timing: .eighth)
+                   return [
+                    Voice(hz: 164.81, pan: -0.5, wave: .triangle, amp: 0.45,
+                          reverb: rev, delay: dly),
+                    Voice(hz: 246.94, pan:  0.5, wave: .triangle, amp: 0.40,
+                          startDelaySec: 15, reverb: rev, delay: dly),
+                    Voice(hz: 329.63, pan: -0.3, wave: .triangle, amp: 0.35,
+                          startDelaySec: 45, reverb: rev, delay: dly),
+                    // Granular sparkle — bell-high HP, medium density, fades
+                    // out at 4 min so the ending is pure cascade.
+                    Voice(hz: 220.00, pan: 0.0, wave: .granular, amp: 0.30,
+                          startDelaySec: 30, playDurationSec: 210,
+                          filter: FilterState(type: .highpass, cutoffHz: 2500, q: 1.5),
+                          reverb: rev,
+                          grain: GrainState(sizeMs: 18, densityHz: 14, jitter: 0.55, panSpread: 0.85))
+                   ]
+               }()),
+
+        // Radigue II — Île Granular Beats. Two near-unison sines beat slowly
+        // (0.4 Hz); very long granular grains drift in at 60 s and out at 6 min,
+        // creating standing-wave clouds within the beating field.
+        Preset("Radigue — Île Granular", .droneArtists,
+               subtitle: "Radigue · 0.4 Hz binaural beat · granular clouds bloom 1:00–6:00",
+               {
+                   let rev = ReverbState(decaySec: 10.0, mix: 0.55)
+                   return [
+                    Voice(hz: 440.00, pan: -0.7, wave: .sine, amp: 0.45, reverb: rev),
+                    Voice(hz: 440.40, pan:  0.7, wave: .sine, amp: 0.45, reverb: rev),
+                    Voice(hz: 110.00, pan: 0.0, wave: .sine, amp: 0.35, reverb: rev,
+                          lfos: [nil, LfoState(shape: .sine, target: .amplitude, rateHz: 0.04, depth: 0.30), nil, nil]),
+                    // Granular cloud — very long grains, very sparse density;
+                    // result is a slow "phantom note" texture inside the beat.
+                    Voice(hz: 220.00, pan: 0.0, wave: .granular, amp: 0.40,
+                          startDelaySec: 60, playDurationSec: 300,
+                          filter: FilterState(type: .lowpass, cutoffHz: 1500, q: 1.0),
+                          reverb: rev,
+                          grain: GrainState(sizeMs: 350, densityHz: 0.8, jitter: 0.90, panSpread: 0.95))
+                   ]
+               }()),
+
+        // Stars of the Lid II — Granular Halo. The classic orchestral pad
+        // gets a granular shimmer that fades in over time, like dust caught
+        // in a beam of light gradually revealing itself.
+        Preset("Stars of the Lid — Granular Halo", .droneArtists,
+               subtitle: "SOTL · orchestral pad · granular dust enters at 60 s and stays",
+               {
+                   let cho = ChorusState(rateHz: 0.4, depth: 0.6, width: 1.0, mix: 0.35)
+                   let rev = ReverbState(decaySec: 6.5, mix: 0.50)
+                   return [
+                    Voice(hz: 220.00, pan: -0.3, wave: .sawtooth, amp: 0.40,
+                          filter: FilterState(type: .lowpass, cutoffHz: 900, q: 0.8),
+                          reverb: rev, chorus: cho),
+                    Voice(hz: 329.63, pan:  0.3, wave: .sawtooth, amp: 0.35,
+                          startDelaySec: 30,
+                          filter: FilterState(type: .lowpass, cutoffHz: 900, q: 0.8),
+                          reverb: rev, chorus: cho),
+                    Voice(hz: 440.00, pan: 0.0, wave: .sawtooth, amp: 0.25,
+                          startDelaySec: 90,
+                          filter: FilterState(type: .lowpass, cutoffHz: 900, q: 0.8),
+                          reverb: rev, chorus: cho),
+                    // Granular shimmer — medium-dense, very HP, blooms at 60 s
+                    // and stays for the full session.
+                    Voice(hz: 220.00, pan: 0.0, wave: .granular, amp: 0.25,
+                          startDelaySec: 60,
+                          filter: FilterState(type: .highpass, cutoffHz: 2000, q: 1.0),
+                          reverb: rev,
+                          grain: GrainState(sizeMs: 60, densityHz: 18, jitter: 0.50, panSpread: 0.90))
+                   ]
+               }()),
+
+        // Sunn O))) II — Granular Tar Pit. Heavy low drone + amp-cab grit;
+        // a granular "amp deterioration" layer ramps up after 60 s, peaking
+        // by minute 4 as if the amp is slowly self-destructing.
+        Preset("Sunn O))) — Granular Tar Pit", .droneArtists,
+               subtitle: "Sunn O))) · sub-bass + amp-decay granular crackle from 1:00 · drop master volume",
+               {
+                   let rev = ReverbState(decaySec: 5.0, mix: 0.30)
+                   return [
+                    Voice(hz: 41.20, pan: -0.4, wave: .sawtooth, amp: 0.75, drive: 6.5,
+                          filter: FilterState(type: .lowpass, cutoffHz: 600, q: 1.5),
+                          reverb: rev),
+                    Voice(hz: 41.55, pan:  0.4, wave: .square, amp: 0.65, drive: 5.5,
+                          filter: FilterState(type: .lowpass, cutoffHz: 700, q: 1.5),
+                          reverb: rev),
+                    Voice(hz: 220.00, pan: 0.0, wave: .granular, amp: 0.40,
+                          startDelaySec: 60,
+                          filter: FilterState(type: .highpass, cutoffHz: 1500, q: 1.2),
+                          reverb: rev,
+                          grain: GrainState(sizeMs: 30, densityHz: 8, jitter: 0.80, panSpread: 0.80)),
+                    Voice(hz: 220.00, pan: 0.0, wave: .granular, amp: 0.35,
+                          startDelaySec: 180,
+                          filter: FilterState(type: .bandpass, cutoffHz: 2500, q: 2.0),
+                          reverb: rev,
+                          grain: GrainState(sizeMs: 18, densityHz: 22, jitter: 0.70, panSpread: 0.85))
+                   ]
+               }()),
+
+        // Niblock II — Granular Cluster. Three microtonal sawtooths beat
+        // against each other; a sparse granular voice peppers the cluster
+        // with discrete events that fade in/out cyclically (amplitude LFO).
+        Preset("Niblock — Granular Cluster", .droneArtists,
+               subtitle: "Niblock · 3-voice microtonal cluster · granular peppering on slow LFO",
+               {
+                   let f = FilterState(type: .lowpass, cutoffHz: 1800, q: 0.7)
+                   let r = ReverbState(decaySec: 3.5, mix: 0.25)
+                   return [
+                    Voice(hz: 220.00, pan: -0.7, wave: .sawtooth, amp: 0.40, filter: f, reverb: r),
+                    Voice(hz: 222.30, pan:  0.0, wave: .sawtooth, amp: 0.40,
+                          startDelaySec: 30, filter: f, reverb: r),
+                    Voice(hz: 218.10, pan:  0.7, wave: .sawtooth, amp: 0.40,
+                          startDelaySec: 60, filter: f, reverb: r),
+                    Voice(hz: 220.00, pan: 0.0, wave: .granular, amp: 0.45,
+                          startDelaySec: 90,
+                          filter: FilterState(type: .bandpass, cutoffHz: 1500, q: 1.8),
+                          reverb: r,
+                          grain: GrainState(sizeMs: 28, densityHz: 5, jitter: 0.75, panSpread: 0.75),
+                          lfos: [nil, LfoState(shape: .sine, target: .amplitude, rateHz: 0.05, depth: 0.6), nil, nil])
+                   ]
+               }()),
+
+        // Palestine II — Granular Strumming. Just-intonation triangles +
+        // granular bell-like grains that fade out at 3 min, leaving the
+        // strumming triangles bare for the final third.
+        Preset("Palestine — Granular Strumming", .droneArtists,
+               subtitle: "Palestine · just-D triangles · granular bell grains depart at 3:00",
+               {
+                   let cho = ChorusState(rateHz: 0.45, depth: 0.65, width: 1.0, mix: 0.40)
+                   let rev = ReverbState(decaySec: 5.5, mix: 0.40)
+                   return [
+                    Voice(hz:  73.42, pan: -0.2, wave: .triangle, amp: 0.55, reverb: rev, chorus: cho),
+                    Voice(hz:  91.78, pan:  0.2, wave: .triangle, amp: 0.45,
+                          startDelaySec: 20, reverb: rev, chorus: cho),
+                    Voice(hz: 146.83, pan:  0.0, wave: .triangle, amp: 0.40,
+                          startDelaySec: 50, reverb: rev, chorus: cho),
+                    Voice(hz: 220.00, pan: 0.0, wave: .granular, amp: 0.30,
+                          playDurationSec: 180,
+                          filter: FilterState(type: .highpass, cutoffHz: 2500, q: 2.0),
+                          reverb: rev,
+                          grain: GrainState(sizeMs: 22, densityHz: 10, jitter: 0.60, panSpread: 0.80))
+                   ]
+               }()),
+
+        // Wada II — Granular Bagpipe Breath. Bagpipe-style drone +
+        // breathing granular wind that swells at 60 s and recedes at 5 min.
+        Preset("Wada — Granular Bagpipe Breath", .droneArtists,
+               subtitle: "Wada · just-intoned drone · granular wind enters 1:00, departs 5:00",
+               {
+                   let rev = ReverbState(decaySec: 5.0, mix: 0.35)
+                   return [
+                    Voice(hz: 146.83, pan: -0.4, wave: .sawtooth, amp: 0.50, drive: 2.0,
+                          filter: FilterState(type: .lowpass, cutoffHz: 1500, q: 0.9),
+                          reverb: rev),
+                    Voice(hz: 220.00, pan:  0.4, wave: .sawtooth, amp: 0.45, drive: 2.0,
+                          filter: FilterState(type: .lowpass, cutoffHz: 1500, q: 0.9),
+                          reverb: rev),
+                    Voice(hz: 293.66, pan: 0.0, wave: .sawtooth, amp: 0.30, drive: 1.8,
+                          startDelaySec: 30,
+                          filter: FilterState(type: .lowpass, cutoffHz: 1700, q: 0.9),
+                          reverb: rev),
+                    Voice(hz: 220.00, pan: 0.0, wave: .granular, amp: 0.35,
+                          startDelaySec: 60, playDurationSec: 240,
+                          filter: FilterState(type: .bandpass, cutoffHz: 1200, q: 1.5),
+                          reverb: rev,
+                          grain: GrainState(sizeMs: 100, densityHz: 12, jitter: 0.65, panSpread: 0.90))
+                   ]
+               }()),
+
+        // Budd II — Granular Pearl Drops. Soft pad + sparse short granular
+        // "pebbles" that gradually intensify over the first 4 min, then
+        // recede in the final minute.
+        Preset("Budd — Granular Pearl Drops", .droneArtists,
+               subtitle: "Budd · soft pad · sparse granular pebbles · 5-min arc",
+               {
+                   let rev = ReverbState(decaySec: 7.0, mix: 0.55)
+                   let cho = ChorusState(rateHz: 0.3, depth: 0.6, width: 1.0, mix: 0.30)
+                   return [
+                    Voice(hz: 174.61, pan: -0.3, wave: .sine, amp: 0.45,
+                          filter: FilterState(type: .lowpass, cutoffHz: 1200, q: 0.7),
+                          reverb: rev, chorus: cho),
+                    Voice(hz: 261.63, pan:  0.3, wave: .sine, amp: 0.40,
+                          startDelaySec: 30,
+                          filter: FilterState(type: .lowpass, cutoffHz: 1200, q: 0.7),
+                          reverb: rev, chorus: cho),
+                    Voice(hz: 220.00, pan: -0.5, wave: .granular, amp: 0.35,
+                          startDelaySec: 60, playDurationSec: 240,
+                          filter: FilterState(type: .bandpass, cutoffHz: 2400, q: 2.5),
+                          reverb: rev,
+                          grain: GrainState(sizeMs: 14, densityHz: 3, jitter: 0.85, panSpread: 0.70)),
+                    Voice(hz: 220.00, pan:  0.5, wave: .granular, amp: 0.35,
+                          startDelaySec: 120, playDurationSec: 180,
+                          filter: FilterState(type: .bandpass, cutoffHz: 3000, q: 2.5),
+                          reverb: rev,
+                          grain: GrainState(sizeMs: 12, densityHz: 4, jitter: 0.85, panSpread: 0.75))
+                   ]
+               }()),
+
+        // Coltrane II — Spiritual Granular. Organ + 5th + granular
+        // tabla-style sparse grains that bloom mid-piece then fade,
+        // leaving the organ to carry the closing section.
+        Preset("Coltrane — Spiritual Granular", .droneArtists,
+               subtitle: "Coltrane · Leslie organ · granular tabla blooms 1:00–4:00",
+               {
+                   let cho = ChorusState(rateHz: 5.5, depth: 0.50, width: 1.0, mix: 0.40)
+                   let rev = ReverbState(decaySec: 3.5, mix: 0.30)
+                   return [
+                    Voice(hz: 110.00, pan: -0.4, wave: .triangle, amp: 0.50, drive: 1.8,
+                          filter: FilterState(type: .lowpass, cutoffHz: 2000, q: 1.0),
+                          reverb: rev, chorus: cho),
+                    Voice(hz: 165.00, pan:  0.4, wave: .triangle, amp: 0.45, drive: 1.8,
+                          startDelaySec: 30,
+                          filter: FilterState(type: .lowpass, cutoffHz: 2000, q: 1.0),
+                          reverb: rev, chorus: cho),
+                    Voice(hz: 220.00, pan: 0.0, wave: .granular, amp: 0.40,
+                          startDelaySec: 60, playDurationSec: 180,
+                          filter: FilterState(type: .bandpass, cutoffHz: 1400, q: 2.0),
+                          reverb: rev,
+                          grain: GrainState(sizeMs: 35, densityHz: 6, jitter: 0.70, panSpread: 0.75)),
+                    Voice(hz: 55.00, pan: 0.0, wave: .sine, amp: 0.35, reverb: rev)
+                   ]
+               }()),
+
+        // Earth II — Granular Tar. Doom B-drop + dense granular grit
+        // that arrives at 90 s and lasts through to 6 min, then peels
+        // back, leaving the doom dyad bare.
+        Preset("Earth — Granular Tar", .droneArtists,
+               subtitle: "Earth · low-B doom dyad · dense granular grit 1:30–6:00",
+               {
+                   let rev = ReverbState(decaySec: 5.0, mix: 0.30)
+                   return [
+                    Voice(hz: 30.87, pan: -0.5, wave: .sawtooth, amp: 0.70, drive: 5.0,
+                          filter: FilterState(type: .lowpass, cutoffHz: 500, q: 1.8),
+                          reverb: rev),
+                    Voice(hz: 46.25, pan:  0.5, wave: .sawtooth, amp: 0.60, drive: 4.5,
+                          startDelaySec: 30,
+                          filter: FilterState(type: .lowpass, cutoffHz: 550, q: 1.8),
+                          reverb: rev),
+                    Voice(hz: 220.00, pan: 0.0, wave: .granular, amp: 0.45,
+                          startDelaySec: 90, playDurationSec: 270,
+                          filter: FilterState(type: .bandpass, cutoffHz: 1200, q: 1.8),
+                          reverb: rev,
+                          grain: GrainState(sizeMs: 22, densityHz: 16, jitter: 0.65, panSpread: 0.85)),
+                    Voice(hz: 0, pan: 0, wave: nil, amp: 0)
+                   ]
+               }()),
+
+        // Nurse With Wound II — Granular Tableau. Cross-osc FM weirdness
+        // PLUS granular bursts that arrive in two waves (30 s and 150 s),
+        // each gone within 90 s — feels like radio interference washing
+        // through.
+        Preset("Nurse With Wound — Granular Tableau", .droneArtists,
+               subtitle: "NWW · FM weirdness · two granular interference waves at 0:30 + 2:30",
+               {
+                   let rev = ReverbState(decaySec: 4.0, mix: 0.35)
+                   return [
+                    Voice(hz: 110.00, pan: -0.5, wave: .square, amp: 0.40, drive: 2.5,
+                          filter: FilterState(type: .lowpass, cutoffHz: 1800, q: 2.0),
+                          reverb: rev,
+                          fm: FMState(sourceIndex: 1, index: 80)),
+                    Voice(hz: 165.00, pan:  0.5, wave: .sawtooth, amp: 0.35,
+                          filter: FilterState(type: .bandpass, cutoffHz: 900, q: 3.0),
+                          reverb: rev),
+                    Voice(hz: 220.00, pan: -0.3, wave: .granular, amp: 0.40,
+                          startDelaySec: 30, playDurationSec: 90,
+                          filter: FilterState(type: .highpass, cutoffHz: 1800, q: 1.5),
+                          reverb: rev,
+                          grain: GrainState(sizeMs: 8, densityHz: 35, jitter: 0.50, panSpread: 0.85)),
+                    Voice(hz: 220.00, pan:  0.3, wave: .granular, amp: 0.40,
+                          startDelaySec: 150, playDurationSec: 90,
+                          filter: FilterState(type: .bandpass, cutoffHz: 2200, q: 2.5),
+                          reverb: rev,
+                          grain: GrainState(sizeMs: 15, densityHz: 25, jitter: 0.85, panSpread: 0.90))
+                   ]
+               }()),
+
+        // Haino II — Granular Spectral. D drone + HP granular shimmer
+        // that swells, then a second deeper-pitched shimmer fades in over
+        // it; the original shimmer fades out at 4 min so the closing minute
+        // is the new layer alone over the drone.
+        Preset("Haino — Granular Spectral", .droneArtists,
+               subtitle: "Haino · D drone · two granular shimmer layers cross-fade 1:00–5:00",
+               {
+                   let cho = ChorusState(rateHz: 1.2, depth: 0.65, width: 1.0, mix: 0.45)
+                   let rev = ReverbState(decaySec: 5.5, mix: 0.45)
+                   return [
+                    Voice(hz: 73.42, pan: 0.0, wave: .sawtooth, amp: 0.55, drive: 3.0,
+                          filter: FilterState(type: .lowpass, cutoffHz: 800, q: 1.8),
+                          reverb: rev, chorus: cho),
+                    Voice(hz: 146.83, pan: 0.0, wave: .square, amp: 0.25,
+                          startDelaySec: 30,
+                          filter: FilterState(type: .lowpass, cutoffHz: 1200, q: 1.5),
+                          reverb: rev),
+                    Voice(hz: 220.00, pan: -0.6, wave: .granular, amp: 0.40,
+                          startDelaySec: 60, playDurationSec: 180,
+                          filter: FilterState(type: .highpass, cutoffHz: 2500, q: 1.8),
+                          reverb: rev,
+                          grain: GrainState(sizeMs: 25, densityHz: 16, jitter: 0.60, panSpread: 0.85)),
+                    Voice(hz: 220.00, pan:  0.6, wave: .granular, amp: 0.35,
+                          startDelaySec: 180,
+                          filter: FilterState(type: .highpass, cutoffHz: 1500, q: 1.8),
+                          reverb: rev,
+                          grain: GrainState(sizeMs: 40, densityHz: 12, jitter: 0.70, panSpread: 0.85))
+                   ]
+               }()),
+
+        // ─── T-Drift: 6 presets showcasing per-voice configurable drift ───
+        //
+        // The new pitchSemitones + pitchPeriodSec overrides on
+        // DriftVoiceConfig let every voice cycle at its own amplitude and
+        // tempo, independent of the others. These presets demonstrate the
+        // range: from synchronous-but-phase-offset breathing (Tide Breath)
+        // to deliberately polyrhythmic micro-shifts (Microtonal Dance).
+
+        // Tide Breath — four sine voices in just-intonation A-major chord,
+        // all on Ocean drift (±¼ semi, 90 s) but at different pitchPhases
+        // (0 / 0.25 / 0.5 / 0.75). The chord breathes around its center
+        // like a four-part choir inhaling out of sync.
+        Preset("Tide Breath", .droneArtists,
+               subtitle: "Just-A chord · four voices breathe out of sync · Ocean drift",
+               {
+                   let rev = ReverbState(decaySec: 8.0, mix: 0.50)
+                   func ocean(phase: Double) -> DriftVoiceConfig {
+                       DriftVoiceConfig(pitchMode: .ocean, pitchAmount: 1.0,
+                                        pitchPhase: phase, panMode: .static,
+                                        panAmount: 1.0, panPhase: 0,
+                                        pitchSemitones: 0.25, pitchPeriodSec: 90)
+                   }
+                   return [
+                    Voice(hz: 110.00, pan: -0.4, wave: .sine, amp: 0.45,
+                          reverb: rev, drift: ocean(phase: 0.0)),
+                    Voice(hz: 164.81, pan: -0.1, wave: .sine, amp: 0.40,   // E3
+                          reverb: rev, drift: ocean(phase: 0.25)),
+                    Voice(hz: 220.00, pan:  0.1, wave: .sine, amp: 0.40,
+                          reverb: rev, drift: ocean(phase: 0.5)),
+                    Voice(hz: 277.18, pan:  0.4, wave: .sine, amp: 0.35,   // C#4
+                          reverb: rev, drift: ocean(phase: 0.75))
+                   ]
+               }()),
+
+        // Detune Choir — four triangle voices in unison (220 Hz) each with
+        // a slightly different wave drift period (45 / 60 / 75 / 90 s) at
+        // ±¼ semi. The slow detuning creates a natural ensemble chorusing
+        // that no static chorus FX can match — like a live human choir's
+        // pitch wandering.
+        Preset("Detune Choir", .droneArtists,
+               subtitle: "Unison triangle quartet · independent ±¼-semi drift periods · natural chorusing",
+               {
+                   let rev = ReverbState(decaySec: 5.0, mix: 0.40)
+                   func detune(period: Double, phase: Double) -> DriftVoiceConfig {
+                       DriftVoiceConfig(pitchMode: .wave, pitchAmount: 1.0,
+                                        pitchPhase: phase, panMode: .static,
+                                        panAmount: 1.0, panPhase: 0,
+                                        pitchSemitones: 0.25, pitchPeriodSec: period)
+                   }
+                   return [
+                    Voice(hz: 220.00, pan: -0.7, wave: .triangle, amp: 0.40,
+                          reverb: rev, drift: detune(period: 45, phase: 0.0)),
+                    Voice(hz: 220.00, pan: -0.2, wave: .triangle, amp: 0.40,
+                          reverb: rev, drift: detune(period: 60, phase: 0.3)),
+                    Voice(hz: 220.00, pan:  0.2, wave: .triangle, amp: 0.40,
+                          reverb: rev, drift: detune(period: 75, phase: 0.6)),
+                    Voice(hz: 220.00, pan:  0.7, wave: .triangle, amp: 0.40,
+                          reverb: rev, drift: detune(period: 90, phase: 0.1))
+                   ]
+               }()),
+
+        // Quarter-Tone Cluster — Niblock-style sawtooth cluster but with
+        // each voice slowly wandering ±½ semi at its own period. Static
+        // beating + slow motion = the cluster is alive, never quite the
+        // same two seconds in a row.
+        Preset("Quarter-Tone Cluster", .droneArtists,
+               subtitle: "4-voice sawtooth cluster · each voice wanders ±½ semi at its own tempo",
+               {
+                   let f = FilterState(type: .lowpass, cutoffHz: 2200, q: 0.7)
+                   let rev = ReverbState(decaySec: 3.5, mix: 0.30)
+                   func wander(period: Double) -> DriftVoiceConfig {
+                       DriftVoiceConfig(pitchMode: .wave, pitchAmount: 1.0,
+                                        pitchPhase: 0, panMode: .static,
+                                        panAmount: 1.0, panPhase: 0,
+                                        pitchSemitones: 0.5, pitchPeriodSec: period)
+                   }
+                   return [
+                    Voice(hz: 220.00, pan: -0.8, wave: .sawtooth, amp: 0.40,
+                          filter: f, reverb: rev, drift: wander(period: 60)),
+                    Voice(hz: 222.30, pan: -0.3, wave: .sawtooth, amp: 0.40,
+                          filter: f, reverb: rev, drift: wander(period: 95)),
+                    Voice(hz: 218.10, pan:  0.3, wave: .sawtooth, amp: 0.40,
+                          filter: f, reverb: rev, drift: wander(period: 130)),
+                    Voice(hz: 221.40, pan:  0.8, wave: .sawtooth, amp: 0.40,
+                          filter: f, reverb: rev, drift: wander(period: 175))
+                   ]
+               }()),
+
+        // Pendulum Dawn — every voice swings left↔right (Pendulum pan)
+        // while simultaneously breathing pitch on Ocean (±¼ semi, 120 s).
+        // Wide stereo motion + subtle pitch wobble = expansive, dreamlike.
+        Preset("Pendulum Dawn", .droneArtists,
+               subtitle: "Voices swing wide L↔R while pitch breathes — Ocean + Pendulum",
+               {
+                   let rev = ReverbState(decaySec: 7.0, mix: 0.55)
+                   let cho = ChorusState(rateHz: 0.4, depth: 0.5, width: 1.0, mix: 0.30)
+                   func sweep(phase: Double, panPhase: Double) -> DriftVoiceConfig {
+                       DriftVoiceConfig(pitchMode: .ocean, pitchAmount: 1.0,
+                                        pitchPhase: phase, panMode: .pendulum,
+                                        panAmount: 1.0, panPhase: panPhase,
+                                        pitchSemitones: 0.25, pitchPeriodSec: 120)
+                   }
+                   return [
+                    Voice(hz: 130.81, pan: 0.0, wave: .triangle, amp: 0.45,
+                          reverb: rev, chorus: cho,
+                          drift: sweep(phase: 0.0, panPhase: 0.0)),
+                    Voice(hz: 196.00, pan: 0.0, wave: .triangle, amp: 0.40,
+                          reverb: rev, chorus: cho,
+                          drift: sweep(phase: 0.33, panPhase: 0.25)),
+                    Voice(hz: 261.63, pan: 0.0, wave: .triangle, amp: 0.35,
+                          reverb: rev, chorus: cho,
+                          drift: sweep(phase: 0.66, panPhase: 0.5)),
+                    Voice(hz: 392.00, pan: 0.0, wave: .sine, amp: 0.25,
+                          reverb: rev, chorus: cho,
+                          drift: sweep(phase: 0.5, panPhase: 0.75))
+                   ]
+               }()),
+
+        // Tibetan Bowl Cycle — center pitch with two voices wobbling ±½
+        // semi at a long 180 s period, mimicking the natural pitch wander
+        // of a struck singing bowl as its overtones interact. Long reverb
+        // for the room-tail.
+        Preset("Tibetan Bowl Cycle", .droneArtists,
+               subtitle: "Bowl-like wobble · ±½ semi every 3 min · long-tail reverb",
+               {
+                   let rev = ReverbState(decaySec: 9.0, mix: 0.60)
+                   func wobble(phase: Double) -> DriftVoiceConfig {
+                       DriftVoiceConfig(pitchMode: .wave, pitchAmount: 1.0,
+                                        pitchPhase: phase, panMode: .static,
+                                        panAmount: 1.0, panPhase: 0,
+                                        pitchSemitones: 0.5, pitchPeriodSec: 180)
+                   }
+                   return [
+                    // Fundamental
+                    Voice(hz: 146.83, pan: 0.0, wave: .triangle, amp: 0.55,
+                          filter: FilterState(type: .lowpass, cutoffHz: 1800, q: 0.9),
+                          reverb: rev,
+                          drift: wobble(phase: 0.0)),
+                    // 5th — wobbles out of sync
+                    Voice(hz: 220.00, pan: -0.4, wave: .sine, amp: 0.40,
+                          reverb: rev,
+                          drift: wobble(phase: 0.4)),
+                    // Octave shimmer
+                    Voice(hz: 293.66, pan:  0.4, wave: .sine, amp: 0.30,
+                          startDelaySec: 30,
+                          reverb: rev,
+                          drift: wobble(phase: 0.7)),
+                    // High partial — barely audible, adds bell sparkle
+                    Voice(hz: 587.33, pan: 0.0, wave: .sine, amp: 0.15,
+                          startDelaySec: 60,
+                          filter: FilterState(type: .highpass, cutoffHz: 400, q: 0.7),
+                          reverb: rev,
+                          drift: wobble(phase: 0.2))
+                   ]
+               }()),
+
+        // Microtonal Dance — polyrhythmic showcase. Each voice has a
+        // different drift period: 30 / 60 / 120 / 240 s. The voices align
+        // every 4 minutes, drift apart again. Mathematical, almost
+        // generative-feeling.
+        Preset("Microtonal Dance", .droneArtists,
+               subtitle: "Polyrhythmic drift · periods 30/60/120/240 s · aligns every 4 min",
+               {
+                   let rev = ReverbState(decaySec: 5.0, mix: 0.40)
+                   func dance(amount: Double, period: Double) -> DriftVoiceConfig {
+                       DriftVoiceConfig(pitchMode: .wave, pitchAmount: 1.0,
+                                        pitchPhase: 0, panMode: .static,
+                                        panAmount: 1.0, panPhase: 0,
+                                        pitchSemitones: amount, pitchPeriodSec: period)
+                   }
+                   return [
+                    Voice(hz: 220.00, pan: -0.7, wave: .triangle, amp: 0.40,
+                          reverb: rev, drift: dance(amount: 1.0, period: 30)),
+                    Voice(hz: 277.18, pan: -0.2, wave: .triangle, amp: 0.40,
+                          reverb: rev, drift: dance(amount: 0.5, period: 60)),
+                    Voice(hz: 329.63, pan:  0.2, wave: .triangle, amp: 0.40,
+                          reverb: rev, drift: dance(amount: 0.25, period: 120)),
+                    Voice(hz: 110.00, pan: 0.0, wave: .sine, amp: 0.35,
+                          reverb: rev, drift: dance(amount: 2.0, period: 240))
                    ]
                }())
     ]

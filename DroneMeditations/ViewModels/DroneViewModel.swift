@@ -87,6 +87,18 @@ final class DroneViewModel: ObservableObject {
     @Published var morphToName: String? = nil
     @Published var morphAmount: Double = 0
 
+    // Auto-morph: drive `morphAmount` from 0→1 over `morphDurationSec`. When
+    // ping-pong is on, it bounces back to 0 after reaching 1 and keeps going.
+    // The timer keeps ticking while the sheet is dismissed so the user can
+    // watch Chladni evolve through a long slow morph in performance mode.
+    @Published var morphDurationSec: Double = 300   // 5 min default
+    @Published var morphIsRunning: Bool = false
+    @Published var morphIsPingPong: Bool = false
+    /// 1 = forward (0→1), -1 = reversing (1→0). Used in ping-pong mode.
+    private var morphDirection: Int = 1
+    private var morphTimer: Timer?
+    private var morphLastTickDate: Date?
+
     /// A scene is the per-voice drift assignment for all four oscillators.
     /// Scenes are *templates* — picking one bulk-copies its voice configs
     /// into the per-oscillator state. Users can then customize any voice
@@ -333,6 +345,60 @@ final class DroneViewModel: ObservableObject {
         audioEngine.setDrive(clamped, for: index)
     }
 
+    // Granular synth setters — only audible when waveform is .granular.
+    func setGrainSize(_ ms: Double, for index: Int) {
+        guard oscillators.indices.contains(index) else { return }
+        let clamped = max(GrainState.sizeMinMs, min(GrainState.sizeMaxMs, ms))
+        oscillators[index].grain.sizeMs = clamped
+        audioEngine.setGrainSize(clamped, for: index)
+    }
+    func setGrainDensity(_ hz: Double, for index: Int) {
+        guard oscillators.indices.contains(index) else { return }
+        let clamped = max(GrainState.densityMin, min(GrainState.densityMax, hz))
+        oscillators[index].grain.densityHz = clamped
+        audioEngine.setGrainDensity(clamped, for: index)
+    }
+    func setGrainJitter(_ j: Double, for index: Int) {
+        guard oscillators.indices.contains(index) else { return }
+        let clamped = max(0, min(1, j))
+        oscillators[index].grain.jitter = clamped
+        audioEngine.setGrainJitter(clamped, for: index)
+    }
+    func setGrainPanSpread(_ s: Double, for index: Int) {
+        guard oscillators.indices.contains(index) else { return }
+        let clamped = max(0, min(1, s))
+        oscillators[index].grain.panSpread = clamped
+        audioEngine.setGrainPanSpread(clamped, for: index)
+    }
+
+    // Per-voice sample play-window setters. Audible only when the voice's
+    // waveform is .sample. (start, end) is a 0..1 fraction of the loaded
+    // sample's length; fades are in seconds applied at the loop boundary.
+    func setSampleStart(_ frac: Double, for index: Int) {
+        guard oscillators.indices.contains(index) else { return }
+        let clamped = max(0, min(0.999, frac))
+        oscillators[index].sampleStartFrac = clamped
+        audioEngine.setSampleStart(clamped, for: index)
+    }
+    func setSampleEnd(_ frac: Double, for index: Int) {
+        guard oscillators.indices.contains(index) else { return }
+        let clamped = max(0.001, min(1, frac))
+        oscillators[index].sampleEndFrac = clamped
+        audioEngine.setSampleEnd(clamped, for: index)
+    }
+    func setSampleFadeIn(_ sec: Double, for index: Int) {
+        guard oscillators.indices.contains(index) else { return }
+        let clamped = max(0, min(10, sec))
+        oscillators[index].sampleFadeInSec = clamped
+        audioEngine.setSampleFadeIn(clamped, for: index)
+    }
+    func setSampleFadeOut(_ sec: Double, for index: Int) {
+        guard oscillators.indices.contains(index) else { return }
+        let clamped = max(0, min(10, sec))
+        oscillators[index].sampleFadeOutSec = clamped
+        audioEngine.setSampleFadeOut(clamped, for: index)
+    }
+
     // Per-voice timing envelope. 0 = play immediately / forever.
     func setStartDelay(_ sec: Double, for index: Int) {
         guard oscillators.indices.contains(index) else { return }
@@ -478,7 +544,8 @@ final class DroneViewModel: ObservableObject {
                 filter: o.filter, reverb: o.reverb, delay: o.delay,
                 lfos: o.lfos, sampleStoredFilename: o.sampleStoredFilename,
                 fm: o.fm, chorus: o.chorus, drive: o.drive,
-                startDelaySec: o.startDelaySec, playDurationSec: o.playDurationSec
+                startDelaySec: o.startDelaySec, playDurationSec: o.playDurationSec,
+                grain: o.grain
             )
         }
         let preset = UserPreset(
@@ -679,6 +746,13 @@ final class DroneViewModel: ObservableObject {
                 audioEngine.setFMSource(fm.sourceIndex, for: i)
                 audioEngine.setFMIndex(fm.index, for: i)
             }
+            if let gr = voice.grain {
+                oscillators[i].grain = gr
+                audioEngine.setGrainSize(gr.sizeMs, for: i)
+                audioEngine.setGrainDensity(gr.densityHz, for: i)
+                audioEngine.setGrainJitter(gr.jitter, for: i)
+                audioEngine.setGrainPanSpread(gr.panSpread, for: i)
+            }
             if let lfos = voice.lfos {
                 // nil entries leave that LFO alone; non-nil overwrite.
                 for k in 0..<min(lfos.count, 4) {
@@ -719,7 +793,8 @@ final class DroneViewModel: ObservableObject {
             chorus: o.chorus,
             drive: o.drive,
             startDelaySec: o.startDelaySec,
-            playDurationSec: o.playDurationSec
+            playDurationSec: o.playDurationSec,
+            grain: o.grain
         )
         let trimmed = (name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let chosenName = trimmed.isEmpty
@@ -754,11 +829,13 @@ final class DroneViewModel: ObservableObject {
         let loadedDrive = v.drive ?? 1.0
         let loadedStart = v.startDelaySec ?? 0
         let loadedPlay  = v.playDurationSec ?? 0
+        let loadedGrain = v.grain ?? .defaults()
         oscillators[index].fm = loadedFm
         oscillators[index].chorus = loadedCh
         oscillators[index].drive = loadedDrive
         oscillators[index].startDelaySec = loadedStart
         oscillators[index].playDurationSec = loadedPlay
+        oscillators[index].grain = loadedGrain
         // Push to engine.
         audioEngine.setFrequency(v.frequencyHz, for: index)
         audioEngine.setWaveform(v.waveform, for: index)
@@ -781,6 +858,10 @@ final class DroneViewModel: ObservableObject {
         audioEngine.setDelayTime(v.delay.timeSec, for: index)
         audioEngine.setDelayFeedback(v.delay.feedback, for: index)
         audioEngine.setDelayMix(v.delay.mix, for: index)
+        audioEngine.setGrainSize(loadedGrain.sizeMs, for: index)
+        audioEngine.setGrainDensity(loadedGrain.densityHz, for: index)
+        audioEngine.setGrainJitter(loadedGrain.jitter, for: index)
+        audioEngine.setGrainPanSpread(loadedGrain.panSpread, for: index)
         for (i, lfo) in v.lfos.enumerated() {
             audioEngine.setLfoShape(lfo.shape, for: index, lfoIndex: i)
             audioEngine.setLfoTarget(lfo.target, for: index, lfoIndex: i)
@@ -914,9 +995,122 @@ final class DroneViewModel: ObservableObject {
         if morphFromName != nil, morphToName != nil { applyMorph(morphAmount) }
     }
     func clearMorph() {
+        stopMorphTimer()
         morphFromName = nil
         morphToName = nil
         morphAmount = 0
+        morphIsRunning = false
+        morphDirection = 1
+    }
+
+    // MARK: - Auto-morph
+
+    /// Pick a duration for the auto-morph (seconds). Doesn't start the timer;
+    /// call `startMorph()` afterward. 0 is treated as 60 s (minimum).
+    func setMorphDuration(_ sec: Double) {
+        morphDurationSec = max(1, sec)
+    }
+
+    /// Toggle ping-pong (bounce back-and-forth once the morph hits an end).
+    /// When off, the timer stops on reaching 1 (or 0 if reversing).
+    func setMorphPingPong(_ on: Bool) {
+        morphIsPingPong = on
+    }
+
+    /// Start (or resume) the auto-morph timer. No-op if From/To aren't both
+    /// picked. If `morphAmount` is already at the end-of-travel for the
+    /// current direction, restart from the opposite end.
+    func startMorph() {
+        guard morphFromName != nil, morphToName != nil else { return }
+        if morphDirection == 1 && morphAmount >= 1.0 - 1e-6 {
+            // Forward starting at the top: reset to 0 and go forward.
+            morphAmount = 0
+        } else if morphDirection == -1 && morphAmount <= 1e-6 {
+            // Reverse starting at the bottom: flip to forward.
+            morphDirection = 1
+        }
+        morphIsRunning = true
+        morphLastTickDate = Date()
+        morphTimer?.invalidate()
+        // 10 Hz tick — plenty smooth for parameter slewing (every slider also
+        // smooths to its own time constant on the engine side).
+        morphTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.tickMorph() }
+        }
+    }
+
+    /// Pause the auto-morph at its current position; resume with `startMorph()`.
+    func pauseMorph() {
+        morphIsRunning = false
+        stopMorphTimer()
+    }
+
+    /// Snap back to amount=0 and stop. Keeps the From/To selection intact.
+    func resetMorphPosition() {
+        stopMorphTimer()
+        morphIsRunning = false
+        morphDirection = 1
+        morphAmount = 0
+        if morphFromName != nil, morphToName != nil { applyMorph(0) }
+    }
+
+    private func stopMorphTimer() {
+        morphTimer?.invalidate()
+        morphTimer = nil
+        morphLastTickDate = nil
+    }
+
+    private func tickMorph() {
+        guard morphIsRunning else { return }
+        let now = Date()
+        let dt = now.timeIntervalSince(morphLastTickDate ?? now)
+        morphLastTickDate = now
+        let step = dt / max(1, morphDurationSec)
+        var next = morphAmount + Double(morphDirection) * step
+        if next >= 1.0 {
+            if morphIsPingPong {
+                next = 1.0
+                morphDirection = -1
+            } else {
+                next = 1.0
+                pauseMorph()
+            }
+        } else if next <= 0.0 {
+            if morphIsPingPong {
+                next = 0.0
+                morphDirection = 1
+            } else {
+                next = 0.0
+                pauseMorph()
+            }
+        }
+        morphAmount = next
+        applyMorph(next)
+    }
+
+    /// Look up morph voices by preset name. Checks built-in presets first,
+    /// then user-saved ones. User presets get adapter-converted into
+    /// Preset.Voice so the existing morph interpolation code works
+    /// unchanged. Returns nil if name doesn't match any source.
+    private func morphVoicesFor(name: String) -> [Preset.Voice]? {
+        if let p = Preset.all.first(where: { $0.name == name }) {
+            return p.voices
+        }
+        guard let u = userPresets.first(where: { $0.name == name }) else { return nil }
+        return u.oscillators.map { v in
+            Preset.Voice(
+                hz: v.frequencyHz, pan: v.pan,
+                wave: v.waveform, amp: v.amplitude,
+                drive: v.drive,
+                startDelaySec: v.startDelaySec,
+                playDurationSec: v.playDurationSec,
+                filter: v.filter, reverb: v.reverb,
+                delay: v.delay, chorus: v.chorus,
+                fm: v.fm, grain: v.grain,
+                lfos: v.lfos.map(Optional.some),
+                drift: nil   // user presets don't capture drift in the snapshot
+            )
+        }
     }
 
     /// Interpolate every per-voice parameter between morphFromName and
@@ -929,15 +1123,36 @@ final class DroneViewModel: ObservableObject {
         guard
             let aName = morphFromName,
             let bName = morphToName,
-            let A = Preset.all.first(where: { $0.name == aName }),
-            let B = Preset.all.first(where: { $0.name == bName })
+            let aVoices = morphVoicesFor(name: aName),
+            let bVoices = morphVoicesFor(name: bName)
         else { return }
+        // Wrap into a minimal Preset-like shape so the existing morph body
+        // (which reads `.voices` and `.name`) keeps working untouched.
+        let A = (name: aName, voices: aVoices)
+        let B = (name: bName, voices: bVoices)
         let u = max(0, min(1, t))
         func lerp(_ a: Double, _ b: Double) -> Double { a + (b - a) * u }
         func logLerp(_ a: Double, _ b: Double) -> Double {
             (a > 0 && b > 0) ? exp(lerp(log(a), log(b))) : lerp(a, b)
         }
         func pick<T>(_ a: T, _ b: T) -> T { u < 0.5 ? a : b }
+
+        // Crossfade-through-zero around the discrete-swap point (u = 0.5).
+        // Voices whose waveform / filter type / FM source differs between A
+        // and B briefly fade to silence at u ≈ 0.5 so the abrupt timbre
+        // swap is inaudible. Window is ~8 s wide, expressed in morph-amount
+        // units. Clamped so it can never consume more than the middle ±45 %
+        // of the morph (avoids weird behavior at short durations).
+        let fadeWindowSec = 8.0
+        let halfWidth = min(0.45, fadeWindowSec / max(8.0, morphDurationSec) / 2.0)
+        let dist = abs(u - 0.5)
+        let notchMul: Double
+        if dist >= halfWidth || halfWidth <= 0 {
+            notchMul = 1.0
+        } else {
+            // Cos-shaped notch: 1 at edges, 0 at center.
+            notchMul = 0.5 - 0.5 * cos(.pi * dist / halfWidth)
+        }
 
         for i in 0..<4 {
             guard i < A.voices.count, i < B.voices.count else { continue }
@@ -954,9 +1169,21 @@ final class DroneViewModel: ObservableObject {
             let aDrv  = va.drive ?? o.drive
             let bDrv  = vb.drive ?? o.drive
 
+            // Per-voice notch — only applies if this voice has a discrete
+            // change. Voices that only differ in continuous params (freq,
+            // amp, filter cutoff) stay at their lerped amplitude.
+            let aFmSrc = (va.fm ?? .defaults()).sourceIndex
+            let bFmSrc = (vb.fm ?? .defaults()).sourceIndex
+            let aFilterType = (va.filter ?? o.filter).type
+            let bFilterType = (vb.filter ?? o.filter).type
+            let hasDiscreteChange = (aWave != bWave)
+                || (aFilterType != bFilterType)
+                || (aFmSrc != bFmSrc)
+            let voiceAmpMul = hasDiscreteChange ? notchMul : 1.0
+
             setFrequency(logLerp(aHz, bHz), for: i)
             setPan(lerp(aPan, bPan), for: i)
-            setAmplitude(lerp(aAmp, bAmp), for: i)
+            setAmplitude(lerp(aAmp, bAmp) * voiceAmpMul, for: i)
             setDrive(lerp(aDrv, bDrv), for: i)
             let wantWave = pick(aWave, bWave)
             if o.waveform != wantWave { setWaveform(wantWave, for: i) }
@@ -999,6 +1226,16 @@ final class DroneViewModel: ObservableObject {
             if o.fm.sourceIndex != wantFmSrc { setFMSource(wantFmSrc, for: i) }
             let idx = (aFm.index > 1 && bFm.index > 1) ? logLerp(aFm.index, bFm.index) : lerp(aFm.index, bFm.index)
             setFMIndex(idx, for: i)
+
+            // Granular (only audible while wave is .granular). Size + density
+            // morph log so they stay musical across the range; jitter + pan
+            // spread morph linearly.
+            let aG = va.grain ?? o.grain
+            let bG = vb.grain ?? o.grain
+            setGrainSize(logLerp(aG.sizeMs, bG.sizeMs), for: i)
+            setGrainDensity(logLerp(aG.densityHz, bG.densityHz), for: i)
+            setGrainJitter(lerp(aG.jitter, bG.jitter), for: i)
+            setGrainPanSpread(lerp(aG.panSpread, bG.panSpread), for: i)
 
             // LFOs — interpolate rate (log) + depth (linear); discrete
             // shape + target swap at midpoint.
@@ -1198,6 +1435,34 @@ final class DroneViewModel: ObservableObject {
         driftSceneId = sceneIdMatchingVoices()
     }
 
+    /// Override the pitch-drift amplitude in semitones (0.1 – 24).
+    /// Pass nil to revert to the mode's default amplitude (which uses
+    /// the legacy `pitchAmount * 1 octave` math).
+    func setVoicePitchSemitones(_ index: Int, semitones: Double?) {
+        guard index >= 0 && index < oscillators.count else { return }
+        if let s = semitones {
+            oscillators[index].drift.pitchSemitones = max(0.1, min(24, s))
+        } else {
+            oscillators[index].drift.pitchSemitones = nil
+        }
+        reconcileDriftRunning(snapshotIfStarting: true)
+        driftSceneId = sceneIdMatchingVoices()
+    }
+
+    /// Override the pitch-drift period in seconds (10 – 1200). When set,
+    /// the cycle repeats every N sec using absolute time. Pass nil to
+    /// revert to the default behavior where one cycle = full session.
+    func setVoicePitchPeriodSec(_ index: Int, sec: Double?) {
+        guard index >= 0 && index < oscillators.count else { return }
+        if let s = sec {
+            oscillators[index].drift.pitchPeriodSec = max(10, min(1200, s))
+        } else {
+            oscillators[index].drift.pitchPeriodSec = nil
+        }
+        reconcileDriftRunning(snapshotIfStarting: true)
+        driftSceneId = sceneIdMatchingVoices()
+    }
+
     private func stopDrift() {
         driftTimer?.invalidate()
         driftTimer = nil
@@ -1268,9 +1533,47 @@ final class DroneViewModel: ObservableObject {
             // ─── Pitch ───
             if cfg.pitchMode == .glacial {
                 glacialPitchVoice(i)
+            } else if cfg.pitchMode == .ocean {
+                // Ocean: subtle slow sine wave around the base pitch.
+                // ±0.25 semitone over a 90 s period. User-configurable
+                // overrides on the same voice take precedence if set.
+                let oceanPeriod: Double = cfg.pitchPeriodSec ?? 90.0
+                let amplitudeOctaves: Double
+                if let semis = cfg.pitchSemitones {
+                    amplitudeOctaves = semis / 12.0
+                } else {
+                    amplitudeOctaves = 0.25 / 12.0 * cfg.pitchAmount
+                }
+                let t = Date().timeIntervalSince(driftStart)
+                let phase = ((t / oceanPeriod) + cfg.pitchPhase)
+                    .truncatingRemainder(dividingBy: 1.0)
+                let octaveOffset = sin(phase * .pi * 2) * amplitudeOctaves
+                let target = driftVoices[i].baseFreq * pow(2.0, octaveOffset)
+                let newFreq = o.frequencyHz + (target - o.frequencyHz) * 0.30
+                oscillators[i].frequencyHz = newFreq
+                audioEngine.setFrequency(newFreq, for: i)
             } else if cfg.pitchMode != .static {
-                let p = (rawProgress + cfg.pitchPhase).truncatingRemainder(dividingBy: 1.0)
-                let octaveOffset = Self.pitchShape(cfg.pitchMode, p: p) * cfg.pitchAmount
+                // For non-glacial / non-ocean modes: phase comes from
+                // either the session-progress (default, full cycle over
+                // session length) OR absolute-time / period override.
+                // Amplitude comes from semitones-override if set, else
+                // pitchAmount (legacy = full-octave-multiplier).
+                let phase: Double
+                if let period = cfg.pitchPeriodSec, period > 0 {
+                    let t = Date().timeIntervalSince(driftStart)
+                    phase = ((t / period) + cfg.pitchPhase)
+                        .truncatingRemainder(dividingBy: 1.0)
+                } else {
+                    phase = (rawProgress + cfg.pitchPhase)
+                        .truncatingRemainder(dividingBy: 1.0)
+                }
+                let amplitudeOctaves: Double
+                if let semis = cfg.pitchSemitones {
+                    amplitudeOctaves = semis / 12.0
+                } else {
+                    amplitudeOctaves = cfg.pitchAmount
+                }
+                let octaveOffset = Self.pitchShape(cfg.pitchMode, p: phase) * amplitudeOctaves
                 let target = driftVoices[i].baseFreq * pow(2.0, octaveOffset)
                 let newFreq = o.frequencyHz + (target - o.frequencyHz) * 0.30
                 oscillators[i].frequencyHz = newFreq

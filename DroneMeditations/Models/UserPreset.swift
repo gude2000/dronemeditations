@@ -39,6 +39,9 @@ struct UserPreset: Identifiable, Codable, Equatable {
         /// Per-voice timing envelope. nil = play immediately / forever.
         var startDelaySec: Double?
         var playDurationSec: Double?
+        /// Granular settings (T14). Optional for backward compat with presets
+        /// saved before the granular waveform existed.
+        var grain: GrainState?
     }
 
     static func newId() -> String {

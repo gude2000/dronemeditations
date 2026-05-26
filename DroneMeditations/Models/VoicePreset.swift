@@ -27,6 +27,8 @@ struct VoicePreset: Codable, Identifiable {
         var drive: Double?
         var startDelaySec: Double?
         var playDurationSec: Double?
+        // Granular settings (T14). Optional for backward compat.
+        var grain: GrainState?
     }
 }
 

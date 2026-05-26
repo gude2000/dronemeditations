@@ -7,6 +7,8 @@ enum Waveform: String, CaseIterable, Identifiable, Codable {
     case square
     case whiteNoise   // flat-spectrum noise — tape hiss, wind, breath
     case pinkNoise    // 1/f noise — surf, rain, "warmer" hiss
+    case granular     // pink-noise grains windowed by a Hann envelope — geiger,
+                      // raindrops, sparse-cloud textures. See OscillatorState.grain.
     case sample       // plays a user-loaded audio file; frequency acts as pitch shift
 
     var id: String { rawValue }
@@ -19,6 +21,7 @@ enum Waveform: String, CaseIterable, Identifiable, Codable {
         case .square: return "Square"
         case .whiteNoise: return "White Noise"
         case .pinkNoise: return "Pink Noise"
+        case .granular: return "Granular"
         case .sample: return "Sample"
         }
     }
@@ -31,16 +34,18 @@ enum Waveform: String, CaseIterable, Identifiable, Codable {
         case .square: return "square"
         case .whiteNoise: return "dot.radiowaves.left.and.right"
         case .pinkNoise: return "wind"
+        case .granular: return "drop"
         case .sample: return "waveform"
         }
     }
 
     /// True when this waveform is a stochastic noise source (not periodic).
     /// Voice.render uses this to skip phase math and pull samples from its
-    /// noise generator instead.
+    /// noise generator instead. Granular reuses the pink-noise generator
+    /// but windows the output, so it also lives in this branch.
     var isNoise: Bool {
         switch self {
-        case .whiteNoise, .pinkNoise: return true
+        case .whiteNoise, .pinkNoise, .granular: return true
         default: return false
         }
     }
@@ -60,7 +65,7 @@ enum Waveform: String, CaseIterable, Identifiable, Codable {
             return 2.0 * phase - 1.0
         case .square:
             return phase < 0.5 ? 1.0 : -1.0
-        case .whiteNoise, .pinkNoise, .sample:
+        case .whiteNoise, .pinkNoise, .granular, .sample:
             return 0
         }
     }

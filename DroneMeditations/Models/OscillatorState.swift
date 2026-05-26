@@ -174,6 +174,25 @@ struct FMState: Equatable, Codable {
     static func defaults() -> FMState { FMState() }
 }
 
+/// Granular synthesis parameters — only used when waveform == .granular.
+/// Each grain is a Hann-windowed slice of pink noise. The scheduler fires
+/// grains at the requested density; the `jitter` knob randomizes inter-grain
+/// timing (0 = clockwork, 1 = pure Poisson). `panSpread` randomizes per-grain
+/// stereo placement around the voice's base pan.
+struct GrainState: Equatable, Codable {
+    var sizeMs: Double = 80       // 5 .. 500 ms (log)
+    var densityHz: Double = 8     // 0.5 .. 50 grains/sec (log)
+    var jitter: Double = 0.6      // 0 .. 1
+    var panSpread: Double = 0.5   // 0 .. 1
+
+    static let sizeMinMs: Double = 5
+    static let sizeMaxMs: Double = 500
+    static let densityMin: Double = 0.5
+    static let densityMax: Double = 50
+
+    static func defaults() -> GrainState { GrainState() }
+}
+
 /// Per-oscillator biquad filter. Type LP/HP/BP. Modulatable via an LFO targeting `cutoff`.
 struct FilterState: Equatable, Codable {
     enum FilterType: String, Codable, CaseIterable, Identifiable {
@@ -228,10 +247,25 @@ struct OscillatorState: Identifiable, Equatable {
     var chorus: ChorusState = .defaults()
     var reverb: ReverbState = .defaults()
     var delay: DelayState = .defaults()
+    /// Granular synth parameters — only consumed when waveform == .granular.
+    var grain: GrainState = .defaults()
     var lfos: [LfoState]    // exactly 3 — see LfoState above
     var drift: DriftVoiceConfig = .off      // per-voice drift; tick reads this directly
     var sampleName: String? = nil           // user-visible filename
     var sampleStoredFilename: String? = nil // relative path under DroneSamples/ (for preset persistence)
+    /// Sample playback window — fractions of the loaded sample's length
+    /// (0..1). Playback loops between `sampleStartFrac` and `sampleEndFrac`.
+    /// Defaults to (0, 1) = play the whole sample. Useful for trimming a
+    /// long field recording down to a sustained portion, or isolating a
+    /// loop point inside a longer source.
+    var sampleStartFrac: Double = 0.0
+    var sampleEndFrac: Double = 1.0
+    /// Crossfade seconds applied at the loop boundary — last `fadeOut` of
+    /// playback before endFrac ramps down, first `fadeIn` after wrap-back
+    /// ramps up. Both 0 (default) = abrupt loop point. Set to 0.5-2 s
+    /// for seamless ambient loops.
+    var sampleFadeInSec: Double = 0.0
+    var sampleFadeOutSec: Double = 0.0
 
     static let minFrequency: Double = 20.0
     static let maxFrequency: Double = 2000.0
