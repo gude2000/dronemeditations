@@ -11,6 +11,7 @@ import {
   loadUserPresets, saveUserPresets, newPresetId, newSampleId,
   loadVoicePresets, saveVoicePresets, newVoicePresetId,
   loadUserJourneys, saveUserJourneys, newUserJourneyId,
+  loadLibrarySamples, saveLibrarySamples,
   putSample, getSample, deleteSample
 } from "./storage.js";
 
@@ -666,7 +667,8 @@ const actions = {
         id: null,
         name: entry.name || entry.file,
         blob: new Blob([arrayBuffer], { type: mime }),
-        type: mime
+        type: mime,
+        source: "bundled"
       };
       renderAll();
     } catch (err) {
@@ -687,17 +689,97 @@ const actions = {
       state.oscillators[oscIndex].sampleName = file.name;
       state.oscillators[oscIndex].waveform = "sample";
       engine.setWaveform(oscIndex, "sample");
-      // Cache the raw blob so saveCurrentAsUserPreset can persist it.
+      // Cache the raw blob so saveCurrentAsUserPreset / saveSampleToLibrary
+      // can persist it. `source: "upload"` flags the cache so the UI knows
+      // whether the 🔖 button should be offered (only for fresh uploads —
+      // bundled + library-loaded samples are already persistent).
       sampleCache[oscIndex] = {
         id: null,
         name: file.name,
         blob: new Blob([arrayBuffer], { type: file.type || "audio/*" }),
-        type: file.type || "audio/*"
+        type: file.type || "audio/*",
+        source: "upload"
       };
       renderAll();
     } catch (err) {
       console.error("Sample decode failed:", err);
       alert(`Could not decode "${file.name}". Try a different format (mp3/wav/m4a/ogg).`);
+    }
+  },
+
+  /// Save the currently-loaded sample on the given oscillator to the user's
+  /// browser library so the Bundled ▾ picker can list it on subsequent
+  /// visits. No-op if no upload is loaded or if it's already saved.
+  /// The blob goes into IndexedDB; a small metadata row goes into
+  /// localStorage so the picker can list entries without loading blobs.
+  async saveSampleToLibrary(oscIndex) {
+    const cache = sampleCache[oscIndex];
+    if (!cache || !cache.blob) return;
+    // Already saved? (id assigned + present in library list)
+    const lib = loadLibrarySamples();
+    if (cache.id && lib.some((e) => e.id === cache.id)) return;
+
+    const id = cache.id || newSampleId();
+    await putSample(id, cache.blob, cache.name, cache.type);
+    cache.id = id;
+    cache.source = "library";  // no longer needs the 🔖 prompt
+
+    // Strip the file extension for a nicer display name.
+    const displayName = (cache.name || "Sample").replace(/\.[a-z0-9]+$/i, "");
+    lib.push({ id, name: displayName, addedAt: Date.now() });
+    saveLibrarySamples(lib);
+    renderAll();
+  },
+
+  /// Remove an entry from the user's browser library. Deletes the
+  /// IndexedDB blob too if no user preset references it (samples shared
+  /// with presets stay alive so deleting from library doesn't break the
+  /// preset's audio).
+  async removeFromLibrary(sampleId) {
+    const lib = loadLibrarySamples().filter((e) => e.id !== sampleId);
+    saveLibrarySamples(lib);
+    // Is any user preset still pointing at this id?
+    const presets = loadUserPresets();
+    const stillUsed = presets.some((p) =>
+      p.oscillators && p.oscillators.some(
+        (o) => o.sampleRef && o.sampleRef.id === sampleId
+      )
+    );
+    if (!stillUsed) await deleteSample(sampleId);
+    renderAll();
+  },
+
+  /// Load a sample from the user's browser library by id. Mirrors
+  /// loadBundledSample's flow — fetch blob from IndexedDB, decode,
+  /// hand to engine, mark cache as 'library' (so the 🔖 button stays
+  /// suppressed since the sample is already persistent).
+  async loadLibrarySample(oscIndex, libraryEntry) {
+    if (!libraryEntry || !libraryEntry.id) return;
+    engine.ensureStarted(state.oscillators);
+    engine.resume();
+    try {
+      const rec = await getSample(libraryEntry.id);
+      if (!rec || !rec.blob) {
+        alert(`Library sample "${libraryEntry.name}" is missing its audio data.`);
+        return;
+      }
+      const arrayBuffer = await rec.blob.arrayBuffer();
+      const audioBuffer = await engine.ctx.decodeAudioData(arrayBuffer.slice(0));
+      engine.loadSample(oscIndex, audioBuffer);
+      state.oscillators[oscIndex].sampleName = libraryEntry.name || rec.name;
+      state.oscillators[oscIndex].waveform = "sample";
+      engine.setWaveform(oscIndex, "sample");
+      sampleCache[oscIndex] = {
+        id: libraryEntry.id,
+        name: libraryEntry.name || rec.name,
+        blob: rec.blob,
+        type: rec.type || "audio/*",
+        source: "library"
+      };
+      renderAll();
+    } catch (err) {
+      console.error("Library sample load failed:", err);
+      alert(`Couldn't load library sample "${libraryEntry.name}".`);
     }
   },
 
@@ -792,6 +874,18 @@ const actions = {
       engine.setWaveform(oscIndex, "sine");
     }
     renderAll();
+  },
+
+  /// UI helpers: read-only inspectors so ui.js doesn't have to import
+  /// sampleCache or storage helpers directly. The sample source decides
+  /// whether the 🔖 button shows ("upload" → yes; "bundled" / "library"
+  /// → no, already persistent). The library list feeds the My Library
+  /// section in the Bundled picker.
+  getSampleSource(oscIndex) {
+    return sampleCache[oscIndex]?.source || null;
+  },
+  getLibrarySamples() {
+    return loadLibrarySamples();
   },
 
   async saveCurrentAsUserPreset(name) {

@@ -1090,6 +1090,19 @@ body.performance:hover { cursor: default; }
   color: #f3a8a3;
 }
 .sample-clear:hover { background: rgba(224, 82, 74, 0.30); }
+/* 🔖 Save-to-browser-library button. Sits between the file name and the
+   Clear button, only visible when a fresh upload is loaded. Amber tint
+   matches the WINDOW row + library-section header in the picker. */
+.sample-bookmark {
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 14px;
+  line-height: 1;
+  background: rgba(255, 207, 128, 0.14);
+  color: #ffcf80;
+  transition: background 100ms ease, transform 80ms ease;
+}
+.sample-bookmark:hover { background: rgba(255, 207, 128, 0.28); transform: scale(1.05); }
 .sample-name {
   flex: 1;
   font-size: 12px;

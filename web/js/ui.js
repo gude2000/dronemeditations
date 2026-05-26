@@ -236,15 +236,67 @@ async function openBundledSamplePicker(anchor, oscIndex) {
     padding: 6px;
   `;
 
-  if (samples.length === 0) {
+  // Pull the user's browser-library samples first so they appear at the
+  // top of the picker — these are files the user explicitly chose to save
+  // and are more likely the ones they want again.
+  const librarySamples = dispatch.getLibrarySamples();
+
+  if (samples.length === 0 && librarySamples.length === 0) {
     const empty = document.createElement("div");
     empty.style.cssText = "padding:12px 14px;font-size:12px;color:rgba(255,255,255,0.65);max-width:280px;line-height:1.45";
     empty.innerHTML = `No bundled samples yet. Add audio files to
       <code style="font-family:ui-monospace,monospace;background:rgba(255,255,255,0.10);padding:1px 4px;border-radius:4px">web/samples/</code>
-      and list them in <code style="font-family:ui-monospace,monospace;background:rgba(255,255,255,0.10);padding:1px 4px;border-radius:4px">samples/index.json</code>.`;
+      and list them in <code style="font-family:ui-monospace,monospace;background:rgba(255,255,255,0.10);padding:1px 4px;border-radius:4px">samples/index.json</code>,
+      or load a file with <strong>Load file…</strong> and click 🔖 to save
+      it to your browser library.`;
     popup.appendChild(empty);
   } else {
-    // Group by optional category.
+    // ── My Library section (renders only if there are saved entries) ──
+    if (librarySamples.length > 0) {
+      const hdr = document.createElement("div");
+      hdr.style.cssText = "font-size:9px;letter-spacing:0.10em;text-transform:uppercase;color:#ffcf80;padding:8px 10px 4px";
+      hdr.textContent = "My Library";
+      popup.appendChild(hdr);
+      for (const entry of librarySamples) {
+        // Each row is a load-button + a small × delete button.
+        const row = document.createElement("div");
+        row.style.cssText = "display:flex;align-items:center;gap:4px;border-radius:6px";
+        row.addEventListener("mouseenter", () => { row.style.background = "rgba(255,255,255,0.08)"; });
+        row.addEventListener("mouseleave", () => { row.style.background = "transparent"; });
+
+        const loadBtn = document.createElement("button");
+        loadBtn.type = "button";
+        loadBtn.style.cssText = "flex:1;text-align:left;padding:8px 10px;background:transparent;border:0;color:#fff;font-size:13px;cursor:pointer";
+        loadBtn.textContent = entry.name || "(unnamed)";
+        loadBtn.addEventListener("click", () => {
+          popup.remove();
+          dispatch.loadLibrarySample(oscIndex, entry);
+        });
+
+        const delBtn = document.createElement("button");
+        delBtn.type = "button";
+        delBtn.title = "Remove from library";
+        delBtn.style.cssText = "padding:4px 8px;background:transparent;border:0;color:rgba(255,255,255,0.45);font-size:14px;cursor:pointer;border-radius:4px";
+        delBtn.textContent = "×";
+        delBtn.addEventListener("mouseenter", () => { delBtn.style.color = "#ff7a7a"; });
+        delBtn.addEventListener("mouseleave", () => { delBtn.style.color = "rgba(255,255,255,0.45)"; });
+        delBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (confirm(`Remove "${entry.name}" from your browser library?`)) {
+            dispatch.removeFromLibrary(entry.id);
+            // Re-open the picker so the list refreshes.
+            popup.remove();
+            openBundledSamplePicker(anchor, oscIndex);
+          }
+        });
+
+        row.appendChild(loadBtn);
+        row.appendChild(delBtn);
+        popup.appendChild(row);
+      }
+    }
+
+    // ── Shipped bundled samples, grouped by optional category ──
     const groups = {};
     for (const s of samples) {
       const k = s.category || "Samples";
@@ -387,9 +439,10 @@ function buildStrip(index) {
     <div class="sample-row" data-role="sample-row" hidden>
       <span class="strip-label">SAMPLE</span>
       <input type="file" accept="audio/*" data-role="sample-input" hidden />
-      <button type="button" class="sample-button" data-role="sample-bundled" title="Pick from samples shipped with the app">Bundled ▾</button>
-      <button type="button" class="sample-button" data-role="sample-load">Load file…</button>
+      <button type="button" class="sample-button" data-role="sample-bundled" title="Pick from samples shipped with the app + your browser library">Bundled ▾</button>
+      <button type="button" class="sample-button" data-role="sample-load" title="Browser picks the folder — use Bundled ▾ for shipped + saved samples">Load file…</button>
       <span class="sample-name" data-role="sample-name" title="">—</span>
+      <button type="button" class="sample-bookmark" data-role="sample-save-library" title="Save to my browser library — appears in Bundled ▾ on next visit" hidden>🔖</button>
       <button type="button" class="sample-clear" data-role="sample-clear" hidden>Clear</button>
     </div>
     <!-- Sample window row: shown when waveform === "sample" AND a sample is
@@ -621,6 +674,7 @@ function buildStrip(index) {
     sampleInput.value = "";  // allow re-selecting the same file later
   });
   root.querySelector('[data-role="sample-clear"]').addEventListener("click", () => dispatch.clearSample(index));
+  root.querySelector('[data-role="sample-save-library"]').addEventListener("click", () => dispatch.saveSampleToLibrary(index));
 
   // Sample window sliders. Start/end are 0..1 fractions; fade-in/out are
   // 0..1 slider positions mapped to 0–10 seconds (linear).
@@ -797,6 +851,12 @@ function syncStrip(index, root) {
     root.querySelector('[data-role="sample-clear"]').hidden = !osc.sampleName;
     root.querySelector('[data-role="sample-load"]').textContent =
       osc.sampleName ? "Replace…" : "Load file…";
+    // 🔖 button visible only when the loaded sample is a fresh upload
+    // (i.e. not yet persisted). Bundled + library-sourced samples are
+    // already in IndexedDB / shipped, so saving them again is redundant.
+    const source = dispatch.getSampleSource(index);
+    root.querySelector('[data-role="sample-save-library"]').hidden =
+      !osc.sampleName || source !== "upload";
   }
 
   // Sample window row visible only when sample mode AND a sample is loaded.

@@ -82,6 +82,29 @@ export function newSampleId() {
   return `sample-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+// ─── browser sample library (localStorage meta + IndexedDB blobs) ─────────
+//
+// "Library" samples are user-uploaded files the user has explicitly chosen
+// to keep — separate from preset-attached samples (which are owned by their
+// preset). A library entry is a small metadata row pointing to a blob already
+// in the IndexedDB sample store, so the Bundled ▾ picker can list them
+// alongside the shipped samples on subsequent visits.
+//
+// Schema per entry: { id (sample id in IndexedDB), name, addedAt }.
+
+const LIBRARY_META_KEY = "dronemeditations:library-samples";
+
+export function loadLibrarySamples() {
+  try {
+    const raw = localStorage.getItem(LIBRARY_META_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+export function saveLibrarySamples(list) {
+  localStorage.setItem(LIBRARY_META_KEY, JSON.stringify(list));
+}
+
 // ─── per-voice presets (localStorage) ────────────────────────
 
 const VOICE_PRESETS_KEY = "dronemeditations:voice-presets";
