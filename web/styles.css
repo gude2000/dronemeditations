@@ -739,18 +739,23 @@ body.performance:hover { cursor: default; }
 
 .strip-controls {
   display: grid;
-  /* 7 waveform buttons (sine / triangle / saw / square / white / pink /
-     sample) need more room than the original 5 did — widen the first
-     column so the icons sit on their own without crowding the PAN label
-     that lives in column 2. */
-  grid-template-columns: minmax(220px, 260px) 1fr 1fr;
-  gap: 12px; align-items: end;
+  /* 8 waveform buttons (sine / triangle / saw / square / white / pink /
+     granular / sample) — granular added in v1.0. The previous min/max
+     of 220-260px was sized for 7 buttons and left the wave cluster
+     visually touching the PAN label in column 2. Bumped to 260-320px
+     so the glyphs sit on their own with breathing room before PAN.
+     Gap between columns bumped 12→18px for the same reason. */
+  grid-template-columns: minmax(260px, 320px) 1fr 1fr;
+  gap: 18px; align-items: end;
 }
 .waveform-group {
   display: inline-flex;
   background: rgba(255, 255, 255, 0.08);
   border-radius: 8px; padding: 2px;
-  gap: 0;
+  /* gap: 0 packed the 8 glyphs into a featureless dark slab. A 2px
+     internal gap separates them into discrete tappable targets without
+     widening the cluster meaningfully (8 × 2px = 16px total). */
+  gap: 2px;
 }
 .waveform-group button {
   flex: 1;
