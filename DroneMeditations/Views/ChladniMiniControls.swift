@@ -17,36 +17,52 @@ struct ChladniMiniControls: View {
         // rows fit the same vertical space the old 4-across single tall row
         // used while doubling slider precision.
         let count = vm.oscillators.count
-        HStack(spacing: 8) {
-            if count > 0 {
-                VStack(spacing: 4) {
-                    ForEach(0..<min(2, count), id: \.self) { i in
-                        MiniOscRow(index: i, osc: vm.oscillators[i],
-                                   freqMin: freqMin, freqMax: freqMax)
-                            .environmentObject(vm)
-                    }
-                }
-            }
-            if count > 2 {
-                VStack(spacing: 4) {
-                    ForEach(2..<min(4, count), id: \.self) { i in
-                        MiniOscRow(index: i, osc: vm.oscillators[i],
-                                   freqMin: freqMin, freqMax: freqMax)
-                            .environmentObject(vm)
-                    }
-                }
-            }
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .padding(.bottom, 4)
-        .background(
+        // Outer ZStack lets the gradient background span the full iPad width
+        // while the actual osc rows stay capped at 900pt and centered.
+        ZStack {
+            // Full-width gradient + safe-area extension.
             LinearGradient(
                 colors: [.black.opacity(0.0), .black.opacity(0.55), .black.opacity(0.75)],
                 startPoint: .top, endPoint: .bottom
             )
             .ignoresSafeArea(edges: .bottom)
-        )
+
+            // Mini-osc rows on top, copyright + Manual link directly below
+            // them. Stacking them in the same VStack means the copyright row
+            // sits flush against the bottom of the mini-osc bar with no gap
+            // — and never overlaps the bar, the way the old floating
+            // overlay did.
+            VStack(spacing: 2) {
+                HStack(spacing: 8) {
+                    if count > 0 {
+                        VStack(spacing: 4) {
+                            ForEach(0..<min(2, count), id: \.self) { i in
+                                MiniOscRow(index: i, osc: vm.oscillators[i],
+                                           freqMin: freqMin, freqMax: freqMax)
+                                    .environmentObject(vm)
+                            }
+                        }
+                    }
+                    if count > 2 {
+                        VStack(spacing: 4) {
+                            ForEach(2..<min(4, count), id: \.self) { i in
+                                MiniOscRow(index: i, osc: vm.oscillators[i],
+                                           freqMin: freqMin, freqMax: freqMax)
+                                    .environmentObject(vm)
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 10)
+                .padding(.top, 6)
+
+                CopyrightStrip()
+                    .padding(.bottom, 4)
+            }
+            // Keep mini-osc rows from stretching across an iPad's 12.9" width.
+            .frame(maxWidth: 900)
+        }
+        .fixedSize(horizontal: false, vertical: true)
         // Capture taps that hit the strip background (between controls) so they
         // don't bubble through to the tap-layer underneath and toggle controls.
         .contentShape(Rectangle())

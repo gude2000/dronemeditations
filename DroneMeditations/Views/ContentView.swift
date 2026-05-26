@@ -80,9 +80,11 @@ struct ContentView: View {
                 .transition(.opacity)
             }
 
-            if !vm.performanceMode {
-                copyrightOverlay
-            }
+            // Copyright + Manual link is now inlined inside ControlsOverlay
+            // (below TransportView) and ChladniMiniControls (below the
+            // mini-osc rows). That keeps it flush against whatever chrome
+            // is at the bottom — no more floating overlay that drifted on
+            // top of the transport or mini-bar in different orientations.
         }
         .background(Color.black.ignoresSafeArea())
         .statusBarHidden(true)
@@ -172,23 +174,6 @@ struct ContentView: View {
             .allowsHitTesting(false)
     }
 
-    /// Bottom-left copyright notice. Always visible, very faint so it doesn't
-    /// compete with the visuals or controls. Non-interactive.
-    private var copyrightOverlay: some View {
-        VStack {
-            Spacer()
-            HStack {
-                Text("© 2026 Jose Gude MD · All Rights Reserved")
-                    .font(.system(size: 9))
-                    .foregroundStyle(.white.opacity(0.35))
-                    .padding(.leading, 12)
-                    .padding(.bottom, 6)
-                Spacer()
-            }
-        }
-        .allowsHitTesting(false)
-        .ignoresSafeArea(.keyboard)
-    }
 }
 
 #Preview {

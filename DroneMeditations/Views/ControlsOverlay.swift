@@ -23,35 +23,52 @@ struct ControlsOverlay: View {
     private var isCompact: Bool { verticalSizeClass == .compact }
 
     var body: some View {
-        VStack(spacing: isCompact ? 6 : 12) {
-            if isCompact { compactHeader } else { header }
-
-            ScrollView {
-                VStack(spacing: isCompact ? 6 : 10) {
-                    ForEach(0..<4, id: \.self) { i in
-                        OscillatorStrip(index: i)
-                    }
-                    masterRow
-                }
-                .padding(.horizontal, isCompact ? 10 : 12)
-                .padding(.bottom, isCompact ? 6 : 10)
-            }
-
-            TransportView(controller: vm.controller)
-                .padding(.horizontal, isCompact ? 10 : 12)
-                .padding(.bottom, isCompact ? 6 : 12)
-        }
-        .background(
-            // Background catches taps on empty panel space and hides the
-            // controls. SwiftUI's Button gestures consume taps before they
-            // reach this, so the play/pause/sliders/pickers still work.
+        ZStack {
+            // Full-screen tap-catching layer — hides the controls when the
+            // user taps empty space. Kept as the bottom layer of the ZStack
+            // so it spans the entire iPad canvas; the bounded controls VStack
+            // sits centered on top. SwiftUI's Button gestures consume taps
+            // before they reach this, so play/pause/sliders/pickers still work.
             Color.black.opacity(0.20)
                 .ignoresSafeArea()
                 .contentShape(Rectangle())
                 .onTapGesture {
                     withAnimation(.easeInOut(duration: 0.22)) { vm.showControls = false }
                 }
-        )
+
+            VStack(spacing: isCompact ? 6 : 12) {
+                if isCompact { compactHeader } else { header }
+
+                ScrollView {
+                    VStack(spacing: isCompact ? 6 : 10) {
+                        ForEach(0..<4, id: \.self) { i in
+                            OscillatorStrip(index: i)
+                        }
+                        masterRow
+                    }
+                    .padding(.horizontal, isCompact ? 10 : 12)
+                    .padding(.bottom, isCompact ? 6 : 10)
+                }
+
+                TransportView(controller: vm.controller)
+                    .padding(.horizontal, isCompact ? 10 : 12)
+                    .padding(.bottom, isCompact ? 2 : 4)
+
+                // Copyright + Manual link inlined under the transport. Sits at
+                // the very bottom of the controls panel so it never overlaps
+                // the transport, the pill row, or (when controls are hidden)
+                // the ChladniMiniControls strip — which has its own inlined
+                // copy. Replaces the old free-floating copyrightOverlay that
+                // collided with the transport area in portrait + landscape.
+                CopyrightStrip()
+                    .padding(.bottom, isCompact ? 4 : 8)
+            }
+            // On iPad (regular size class) the panel was stretching edge-to-edge
+            // across a 12.9" canvas, leaving sliders absurdly wide. Cap at 900pt
+            // and center; iPhone screens are < 900pt so this is a no-op there.
+            .frame(maxWidth: 900)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
         .sheet(isPresented: $showingChordSheet) {
             ChordPickerView()
                 .environmentObject(vm)
@@ -95,6 +112,20 @@ struct ControlsOverlay: View {
                         .foregroundStyle(.white.opacity(0.7))
                 }
                 Spacer()
+                // "?" button — re-opens the first-launch onboarding tour for
+                // returning users who want a refresher or want to show a
+                // friend what the app does.
+                Button {
+                    NotificationCenter.default.post(name: .showOnboarding, object: nil)
+                } label: {
+                    Image(systemName: "questionmark.circle")
+                        .font(.system(size: 16, weight: .semibold))
+                        .frame(width: 34, height: 34)
+                        .background(Circle().fill(Color.white.opacity(0.10)))
+                        .foregroundStyle(.white)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Show onboarding tour")
                 Button {
                     captureSnapshot()
                 } label: {
@@ -128,60 +159,67 @@ struct ControlsOverlay: View {
                 }
                 .buttonStyle(.plain)
             }
-            HStack(spacing: 8) {
-                Button {
-                    showingChordSheet = true
-                } label: {
-                    pillLabel(title: "Chord", value: "\(vm.currentKey.displayName) \(vm.currentChord.name)", system: "music.note.list")
-                }
-                .buttonStyle(.plain)
-
-                Button {
-                    showingPresetSheet = true
-                } label: {
-                    pillLabel(title: "Preset", value: vm.activePresetName ?? "—", system: "sparkles")
-                }
-                .buttonStyle(.plain)
-
-                Menu {
-                    // Section 1: singles (off, glacial, simple all-voice journeys).
-                    Section {
-                        ForEach(DroneViewModel.driftScenes.filter { !$0.isCoordinated }) { scene in
-                            sceneMenuButton(scene)
-                        }
+            // Horizontal scroll wrapper — without this on iPhone portrait
+            // (width ~390pt) the JOURNEY + MORPH pills get clipped past the
+            // right edge. iPad still shows them all without needing to
+            // scroll because the canvas is wide enough.
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    Button {
+                        showingChordSheet = true
+                    } label: {
+                        pillLabel(title: "Chord", value: "\(vm.currentKey.displayName) \(vm.currentChord.name)", system: "music.note.list")
                     }
-                    // Section 2: coordinated multi-voice scenes.
-                    Section("Coordinated scenes") {
-                        ForEach(DroneViewModel.driftScenes.filter { $0.isCoordinated }) { scene in
-                            sceneMenuButton(scene)
-                        }
-                    }
-                } label: {
-                    driftPill
-                }
-                .menuStyle(.borderlessButton)
-
-                Button {
-                    showingListenSheet = true
-                } label: {
-                    pillLabel(title: "Listen", value: "Tune to room", system: "mic.circle")
-                }
-                .buttonStyle(.plain)
-
-                Button {
-                    withAnimation(.easeInOut(duration: 0.22)) {
-                        vm.performanceMode = true
-                    }
-                } label: {
-                    pillLabel(title: "Perform", value: "Cymatics", system: "rectangle.fill.on.rectangle.fill")
-                }
-                .buttonStyle(.plain)
-
-                Button { showingJourneySheet = true } label: { journeyPill }
                     .buttonStyle(.plain)
 
-                Button { showingMorphSheet = true } label: { morphPill }
+                    Button {
+                        showingPresetSheet = true
+                    } label: {
+                        pillLabel(title: "Preset", value: vm.activePresetName ?? "—", system: "sparkles")
+                    }
                     .buttonStyle(.plain)
+
+                    Menu {
+                        // Section 1: singles (off, glacial, simple all-voice journeys).
+                        Section {
+                            ForEach(DroneViewModel.driftScenes.filter { !$0.isCoordinated }) { scene in
+                                sceneMenuButton(scene)
+                            }
+                        }
+                        // Section 2: coordinated multi-voice scenes.
+                        Section("Coordinated scenes") {
+                            ForEach(DroneViewModel.driftScenes.filter { $0.isCoordinated }) { scene in
+                                sceneMenuButton(scene)
+                            }
+                        }
+                    } label: {
+                        driftPill
+                    }
+                    .menuStyle(.borderlessButton)
+
+                    Button {
+                        showingListenSheet = true
+                    } label: {
+                        pillLabel(title: "Listen", value: "Tune to room", system: "mic.circle")
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.22)) {
+                            vm.performanceMode = true
+                        }
+                    } label: {
+                        pillLabel(title: "Perform", value: "Cymatics", system: "rectangle.fill.on.rectangle.fill")
+                    }
+                    .buttonStyle(.plain)
+
+                    Button { showingJourneySheet = true } label: { journeyPill }
+                        .buttonStyle(.plain)
+
+                    Button { showingMorphSheet = true } label: { morphPill }
+                        .buttonStyle(.plain)
+                }
+                .padding(.trailing, 4)
             }
         }
         .padding(.horizontal, 14)
@@ -228,12 +266,19 @@ struct ControlsOverlay: View {
     /// active (both From and To picked); shows the current percentage.
     private var morphPill: some View {
         let active = (vm.morphFromName != nil) && (vm.morphToName != nil)
-        let value = active
-            ? "\(Int((vm.morphAmount * 100).rounded()))%"
-            : "Off"
+        let running = vm.morphIsRunning
+        let value: String
+        if active {
+            let pct = Int((vm.morphAmount * 100).rounded())
+            value = running ? "▶ \(pct)%" : "\(pct)%"
+        } else {
+            value = "Off"
+        }
         let purple = Color(red: 0.81, green: 0.71, blue: 0.92)
         return HStack(spacing: 6) {
-            Image(systemName: active ? "arrow.left.arrow.right.circle.fill" : "arrow.left.arrow.right.circle")
+            Image(systemName: running
+                  ? "arrow.left.arrow.right.circle.fill"
+                  : (active ? "arrow.left.arrow.right.circle.fill" : "arrow.left.arrow.right.circle"))
                 .font(.caption.weight(.semibold))
             VStack(alignment: .leading, spacing: 0) {
                 Text("MORPH")
@@ -389,6 +434,19 @@ struct ControlsOverlay: View {
             // higher layoutPriority so they always render fully on the
             // right edge, never crowded by the scrolling pill row.
             HStack(spacing: 6) {
+            // Compact "?" — re-opens onboarding tour. Same notification
+            // post pattern as the portrait header, just smaller glyph.
+            Button {
+                NotificationCenter.default.post(name: .showOnboarding, object: nil)
+            } label: {
+                Image(systemName: "questionmark.circle")
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(width: 28, height: 28)
+                    .background(Circle().fill(Color.white.opacity(0.10)))
+                    .foregroundStyle(.white)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Show onboarding tour")
             Button { captureSnapshot() } label: {
                 Image(systemName: "camera.fill")
                     .font(.system(size: 12, weight: .semibold))
