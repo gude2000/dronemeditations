@@ -22,6 +22,17 @@ struct ControlsOverlay: View {
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     private var isCompact: Bool { verticalSizeClass == .compact }
 
+    // iPhone reports horizontalSizeClass == .compact in every orientation;
+    // iPad reports .regular. We use this to widen the controls panel on
+    // iPad — the old 900pt cap left ~1.5" of unused canvas on each side
+    // of an iPad Pro 13" portrait (1024pt wide) and even more in landscape
+    // (1366pt). At 1200pt the strips visibly breathe on iPad without
+    // affecting any iPhone layout (iPhone Pro Max is 440pt wide).
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    private var panelMaxWidth: CGFloat {
+        horizontalSizeClass == .regular ? 1200 : 900
+    }
+
     var body: some View {
         ZStack {
             // Full-screen tap-catching layer — hides the controls when the
@@ -63,10 +74,13 @@ struct ControlsOverlay: View {
                 CopyrightStrip()
                     .padding(.bottom, isCompact ? 4 : 8)
             }
-            // On iPad (regular size class) the panel was stretching edge-to-edge
-            // across a 12.9" canvas, leaving sliders absurdly wide. Cap at 900pt
-            // and center; iPhone screens are < 900pt so this is a no-op there.
-            .frame(maxWidth: 900)
+            // On iPhone (compact size class) the cap of 900pt is a no-op since
+            // iPhone screens are < 900pt wide. On iPad it widens to 1200pt so
+            // the strips don't sit in the middle of an oversized canvas with
+            // ~1.5" of wasted margin on each side (iPad Pro 13" portrait is
+            // 1024pt; landscape 1366pt — 1200pt fills portrait and leaves
+            // modest landscape gutters).
+            .frame(maxWidth: panelMaxWidth)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .sheet(isPresented: $showingChordSheet) {

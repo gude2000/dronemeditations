@@ -10,6 +10,14 @@ struct ChladniMiniControls: View {
     private let freqMin: Double = 20
     private let freqMax: Double = 2000
 
+    // Match the controls overlay: widen the mini-bar on iPad so the four
+    // freq sliders breathe across more of the canvas instead of huddling
+    // in a 900pt strip with ~1.5" of unused screen on each side.
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    private var stripMaxWidth: CGFloat {
+        horizontalSizeClass == .regular ? 1200 : 900
+    }
+
     var body: some View {
         // 2x2 grid: left column stacks OSC 1 over OSC 2, right column stacks
         // OSC 3 over OSC 4. Each row gets half the screen width, so the
@@ -59,8 +67,11 @@ struct ChladniMiniControls: View {
                 CopyrightStrip()
                     .padding(.bottom, 4)
             }
-            // Keep mini-osc rows from stretching across an iPad's 12.9" width.
-            .frame(maxWidth: 900)
+            // iPhone: 900pt cap is a no-op (screens are < 900pt wide).
+            // iPad: 1200pt fills portrait (1024pt — clamped) and leaves only
+            // modest gutters in landscape (1366pt), matching the controls
+            // overlay's wider panel cap.
+            .frame(maxWidth: stripMaxWidth)
         }
         .fixedSize(horizontal: false, vertical: true)
         // Capture taps that hit the strip background (between controls) so they
