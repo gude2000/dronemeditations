@@ -11,6 +11,14 @@ struct DroneMeditationsApp: App {
     @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding: Bool = false
     @State private var showingOnboarding: Bool = false
 
+    init() {
+        // Make sure Documents/User samples/ exists with a README so the
+        // user has somewhere to drop runtime audio files via the Files
+        // app. Idempotent — only writes the folder + README if missing,
+        // so it's free on every subsequent launch.
+        BundledSampleStore.ensureUserSamplesFolderExists()
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()

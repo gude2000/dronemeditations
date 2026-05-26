@@ -25,18 +25,41 @@ DroneMeditations target checked.
 ## Sub-folder grouping
 
 `BundledSampleStore` reads the first path component under `Samples/`
-as the picker's section label. If you organize:
+as the picker's section label. Current bundle layout:
 
 ```
 Samples/
-  Drones/
-    phi-drone.mp3
-  Themes/
-    sable.mp3
+  Acoustic/        — guitar, piano, organ, voice
+  Atmospheric/     — ambient pads, drones, sustained beds
+  Cosmic/          — planet tones, space ambience
+  Field/           — rain / wind / surf / birds / storms
+  Instruments/     — bagpipe, bansuri, shakuhachi, chord layers
+  Urban/           — city, day ambience
+  User samples/    — empty slot for maintainer additions (pre-build)
 ```
 
-…the picker shows "Drones" and "Themes" headers. Flat structure (no
-subfolders) shows everything under a single "Samples" header.
+Flat structure (files directly in `Samples/`) lands under a single
+"Samples" header.
+
+## "User samples" — two paths to the same picker section
+
+There are two places audio files can land in the "User samples"
+category at runtime:
+
+1. **Pre-build (maintainer)**: drop files into
+   `DroneMeditations/Samples/User samples/` here in the project.
+   They ship inside the .ipa and appear immediately on install.
+2. **Runtime (end user)**: the app exposes its container to the iOS
+   Files app (`UIFileSharingEnabled` + `LSSupportsOpeningDocumentsInPlace`
+   in Info.plist), with a pre-created `Documents/User samples/`
+   folder + README inside. Anything users drop there via Files /
+   AirDrop / share-sheet appears in the same "User samples" picker
+   section on the next picker open — no app restart.
+
+`BundledSampleStore` reads both sources every time the picker opens
+and merges them into one "User samples" entry. The bundle scan is
+memoized (it doesn't change at runtime); the Documents scan is
+fresh on every access.
 
 ## Tips
 

@@ -26,6 +26,10 @@
 	<string>public.app-category.music</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
+	<key>UIFileSharingEnabled</key>
+	<true/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Drone Meditations uses the microphone only when you tap "Tune to Room" — to detect a pitch in your environment and snap the chord root to it. No audio is recorded or transmitted.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
