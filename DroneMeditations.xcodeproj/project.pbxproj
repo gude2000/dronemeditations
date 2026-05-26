@@ -42,6 +42,9 @@
 		B0000000000000000000002C /* UserJourney.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0000000000000000000002C /* UserJourney.swift */; };
 		B0000000000000000000002D /* MorphSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0000000000000000000002D /* MorphSheetView.swift */; };
 		B0000000000000000000002E /* BundledSampleStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0000000000000000000002E /* BundledSampleStore.swift */; };
+		B00000000000000000000030 /* AudioMastering.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000030 /* AudioMastering.swift */; };
+		B00000000000000000000031 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000031 /* OnboardingView.swift */; };
+		B00000000000000000000032 /* CopyrightStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000032 /* CopyrightStrip.swift */; };
 		B00000000000000000000014 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000014 /* Assets.xcassets */; };
 		B0000000000000000000002F /* Samples in Resources */ = {isa = PBXBuildFile; fileRef = F0000000000000000000002F /* Samples */; };
 		B00000000000000000000016 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000016 /* Preview Assets.xcassets */; };
@@ -86,6 +89,9 @@
 		F0000000000000000000002C /* UserJourney.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserJourney.swift; sourceTree = "<group>"; };
 		F0000000000000000000002D /* MorphSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorphSheetView.swift; sourceTree = "<group>"; };
 		F0000000000000000000002E /* BundledSampleStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundledSampleStore.swift; sourceTree = "<group>"; };
+		F00000000000000000000030 /* AudioMastering.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioMastering.swift; sourceTree = "<group>"; };
+		F00000000000000000000031 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		F00000000000000000000032 /* CopyrightStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CopyrightStrip.swift; sourceTree = "<group>"; };
 		F00000000000000000000014 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F0000000000000000000002F /* Samples */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Samples; sourceTree = "<group>"; };
 		F00000000000000000000015 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -159,6 +165,7 @@
 				F00000000000000000000029 /* SpectrumTap.swift */,
 				F0000000000000000000002B /* SnapshotHelper.swift */,
 				F0000000000000000000002E /* BundledSampleStore.swift */,
+				F00000000000000000000030 /* AudioMastering.swift */,
 				F00000000000000000000018 /* UserPresetStore.swift */,
 			);
 			path = Audio;
@@ -189,6 +196,8 @@
 				F00000000000000000000026 /* JourneyPickerView.swift */,
 				F0000000000000000000002A /* SpectrumView.swift */,
 				F0000000000000000000002D /* MorphSheetView.swift */,
+				F00000000000000000000031 /* OnboardingView.swift */,
+				F00000000000000000000032 /* CopyrightStrip.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -290,7 +299,10 @@
 				B00000000000000000000025 /* Journey.swift in Sources */,
 				B0000000000000000000002C /* UserJourney.swift in Sources */,
 				B0000000000000000000002D /* MorphSheetView.swift in Sources */,
+				B00000000000000000000031 /* OnboardingView.swift in Sources */,
+				B00000000000000000000032 /* CopyrightStrip.swift in Sources */,
 				B0000000000000000000002E /* BundledSampleStore.swift in Sources */,
+				B00000000000000000000030 /* AudioMastering.swift in Sources */,
 				B00000000000000000000026 /* JourneyPickerView.swift in Sources */,
 				B00000000000000000000027 /* HapticsBridge.swift in Sources */,
 				B00000000000000000000028 /* VoicePreset.swift in Sources */,

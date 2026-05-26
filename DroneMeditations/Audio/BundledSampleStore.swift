@@ -15,17 +15,33 @@ enum BundledSampleStore {
     }
 
     /// Scans Bundle.main for known audio extensions inside the `Samples`
-    /// subdirectory (and root, as a fallback). Memoized after first call.
+    /// folder, recursively walking subdirectories (Field/, Atmospheric/,
+    /// Cosmic/, Instruments/, Urban/, etc.) so any nested layout shows up
+    /// grouped by subfolder. Memoized after first call.
+    ///
+    /// Implementation note: `Bundle.urls(forResourcesWithExtension:subdirectory:)`
+    /// does NOT recurse into subdirectories — it only matches files at
+    /// the exact level specified. That silently dropped 41 categorized
+    /// samples after we organized them into subfolders. We now use
+    /// FileManager.enumerator which walks the directory tree.
     static let all: [Entry] = {
         var found: [Entry] = []
-        let exts = ["wav", "mp3", "m4a", "aac", "aif", "aiff", "caf"]
-        for ext in exts {
-            if let urls = Bundle.main.urls(forResourcesWithExtension: ext,
-                                           subdirectory: "Samples") {
-                for u in urls { found.append(entry(for: u)) }
+        let exts: Set<String> = ["wav", "mp3", "m4a", "aac", "aif", "aiff", "caf"]
+
+        let samplesURL = Bundle.main.bundleURL.appendingPathComponent("Samples")
+        if let enumerator = FileManager.default.enumerator(
+            at: samplesURL,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles]
+        ) {
+            for case let url as URL in enumerator {
+                if exts.contains(url.pathExtension.lowercased()) {
+                    found.append(entry(for: url))
+                }
             }
         }
-        // Sort alphabetically by name for stable display order.
+        // Sort alphabetically by name for stable display order within each
+        // category section (the UI groups by `entry.category` separately).
         return found.sorted { $0.name.lowercased() < $1.name.lowercased() }
     }()
 
