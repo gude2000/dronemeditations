@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Drone Meditations — Support</title>
+<meta name="description" content="Support and FAQ for the Drone Meditations iOS app and web app — drone synthesizer for meditation, sound healing, and ambient composition." />
+<link rel="icon" href="data:," />
+<style>
+  :root {
+    --bg: #050505;
+    --panel: rgba(255,255,255,0.04);
+    --panel-edge: rgba(255,255,255,0.10);
+    --ink: #f3f3f3;
+    --muted: rgba(243,243,243,0.62);
+    --dim: rgba(243,243,243,0.42);
+    --accent: #8fb9d9;
+    --accent-2: #cfb6ea;
+    --warm: #ffc878;
+    --max: 760px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background:
+      radial-gradient(1200px 700px at 80% -10%, rgba(143,185,217,0.10), transparent 60%),
+      radial-gradient(800px 500px at -10% 110%, rgba(207,182,234,0.08), transparent 60%),
+      var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", Segoe UI, Roboto, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid rgba(143,185,217,0.30); }
+  a:hover { border-bottom-color: var(--accent); }
+  header.hero {
+    padding: 60px 24px 30px;
+    text-align: center;
+    max-width: var(--max);
+    margin: 0 auto;
+  }
+  header.hero h1 {
+    margin: 0;
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    background: linear-gradient(120deg, var(--ink), var(--accent-2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  header.hero .sub { color: var(--muted); margin-top: 12px; font-size: 15px; }
+  main { max-width: var(--max); margin: 0 auto; padding: 16px 24px 80px; }
+  h2 {
+    margin: 36px 0 12px;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--accent-2);
+  }
+  p { margin: 10px 0; }
+  .contact-card {
+    background: linear-gradient(135deg, rgba(207,182,234,0.10), rgba(143,185,217,0.06));
+    border: 1px solid rgba(207,182,234,0.20);
+    border-radius: 14px;
+    padding: 22px 24px;
+    margin: 18px 0 30px;
+    text-align: center;
+  }
+  .contact-card a {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--accent-2);
+    border-bottom: none;
+    padding: 8px 18px;
+    border-radius: 999px;
+    background: rgba(207,182,234,0.12);
+  }
+  .contact-card a:hover { background: rgba(207,182,234,0.20); }
+  details {
+    background: var(--panel);
+    border: 1px solid var(--panel-edge);
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin: 10px 0;
+  }
+  details summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--ink);
+    list-style: none;
+    padding: 4px 0;
+  }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::before {
+    content: "▸ ";
+    color: var(--accent-2);
+    margin-right: 6px;
+    transition: transform 0.2s;
+    display: inline-block;
+  }
+  details[open] summary::before { content: "▾ "; }
+  details p { color: var(--muted); margin-top: 8px; }
+  .links {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin: 18px 0;
+  }
+  .link-card {
+    background: var(--panel);
+    border: 1px solid var(--panel-edge);
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+    transition: border-color 0.18s;
+  }
+  .link-card:hover { border-color: var(--accent-2); }
+  .link-card a { border-bottom: none; font-weight: 600; }
+  .link-card .small { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  footer {
+    text-align: center;
+    color: var(--dim);
+    font-size: 12px;
+    padding: 30px 20px 60px;
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <h1>Support</h1>
+  <div class="sub">Help, FAQ, and contact for Drone Meditations</div>
+</header>
+
+<main>
+
+  <div class="contact-card">
+    <div style="color: var(--muted); font-size: 13px;">Need help? Have feedback? Found a bug?</div>
+    <a href="mailto:support@dronemeditations.com?subject=Drone%20Meditations%20support">support@dronemeditations.com</a>
+    <div style="color: var(--dim); font-size: 12px; margin-top: 10px;">Usually a reply within 1–2 days. Please include your device + iOS version if reporting a bug.</div>
+  </div>
+
+  <h2>Resources</h2>
+  <div class="links">
+    <div class="link-card">
+      <a href="/manual.html">User Manual</a>
+      <div class="small">Full graphic guide to every control</div>
+    </div>
+    <div class="link-card">
+      <a href="/">Web App</a>
+      <div class="small">Try it free in your browser</div>
+    </div>
+    <div class="link-card">
+      <a href="/privacy.html">Privacy Policy</a>
+      <div class="small">No data collected, ever</div>
+    </div>
+  </div>
+
+  <h2>Frequently asked questions</h2>
+
+  <details>
+    <summary>What is Drone Meditations?</summary>
+    <p>A four-oscillator drone synthesizer with live cymatics visualization, designed for meditation, sound healing, and ambient composition. Inspired by Pauline Oliveros, Éliane Radigue, William Basinski, Stars of the Lid, Sunn O))), and the long-form drone tradition. It's a real synthesizer — not a soundscape player — with per-voice filters, FX, LFOs, granular synthesis, six tuning systems, and an auto-morph that interpolates between any two presets over time.</p>
+  </details>
+
+  <details>
+    <summary>Is there a free version?</summary>
+    <p>Yes — the full web version at <a href="/">dronemeditations.com</a> is free and includes the same synth engine, presets, and cymatics. The iOS app adds offline use, scripted meditation journeys, 41 bundled field-recording samples, mic-input tune-to-room, mastered .m4a recording, and iPad-optimized layout.</p>
+  </details>
+
+  <details>
+    <summary>How do I get started?</summary>
+    <p>The first-launch tour walks you through it in about 90 seconds. You can re-open it any time via the ? button in the header. The fastest path: pick a preset from the Preset pill, hit Play, and tap the hexagon icon to overlay the cymatics. Then explore the per-oscillator strips one row at a time.</p>
+  </details>
+
+  <details>
+    <summary>The mic permission prompt — what is it for?</summary>
+    <p>Only the <strong>Listen (tune to room)</strong> feature uses the microphone. It analyzes a few seconds of audio entirely on your device to detect the ambient pitch of your space (or a tone you hum), then lets you snap any oscillator to it. The mic is never recorded or transmitted. Deny the permission if you don't want this feature — the rest of the app works without it.</p>
+  </details>
+
+  <details>
+    <summary>Where do my recordings go?</summary>
+    <p>Recorded sessions are saved as mastered .m4a files (AAC, loudness-normalized to -16 LUFS, with 2 s fade-in and 4 s fade-out) in the app's Documents folder. After recording, the share sheet opens automatically — save to Files, AirDrop to your Mac, send via Messages, or open in a DAW. The files survive app updates but are removed if you delete the app.</p>
+  </details>
+
+  <details>
+    <summary>Can I load my own samples?</summary>
+    <p>Yes. Tap an oscillator's waveform picker, choose Sample, then either pick from the 41 bundled samples (Bundled ▾ button) or tap Load file… to import any audio file from the Files app. Loaded samples are pitched by frequency at 220 Hz = 1.0× rate. Supported formats: WAV, MP3, M4A, AAC, AIF, AIFF, CAF.</p>
+  </details>
+
+  <details>
+    <summary>What's the cymatics visualization?</summary>
+    <p>Chladni patterns — the same modal vibration shapes that appear when sand is sprinkled on a vibrating plate. The app uses physically-calibrated mode shape data (from real-world high-speed plate vibration measurements) and animates them in response to the actual frequency of the currently playing oscillator. Pinch to zoom; tap the screen to enter fullscreen Performance mode.</p>
+  </details>
+
+  <details>
+    <summary>What's auto-morph?</summary>
+    <p>A time-driven interpolation between any two presets. Open the Morph pill, pick a From preset and a To preset, set a duration (30 seconds to 60 minutes), and tap Play. The synth slowly blends every parameter between the two presets over that time — log-interpolating frequencies and cutoff, linearly interpolating amplitudes, with brief 8-second amplitude dips through the midpoint to hide any discrete waveform swaps. Enable Ping-Pong for a continuous back-and-forth. The morph keeps running even after you dismiss the controls panel.</p>
+  </details>
+
+  <details>
+    <summary>The spectrum icon crashed the app — what happened?</summary>
+    <p>That was fixed in version 1.0. If you experience any crash, please email support with your device model and iOS version, and roughly what you were doing when it happened.</p>
+  </details>
+
+  <details>
+    <summary>Can I use this commercially / in my own music or videos?</summary>
+    <p>Recordings you make of your sessions belong to you and can be used in any project, commercial or otherwise. The bundled samples are either Jose Gude's original recordings or licensed for redistribution; recordings of your sessions are derivative works you created and are yours to use freely.</p>
+  </details>
+
+  <details>
+    <summary>Is there an Apple Watch version? AU plugin? Android?</summary>
+    <p>Not in version 1.0. AU plugin extension (for use inside AUM, Cubasis, GarageBand, Logic Pro for iPad) and Apple Watch app are on the roadmap. Android: probably not, but the web version works in any modern browser including Android Chrome.</p>
+  </details>
+
+  <details>
+    <summary>I'm a sound healer / yoga teacher / composer — can I get a bulk discount?</summary>
+    <p>Apple's App Store doesn't support bulk discounts for individual apps, but if you're a teacher buying for a studio, the App Store's Volume Purchase Program (managed via Apple School Manager or Apple Business Manager) offers 50% off bulk purchases of 20+ copies. Email support if you'd like help setting that up.</p>
+  </details>
+
+  <details>
+    <summary>How do I report a bug or request a feature?</summary>
+    <p>Email <a href="mailto:support@dronemeditations.com">support@dronemeditations.com</a>. Bug reports with steps-to-reproduce + device model + iOS version get fixed fastest. Feature requests are read and tracked — if you and three other users ask for the same thing, it usually ends up in a future release.</p>
+  </details>
+
+  <p style="margin-top: 36px;"><a href="/">← Back to dronemeditations.com</a></p>
+</main>
+
+<footer>
+  © 2026 Jose Gude MD · All Rights Reserved
+</footer>
+
+</body>
+</html>
