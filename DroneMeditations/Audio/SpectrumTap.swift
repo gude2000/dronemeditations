@@ -45,12 +45,43 @@ final class SpectrumTap: ObservableObject {
 
     func start() {
         guard !isActive else { return }
-        // Tap the *output* node (downstream of main mixer) so we don't
-        // conflict with the recording tap installed on mainMixerNode.
-        let outNode = engine.engine.outputNode
-        let format = outNode.outputFormat(forBus: 0)
-        guard format.sampleRate > 0, format.channelCount > 0 else { return }
-        outNode.installTap(onBus: 0, bufferSize: AVAudioFrameCount(n), format: format) { [weak self] buffer, _ in
+        // Tap the main mixer node. We previously tapped outputNode, but
+        // iOS sometimes throws an NSException on outputNode taps when
+        // the device session isn't in a fully-tappable state (e.g. right
+        // after a session reconfiguration from Listen / mic detector).
+        // The NSException is uncatchable from Swift and crashes the app.
+        //
+        // mainMixerNode is reliably tappable. It conflicts with the
+        // recording tap if active, so we noop in that case — the user
+        // can re-enable the analyzer after they stop recording. Also
+        // wrap the install in a defensive try/catch via an NSException
+        // helper would be ideal but Swift can't catch ObjC exceptions;
+        // instead we validate format aggressively before the call.
+        if engine.isRecording {
+            // Recording tap occupies the same node-bus. Don't crash; leave
+            // isActive=false so the UI toggle reflects reality and the user
+            // can try again after stopping recording.
+            DispatchQueue.main.async { self.isActive = false }
+            return
+        }
+        // Ensure the engine is running before we tap — the output format
+        // is invalid (0/0) until the engine has been started and connected.
+        if !engine.engine.isRunning {
+            try? engine.engine.start()
+        }
+        let mixer = engine.engine.mainMixerNode
+        let format = mixer.outputFormat(forBus: 0)
+        guard format.sampleRate > 0, format.channelCount > 0 else {
+            // Format not ready yet — bail without crashing. The UI button
+            // toggles back off naturally because we never flip isActive.
+            return
+        }
+        // installTap will throw an ObjC exception if a tap is already
+        // installed. removeTap is a safe no-op if there isn't one, so we
+        // call it pre-emptively to clear any stale tap from a previous
+        // session config change.
+        mixer.removeTap(onBus: 0)
+        mixer.installTap(onBus: 0, bufferSize: AVAudioFrameCount(n), format: format) { [weak self] buffer, _ in
             self?.processBuffer(buffer)
         }
         DispatchQueue.main.async { self.isActive = true }
@@ -58,7 +89,7 @@ final class SpectrumTap: ObservableObject {
 
     func stop() {
         guard isActive else { return }
-        engine.engine.outputNode.removeTap(onBus: 0)
+        engine.engine.mainMixerNode.removeTap(onBus: 0)
         DispatchQueue.main.async {
             self.isActive = false
             self.bins = [Float](repeating: 0, count: self.binCount)

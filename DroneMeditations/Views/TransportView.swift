@@ -94,22 +94,36 @@ struct TransportView: View {
 
     private func recordButton(size: CGFloat, iconSize: CGFloat) -> some View {
         Button {
-            controller.toggleRecord()
+            // Pass the current preset name so it lands in the M4A's
+            // title metadata after the mastering pass.
+            controller.toggleRecord(presetName: vm.activePresetName)
         } label: {
-            Image(systemName: controller.isRecording ? "record.circle.fill" : "record.circle")
-                .font(.system(size: iconSize, weight: .bold))
-                .frame(width: size, height: size)
-                .background(
-                    Circle().fill(
-                        controller.isRecording
-                            ? Color(red: 0.85, green: 0.25, blue: 0.25)
-                            : Color.white.opacity(0.15)
+            ZStack {
+                Image(systemName: controller.isRecording ? "record.circle.fill" : "record.circle")
+                    .font(.system(size: iconSize, weight: .bold))
+                    .frame(width: size, height: size)
+                    .background(
+                        Circle().fill(
+                            controller.isRecording
+                                ? Color(red: 0.85, green: 0.25, blue: 0.25)
+                                : (controller.isMastering
+                                    ? Color(red: 1.0, green: 0.78, blue: 0.45).opacity(0.30)
+                                    : Color.white.opacity(0.15))
+                        )
                     )
-                )
-                .foregroundStyle(.white)
+                    .foregroundStyle(.white)
+                // While the post-record mastering pass runs, replace the
+                // record glyph with a spinner so the user sees "wait,
+                // your file is being prepared" rather than nothing.
+                if controller.isMastering {
+                    ProgressView()
+                        .progressViewStyle(.circular)
+                        .tint(.white)
+                }
+            }
         }
         .buttonStyle(.plain)
-        .disabled(controller.state == .stopped && !controller.isRecording)
+        .disabled(controller.state == .stopped && !controller.isRecording || controller.isMastering)
     }
 
     // Drives the share sheet. Wraps the URL in an Identifiable so SwiftUI's

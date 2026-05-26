@@ -30,6 +30,26 @@ final class MicPitchDetector: ObservableObject {
     private let engine: AudioEngine
     private var smoothHz: Double = 0
 
+    // Silent sink that the inputNode is connected to. Without this
+    // connection, AVAudioEngine never delivers buffers to a tap on
+    // inputNode — the input node has to be part of the active graph
+    // (connected to something downstream that the engine is rendering).
+    // The mixer has no output connection so its samples go nowhere —
+    // it just exists to put inputNode into the active graph.
+    private var silentInputSink: AVAudioMixerNode?
+
+    // Listen-mode state we need to restore on stop():
+    //  - Whether the engine was already running when Listen started. If
+    //    it wasn't, we'll stop it again on Listen close (otherwise the
+    //    user gets unexpected post-Listen playback).
+    //  - The master output volume at Listen-start time. If the user
+    //    wasn't playing, we silence the master so they don't hear the
+    //    preset audio just because Tune to Room had to start the engine.
+    //    Restored to its original value when Listen closes.
+    private var engineWasRunningBeforeListen: Bool = false
+    private var masterVolumeBeforeListen: Float = 1.0
+    private var didOverrideMasterVolume: Bool = false
+
     init(engine: AudioEngine) {
         self.engine = engine
     }
@@ -38,76 +58,240 @@ final class MicPitchDetector: ObservableObject {
         guard !isListening else { return }
         lastError = nil
 
-        // 1. Explicitly request mic permission. iOS won't prompt just from
-        //    changing AVAudioSession category — without this, the session
-        //    quietly fails to record and we get silent buffers.
-        //    iOS 17+ API (we deploy at 17.0 minimum). The older
-        //    AVAudioSession.requestRecordPermission was deprecated in 17.0.
-        let granted = await AVAudioApplication.requestRecordPermission()
+        // Diagnostic prints with timestamps so we can pinpoint exactly
+        // where the function hangs when reported by users. Remove (or
+        // wrap in #if DEBUG) before App Store submission.
+        func log(_ msg: String) {
+            let t = String(format: "%.3f", Date().timeIntervalSince1970)
+                .suffix(7)
+            print("🎤 [\(t)] MicPitchDetector.start: \(msg)")
+        }
+        log("entered")
+
+        // 1. Check + request mic permission. iOS 17+ API. We must NOT
+        //    blindly `await` requestRecordPermission() — it has a known
+        //    hang on some devices when permission was already granted in
+        //    a previous launch (the async variant never completes). Check
+        //    the sync state first and only request if undetermined.
+        let current = AVAudioApplication.shared.recordPermission
+        log("permission state = \(current.rawValue) (0=undet, 1=denied, 2=granted)")
+        let granted: Bool
+        switch current {
+        case .granted:
+            granted = true
+        case .denied:
+            granted = false
+        case .undetermined:
+            log("calling async requestRecordPermission…")
+            granted = await AVAudioApplication.requestRecordPermission()
+            log("async permission returned: \(granted)")
+        @unknown default:
+            granted = false
+        }
         guard granted else {
-            lastError = "Microphone permission denied. Enable it in Settings → Drone Meditations."
+            lastError = "Microphone permission denied. Enable it in Settings → Drone Meditations → Microphone."
+            log("BAIL: permission not granted")
             return
         }
+        log("permission OK")
 
         // 2. Stop the engine before reconfiguring the session — switching
         //    category live can leave the inputNode in a stale state where
         //    its format reports channelCount = 0 and the tap silently drops.
         let wasRunning = engine.engine.isRunning
+        engineWasRunningBeforeListen = wasRunning
+        log("engine.isRunning=\(wasRunning), stopping if needed…")
         if wasRunning { engine.engine.stop() }
+        log("engine stopped")
+
+        // 2a. If the user wasn't playing, silence the master output so
+        //     they don't suddenly hear the preset audio just because we
+        //     had to start the engine for the mic tap to function. We
+        //     restore the original volume in stop(). When the user IS
+        //     playing, leave the master volume alone — they're already
+        //     hearing the synth and that's expected during tune-to-room.
+        masterVolumeBeforeListen = engine.engine.mainMixerNode.outputVolume
+        if !wasRunning {
+            engine.engine.mainMixerNode.outputVolume = 0
+            didOverrideMasterVolume = true
+            log("muted master (was \(masterVolumeBeforeListen)) for tune-only mode")
+        } else {
+            didOverrideMasterVolume = false
+        }
 
         do {
             let session = AVAudioSession.sharedInstance()
+            log("setCategory playAndRecord…")
+            // Use .default mode (not .measurement). .measurement disables
+            // AGC + echo cancellation which sounds great in theory but
+            // leaves the input route in an inconsistent format state on
+            // many devices — outputFormat reports sr=0 indefinitely and
+            // installTap with any explicit format throws "format mismatch".
+            // .default uses the standard hardware route (typically 48 kHz
+            // mono Float32) and is reliable. AGC doesn't break pitch
+            // detection because YIN/autocorrelation uses zero-crossings
+            // not amplitude.
             try session.setCategory(
                 .playAndRecord,
-                mode: .measurement,        // disables AGC/echo cancellation
+                mode: .default,
                 options: [.mixWithOthers, .defaultToSpeaker, .allowBluetoothA2DP]
             )
+            log("setActive true…")
             try session.setActive(true, options: [])
         } catch {
             lastError = "Couldn't switch audio session: \(error.localizedDescription)"
+            log("BAIL: session error \(error.localizedDescription)")
             if wasRunning { try? engine.engine.start() }
             return
         }
+        log("session configured")
 
-        // 3. Restart engine so the inputNode picks up the new session config.
-        do { try engine.engine.start() } catch {
-            lastError = "Couldn't start engine for input: \(error.localizedDescription)"
-            return
-        }
+        // 2b. Give iOS time to wire up the input route after activation.
+        log("sleep 300 ms…")
+        try? await Task.sleep(nanoseconds: 300_000_000)   // 300 ms
+        log("post-sleep")
 
+        // 3. Ensure inputNode is in the engine's active graph BEFORE we
+        //    restart the engine. AVAudioEngine input taps fire only when
+        //    the node is connected to something the engine is actively
+        //    rendering. The connection MUST be in place at start() time
+        //    — adding it after the engine is running may not take effect.
         let bus = 0
         let input = engine.engine.inputNode
-        // outputFormat after a session switch needs a brief moment on some
-        // devices; if channelCount is 0 we wait one runloop and try again.
-        var format = input.outputFormat(forBus: bus)
-        if format.channelCount == 0 || format.sampleRate <= 0 {
-            try? await Task.sleep(nanoseconds: 100_000_000)
-            format = input.outputFormat(forBus: bus)
-        }
-        guard format.sampleRate > 0, format.channelCount > 0 else {
-            lastError = "Microphone format unavailable — try again in a moment."
-            return
+        log("got inputNode (before start)")
+        if silentInputSink == nil {
+            let sink = AVAudioMixerNode()
+            sink.outputVolume = 0    // belt + suspenders: zero output
+            engine.engine.attach(sink)
+            engine.engine.connect(input, to: sink, format: nil)
+            silentInputSink = sink
+            log("connected inputNode → silent sink (first time)")
+        } else {
+            log("silent sink already in place")
         }
 
-        input.installTap(onBus: bus, bufferSize: 4096, format: format) { [weak self] buffer, _ in
+        // 4. Now start the engine — graph includes input → silentSink so
+        //    the input node will actually deliver buffers to its tap.
+        do {
+            log("engine.start()…")
+            try engine.engine.start()
+            log("engine started; isRunning=\(engine.engine.isRunning)")
+        } catch {
+            lastError = "Couldn't start engine for input: \(error.localizedDescription)"
+            log("BAIL: engine start error \(error.localizedDescription)")
+            return
+        }
+        // outputFormat after a session switch needs a brief moment on some
+        // devices; if channelCount is 0 we retry with backoff up to ~3 s
+        // total before bailing with a friendly error. The previous 1.5 s
+        // limit was too short on real iPhones — the route can take longer
+        // when Bluetooth audio devices are connected, or after a phone
+        // call, or in low-power mode. We must NOT install a tap with any
+        // other format than the node's reported format — AVAudioEngine
+        // throws an uncatchable NSException if the tap format doesn't
+        // match what the node can deliver.
+        // Brief wait for the input route to wire up after engine start.
+        // We do NOT rely on `inputNode.outputFormat` being valid — on
+        // many devices in .default mode it reports sr=0 even when the
+        // route is fully functional. Instead we pass `format: nil` to
+        // installTap, which tells AVAudioEngine to use the bus's actual
+        // negotiated format (which the engine knows internally, even
+        // when the API reports nonsense).
+        try? await Task.sleep(nanoseconds: 200_000_000)   // 200 ms
+
+        let probedFormat = input.outputFormat(forBus: bus)
+        log("probed format (info only): sr=\(probedFormat.sampleRate) ch=\(probedFormat.channelCount)")
+
+        // We need a known sample rate for the autocorrelate function.
+        // Prefer the input node's reported rate; fall back to the
+        // session's reported rate (always populated); finally hard-code
+        // 48000 (the modern iPhone default).
+        let effectiveSampleRate: Double
+        if probedFormat.sampleRate > 0 {
+            effectiveSampleRate = probedFormat.sampleRate
+        } else if AVAudioSession.sharedInstance().sampleRate > 0 {
+            effectiveSampleRate = AVAudioSession.sharedInstance().sampleRate
+        } else {
+            effectiveSampleRate = 48000
+        }
+        log("effective sample rate for pitch math: \(effectiveSampleRate)")
+
+        // Pre-emptively remove any stale tap from a previous Listen session
+        // that didn't clean up cleanly. installTap throws an uncatchable
+        // NSException if a tap is already installed on this bus.
+        input.removeTap(onBus: bus)
+        log("installing tap with format: nil (use bus's own format)…")
+        // format: nil → AVAudioEngine uses the bus's actual format. This
+        // is the ONLY reliable way to install a tap on the input node
+        // when its outputFormat API misreports. The previous attempt at
+        // building a format from sample-rate + channels caused
+        // "format mismatch" NSException because the bus expected a
+        // different bit-depth/layout than what we constructed.
+        // Capture effectiveSampleRate locally so the closure (which runs
+        // on the audio thread) doesn't have to touch `self` or anything
+        // else that might have race issues.
+        let sampleRateForPitch = effectiveSampleRate
+        // Throttle diagnostic logging to one print per ~50 buffers
+        // (~half a second at 48kHz/4096-frame buffers) — otherwise the
+        // log spams the console at every buffer callback.
+        nonisolated(unsafe) var tapCallbackCount = 0
+        input.installTap(onBus: bus, bufferSize: 4096, format: nil) { [weak self] buffer, _ in
             guard let self = self else { return }
-            guard let ch = buffer.floatChannelData?[0] else { return }
-            let frameCount = Int(buffer.frameLength)
+            tapCallbackCount += 1
+            let shouldLog = (tapCallbackCount % 50 == 1)
+
+            // Diagnostics: what's the buffer format? Is floatChannelData nil?
+            // What's the peak amplitude? This tells us whether audio is
+            // actually flowing or the input is silent / wrong format.
+            if shouldLog {
+                let fmt = buffer.format
+                print("🎤 tap#\(tapCallbackCount): frames=\(buffer.frameLength) sr=\(fmt.sampleRate) ch=\(fmt.channelCount) common=\(fmt.commonFormat.rawValue) floatCh=\(buffer.floatChannelData != nil) int16Ch=\(buffer.int16ChannelData != nil) int32Ch=\(buffer.int32ChannelData != nil)")
+            }
+
+            // Try floatChannelData first (most common: Float32 PCM)…
+            var monoSamples: [Float]? = nil
+            if let ch = buffer.floatChannelData?[0] {
+                monoSamples = Array(UnsafeBufferPointer(start: ch, count: Int(buffer.frameLength)))
+            } else if let ch16 = buffer.int16ChannelData?[0] {
+                // Fallback: Int16 → Float32 conversion. Some iOS routes
+                // deliver Int16 even though we expect Float32.
+                let count = Int(buffer.frameLength)
+                var floats = [Float](repeating: 0, count: count)
+                for i in 0..<count { floats[i] = Float(ch16[i]) / 32768.0 }
+                monoSamples = floats
+            } else if let ch32 = buffer.int32ChannelData?[0] {
+                // Fallback: Int32 → Float32.
+                let count = Int(buffer.frameLength)
+                var floats = [Float](repeating: 0, count: count)
+                let scale: Float = 1.0 / Float(Int32.max)
+                for i in 0..<count { floats[i] = Float(ch32[i]) * scale }
+                monoSamples = floats
+            }
+            guard let samples = monoSamples else {
+                if shouldLog { print("🎤 tap#\(tapCallbackCount): NO channel data — bailing") }
+                return
+            }
+            let frameCount = samples.count
 
             // RMS for the level meter.
             var sumSq: Double = 0
-            for i in 0..<frameCount {
-                let v = Double(ch[i])
-                sumSq += v * v
-            }
+            for v in samples { sumSq += Double(v) * Double(v) }
             let rms = Float((sumSq / Double(max(1, frameCount))).squareRoot())
+            if shouldLog { print("🎤 tap#\(tapCallbackCount): rms=\(rms)") }
 
-            let hz = autocorrelate(samples: ch, count: frameCount, sampleRate: format.sampleRate)
+            // If buffer.format reports a valid sample rate, prefer that;
+            // otherwise use what we computed before installTap.
+            let sr = buffer.format.sampleRate > 0 ? buffer.format.sampleRate : sampleRateForPitch
+            let hz = samples.withUnsafeBufferPointer { ptr in
+                autocorrelate(samples: ptr.baseAddress!, count: frameCount, sampleRate: sr)
+            }
+            if shouldLog { print("🎤 tap#\(tapCallbackCount): detected hz=\(hz)") }
             Task { @MainActor in
                 self.inputLevel = rms
                 self.consumePitch(hz)
             }
         }
+        log("tap installed, isListening=true")
         isListening = true
     }
 
@@ -119,19 +303,36 @@ final class MicPitchDetector: ObservableObject {
         smoothHz = 0
         inputLevel = 0
 
-        // Restore the playback-only session so the mic indicator goes away.
-        // Stop/restart engine across the switch for the same reason we
-        // do on the way in.
-        let wasRunning = engine.engine.isRunning
-        if wasRunning { engine.engine.stop() }
-        do {
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
-            try session.setActive(true, options: [])
-        } catch {
-            lastError = error.localizedDescription
+        // Keep the engine RUNNING after Listen closes — even if it
+        // wasn't running before Listen opened. The previous behavior
+        // (stop the engine if it wasn't running pre-Listen) made the
+        // user's next Play tap multi-second-laggy: AVAudioEngine.start()
+        // had to re-initialize the audio hardware (the session swap +
+        // I/O AU rebind is expensive after a fresh stop).
+        //
+        // By leaving the engine running silently (master volume restored
+        // to whatever it was — typically 0 for an idle engine), the
+        // next Play is just a fade-in, no engine.start() cost.
+        // CPU impact is negligible — 4 source nodes producing silence
+        // into a 0-volume mixer is sub-1 % on modern iPhones.
+        //
+        // We also DON'T disconnect/detach the silent sink (the input AU
+        // needs a downstream consumer to stay valid) and DON'T swap the
+        // session category back to .playback (.playback has no input
+        // device so the input AU can't init and engine.start() would
+        // fail forever).
+        //
+        // Note: we still need to leave the engine running. We deliberately
+        // DON'T call engine.stop() here, even though the previous code did.
+
+        // Restore master volume if we muted it for tune-only mode. If
+        // the user wasn't playing pre-Listen, this restores to whatever
+        // it was (typically 0 if the engine had never produced audio;
+        // or the user's configured value if they'd been playing earlier).
+        if didOverrideMasterVolume {
+            engine.engine.mainMixerNode.outputVolume = masterVolumeBeforeListen
+            didOverrideMasterVolume = false
         }
-        if wasRunning { try? engine.engine.start() }
     }
 
     private func consumePitch(_ hz: Double) {

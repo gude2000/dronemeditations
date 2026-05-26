@@ -36,6 +36,13 @@ final class DroneController: ObservableObject {
 
     func play() {
         let fromStopped = (state == .stopped)
+        // If the engine is already running (typically because Listen left
+        // it running silently to avoid hardware re-init lag), treat this
+        // as a quick resume even when our transport state says .stopped.
+        // Otherwise the 3 s "fresh start" fade-in feels like Play is
+        // laggy — the user expects instant onset since the engine was
+        // already ticking under the hood.
+        let engineAlreadyRunning = engine.engine.isRunning
         do {
             try engine.start()
         } catch {
@@ -43,11 +50,14 @@ final class DroneController: ObservableObject {
             return
         }
         if state != .playing {
-            // Fresh start gets a 3s meditation-fade; resume from pause is 1s.
-            engine.fadeInMaster(seconds: fromStopped ? 3.0 : 1.0)
-            // Initialize the engine's transport-elapsed clock so per-voice
-            // timing envelopes start computing right away rather than
-            // waiting for the first tick (~100 ms later).
+            // Choose fade-in duration:
+            //  - 3 s if this is a true cold start (engine wasn't running)
+            //    — preserves the "meditative onset" for the very first
+            //    play of the session.
+            //  - 1 s if engine was already running (resume from pause OR
+            //    play-after-Listen-close) — feels responsive.
+            let fadeDuration: Double = (fromStopped && !engineAlreadyRunning) ? 3.0 : 1.0
+            engine.fadeInMaster(seconds: fadeDuration)
             engine.transportElapsed = elapsed
             lastTickDate = Date()
             startTicker()
@@ -59,9 +69,10 @@ final class DroneController: ObservableObject {
         guard state == .playing else { return }
         stopTicker()
         state = .paused
-        // Short fade down before suspending so we don't click.
+        // 1.2 s exponential fade — snappy response, no click. Good for
+        // pause where the user expects quick silence.
         Task { @MainActor in
-            await engine.fadeOutMaster(seconds: 0.4)
+            await engine.fadeOutMaster(seconds: 1.2, curve: .exponential)
             engine.stop()
         }
     }
@@ -75,15 +86,19 @@ final class DroneController: ObservableObject {
         // keep advancing while the master fade-out plays.
         engine.transportElapsed = .nan
         // If recording is active, finalize the file first so the captured
-        // fade-out is part of the export. The completed URL is held in
+        // fade-out is part of the export. finalizeRecording() runs the
+        // mastering pipeline async; the finished .m4a URL appears in
         // `lastRecordingURL` for the UI to surface via the share sheet.
         if engine.isRecording {
-            lastRecordingURL = engine.stopRecording()
-            isRecording = false
+            finalizeRecording()
         }
-        // UI updates immediately; audio fades over 8 seconds, then engine tears down.
+        // 5 s smoothstep fade — gradual at both endpoints (Hermite
+        // cubic 3t²-2t³ has zero slope at start and end). Feels uniformly
+        // gradual to the ear rather than the "sharp drop, long tail" of
+        // exponential. Combined with the 200 ms post-silence buffer in
+        // fadeOutMaster, no click on engine.stop().
         Task { @MainActor in
-            await engine.fadeOutMaster(seconds: 8.0)
+            await engine.fadeOutMaster(seconds: 5.0, curve: .smoothstep)
             engine.stop()
         }
     }
@@ -92,25 +107,65 @@ final class DroneController: ObservableObject {
 
     /// Whether a session recording is currently being captured to disk.
     @Published private(set) var isRecording: Bool = false
-    /// URL of the most recently finished recording. The UI clears it once
-    /// it has been presented (e.g. via a share sheet).
+    /// True while the mastering pipeline runs after recording stops.
+    /// UI surfaces this as a brief "Mastering…" spinner so the user knows
+    /// the share button is coming.
+    @Published private(set) var isMastering: Bool = false
+    /// URL of the most recently finished + mastered recording (M4A). The
+    /// UI clears it once it has been presented (e.g. via a share sheet).
     @Published var lastRecordingURL: URL?
+    /// Last mastering error, surfaced in the UI as a toast. nil = no error.
+    @Published var lastMasteringError: String?
+    /// Name of the active preset when recording started, used in the
+    /// exported file's title metadata.
+    private var recordingPresetName: String?
 
     /// Toggle recording on/off. Recording only works while the engine is
     /// running, so a recording started while playing will capture from now
     /// until either toggleRecord() is called again or the user hits Stop
-    /// (which finalizes automatically).
-    func toggleRecord() {
+    /// (which finalizes automatically). When stopping, the raw CAF capture
+    /// is async-mastered into a release-ready .m4a (AAC + LUFS-style
+    /// normalization + 2s/4s fades + metadata) before being handed back
+    /// to the UI in `lastRecordingURL`.
+    func toggleRecord(presetName: String? = nil) {
         if engine.isRecording {
-            lastRecordingURL = engine.stopRecording()
-            isRecording = false
+            finalizeRecording()
         } else {
             // Make sure the engine is actually running before tapping it.
             if state != .playing {
                 play()
             }
+            recordingPresetName = presetName
             _ = engine.startRecording()
             isRecording = true
+        }
+    }
+
+    /// Stop the capture, run the mastering pipeline, and publish the
+    /// finished .m4a URL. Safe to call when recording is already finalized
+    /// (becomes a no-op).
+    func finalizeRecording() {
+        guard let rawURL = engine.stopRecording() else {
+            isRecording = false
+            return
+        }
+        isRecording = false
+        isMastering = true
+        let presetName = recordingPresetName
+        Task { @MainActor in
+            do {
+                let masteredURL = try await AudioMastering.master(
+                    inputCAFURL: rawURL,
+                    presetName: presetName
+                )
+                self.lastRecordingURL = masteredURL
+            } catch {
+                // Fall back to the raw CAF so the user at least gets
+                // something to share, and surface a toast.
+                self.lastRecordingURL = rawURL
+                self.lastMasteringError = error.localizedDescription
+            }
+            self.isMastering = false
         }
     }
 

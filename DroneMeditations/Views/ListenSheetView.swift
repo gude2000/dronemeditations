@@ -8,6 +8,12 @@ struct ListenSheetView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var didStart = false
+    // Bumped on every objectWillChange from the mic detector. The body
+    // reads this so SwiftUI knows it depends on it — that's what forces
+    // a re-render when the nested ObservableObject changes. The empty
+    // .onReceive closures from before were no-ops because they didn't
+    // mutate any state the view tracks.
+    @State private var redrawTick: Int = 0
 
     private var detectedNote: DetectedNote? {
         if let hz = vm.micPitch.detectedHz { return freqToNote(hz) }
@@ -15,7 +21,12 @@ struct ListenSheetView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        // Reading redrawTick here registers this view's dependency on it.
+        // When the onReceive subscriptions below bump redrawTick, SwiftUI
+        // re-runs body, which re-reads vm.micPitch.isListening / detectedHz
+        // / lastError and updates the displayed status line accordingly.
+        let _ = redrawTick
+        return NavigationStack {
             VStack(spacing: 14) {
                 Text(statusLine)
                     .font(.system(size: 13))
@@ -115,11 +126,15 @@ struct ListenSheetView: View {
                 }
             }
         }
-        // Refresh whenever the detector publishes a new pitch (or an error
-        // or a held-state change).
-        .onReceive(vm.micPitch.$detectedHz) { _ in /* triggers redraw */ }
-        .onReceive(vm.micPitch.$isHolding)  { _ in /* triggers redraw */ }
-        .onReceive(vm.micPitch.$lastError)  { _ in /* triggers redraw */ }
+        // Bump redrawTick on EVERY @Published change from the nested mic
+        // detector. The body reads redrawTick (above) so this actually
+        // forces a re-render. Previously the closures were empty no-ops,
+        // which meant the view never updated when the detector's
+        // isListening / detectedHz / etc. changed — status text stayed
+        // stuck on "Requesting microphone…" forever.
+        .onReceive(vm.micPitch.objectWillChange) { _ in
+            redrawTick &+= 1
+        }
     }
 
     private var levelMeter: some View {
