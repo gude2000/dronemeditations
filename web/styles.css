@@ -1119,9 +1119,16 @@ body.performance:hover { cursor: default; }
 
 /* Sample window row — same grid as grain (4 mini-controls). Tinted amber
    to match the iOS sample-window row, signaling it's a per-sample DSP
-   tool (start/end loop points + per-loop fade-in/out). */
+   tool (start/end loop points + per-loop fade-in/out).
+
+   First column is bumped from 36px (the grain-row default) to 60px:
+   "WINDOW" is 6 chars vs "GRAIN"'s 5, and at the row's normal font size
+   the label was overflowing into the START slider's track, making the
+   first slider's thumb sit visually right against the label. 60px gives
+   the label its own breathing room and pushes the START slider thumb
+   off the label so the row reads cleanly. */
 .sample-window-row {
-  grid-template-columns: 36px 1fr 1fr 1fr 1fr;
+  grid-template-columns: 60px 1fr 1fr 1fr 1fr;
 }
 .sample-window-row .strip-label { color: #ffcf80; }
 .sample-window-row input[type="range"]::-webkit-slider-thumb { background: #ffcf80; }
