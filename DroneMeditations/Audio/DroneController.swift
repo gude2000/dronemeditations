@@ -100,17 +100,23 @@ final class DroneController: ObservableObject {
         pendingFadeOutTask = Task { @MainActor in
             await engineRef.pauseWithReverbBloom()
             // If the user re-pressed Play during the fade, state is no
-            // longer .paused — skip the engine stop so the now-playing
-            // engine isn't torn down.
+            // longer .paused — skip the engine suspend so the now-
+            // playing engine isn't interrupted.
             guard self.state == .paused else { return }
-            // engine.stop() on real iPhone with the mic input AU wired
-            // into the graph (post-Listen) can block the calling thread
-            // for several seconds while iOS tears down both I/O AU
-            // bindings. Run it on a detached task so the @MainActor
-            // stays unblocked and UI taps (Play, Stop, sliders, etc.)
-            // remain responsive during the teardown.
+            // Use engine.pause() — NOT engine.stop() — on the pause
+            // path. pause() suspends the I/O AU without tearing it
+            // down, eliminating the occasional click that stop()
+            // produces on real iPhone hardware (the AU rebind can
+            // pop the output device). Resume on the next Play is
+            // also faster since there's no HW re-init.
+            //
+            // Still on a detached task so the @MainActor stays
+            // unblocked and UI taps stay responsive — pause() is
+            // fast but the Listen mic AU teardown isn't, and we
+            // want this code to be safe whether or not the mic is
+            // wired in.
             Task.detached { [engineRef] in
-                engineRef.stop()
+                engineRef.pause()
             }
         }
     }

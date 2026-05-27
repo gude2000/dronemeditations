@@ -144,6 +144,21 @@ final class AudioEngine {
         }
     }
 
+    /// Softer alternative to stop() — suspends the engine without
+    /// tearing down the I/O AU. Resuming via start() is essentially
+    /// instantaneous (no HW re-init) and there's no audible click on
+    /// the suspend itself, because the audio output device isn't
+    /// disconnected. Use this for transient pauses where the user is
+    /// likely to resume soon; reserve stop() for terminal shutdown
+    /// (app teardown, etc.). On iOS Core Audio, the difference shows
+    /// up as: stop() can produce a small click on real hardware as
+    /// the AU rebinds; pause() doesn't.
+    func pause() {
+        if engine.isRunning {
+            engine.pause()
+        }
+    }
+
     /// Disconnect + reconnect the source node → mainMixer connection so it
     /// renegotiates its format with whatever sample rate / channel layout
     /// the session is now offering. Called by `MicPitchDetector` after a
@@ -386,7 +401,11 @@ final class AudioEngine {
         await rampMaster(to: 0, over: fadeDuration, curve: fadeCurve)
         await bloomTask
         engine.mainMixerNode.outputVolume = 0
-        try? await Task.sleep(nanoseconds: 200_000_000)
+        // 500 ms (was 200 ms) of explicit silence at zero before any
+        // engine.stop()/pause() can run. Gives iOS Core Audio enough
+        // time to flush the output buffer cleanly so the AU rebind /
+        // suspend doesn't produce an audible click on real hardware.
+        try? await Task.sleep(nanoseconds: 500_000_000)
         cancelStopBloom()
     }
 
@@ -414,7 +433,11 @@ final class AudioEngine {
         await rampMaster(to: 0, over: fadeDuration, curve: fadeCurve)
         await bloomTask
         engine.mainMixerNode.outputVolume = 0
-        try? await Task.sleep(nanoseconds: 200_000_000)
+        // 500 ms (was 200 ms) of explicit silence at zero before any
+        // engine.stop()/pause() can run. Gives iOS Core Audio enough
+        // time to flush the output buffer cleanly so the AU rebind /
+        // suspend doesn't produce an audible click on real hardware.
+        try? await Task.sleep(nanoseconds: 500_000_000)
         cancelStopBloom()
     }
 
