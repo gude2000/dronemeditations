@@ -999,12 +999,19 @@ struct OscillatorStrip: View {
                     .foregroundStyle(.white)
             }
             .menuStyle(.borderlessButton)
-            .alert("Name this voice preset", isPresented: $showingVoiceNamePrompt) {
-                TextField("Name", text: $voiceNameDraft)
-                Button("Cancel", role: .cancel) {}
-                Button("Save") {
+            // Use a SwiftUI sheet rather than a system .alert() with
+            // TextField — alerts with text input force iOS to rebind
+            // the audio session (the keyboard claims an input route),
+            // which produces an audible crackle/glitch through the
+            // playing drone. Sheet stays in-process and is silent.
+            .sheet(isPresented: $showingVoiceNamePrompt) {
+                SaveVoicePresetSheet(
+                    voiceIndex: index,
+                    name: $voiceNameDraft
+                ) {
                     vm.saveCurrentVoiceAsPreset(index, name: voiceNameDraft)
                 }
+                .presentationDetents([.height(260)])
             }
 
             // Per-voice drift menu — pitch + pan motion for just this voice,
@@ -1268,5 +1275,53 @@ private struct FrequencySlider: View {
         )
         Slider(value: binding, in: 0.0...1.0)
             .tint(Color(hue: hue, saturation: 0.65, brightness: 0.95))
+    }
+}
+
+/// Compact modal sheet for naming a new per-voice preset. Replaces
+/// the system .alert() with TextField — alerts force a Core Audio
+/// session rebind (because the keyboard claims an input route),
+/// causing an audible crackle/glitch through the playing drone.
+/// Mirrors the SavePresetSheet pattern from PresetPickerView.swift.
+private struct SaveVoicePresetSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let voiceIndex: Int
+    @Binding var name: String
+    let onSave: () -> Void
+    @FocusState private var nameFieldFocused: Bool
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("Preset name", text: $name)
+                        .focused($nameFieldFocused)
+                        .submitLabel(.done)
+                        .onSubmit { save() }
+                } footer: {
+                    Text("Saves OSC \(voiceIndex + 1)'s waveform, frequency, level, pan, filter, FX, LFOs, and drift.")
+                }
+            }
+            .navigationTitle("Save OSC \(voiceIndex + 1) Preset")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Save") { save() }
+                        .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+            .onAppear { nameFieldFocused = true }
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    private func save() {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        onSave()
+        dismiss()
     }
 }
