@@ -173,13 +173,16 @@ final class MicPitchDetector: ObservableObject {
             engine.engine.connect(input, to: sink, format: nil)
             silentInputSink = sink
             log("connected inputNode → silent sink")
-            // Refresh the source-node → main-mixer connection so it
-            // renegotiates its format with the new session/route. Without
-            // this, the engine restart could leave the source node with
-            // a stale connection — engine.isRunning stays true but the
-            // render block is never called and audio silently drops to
-            // zero, leaving the transport "frozen-feeling" to the user.
-            engine.refreshOutputGraph()
+            // NOTE: removed an earlier refreshOutputGraph() call that
+            // disconnected + reconnected the source node here. That was
+            // added in 1.0(3) to fix a "post-Listen transport feels frozen"
+            // bug — but the actual cause of that bug turned out to be the
+            // stale fade-out Task in DroneController (fixed in 1.0(4)).
+            // The extra graph mutation between stop and start was
+            // confusing the input AU initialization and leaving its
+            // outputFormat stuck at sr=0 — i.e. the "Microphone format
+            // unavailable" error path. Leaving the output graph alone
+            // gives the input AU the room it needs to settle.
             if wasRunning {
                 do {
                     try engine.engine.start()
@@ -220,7 +223,7 @@ final class MicPitchDetector: ObservableObject {
         // from the audio thread.
         var settledFormat: AVAudioFormat = input.outputFormat(forBus: bus)
         var pollAttempts = 0
-        let maxPollAttempts = 30   // 30 × 100 ms = 3 s budget
+        let maxPollAttempts = 50   // 50 × 100 ms = 5 s budget
         while settledFormat.sampleRate <= 0 && pollAttempts < maxPollAttempts {
             try? await Task.sleep(nanoseconds: 100_000_000)
             settledFormat = input.outputFormat(forBus: bus)

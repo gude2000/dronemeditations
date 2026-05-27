@@ -102,6 +102,30 @@ struct ListenSheetView: View {
                     .disabled(detectedNote == nil)
                 }
 
+                // When an init error is set (e.g. mic AU never settled),
+                // give the user a way to retry without dismissing the
+                // sheet. Otherwise the only escape was tap Done →
+                // re-open Listen, which most users won't think to do.
+                if vm.micPitch.lastError != nil {
+                    Button {
+                        retryListen()
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 13, weight: .semibold))
+                            Text("Try again")
+                                .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                        }
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 12)
+                        .background(Color.accentColor.opacity(0.85))
+                        .foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 6)
+                }
+
                 Text("Hold a steady tone — voice, instrument, tuning fork. The last detected pitch is held on screen until you tap Reset or sing a new one — so you don't have to race the readout.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -173,6 +197,17 @@ struct ListenSheetView: View {
         if vm.micPitch.detectedHz == nil { return "Listening — hold a steady tone" }
         if vm.micPitch.isHolding { return "Held — tap Set as Root, or sing a new note" }
         return "Listening"
+    }
+
+    /// Re-invoke MicPitchDetector.start() so the user can recover from
+    /// a transient init failure (e.g. "Microphone format unavailable")
+    /// without dismissing the sheet. The detector's lastError clears on
+    /// each start() invocation, so a successful retry transitions the
+    /// status line out of the error state automatically.
+    private func retryListen() {
+        Task { @MainActor in
+            await vm.micPitch.start()
+        }
     }
 
     private func applyDetectedRoot() {
