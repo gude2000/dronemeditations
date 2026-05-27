@@ -7,14 +7,21 @@ struct TransportView: View {
     // iPhone landscape: collapse the 2-row layout into a single horizontal
     // row with smaller transport buttons. Saves ~50px of vertical space.
     @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     private var isCompact: Bool { verticalSizeClass == .compact }
+    /// True on iPad. iPad gets a single-row layout (like iPhone
+    /// landscape) but with bigger touch targets — the 2-row layout
+    /// wasted ~70pt of vertical real estate that the OSC strip wants.
+    private var isPad: Bool { horizontalSizeClass == .regular }
 
     var body: some View {
         Group {
-            if isCompact { compactBody } else { fullBody }
+            if isCompact      { compactBody }   // iPhone landscape
+            else if isPad     { padBody }       // iPad portrait + landscape
+            else              { fullBody }      // iPhone portrait
         }
-        .padding(.horizontal, isCompact ? 12 : 16)
-        .padding(.vertical, isCompact ? 4 : 14)
+        .padding(.horizontal, isCompact ? 12 : (isPad ? 18 : 16))
+        .padding(.vertical, isCompact ? 4 : (isPad ? 8 : 14))
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(.ultraThinMaterial)
@@ -40,6 +47,28 @@ struct TransportView: View {
                 Spacer()
                 durationMenu
             }
+        }
+        .sheet(item: shareItemBinding) { item in
+            ShareSheet(items: [item.url])
+        }
+    }
+
+    /// iPad single-row transport: bigger touch targets than iPhone
+    /// landscape, but still a single line so the strip area above has
+    /// ~70pt more vertical breathing room than the 2-row fullBody.
+    private var padBody: some View {
+        HStack(spacing: 18) {
+            playPauseButton(size: 56, iconSize: 24)
+            stopButton(size: 44, iconSize: 18)
+            recordButton(size: 44, iconSize: 18)
+
+            Text(timeLabel)
+                .font(.system(.title3, design: .monospaced))
+                .foregroundStyle(.white)
+
+            Spacer()
+
+            durationMenu
         }
         .sheet(item: shareItemBinding) { item in
             ShareSheet(items: [item.url])
@@ -163,16 +192,18 @@ struct TransportView: View {
         } label: {
             HStack(spacing: isCompact ? 4 : 6) {
                 Image(systemName: "timer")
-                    .font(isCompact ? .caption : .body)
+                    .font(isCompact ? .caption : (isPad ? .callout : .body))
                 Text(durationLabel)
                     .font(isCompact
                           ? .system(.caption, design: .rounded).weight(.medium)
-                          : .system(.subheadline, design: .rounded).weight(.medium))
+                          : (isPad
+                             ? .system(.callout, design: .rounded).weight(.medium)
+                             : .system(.subheadline, design: .rounded).weight(.medium)))
                 Image(systemName: "chevron.down")
                     .font(.caption2)
             }
-            .padding(.horizontal, isCompact ? 9 : 12)
-            .padding(.vertical, isCompact ? 5 : 8)
+            .padding(.horizontal, isCompact ? 9 : (isPad ? 11 : 12))
+            .padding(.vertical, isCompact ? 5 : (isPad ? 6 : 8))
             .background(Capsule().fill(Color.white.opacity(0.12)))
             .foregroundStyle(.white)
         }
