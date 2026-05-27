@@ -204,56 +204,55 @@ final class MicPitchDetector: ObservableObject {
         } else {
             log("engine already running with input wired — no restart needed (the new fast path)")
         }
-        // outputFormat after a session switch needs a brief moment on some
-        // devices; if channelCount is 0 we retry with backoff up to ~3 s
-        // total before bailing with a friendly error. The previous 1.5 s
-        // limit was too short on real iPhones — the route can take longer
-        // when Bluetooth audio devices are connected, or after a phone
-        // call, or in low-power mode. We must NOT install a tap with any
-        // other format than the node's reported format — AVAudioEngine
-        // throws an uncatchable NSException if the tap format doesn't
-        // match what the node can deliver.
-        // Brief wait for the input route to wire up after engine start.
-        // We do NOT rely on `inputNode.outputFormat` being valid — on
-        // many devices in .default mode it reports sr=0 even when the
-        // route is fully functional. Instead we pass `format: nil` to
-        // installTap, which tells AVAudioEngine to use the bus's actual
-        // negotiated format (which the engine knows internally, even
-        // when the API reports nonsense).
-        try? await Task.sleep(nanoseconds: 200_000_000)   // 200 ms
-
-        let probedFormat = input.outputFormat(forBus: bus)
-        log("probed format (info only): sr=\(probedFormat.sampleRate) ch=\(probedFormat.channelCount)")
-
-        // We need a known sample rate for the autocorrelate function.
-        // Prefer the input node's reported rate; fall back to the
-        // session's reported rate (always populated); finally hard-code
-        // 48000 (the modern iPhone default).
-        let effectiveSampleRate: Double
-        if probedFormat.sampleRate > 0 {
-            effectiveSampleRate = probedFormat.sampleRate
-        } else if AVAudioSession.sharedInstance().sampleRate > 0 {
-            effectiveSampleRate = AVAudioSession.sharedInstance().sampleRate
-        } else {
-            effectiveSampleRate = 48000
+        // Poll the input bus until it reports a valid (non-zero) sample
+        // rate. The input AU takes time to fully initialize after a
+        // session swap + engine restart — on real iPhone hardware this
+        // can range from ~150 ms (best case) to ~2 s (Bluetooth route,
+        // post-phone-call, low-power mode). Up to 3 s of polling with
+        // 100 ms intervals.
+        //
+        // CRITICAL: installTap with a 0-Hz format throws an
+        // uncatchable NSException ("Failed to initialize active nodes
+        // in input chain, err = -10868") that crashes the whole app.
+        // We must verify the format is valid BEFORE calling installTap
+        // — there is no way to recover from that exception once
+        // thrown, since Swift can't catch Obj-C NSExceptions raised
+        // from the audio thread.
+        var settledFormat: AVAudioFormat = input.outputFormat(forBus: bus)
+        var pollAttempts = 0
+        let maxPollAttempts = 30   // 30 × 100 ms = 3 s budget
+        while settledFormat.sampleRate <= 0 && pollAttempts < maxPollAttempts {
+            try? await Task.sleep(nanoseconds: 100_000_000)
+            settledFormat = input.outputFormat(forBus: bus)
+            pollAttempts += 1
+            // Only log every 5 attempts to avoid log spam in the
+            // common case where the format settles in 1-3 polls.
+            if pollAttempts % 5 == 0 || settledFormat.sampleRate > 0 {
+                log("poll #\(pollAttempts) (\(pollAttempts * 100) ms): sr=\(settledFormat.sampleRate) ch=\(settledFormat.channelCount)")
+            }
         }
-        log("effective sample rate for pitch math: \(effectiveSampleRate)")
+
+        if settledFormat.sampleRate <= 0 {
+            lastError = "Microphone format unavailable — try again in a moment, or check Settings → Drone Meditations → Microphone."
+            log("BAIL: input format never settled after \(pollAttempts * 100) ms (sr still 0). Not installing tap to avoid the AVAudioEngine NSException crash.")
+            return
+        }
+        log("input format settled after \(pollAttempts * 100) ms: sr=\(settledFormat.sampleRate) ch=\(settledFormat.channelCount)")
 
         // Pre-emptively remove any stale tap from a previous Listen session
         // that didn't clean up cleanly. installTap throws an uncatchable
         // NSException if a tap is already installed on this bus.
         input.removeTap(onBus: bus)
-        log("installing tap with format: nil (use bus's own format)…")
-        // format: nil → AVAudioEngine uses the bus's actual format. This
-        // is the ONLY reliable way to install a tap on the input node
-        // when its outputFormat API misreports. The previous attempt at
-        // building a format from sample-rate + channels caused
-        // "format mismatch" NSException because the bus expected a
-        // different bit-depth/layout than what we constructed.
-        // Capture effectiveSampleRate locally so the closure (which runs
-        // on the audio thread) doesn't have to touch `self` or anything
-        // else that might have race issues.
-        let sampleRateForPitch = effectiveSampleRate
+        log("installing tap with settled format (sr=\(settledFormat.sampleRate))…")
+        // Pass the settled format explicitly (rather than nil) so installTap
+        // uses exactly what the bus reports. The two should be identical
+        // since installTap's nil path also queries outputFormat(forBus:)
+        // — but being explicit eliminates any ambiguity if the format
+        // shifts between this check and the installTap call.
+        // Capture sample rate locally so the closure (which runs on the
+        // audio thread) doesn't have to touch `self` or anything else
+        // that might have race issues.
+        let sampleRateForPitch = settledFormat.sampleRate
         // Throttle diagnostic logging to one print per ~50 buffers
         // (~half a second at 48kHz/4096-frame buffers) — otherwise the
         // log spams the console at every buffer callback.
