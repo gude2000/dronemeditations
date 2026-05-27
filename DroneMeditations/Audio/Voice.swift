@@ -230,6 +230,11 @@ final class Voice {
         var ampScale: Double = 1.0
         var cutoffOct: Double = 0
         var pitchSemitones: Double = 0
+        // Modulation accumulators for the new (v1.1) targets.
+        // qOct is added to log2(filterQ); fmIndexMod is added directly
+        // to fmIndex (Hz). Both clamped at their application sites.
+        var qOct: Double = 0
+        var fmIndexMod: Double = 0
         for k in 0..<4 {
             let depth = lfoDepths[k]
             if depth < 0.001 { continue }
@@ -254,12 +259,35 @@ final class Voice {
                     lfoHolds[k] = Double.random(in: -1.0 ... 1.0)
                 }
                 value = lfoHolds[k]
+            case .sawtooth:
+                // Rising sawtooth: -1 → +1 linearly over the phase,
+                // then jumps back. Classic LFO ramp-up for filter
+                // sweeps, pitch rises, etc.
+                value = 2.0 * lfoPhases[k] - 1.0
+            case .ramp:
+                // Falling ramp (sometimes called "inverse sawtooth"):
+                // +1 → -1 linearly over the phase, then jumps back.
+                // Useful for envelope-like attack-then-decay sweeps
+                // when paired with the right target.
+                value = 1.0 - 2.0 * lfoPhases[k]
             }
             switch lfoTargets[k] {
             case .pan:       panMod         += depth * value
             case .amplitude: ampScale       *= (1.0 + 0.6 * depth * value)
             case .cutoff:    cutoffOct      += 2.0 * depth * value
             case .pitch:     pitchSemitones += 2.0 * depth * value
+            case .filterQ:
+                // Multiplicative modulation in log-Q space. depth=1 +
+                // value=±1 = ±1.5 octaves of Q (e.g. Q=5 swings
+                // between ~1.77 and ~14.1). Subtle at depth 0.3, very
+                // resonant pumping at depth 1.
+                qOct += 1.5 * depth * value
+            case .fmIndex:
+                // Additive modulation of FM index (in Hz). depth=1 +
+                // value=±1 = ±200 Hz offset. Lets the LFO drive FM
+                // wobble for evolving timbral motion. Clamped later
+                // when the FM source is applied to the carrier.
+                fmIndexMod += 200.0 * depth * value
             }
         }
 
@@ -269,9 +297,11 @@ final class Voice {
         // the raw targetFrequencyHz when an LFO is routed to pitch.
         let effectiveFreqTarget = targetFrequencyHz * pow(2.0, pitchSemitones / 12.0)
 
-        // ── Update biquad coefficients with LFO-modulated cutoff.
+        // ── Update biquad coefficients with LFO-modulated cutoff + Q.
         let effectiveCutoff = filterCutoffHz * pow(2.0, cutoffOct)
-        updateBiquadCoefficients(cutoff: effectiveCutoff)
+        let effectiveQ = max(FilterState.qMin,
+                             min(FilterState.qMax, filterQ * pow(2.0, qOct)))
+        updateBiquadCoefficients(cutoff: effectiveCutoff, q: effectiveQ)
 
         // ── Recompute reverb comb feedbacks (cheap, once per buffer).
         let ln10x3 = 3.0 * 2.302585092994046
@@ -325,7 +355,9 @@ final class Voice {
         let chRatePerSample = chorusRateHz
 
         // FM source (1-buffer-latency raw signal from modulator voice).
-        let fmIdx = fmIndex
+        // fmIndex + fmIndexMod (LFO-driven) clamped to [0, 800] Hz to
+        // match the slider's nominal range.
+        let fmIdx = max(0.0, min(800.0, fmIndex + fmIndexMod))
         let fmSrcPtr = fmInputBuffer
         let fmSrcCount = fmInputCount
 
@@ -671,14 +703,16 @@ final class Voice {
 
     /// Recompute biquad coefficients from current type / cutoff / Q.
     /// RBJ Audio EQ Cookbook formulas. Called once per render buffer.
+    /// The caller passes in the EFFECTIVE Q (post-LFO-modulation) so
+    /// the .filterQ LFO target actually changes resonance per buffer.
     @inline(__always)
-    private func updateBiquadCoefficients(cutoff: Double) {
+    private func updateBiquadCoefficients(cutoff: Double, q: Double) {
         let nyquist = sampleRate * 0.45
         let f = max(20.0, min(nyquist, cutoff))
         let omega = 2.0 * .pi * f / sampleRate
         let cosw = cos(omega)
         let sinw = sin(omega)
-        let q = max(0.3, filterQ)
+        let q = max(0.3, q)
         let alpha = sinw / (2.0 * q)
         let a0 = 1.0 + alpha
         let a1 = -2.0 * cosw

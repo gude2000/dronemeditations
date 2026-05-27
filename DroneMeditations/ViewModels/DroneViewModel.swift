@@ -639,6 +639,8 @@ final class DroneViewModel: ObservableObject {
         case .amplitude: audioEngine.setAmplitude(o.amplitude, for: index)
         case .cutoff:    audioEngine.setFilterCutoff(o.filter.cutoffHz, for: index)
         case .pitch:     audioEngine.setFrequency(o.frequencyHz, for: index)
+        case .filterQ:   audioEngine.setFilterQ(o.filter.q, for: index)
+        case .fmIndex:   audioEngine.setFMIndex(o.fm.index, for: index)
         }
     }
 
