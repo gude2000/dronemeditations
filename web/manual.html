@@ -152,7 +152,66 @@
     border-radius: 16px;
     border: 1px solid rgba(255,255,255,0.10);
     box-shadow: 0 12px 36px rgba(0,0,0,0.45);
+    cursor: zoom-in;
+    transition: transform 120ms ease;
   }
+  figure.shot img:hover {
+    transform: scale(1.02);
+  }
+
+  /* Lightbox overlay — created/torn-down on demand by the inline JS at
+     the bottom of the document. Any <figure.shot img> click opens a
+     full-screen viewer; clicking the overlay or pressing Esc closes
+     it. Caption (from the figcaption) is shown below the enlarged
+     image for context. */
+  .lightbox {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.92);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 24px;
+    cursor: zoom-out;
+    animation: lightboxFadeIn 140ms ease-out;
+  }
+  .lightbox img {
+    max-width: 95vw;
+    max-height: 85vh;
+    border-radius: 14px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.7);
+  }
+  .lightbox figcaption {
+    margin-top: 14px;
+    max-width: 600px;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 13px;
+    font-style: italic;
+  }
+  .lightbox .lightbox-close {
+    position: absolute;
+    top: 18px;
+    right: 22px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    font-size: 18px;
+    line-height: 36px;
+    text-align: center;
+    cursor: pointer;
+    border: 1px solid rgba(255, 255, 255, 0.20);
+  }
+  .lightbox .lightbox-close:hover { background: rgba(255, 255, 255, 0.22); }
+  @keyframes lightboxFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  body.lightbox-open { overflow: hidden; }
   figure.shot figcaption {
     margin-top: 8px;
     font-size: 12px;
@@ -396,85 +455,7 @@
     <figcaption>The full controls panel — header, pill row, oscillator strips with FX + LFOs, transport, and the new inline copyright / Manual row at the bottom edge.</figcaption>
   </figure>
 
-  <figure class="diagram">
-    <svg viewBox="0 0 720 380" xmlns="http://www.w3.org/2000/svg" aria-label="Annotated screen anatomy">
-      <defs>
-        <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#0a0a14"/>
-          <stop offset="100%" stop-color="#1a0a1f"/>
-        </linearGradient>
-        <radialGradient id="blob" cx="40%" cy="50%" r="40%">
-          <stop offset="0%" stop-color="#8fb9d9" stop-opacity="0.45"/>
-          <stop offset="100%" stop-color="#8fb9d9" stop-opacity="0"/>
-        </radialGradient>
-        <radialGradient id="blob2" cx="70%" cy="60%" r="35%">
-          <stop offset="0%" stop-color="#cfb6ea" stop-opacity="0.40"/>
-          <stop offset="100%" stop-color="#cfb6ea" stop-opacity="0"/>
-        </radialGradient>
-      </defs>
-      <rect width="720" height="380" rx="14" fill="url(#bg)"/>
-      <rect width="720" height="380" rx="14" fill="url(#blob)"/>
-      <rect width="720" height="380" rx="14" fill="url(#blob2)"/>
-
-      <!-- header -->
-      <rect x="20" y="14" width="680" height="38" rx="10" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.10)"/>
-      <text x="32" y="32" fill="#fff" font-family="-apple-system" font-size="13" font-weight="600">Drone Meditations</text>
-      <text x="32" y="46" fill="rgba(255,255,255,0.55)" font-size="9">12-TET · Oct 4</text>
-      <circle cx="640" cy="33" r="11" fill="rgba(255,255,255,0.08)"/>
-      <circle cx="670" cy="33" r="11" fill="rgba(255,255,255,0.08)"/>
-
-      <!-- pills -->
-      <g font-family="-apple-system" font-size="9" fill="#fff">
-        <rect x="20" y="62" width="62" height="22" rx="11" fill="rgba(255,255,255,0.06)"/><text x="51" y="76" text-anchor="middle">CHORD</text>
-        <rect x="88" y="62" width="62" height="22" rx="11" fill="rgba(255,255,255,0.06)"/><text x="119" y="76" text-anchor="middle">PRESET</text>
-        <rect x="156" y="62" width="62" height="22" rx="11" fill="rgba(140,195,255,0.20)" stroke="rgba(140,195,255,0.40)"/><text x="187" y="76" text-anchor="middle">DRIFT</text>
-        <rect x="224" y="62" width="62" height="22" rx="11" fill="rgba(255,255,255,0.06)"/><text x="255" y="76" text-anchor="middle">LISTEN</text>
-        <rect x="292" y="62" width="62" height="22" rx="11" fill="rgba(255,255,255,0.06)"/><text x="323" y="76" text-anchor="middle">PERFORM</text>
-        <rect x="360" y="62" width="62" height="22" rx="11" fill="rgba(255,195,120,0.20)" stroke="rgba(255,195,120,0.40)"/><text x="391" y="76" text-anchor="middle">JOURNEY</text>
-        <rect x="428" y="62" width="62" height="22" rx="11" fill="rgba(120,230,220,0.20)" stroke="rgba(120,230,220,0.40)"/><text x="459" y="76" text-anchor="middle">GALLERY</text>
-      </g>
-
-      <!-- 4 osc strips -->
-      <g>
-        <rect x="20" y="96" width="680" height="58" rx="10" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)"/>
-        <text x="34" y="112" fill="#fff" font-size="10" font-weight="600">OSC 1 · sine</text>
-        <text x="34" y="125" fill="rgba(255,255,255,0.6)" font-size="9">220.00 Hz</text>
-        <rect x="32" y="135" width="500" height="6" rx="3" fill="rgba(255,255,255,0.10)"/>
-        <rect x="32" y="135" width="180" height="6" rx="3" fill="#8fb9d9"/>
-        <g transform="translate(540,108)" font-size="9" fill="#fff">
-          <rect x="0"  y="0" width="20" height="20" rx="6" fill="rgba(255,255,255,0.08)"/><text x="10" y="14" text-anchor="middle">S</text>
-          <rect x="24" y="0" width="20" height="20" rx="6" fill="rgba(255,255,255,0.08)"/><text x="34" y="14" text-anchor="middle">M</text>
-          <rect x="48" y="0" width="20" height="20" rx="6" fill="rgba(255,255,255,0.08)"/><text x="58" y="14" text-anchor="middle">🎲</text>
-          <rect x="72" y="0" width="20" height="20" rx="6" fill="rgba(255,255,255,0.08)"/><text x="82" y="14" text-anchor="middle">⭐</text>
-          <rect x="96" y="0" width="20" height="20" rx="6" fill="rgba(255,255,255,0.08)"/><text x="106" y="14" text-anchor="middle">🌀</text>
-        </g>
-      </g>
-      <rect x="20" y="160" width="680" height="44" rx="10" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)"/>
-      <text x="34" y="186" fill="rgba(255,255,255,0.7)" font-size="10">OSC 2 · triangle · 330.00 Hz</text>
-      <rect x="20" y="210" width="680" height="44" rx="10" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)"/>
-      <text x="34" y="236" fill="rgba(255,255,255,0.7)" font-size="10">OSC 3 · sawtooth · 440.00 Hz</text>
-      <rect x="20" y="260" width="680" height="44" rx="10" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)"/>
-      <text x="34" y="286" fill="rgba(255,255,255,0.7)" font-size="10">OSC 4 · sine · 550.00 Hz</text>
-
-      <!-- master + transport -->
-      <rect x="20" y="312" width="680" height="50" rx="10" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.08)"/>
-      <text x="34" y="332" fill="#fff" font-size="10" font-weight="600">Master 65%</text>
-      <rect x="100" y="328" width="380" height="6" rx="3" fill="rgba(255,255,255,0.10)"/>
-      <rect x="100" y="328" width="245" height="6" rx="3" fill="#fff"/>
-      <circle cx="540" cy="338" r="16" fill="#8fb9d9"/>
-      <polygon points="535,331 535,346 549,338" fill="#fff"/>
-      <text x="580" y="342" fill="rgba(255,255,255,0.5)" font-size="9">29:42 / 30:00</text>
-
-      <!-- annotations -->
-      <g font-family="-apple-system" font-size="10" fill="#8fb9d9">
-        <text x="710" y="34"  text-anchor="end">→ Spectrum · Chladni toggles</text>
-        <text x="710" y="78"  text-anchor="end">↑ Pill row</text>
-        <text x="710" y="180" text-anchor="end">↑ 4 oscillator strips</text>
-        <text x="710" y="346" text-anchor="end">↑ Master vol + transport + timer</text>
-      </g>
-    </svg>
-    <figcaption>The five horizontal bands of the controls panel.</figcaption>
-  </figure>
+  <p>From top to bottom: <strong>header</strong> (app name, tuning + chord summary, spectrum / camera / cymatics-style toggles) → <strong>pill row</strong> (CHORD · PRESET · DRIFT · LISTEN · PERFORM · JOURNEY · MORPH · GALLERY) → <strong>oscillator strips</strong> (one per voice, each carrying waveform + frequency + pan + level + filter + FX + 4 LFOs) → <strong>transport</strong> (Play / Stop / Record + session timer) → <strong>copyright + Manual link</strong> (the slim row at the very bottom).</p>
 
   <p>Tap or click <strong>anywhere outside</strong> a control to dismiss the panel and reveal the visualization full-screen. Tap again to bring it back. A slim "Tap to show controls" hint appears at the bottom when hidden, with mini freq + S/M controls so you can still adjust audio while watching the Chladni.</p>
 </section>
@@ -1049,6 +1030,66 @@
   <div>© 2026 Jose Gude MD · All Rights Reserved</div>
   <div class="legal">dronemeditations.com · the iOS app is provided as-is for personal meditation use</div>
 </footer>
+
+<!-- Lightbox: click any <figure.shot img> to enlarge. Overlay clicks
+     + Esc dismiss. Caption (from the <figcaption> sibling of the
+     clicked image) is shown below the enlarged image. -->
+<script>
+(function () {
+  function openLightbox(srcImg) {
+    const overlay = document.createElement('div');
+    overlay.className = 'lightbox';
+
+    const closeBtn = document.createElement('div');
+    closeBtn.className = 'lightbox-close';
+    closeBtn.textContent = '×';
+    closeBtn.setAttribute('role', 'button');
+    closeBtn.setAttribute('aria-label', 'Close');
+
+    const img = document.createElement('img');
+    img.src = srcImg.src;
+    img.alt = srcImg.alt || '';
+
+    overlay.appendChild(closeBtn);
+    overlay.appendChild(img);
+
+    // Mirror the figure's caption (if any) below the enlarged image.
+    const fig = srcImg.closest('figure');
+    const cap = fig ? fig.querySelector('figcaption') : null;
+    if (cap && cap.textContent.trim()) {
+      const capEl = document.createElement('figcaption');
+      capEl.textContent = cap.textContent;
+      overlay.appendChild(capEl);
+    }
+
+    function close() {
+      overlay.remove();
+      document.body.classList.remove('lightbox-open');
+      document.removeEventListener('keydown', onKey);
+    }
+    function onKey(e) {
+      if (e.key === 'Escape') close();
+    }
+    // Any click on the overlay (including the image itself or the
+    // caption) closes — the whole modal is dismissible. The close
+    // button is just an explicit affordance.
+    overlay.addEventListener('click', close);
+    document.addEventListener('keydown', onKey);
+
+    document.body.classList.add('lightbox-open');
+    document.body.appendChild(overlay);
+  }
+
+  // Wire every existing + future figure.shot img.
+  document.addEventListener('click', function (e) {
+    const img = e.target.closest('figure.shot img');
+    if (img) {
+      e.preventDefault();
+      openLightbox(img);
+    }
+  });
+})();
+</script>
 
 </body>
 </html>
