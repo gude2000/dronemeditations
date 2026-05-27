@@ -397,8 +397,8 @@ final class AudioEngine {
     func pauseWithReverbBloom(
         fadeDuration: Double = 1.4,
         peakAt: Double = 0.25,
-        peakMix: Float = 0.25,
-        peakDecay: Double = 3.0,
+        peakMix: Float = 0.35,
+        peakDecay: Double = 3.5,
         fadeCurve: FadeCurve = .exponential
     ) async {
         // Run bloom + master fade concurrently. async let starts the

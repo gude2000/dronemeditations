@@ -148,15 +148,18 @@ final class DroneController: ObservableObject {
         pendingFadeOutTask?.cancel()
         let engineRef = engine
         pendingFadeOutTask = Task { @MainActor in
-            // 8 s fade, bloom peaking 30 % in (at t≈2.4 s) with mix=0.5
-            // and decay=6 s — then the bloom ramps BACK down over the
+            // 8 s fade, bloom peaking 30 % in (at t≈2.4 s) with mix=0.7
+            // and decay=7 s — then the bloom ramps BACK down over the
             // remaining 5.6 s so the wet signal joins the master fade
             // instead of holding loud and then collapsing at the end.
+            // User confirmed the bloom feels good; bumped peakMix
+            // 0.50→0.70 (more wash) and peakDecay 6→7 s (a touch
+            // longer hall) per user request.
             await engineRef.stopWithReverbBloom(
                 fadeDuration: 8.0,
                 peakAt: 0.30,
-                peakMix: 0.50,
-                peakDecay: 6.0
+                peakMix: 0.70,
+                peakDecay: 7.0
             )
             // If the user re-pressed Play during the fade, state is no
             // longer .stopped — skip the engine stop. (Play also calls
