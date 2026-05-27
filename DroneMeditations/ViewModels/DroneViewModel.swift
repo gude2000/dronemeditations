@@ -826,8 +826,21 @@ final class DroneViewModel: ObservableObject {
                     audioEngine.setLfoDepth(lfo.depth, for: i, lfoIndex: k)
                 }
             }
-            if let dr = voice.drift {
+            if var dr = voice.drift {
+                // Preserve the user's per-voice quantize-to-scale toggle
+                // across preset loads — quantize is a "post-process"
+                // choice that's orthogonal to the drift motion the
+                // preset is specifying. Preset can still explicitly
+                // turn it on (set quantizeToScale = true in the preset).
+                let existingQuantize = oscillators[i].drift.quantizeToScale
+                if !dr.quantizeToScale {
+                    dr.quantizeToScale = existingQuantize
+                }
                 oscillators[i].drift = dr
+                // Mirror to the DSP-side flag in the engine.
+                if audioEngine.voices.indices.contains(i) {
+                    audioEngine.voices[i].pitchQuantizeToScale = dr.quantizeToScale
+                }
                 // Push through the public setters so the drift timer reconciles.
                 setVoicePitchDrift(i, mode: dr.pitchMode)
                 setVoicePanDrift(i, mode: dr.panMode)
@@ -1474,9 +1487,14 @@ final class DroneViewModel: ObservableObject {
             return
         }
         guard let scene = Self.driftScenes.first(where: { $0.id == sceneId }) else { return }
-        // Bulk-apply scene template into each voice's drift state.
+        // Bulk-apply scene template into each voice's drift state — but
+        // preserve the per-voice quantize-to-scale toggle (independent
+        // of drift motion). Scene only describes pitch/pan motion.
         for i in 0..<oscillators.count where i < scene.voices.count {
-            oscillators[i].drift = scene.voices[i]
+            let keepQuantize = oscillators[i].drift.quantizeToScale
+            var dr = scene.voices[i]
+            dr.quantizeToScale = keepQuantize
+            oscillators[i].drift = dr
         }
         driftSceneId = sceneId
         reconcileDriftRunning(snapshotIfStarting: true)
@@ -1530,7 +1548,13 @@ final class DroneViewModel: ObservableObject {
         driftTimer = nil
         driftSceneId = "off"
         driftVoices.removeAll()
-        for i in 0..<oscillators.count { oscillators[i].drift = .off }
+        // Reset motion to static but preserve the per-voice quantize
+        // toggle — it's an independent post-process setting.
+        for i in 0..<oscillators.count {
+            let keepQuantize = oscillators[i].drift.quantizeToScale
+            oscillators[i].drift = .off
+            oscillators[i].drift.quantizeToScale = keepQuantize
+        }
     }
 
     /// Start the drift timer (snapshotting baselines) if any voice is

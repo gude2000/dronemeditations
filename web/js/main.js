@@ -330,8 +330,20 @@ const actions = {
         }
       }
       if (v.drift) {
+        // Preserve the user's per-voice quantize-to-scale toggle across
+        // preset loads — quantize is a "post-process" choice that's
+        // orthogonal to the drift motion the preset is specifying.
+        // Preset can still explicitly turn it on by including the flag.
+        const existingQuantize = state.oscillators[i].drift?.quantizeToScale ?? false;
         const dr = { ...defaultDrift(), ...v.drift };
+        if (v.drift.quantizeToScale === undefined) dr.quantizeToScale = existingQuantize;
         state.oscillators[i].drift = dr;
+        // Mirror quantize state down to the audio engine (the drift
+        // setters below don't touch this — it's a separate per-voice
+        // DSP flag in the engine).
+        if (engine.voices && engine.voices[i]) {
+          engine.voices[i].pitchQuantizeToScale = !!dr.quantizeToScale;
+        }
         // Push through the public setters so the drift timer reconciles itself.
         setVoicePitchDrift(i, dr.pitchMode);
         setVoicePanDrift(i, dr.panMode);
@@ -1390,9 +1402,12 @@ function startDrift(sceneId) {
       freqTarget: o.frequencyHz, panTarget: o.pan, ampTarget: o.amplitude,
       nextRetargetAt: 0
     });
-    // Apply the scene's voice config into the oscillator's drift state,
-    // overwriting any previous per-voice setting.
+    // Apply the scene's voice config into the oscillator's drift state.
+    // Preserve the user's per-voice quantize-to-scale toggle across
+    // scene changes — quantize is independent of the drift motion the
+    // scene is specifying (the scene only describes pitch/pan motion).
     const cfg = scene.voices[i] || {};
+    const existingQuantize = o.drift?.quantizeToScale ?? false;
     o.drift = {
       pitchMode:   cfg.pitchMode   || "static",
       pitchAmount: cfg.pitchAmount != null ? cfg.pitchAmount : 1,
@@ -1400,6 +1415,7 @@ function startDrift(sceneId) {
       panMode:     cfg.panMode     || "static",
       panAmount:   cfg.panAmount   != null ? cfg.panAmount   : 1,
       panPhase:    cfg.panPhase    || 0,
+      quantizeToScale: existingQuantize,
     };
   }
   state.driftSceneId = sceneId;
@@ -1412,8 +1428,13 @@ function startDrift(sceneId) {
 function stopDrift() {
   state.driftSceneId = "off";
   driftVoices.length = 0;
-  // Reset each voice's drift to static (no motion).
-  for (const o of state.oscillators) o.drift = defaultDrift();
+  // Reset each voice's drift motion to static — but preserve the
+  // per-voice quantize-to-scale flag (it's an independent setting).
+  for (const o of state.oscillators) {
+    const existingQuantize = o.drift?.quantizeToScale ?? false;
+    o.drift = defaultDrift();
+    o.drift.quantizeToScale = existingQuantize;
+  }
   if (driftIntervalId) clearInterval(driftIntervalId);
   driftIntervalId = null;
   renderAll();
