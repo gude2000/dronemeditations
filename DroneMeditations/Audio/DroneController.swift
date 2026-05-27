@@ -25,6 +25,15 @@ final class DroneController: ObservableObject {
     private var ticker: Timer?
     private var lastTickDate: Date?
 
+    /// The async Task spawned by the most recent pause()/stop() to run
+    /// the fade-out and then call engine.stop(). Held onto so that a
+    /// subsequent play() can cancel it BEFORE its sleep wakes up — without
+    /// this, the Task fires engine.stop() on whatever audio the user has
+    /// since resumed. Symptom: tap Stop, tap Play within 5 s, audio
+    /// resumes, then ~5 s after the original Stop the audio cuts off
+    /// silently as the stale Task wakes up and slams volume to 0.
+    private var pendingFadeOutTask: Task<Void, Never>?
+
     /// Reasonable preset choices for the duration picker.
     static let durationChoices: [TimeInterval] = [
         5 * 60, 10 * 60, 15 * 60, 20 * 60, 30 * 60, 45 * 60, 60 * 60, 0
@@ -35,6 +44,13 @@ final class DroneController: ObservableObject {
     }
 
     func play() {
+        // Cancel any in-flight fade-out from a recent pause/stop so it
+        // can't wake up post-sleep and slam audio to 0 / stop the engine
+        // out from under the just-resumed playback. See the
+        // pendingFadeOutTask comment.
+        pendingFadeOutTask?.cancel()
+        pendingFadeOutTask = nil
+
         let fromStopped = (state == .stopped)
         // If the engine is already running (typically because Listen left
         // it running silently to avoid hardware re-init lag), treat this
@@ -70,9 +86,16 @@ final class DroneController: ObservableObject {
         stopTicker()
         state = .paused
         // 1.2 s exponential fade — snappy response, no click. Good for
-        // pause where the user expects quick silence.
-        Task { @MainActor in
+        // pause where the user expects quick silence. Held onto so
+        // play() can cancel it before it fires engine.stop() against
+        // resumed playback.
+        pendingFadeOutTask?.cancel()
+        pendingFadeOutTask = Task { @MainActor in
             await engine.fadeOutMaster(seconds: 1.2, curve: .exponential)
+            // If the user re-pressed Play during the fade, state is no
+            // longer .paused — skip the engine stop so the now-playing
+            // engine isn't torn down.
+            guard self.state == .paused else { return }
             engine.stop()
         }
     }
@@ -92,13 +115,19 @@ final class DroneController: ObservableObject {
         if engine.isRecording {
             finalizeRecording()
         }
-        // 5 s smoothstep fade — gradual at both endpoints (Hermite
-        // cubic 3t²-2t³ has zero slope at start and end). Feels uniformly
-        // gradual to the ear rather than the "sharp drop, long tail" of
-        // exponential. Combined with the 200 ms post-silence buffer in
-        // fadeOutMaster, no click on engine.stop().
-        Task { @MainActor in
-            await engine.fadeOutMaster(seconds: 5.0, curve: .smoothstep)
+        // 3 s logarithmic fade — faster than the previous 5 s smoothstep
+        // (user feedback: "not very gradual"), and the logarithmic curve
+        // makes the dB drop linearly over time so the descent FEELS
+        // uniformly gradual to the ear. The audio reaches -40 dB at
+        // t=3 s and snaps inaudibly to silence. Combined with the
+        // 200 ms post-silence buffer in fadeOutMaster, no click on
+        // engine.stop().
+        pendingFadeOutTask?.cancel()
+        pendingFadeOutTask = Task { @MainActor in
+            await engine.fadeOutMaster(seconds: 3.0, curve: .logarithmic)
+            // If the user re-pressed Play during the fade, state is no
+            // longer .stopped — skip the engine stop.
+            guard self.state == .stopped else { return }
             engine.stop()
         }
     }

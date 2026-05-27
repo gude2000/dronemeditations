@@ -243,10 +243,16 @@ final class AudioEngine {
     ///  - equalPower: sin-shaped, gentle onset — used for fade-ins.
     ///  - exponential: sharp early drop, gradual tail — "snappy" stop.
     ///  - smoothstep: slow start, faster middle, slow end (Hermite cubic).
-    ///    Sounds most "gradual" of all curves; used for the meditation
-    ///    stop fade so the user perceives a smooth even taper rather
-    ///    than a sudden drop.
-    enum FadeCurve { case linear, equalPower, exponential, smoothstep }
+    ///  - logarithmic: amplitude decays exponentially so the PERCEIVED
+    ///    loudness (which is logarithmic in amplitude — every -6 dB
+    ///    halves the perceived volume) drops at a steady rate. Sounds
+    ///    "uniformly gradual" to the ear in a way smoothstep doesn't:
+    ///    smoothstep is gradual in amplitude (linear-space) but the
+    ///    last 20 % feels rushed because dropping from -10 dB to -∞
+    ///    happens fast in amplitude terms. Logarithmic spreads the dB
+    ///    drop evenly. The best curve for a "winding down" meditation
+    ///    stop fade.
+    enum FadeCurve { case linear, equalPower, exponential, smoothstep, logarithmic }
 
     private func rampMaster(to target: Float, over duration: Double, curve: FadeCurve = .linear) {
         cancelFade()
@@ -276,10 +282,22 @@ final class AudioEngine {
                 t = 1 - pow(1 - tLin, 3)
             case .smoothstep:
                 // Hermite cubic 3t² - 2t³ — slow at both endpoints,
-                // faster in the middle. Feels uniformly gradual to the
-                // ear because the rate of change is symmetric and gentle
-                // on both sides. Best curve for long meditation fade-outs.
+                // faster in the middle. Feels uniformly gradual in
+                // AMPLITUDE space but the last 20 % rushes in
+                // perceived loudness terms (going from -10 dB to -∞
+                // happens fast in amplitude).
                 t = tLin * tLin * (3 - 2 * tLin)
+            case .logarithmic:
+                // amplitude = startVol * 10^(-2 * tLin), which makes
+                // perceived loudness (= 20·log10(amp)) descend linearly
+                // from 0 dB at tLin=0 to -40 dB at tLin=1. The final
+                // snap to 0 (handled by the tLin >= 1 clamp below) is
+                // inaudible at -40 dB. Used for the meditation stop
+                // fade so the user hears a steady wind-down rather
+                // than a hold-then-drop. Faster than smoothstep at the
+                // same nominal duration because the perceived volume
+                // descent begins immediately.
+                t = 1 - pow(10, -2 * tLin)
             }
             mixer.outputVolume = startVolume + (target - startVolume) * Float(t)
             if tLin >= 1.0 {
