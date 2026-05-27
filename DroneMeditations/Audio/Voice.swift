@@ -362,7 +362,10 @@ final class Voice {
         let endClamped = max(startClamped + 0.001, min(1.0, sampleEndFrac))
         let windowStartFrame = Double(sampleCount) * startClamped
         let windowEndFrame = Double(sampleCount) * endClamped
-        let windowLength = max(1.0, windowEndFrame - windowStartFrame)
+        // (windowLength = windowEndFrame - windowStartFrame is conceptually
+        // useful but never materialized here — the overshoot-clamp on line
+        // ~414 below uses `samplePosition >= windowEndFrame` instead,
+        // which is the same check expressed in absolute coordinates.)
         // Fade lengths in sample frames at the sample's native rate.
         let fadeInFrames = max(0.0, sampleFadeInSec * sampleNativeRate)
         let fadeOutFrames = max(0.0, sampleFadeOutSec * sampleNativeRate)
