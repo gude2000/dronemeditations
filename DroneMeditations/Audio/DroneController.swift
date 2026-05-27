@@ -90,13 +90,22 @@ final class DroneController: ObservableObject {
         // play() can cancel it before it fires engine.stop() against
         // resumed playback.
         pendingFadeOutTask?.cancel()
+        let engineRef = engine
         pendingFadeOutTask = Task { @MainActor in
-            await engine.fadeOutMaster(seconds: 1.2, curve: .exponential)
+            await engineRef.fadeOutMaster(seconds: 1.2, curve: .exponential)
             // If the user re-pressed Play during the fade, state is no
             // longer .paused — skip the engine stop so the now-playing
             // engine isn't torn down.
             guard self.state == .paused else { return }
-            engine.stop()
+            // engine.stop() on real iPhone with the mic input AU wired
+            // into the graph (post-Listen) can block the calling thread
+            // for several seconds while iOS tears down both I/O AU
+            // bindings. Run it on a detached task so the @MainActor
+            // stays unblocked and UI taps (Play, Stop, sliders, etc.)
+            // remain responsive during the teardown.
+            Task.detached { [engineRef] in
+                engineRef.stop()
+            }
         }
     }
 
@@ -123,12 +132,18 @@ final class DroneController: ObservableObject {
         // pause/stop to be the same kind of "wind it down quickly"
         // gesture, not two different musical statements.
         pendingFadeOutTask?.cancel()
+        let engineRef = engine
         pendingFadeOutTask = Task { @MainActor in
-            await engine.fadeOutMaster(seconds: 1.2, curve: .exponential)
+            await engineRef.fadeOutMaster(seconds: 1.2, curve: .exponential)
             // If the user re-pressed Play during the fade, state is no
             // longer .stopped — skip the engine stop.
             guard self.state == .stopped else { return }
-            engine.stop()
+            // engine.stop() can block on real hardware when the mic
+            // input AU is wired into the graph (post-Listen). Detach
+            // so UI stays responsive — see pause() for details.
+            Task.detached { [engineRef] in
+                engineRef.stop()
+            }
         }
     }
 
