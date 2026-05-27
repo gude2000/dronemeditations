@@ -14,10 +14,13 @@ import SwiftUI
 /// horizontal max is set by the parent (typically 900pt to match the iPad
 /// strip cap).
 struct CopyrightStrip: View {
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
+    private var isCompact: Bool { verticalSizeClass == .compact }
+
     var body: some View {
         HStack(spacing: 12) {
             Text("© 2026 Jose Gude MD")
-                .font(.system(size: 10))
+                .font(.system(size: isCompact ? 9 : 10))
                 .foregroundStyle(.white.opacity(0.42))
                 .lineLimit(1)
                 .truncationMode(.tail)
@@ -27,20 +30,20 @@ struct CopyrightStrip: View {
             Link(destination: URL(string: "https://dronemeditations.com/manual.html")!) {
                 HStack(spacing: 4) {
                     Image(systemName: "book")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: isCompact ? 10 : 11, weight: .semibold))
                     Text("Manual")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: isCompact ? 11 : 12, weight: .semibold))
                 }
                 .foregroundStyle(.white.opacity(0.80))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
+                .padding(.horizontal, isCompact ? 8 : 10)
+                .padding(.vertical, isCompact ? 3 : 5)
                 .background(Capsule().fill(Color.white.opacity(0.10)))
                 .overlay(Capsule().stroke(Color.white.opacity(0.20), lineWidth: 1))
             }
             .buttonStyle(.plain)
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 4)
+        .padding(.vertical, isCompact ? 1 : 4)
         .frame(maxWidth: .infinity)
     }
 }

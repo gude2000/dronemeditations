@@ -101,7 +101,7 @@ struct ControlsOverlay: View {
 
                 TransportView(controller: vm.controller)
                     .padding(.horizontal, isCompact ? 10 : 12)
-                    .padding(.bottom, isCompact ? 2 : 4)
+                    .padding(.bottom, isCompact ? 1 : 4)
 
                 // Copyright + Manual link inlined under the transport. Sits at
                 // the very bottom of the controls panel so it never overlaps
@@ -110,7 +110,7 @@ struct ControlsOverlay: View {
                 // copy. Replaces the old free-floating copyrightOverlay that
                 // collided with the transport area in portrait + landscape.
                 CopyrightStrip()
-                    .padding(.bottom, isCompact ? 4 : 8)
+                    .padding(.bottom, isCompact ? 1 : 8)
             }
             // On iPhone (compact size class) the cap of 900pt is a no-op since
             // iPhone screens are < 900pt wide. On iPad it widens to 1200pt so

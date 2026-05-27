@@ -14,7 +14,7 @@ struct TransportView: View {
             if isCompact { compactBody } else { fullBody }
         }
         .padding(.horizontal, isCompact ? 12 : 16)
-        .padding(.vertical, isCompact ? 7 : 14)
+        .padding(.vertical, isCompact ? 4 : 14)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(.ultraThinMaterial)
@@ -47,13 +47,16 @@ struct TransportView: View {
     }
 
     private var compactBody: some View {
-        HStack(spacing: 12) {
-            playPauseButton(size: 44, iconSize: 20)
-            stopButton(size: 36, iconSize: 14)
-            recordButton(size: 36, iconSize: 14)
+        // iPhone landscape: every pixel of vertical space matters because
+        // the strips below + 4 LFO rows per voice eat the screen. Shrunk
+        // from the earlier 44/36 sizes to claw back ~14pt for the strips.
+        HStack(spacing: 10) {
+            playPauseButton(size: 38, iconSize: 17)
+            stopButton(size: 30, iconSize: 12)
+            recordButton(size: 30, iconSize: 12)
 
             Text(timeLabel)
-                .font(.system(.subheadline, design: .monospaced))
+                .font(.system(.footnote, design: .monospaced))
                 .foregroundStyle(.white)
 
             Spacer()
@@ -158,15 +161,18 @@ struct TransportView: View {
                 }
             }
         } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: isCompact ? 4 : 6) {
                 Image(systemName: "timer")
+                    .font(isCompact ? .caption : .body)
                 Text(durationLabel)
-                    .font(.system(.subheadline, design: .rounded).weight(.medium))
+                    .font(isCompact
+                          ? .system(.caption, design: .rounded).weight(.medium)
+                          : .system(.subheadline, design: .rounded).weight(.medium))
                 Image(systemName: "chevron.down")
                     .font(.caption2)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.horizontal, isCompact ? 9 : 12)
+            .padding(.vertical, isCompact ? 5 : 8)
             .background(Capsule().fill(Color.white.opacity(0.12)))
             .foregroundStyle(.white)
         }

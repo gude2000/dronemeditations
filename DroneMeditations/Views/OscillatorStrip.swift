@@ -890,7 +890,7 @@ struct OscillatorStrip: View {
                         Text(t.shortLabel)
                             .font(.system(size: 9, weight: .semibold))
                             .lineLimit(1)
-                            .frame(minWidth: 22)
+                            .fixedSize(horizontal: true, vertical: false)
                             .padding(.horizontal, 4)
                             .padding(.vertical, 3)
                             .background(
@@ -902,7 +902,7 @@ struct OscillatorStrip: View {
                     .buttonStyle(.plain)
                 }
             }
-            .frame(width: 80, alignment: .leading)
+            .layoutPriority(1)
 
             VStack(alignment: .leading, spacing: 0) {
                 Text(rateLabel(lfo.rateHz))
