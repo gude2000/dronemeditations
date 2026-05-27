@@ -374,19 +374,28 @@ const LFO_ICON_SVG = {
   sine:     '<svg viewBox="0 0 24 12" width="20" height="10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M1 6c2-5 4-5 6 0s4 5 6 0 4-5 6 0 4 5 4 0"/></svg>',
   triangle: '<svg viewBox="0 0 24 12" width="20" height="10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M1 10l5-8 6 8 6-8 6 8"/></svg>',
   square:   '<svg viewBox="0 0 24 12" width="20" height="10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M1 10h5V2h6v8h6V2h5"/></svg>',
-  sh:       '<svg viewBox="0 0 24 12" width="20" height="10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M1 9h4V3h5v6h4V5h4v4h4"/></svg>'
+  sh:       '<svg viewBox="0 0 24 12" width="20" height="10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M1 9h4V3h5v6h4V5h4v4h4"/></svg>',
+  // Rising sawtooth: linear ramp up, vertical drop back. Drawn as
+  // two periods so the shape reads at a glance in the picker.
+  sawtooth: '<svg viewBox="0 0 24 12" width="20" height="10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M1 10l5-8v8l5-8v8l5-8v8l5-8"/></svg>',
+  // Falling ramp: vertical jump up, linear ramp down. Mirror of saw.
+  ramp:     '<svg viewBox="0 0 24 12" width="20" height="10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M1 2v8l5-8v8l5-8v8l5-8v8l5-8"/></svg>'
 };
 const LFO_SHAPES  = [
   {id: "sine",     label: "sine"},
   {id: "triangle", label: "triangle"},
   {id: "square",   label: "square"},
-  {id: "sh",       label: "S&H"}
+  {id: "sh",       label: "S&H"},
+  {id: "sawtooth", label: "saw ↗"},
+  {id: "ramp",     label: "ramp ↘"}
 ];
 const LFO_TARGETS = [
   {id: "pan",    label: "pan"},
   {id: "amp",    label: "amp"},
   {id: "cutoff", label: "cut"},
-  {id: "pitch",  label: "pitch"}
+  {id: "pitch",  label: "pitch"},
+  {id: "q",      label: "Q"},
+  {id: "fm",     label: "FM"}
 ];
 const FILTER_TYPES = [
   {id: "lowpass",  label: "LP"},

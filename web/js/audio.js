@@ -594,7 +594,10 @@ export class AudioEngine {
     let ampScale = 1.0;
     let cutoffOct = 0;       // additive octaves of cutoff modulation
     let pitchSemitones = 0;  // additive semitones of pitch modulation
+    let qOct = 0;            // additive octaves of filter Q modulation (v1.1)
+    let fmIndexMod = 0;      // additive Hz of FM index modulation (v1.1)
     let anyPan = false, anyAmp = false, anyCutoff = false, anyPitch = false;
+    let anyQ = false, anyFm = false;
 
     for (let k = 0; k < 4; k++) {
       const lfo = v.params.lfos[k];
@@ -617,8 +620,16 @@ export class AudioEngine {
         // Square wave: +1 first half of the cycle, -1 second half. Abrupt
         // transitions — useful as a gate/tremolo when routed to amp.
         lfoValue = v._lfoPhase[k] < 0.5 ? 1 : -1;
+      } else if (lfo.shape === "sawtooth") {
+        // Rising sawtooth: linear -1 → +1 over the phase, then jumps back.
+        // Classic upward sweep for filter sweeps, pitch rises, etc.
+        lfoValue = 2 * v._lfoPhase[k] - 1;
+      } else if (lfo.shape === "ramp") {
+        // Falling ramp (inverse sawtooth): +1 → -1 then jumps back.
+        // Mirror of sawtooth; envelope-like attack-then-decay sweeps.
+        lfoValue = 1 - 2 * v._lfoPhase[k];
       } else {
-        // sample-and-hold
+        // sample-and-hold (id "sh")
         if (stepped || v._lfoHold[k] == null || v._lfoHold[k] === 0) {
           v._lfoHold[k] = Math.random() * 2 - 1;
         }
@@ -640,6 +651,16 @@ export class AudioEngine {
         // ±2 semitones swing at depth=1 (musical vibrato range).
         pitchSemitones += 2 * lfo.depth * lfoValue;
         anyPitch = true;
+      } else if (lfo.target === "q") {
+        // ±1.5 octaves of filter Q at depth=1. Matches iOS Voice.swift
+        // filterQ modulation — multiplicative in log-Q space.
+        qOct += 1.5 * lfo.depth * lfoValue;
+        anyQ = true;
+      } else if (lfo.target === "fm") {
+        // ±200 Hz of FM index at depth=1, additive. Clamped to [0, 800]
+        // when applied (matches the slider range).
+        fmIndexMod += 200 * lfo.depth * lfoValue;
+        anyFm = true;
       }
     }
 
@@ -680,6 +701,27 @@ export class AudioEngine {
         v.sampleSrc.playbackRate.cancelScheduledValues(now);
         v.sampleSrc.playbackRate.setValueAtTime(v.sampleSrc.playbackRate.value, now);
         v.sampleSrc.playbackRate.linearRampToValueAtTime(rateEff, now + LFO_SMOOTH);
+      }
+    }
+    if (anyQ) {
+      // ±1.5 octaves of Q at depth=1 — multiplicative in log-Q space.
+      // Clamp to the BiquadFilterNode's stable range (Q can go to ~30+
+      // but starts ringing into oscillation; our slider tops at 20).
+      const qEff = Math.max(0.3, Math.min(20, v.params.filter.q * Math.pow(2, qOct)));
+      v.filter.Q.cancelScheduledValues(now);
+      v.filter.Q.setValueAtTime(v.filter.Q.value, now);
+      v.filter.Q.linearRampToValueAtTime(qEff, now + LFO_SMOOTH);
+    }
+    if (anyFm) {
+      // FM index in Hz; clamp to the slider range [0, 800]. The depth
+      // gain node (set up in _applyFMPatch) carries the index value —
+      // ramping it ramps the FM amount. No-op if no FM source is
+      // currently patched (fmDepthGain only exists when source >= 0).
+      const fmEff = Math.max(0, Math.min(800, v.params.fm.index + fmIndexMod));
+      if (v.fmDepthGain) {
+        v.fmDepthGain.gain.cancelScheduledValues(now);
+        v.fmDepthGain.gain.setValueAtTime(v.fmDepthGain.gain.value, now);
+        v.fmDepthGain.gain.linearRampToValueAtTime(fmEff, now + LFO_SMOOTH);
       }
     }
   }
