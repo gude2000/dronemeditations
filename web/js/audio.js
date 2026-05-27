@@ -345,10 +345,13 @@ export class AudioEngine {
           // grain envelopes via setValueAtTime / linearRampToValueAtTime.
           grain: v.grain || { sizeMs: 80, densityHz: 8, jitter: 0.6, panSpread: 0.5 },
           lfos: (v.lfos || [
-            { shape: "sine", target: "pan",    rateHz: 0.25, depth: 0 },
-            { shape: "sh",   target: "amp",    rateHz: 0.50, depth: 0 },
-            { shape: "sine", target: "cutoff", rateHz: 0.30, depth: 0 },
-            { shape: "sine", target: "pitch",  rateHz: 0.30, depth: 0 }
+            // v1.1 multi-target: targets is a SET (array) of
+            // destinations. v1.0 wrote `target: "x"` — read/dispatch
+            // handles either form for back-compat with old presets.
+            { shape: "sine", targets: ["pan"],    rateHz: 0.25, depth: 0 },
+            { shape: "sh",   targets: ["amp"],    rateHz: 0.50, depth: 0 },
+            { shape: "sine", targets: ["cutoff"], rateHz: 0.30, depth: 0 },
+            { shape: "sine", targets: ["pitch"],  rateHz: 0.30, depth: 0 }
           ]).map((l) => ({ ...l }))
         },
         _lfoPhase: [0, 0, 0, 0],
@@ -641,31 +644,32 @@ export class AudioEngine {
         lfoValue = v._lfoHold[k];
       }
 
-      if (lfo.target === "pan") {
-        panMod += lfo.depth * lfoValue;
-        anyPan = true;
-      } else if (lfo.target === "amp") {
-        // Tremolo: ±60% swing at depth=1, multiplicative.
-        ampScale *= (1 + 0.6 * lfo.depth * lfoValue);
-        anyAmp = true;
-      } else if (lfo.target === "cutoff") {
-        // ±2 octaves swing at depth=1.
-        cutoffOct += 2 * lfo.depth * lfoValue;
-        anyCutoff = true;
-      } else if (lfo.target === "pitch") {
-        // ±2 semitones swing at depth=1 (musical vibrato range).
-        pitchSemitones += 2 * lfo.depth * lfoValue;
-        anyPitch = true;
-      } else if (lfo.target === "q") {
-        // ±1.5 octaves of filter Q at depth=1. Matches iOS Voice.swift
-        // filterQ modulation — multiplicative in log-Q space.
-        qOct += 1.5 * lfo.depth * lfoValue;
-        anyQ = true;
-      } else if (lfo.target === "fm") {
-        // ±200 Hz of FM index at depth=1, additive. Clamped to [0, 800]
-        // when applied (matches the slider range).
-        fmIndexMod += 200 * lfo.depth * lfoValue;
-        anyFm = true;
+      // v1.1 multi-target: each LFO can drive multiple destinations
+      // simultaneously. Backward compat: if lfo.targets is missing
+      // (v1.0 preset / state), wrap lfo.target into a single-element
+      // array.
+      const targets = Array.isArray(lfo.targets) ? lfo.targets
+        : (lfo.target ? [lfo.target] : []);
+      for (const target of targets) {
+        if (target === "pan") {
+          panMod += lfo.depth * lfoValue;
+          anyPan = true;
+        } else if (target === "amp") {
+          ampScale *= (1 + 0.6 * lfo.depth * lfoValue);
+          anyAmp = true;
+        } else if (target === "cutoff") {
+          cutoffOct += 2 * lfo.depth * lfoValue;
+          anyCutoff = true;
+        } else if (target === "pitch") {
+          pitchSemitones += 2 * lfo.depth * lfoValue;
+          anyPitch = true;
+        } else if (target === "q") {
+          qOct += 1.5 * lfo.depth * lfoValue;
+          anyQ = true;
+        } else if (target === "fm") {
+          fmIndexMod += 200 * lfo.depth * lfoValue;
+          anyFm = true;
+        }
       }
     }
 
@@ -1067,8 +1071,14 @@ export class AudioEngine {
   }
 
   setLfoTarget(voiceIndex, lfoIndex, target) {
+    this.setLfoTargets(voiceIndex, lfoIndex, [target]);
+  }
+
+  /// v1.1 multi-target: replace the full targets array in one call.
+  setLfoTargets(voiceIndex, lfoIndex, targets) {
     const v = this.voices[voiceIndex]; if (!v) return;
-    v.params.lfos[lfoIndex].target = target;
+    v.params.lfos[lfoIndex].targets = Array.isArray(targets) ? targets : [targets];
+    delete v.params.lfos[lfoIndex].target;
   }
 
   setFilterType(voiceIndex, type) {

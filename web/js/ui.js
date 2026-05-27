@@ -680,8 +680,11 @@ function buildStrip(index) {
     section.querySelectorAll('[data-shape]').forEach((b) =>
       b.addEventListener("click", () => dispatch.setLfoShape(index, lfoIdx, b.dataset.shape))
     );
+    // v1.1 multi-target: target buttons toggle membership instead
+    // of single-select. Selected state is rendered from lfo.targets
+    // in syncStrip — see the data-target highlight below.
     section.querySelectorAll('[data-target]').forEach((b) =>
-      b.addEventListener("click", () => dispatch.setLfoTarget(index, lfoIdx, b.dataset.target))
+      b.addEventListener("click", () => dispatch.toggleLfoTarget(index, lfoIdx, b.dataset.target))
     );
   });
 
@@ -1096,8 +1099,15 @@ function syncStrip(index, root) {
 
     section.querySelectorAll('[data-shape]').forEach((b) =>
       b.classList.toggle("selected", b.dataset.shape === lfo.shape));
+    // v1.1 multi-target: highlight every button whose target is in
+    // the LFO's targets array (legacy single-string `target` also
+    // honored via currentTargets() in main.js's helpers; here we
+    // just read the resolved list off the lfo).
+    const activeTargets = Array.isArray(lfo.targets)
+      ? lfo.targets
+      : (lfo.target ? [lfo.target] : []);
     section.querySelectorAll('[data-target]').forEach((b) =>
-      b.classList.toggle("selected", b.dataset.target === lfo.target));
+      b.classList.toggle("selected", activeTargets.includes(b.dataset.target)));
   });
 }
 

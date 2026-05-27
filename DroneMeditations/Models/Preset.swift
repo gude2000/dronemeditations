@@ -206,19 +206,19 @@ extension Preset {
                [
                 Voice(hz: 110.00,  pan: -0.4, wave: .sine, amp: 0.55,
                       reverb: ReverbState(decaySec: 8.0, mix: 0.40),
-                      lfos: [LfoState(shape: .sine, target: .amplitude, rateHz: 0.07, depth: 0.30), nil, nil, nil]),
+                      lfos: [LfoState(shape: .sine, targets: [.amplitude], rateHz: 0.07, depth: 0.30), nil, nil, nil]),
                 Voice(hz: 220.12,  pan:  0.4, wave: .sine, amp: 0.50,
                       startDelaySec: 60,
                       reverb: ReverbState(decaySec: 8.0, mix: 0.40),
-                      lfos: [LfoState(shape: .sine, target: .amplitude, rateHz: 0.09, depth: 0.35), nil, nil, nil]),
+                      lfos: [LfoState(shape: .sine, targets: [.amplitude], rateHz: 0.09, depth: 0.35), nil, nil, nil]),
                 Voice(hz: 329.85,  pan: -0.2, wave: .sine, amp: 0.42,
                       startDelaySec: 120,
                       reverb: ReverbState(decaySec: 8.0, mix: 0.40),
-                      lfos: [LfoState(shape: .sine, target: .amplitude, rateHz: 0.06, depth: 0.40), nil, nil, nil]),
+                      lfos: [LfoState(shape: .sine, targets: [.amplitude], rateHz: 0.06, depth: 0.40), nil, nil, nil]),
                 Voice(hz: 440.00,  pan:  0.2, wave: .sine, amp: 0.38,
                       startDelaySec: 240,
                       reverb: ReverbState(decaySec: 8.0, mix: 0.40),
-                      lfos: [LfoState(shape: .sine, target: .amplitude, rateHz: 0.08, depth: 0.35), nil, nil, nil])
+                      lfos: [LfoState(shape: .sine, targets: [.amplitude], rateHz: 0.08, depth: 0.35), nil, nil, nil])
                ]),
 
         // Terry Riley — Rainbow Repetition (cascade staggered at 0/15/45/90 s)
@@ -258,7 +258,7 @@ extension Preset {
                    let rev = ReverbState(decaySec: 10.0, mix: 0.45)
                    let cho = ChorusState(rateHz: 0.4, depth: 0.5, width: 1.0, mix: 0.30)
                    func mkLFO(_ rate: Double) -> [LfoState?] {
-                       [nil, LfoState(shape: .sine, target: .cutoff, rateHz: rate, depth: 0.35), nil, nil]
+                       [nil, LfoState(shape: .sine, targets: [.cutoff], rateHz: rate, depth: 0.35), nil, nil]
                    }
                    return [
                     Voice(hz: 110.00, pan: -0.4, wave: .sawtooth, amp: 0.50,
@@ -284,7 +284,7 @@ extension Preset {
                subtitle: "Sunn O))) · sub-bass E + amp drive · square tremolo · drop master volume",
                {
                    let rev = ReverbState(decaySec: 9.0, mix: 0.45)
-                   let trem: [LfoState?] = [LfoState(shape: .square, target: .amplitude, rateHz: 0.7, depth: 0.30), nil, nil, nil]
+                   let trem: [LfoState?] = [LfoState(shape: .square, targets: [.amplitude], rateHz: 0.7, depth: 0.30), nil, nil, nil]
                    return [
                     Voice(hz:  41.20, pan: -0.5, wave: .sawtooth, amp: 0.75, drive: 6.5,
                           filter: FilterState(type: .lowpass, cutoffHz: 350, q: 2.0),
@@ -311,8 +311,8 @@ extension Preset {
                           delay: DelayState(timeSec: 0.50, feedback: 0.65, mix: 0.40, mode: .stereo, timing: .quarter),
                           chorus: nil, fm: nil,
                           lfos: [
-                            LfoState(shape: .sine, target: .amplitude, rateHz: 0.08, depth: 0.45),
-                            LfoState(shape: .sine, target: .cutoff,    rateHz: 0.03, depth: 0.55),
+                            LfoState(shape: .sine, targets: [.amplitude], rateHz: 0.08, depth: 0.45),
+                            LfoState(shape: .sine, targets: [.cutoff],    rateHz: 0.03, depth: 0.55),
                             nil, nil
                           ]),
                     Voice(hz: 130.81, pan:  0.0, wave: .sine, amp: 0.45, reverb: rev),
@@ -325,7 +325,7 @@ extension Preset {
                           startDelaySec: 90,
                           filter: FilterState(type: .highpass, cutoffHz: 600, q: 0.7),
                           reverb: rev,
-                          lfos: [LfoState(shape: .sine, target: .amplitude, rateHz: 0.08, depth: 0.55), nil, nil, nil])
+                          lfos: [LfoState(shape: .sine, targets: [.amplitude], rateHz: 0.08, depth: 0.55), nil, nil, nil])
                    ]
                }()),
 
@@ -367,7 +367,7 @@ extension Preset {
                {
                    let cho = ChorusState(rateHz: 0.7, depth: 0.6, width: 0.7, mix: 0.40)
                    let rev = ReverbState(decaySec: 4.0, mix: 0.30)
-                   let wobble: [LfoState?] = [nil, nil, nil, LfoState(shape: .sine, target: .pitch, rateHz: 5.0, depth: 0.02)]
+                   let wobble: [LfoState?] = [nil, nil, nil, LfoState(shape: .sine, targets: [.pitch], rateHz: 5.0, depth: 0.02)]
                    return [
                     Voice(hz: 110.00, pan:  0.0, wave: .sawtooth, amp: 0.65,
                           filter: FilterState(type: .lowpass, cutoffHz: 1800, q: 1.0),
@@ -391,7 +391,7 @@ extension Preset {
                    let rev = ReverbState(decaySec: 9.0, mix: 0.50)
                    let cho = ChorusState(rateHz: 0.3, depth: 0.4, width: 0.6, mix: 0.25)
                    func br(_ rate: Double) -> [LfoState?] {
-                       [LfoState(shape: .sine, target: .amplitude, rateHz: rate, depth: 0.40), nil, nil, nil]
+                       [LfoState(shape: .sine, targets: [.amplitude], rateHz: rate, depth: 0.40), nil, nil, nil]
                    }
                    return [
                     Voice(hz: 130.81, pan: -0.3, wave: .sine,     amp: 0.50, reverb: rev, chorus: cho, lfos: br(0.04)),
@@ -407,7 +407,7 @@ extension Preset {
                {
                    let rev = ReverbState(decaySec: 4.0, mix: 0.40)
                    let cho = ChorusState(rateHz: 6.0, depth: 0.7, width: 1.0, mix: 0.50)
-                   let leslie: [LfoState?] = [nil, nil, LfoState(shape: .sine, target: .pan, rateHz: 0.8, depth: 0.40), nil]
+                   let leslie: [LfoState?] = [nil, nil, LfoState(shape: .sine, targets: [.pan], rateHz: 0.8, depth: 0.40), nil]
                    return [
                     Voice(hz:  58.27, pan:  0.0, wave: .sawtooth, amp: 0.60,
                           filter: FilterState(type: .lowpass, cutoffHz: 1500, q: 1.0),
@@ -458,7 +458,7 @@ extension Preset {
                     Voice(hz: 233.08, pan:  0.8, wave: .square,   amp: 0.35, drive: 2.0,
                           filter: FilterState(type: .highpass, cutoffHz: 400, q: 2.5),
                           reverb: rev,
-                          lfos: [nil, LfoState(shape: .sampleAndHold, target: .cutoff, rateHz: 0.15, depth: 0.55), nil, nil]),
+                          lfos: [nil, LfoState(shape: .sampleAndHold, targets: [.cutoff], rateHz: 0.15, depth: 0.55), nil, nil]),
                     Voice(hz: 311.13, pan: -0.3, wave: .sine,     amp: 0.30, reverb: rev),
                     // White noise w/ S&H amp LFO + wandering BP — intermittent
                     // texture bursts at irregular intervals, very NWW.
@@ -466,8 +466,8 @@ extension Preset {
                           filter: FilterState(type: .bandpass, cutoffHz: 1200, q: 4.0),
                           reverb: rev,
                           lfos: [
-                            LfoState(shape: .sampleAndHold, target: .amplitude, rateHz: 0.30, depth: 0.80),
-                            LfoState(shape: .sine, target: .cutoff, rateHz: 0.10, depth: 0.50),
+                            LfoState(shape: .sampleAndHold, targets: [.amplitude], rateHz: 0.30, depth: 0.80),
+                            LfoState(shape: .sine, targets: [.cutoff], rateHz: 0.10, depth: 0.50),
                             nil, nil
                           ])
                    ]
@@ -480,7 +480,7 @@ extension Preset {
                    let cho = ChorusState(rateHz: 1.5, depth: 0.7, width: 1.0, mix: 0.50)
                    let rev = ReverbState(decaySec: 5.0, mix: 0.40)
                    func wob(_ rate: Double) -> [LfoState?] {
-                       [nil, nil, nil, LfoState(shape: .sine, target: .pitch, rateHz: rate, depth: 0.05)]
+                       [nil, nil, nil, LfoState(shape: .sine, targets: [.pitch], rateHz: rate, depth: 0.05)]
                    }
                    return [
                     Voice(hz:   73.42, pan:  0.0, wave: .sawtooth, amp: 0.55, drive: 3.5,
@@ -615,7 +615,7 @@ extension Preset {
                           filter: FilterState(type: .lowpass, cutoffHz: 1500, q: 1.0),
                           reverb: rev,
                           delay: DelayState(timeSec: 0.50, feedback: 0.65, mix: 0.40, mode: .pingPong, timing: .quarter),
-                          lfos: [LfoState(shape: .sine, target: .amplitude, rateHz: 0.06, depth: 0.40), nil, nil, nil]),
+                          lfos: [LfoState(shape: .sine, targets: [.amplitude], rateHz: 0.06, depth: 0.40), nil, nil, nil]),
                     // Sub bed — sine drone, always present, harmonic ground.
                     Voice(hz: 130.81, pan: 0.0, wave: .sine, amp: 0.35, reverb: rev),
                     // First decay layer — sparse granular crackle, enters at
@@ -696,7 +696,7 @@ extension Preset {
                     Voice(hz: 440.00, pan: -0.7, wave: .sine, amp: 0.45, reverb: rev),
                     Voice(hz: 440.40, pan:  0.7, wave: .sine, amp: 0.45, reverb: rev),
                     Voice(hz: 110.00, pan: 0.0, wave: .sine, amp: 0.35, reverb: rev,
-                          lfos: [nil, LfoState(shape: .sine, target: .amplitude, rateHz: 0.04, depth: 0.30), nil, nil]),
+                          lfos: [nil, LfoState(shape: .sine, targets: [.amplitude], rateHz: 0.04, depth: 0.30), nil, nil]),
                     // Granular cloud — very long grains, very sparse density;
                     // result is a slow "phantom note" texture inside the beat.
                     Voice(hz: 220.00, pan: 0.0, wave: .granular, amp: 0.40,
@@ -783,7 +783,7 @@ extension Preset {
                           filter: FilterState(type: .bandpass, cutoffHz: 1500, q: 1.8),
                           reverb: r,
                           grain: GrainState(sizeMs: 28, densityHz: 5, jitter: 0.75, panSpread: 0.75),
-                          lfos: [nil, LfoState(shape: .sine, target: .amplitude, rateHz: 0.05, depth: 0.6), nil, nil])
+                          lfos: [nil, LfoState(shape: .sine, targets: [.amplitude], rateHz: 0.05, depth: 0.6), nil, nil])
                    ]
                }()),
 

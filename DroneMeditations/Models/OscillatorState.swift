@@ -43,20 +43,90 @@ struct LfoState: Equatable, Codable {
     }
 
     var shape: Shape
-    var target: Target
+    /// v1.1: multi-target LFOs. An LFO can drive any combination of
+    /// destinations simultaneously (pan + pitch + cutoff together, for
+    /// instance). Empty set = LFO is effectively disabled (DSP
+    /// short-circuits if no target is active OR depth < 0.001). For
+    /// backward compat with v1.0 presets that encoded `target` as a
+    /// single string, the custom decoder below wraps the legacy single
+    /// target into a one-element set.
+    var targets: Set<Target>
     var rateHz: Double  // 0.02..8 (log slider)
     var depth: Double   // 0..1
+
+    /// Convenience accessor for code that still wants a "primary"
+    /// target — returns the first target in a stable sorted order,
+    /// or nil if the set is empty.
+    var primaryTarget: Target? {
+        Target.allCases.first(where: { targets.contains($0) })
+    }
+
+    /// Legacy single-target accessor for v1.0 code paths that read a
+    /// single `target`. Falls back to .pan if the set is empty so
+    /// preset save/morph diffs still write SOMETHING coherent rather
+    /// than crashing. Prefer `targets` / `primaryTarget` going forward.
+    var target: Target {
+        primaryTarget ?? .pan
+    }
 
     static let rateMin: Double = 0.02
     static let rateMax: Double = 8.0
 
     static func defaults() -> [LfoState] {
         [
-            LfoState(shape: .sine,          target: .pan,       rateHz: 0.25, depth: 0),
-            LfoState(shape: .sampleAndHold, target: .amplitude, rateHz: 0.50, depth: 0),
-            LfoState(shape: .sine,          target: .cutoff,    rateHz: 0.30, depth: 0),
-            LfoState(shape: .sine,          target: .pitch,     rateHz: 0.30, depth: 0)
+            LfoState(shape: .sine,          targets: [.pan],       rateHz: 0.25, depth: 0),
+            LfoState(shape: .sampleAndHold, targets: [.amplitude], rateHz: 0.50, depth: 0),
+            LfoState(shape: .sine,          targets: [.cutoff],    rateHz: 0.30, depth: 0),
+            LfoState(shape: .sine,          targets: [.pitch],     rateHz: 0.30, depth: 0)
         ]
+    }
+
+    // MARK: - Codable migration (v1.0 single-target → v1.1 Set<Target>)
+    //
+    // v1.0 presets encoded `target` as a single Target enum string.
+    // v1.1 introduces `targets` as a Set<Target>. The custom decoder
+    // tries `targets` first (v1.1 native); falls back to wrapping the
+    // legacy `target` field in a single-element set. Encode always
+    // writes the v1.1 `targets` field (with `target` also written as
+    // the first element for very-old code that might still read it —
+    // belt + suspenders for any other tools that touch the JSON).
+
+    enum CodingKeys: String, CodingKey {
+        case shape, targets, target, rateHz, depth
+    }
+
+    init(shape: Shape, targets: Set<Target>, rateHz: Double, depth: Double) {
+        self.shape = shape
+        self.targets = targets
+        self.rateHz = rateHz
+        self.depth = depth
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.shape = try c.decode(Shape.self, forKey: .shape)
+        self.rateHz = try c.decode(Double.self, forKey: .rateHz)
+        self.depth = try c.decode(Double.self, forKey: .depth)
+        if let set = try c.decodeIfPresent(Set<Target>.self, forKey: .targets) {
+            self.targets = set
+        } else if let single = try c.decodeIfPresent(Target.self, forKey: .target) {
+            self.targets = [single]
+        } else {
+            self.targets = []
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(shape, forKey: .shape)
+        try c.encode(targets, forKey: .targets)
+        try c.encode(rateHz, forKey: .rateHz)
+        try c.encode(depth, forKey: .depth)
+        // Legacy `target` field too — first member of the set, so an
+        // older app version reading this JSON still gets something sane.
+        if let primary = primaryTarget {
+            try c.encode(primary, forKey: .target)
+        }
     }
 }
 

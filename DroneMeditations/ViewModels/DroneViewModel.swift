@@ -309,13 +309,34 @@ final class DroneViewModel: ObservableObject {
         audioEngine.setLfoShape(shape, for: index, lfoIndex: lfoIndex)
     }
 
+    /// v1.1 multi-target: toggle membership of `target` in the LFO's
+    /// target set. If the LFO was the LAST one driving that target on
+    /// this voice, restore the slider's underlying value so the
+    /// parameter doesn't get stuck wherever the LFO last left it.
+    func toggleLfoTarget(_ target: LfoState.Target, for index: Int, lfoIndex: Int) {
+        guard oscillators.indices.contains(index),
+              oscillators[index].lfos.indices.contains(lfoIndex) else { return }
+        var set = oscillators[index].lfos[lfoIndex].targets
+        let wasOn = set.contains(target)
+        if wasOn { set.remove(target) } else { set.insert(target) }
+        oscillators[index].lfos[lfoIndex].targets = set
+        audioEngine.setLfoTargets(set, for: index, lfoIndex: lfoIndex)
+        // If we just removed the target AND no other LFO on this voice
+        // is still driving it, restore the underlying slider value so
+        // the parameter isn't frozen at the LFO's last output.
+        if wasOn && !oscillators[index].lfos.contains(where: { $0.targets.contains(target) }) {
+            restoreLfoBase(for: index, target: target)
+        }
+    }
+
+    /// v1.0 compat: callers that still pass a single target are
+    /// treated as "set the target SET to {target}". Used by preset
+    /// load + the randomize path.
     func setLfoTarget(_ target: LfoState.Target, for index: Int, lfoIndex: Int) {
         guard oscillators.indices.contains(index),
               oscillators[index].lfos.indices.contains(lfoIndex) else { return }
-        let prevTarget = oscillators[index].lfos[lfoIndex].target
-        oscillators[index].lfos[lfoIndex].target = target
-        audioEngine.setLfoTarget(target, for: index, lfoIndex: lfoIndex)
-        if prevTarget != target { restoreLfoBase(for: index, target: prevTarget) }
+        oscillators[index].lfos[lfoIndex].targets = [target]
+        audioEngine.setLfoTargets([target], for: index, lfoIndex: lfoIndex)
     }
 
     func setFilterType(_ type: FilterState.FilterType, for index: Int) {
@@ -596,7 +617,7 @@ final class DroneViewModel: ObservableObject {
             // Pad with default LFO 4 (sine→pitch) for presets saved before LFO 4 existed.
             var loadedLfos = v.lfos
             while loadedLfos.count < 4 {
-                loadedLfos.append(LfoState(shape: .sine, target: .pitch, rateHz: 0.30, depth: 0))
+                loadedLfos.append(LfoState(shape: .sine, targets: [.pitch], rateHz: 0.30, depth: 0))
             }
             for (k, l) in loadedLfos.enumerated() where k < 4 {
                 setLfoShape(l.shape, for: i, lfoIndex: k)

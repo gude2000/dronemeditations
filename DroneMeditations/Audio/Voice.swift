@@ -25,7 +25,11 @@ final class Voice {
 
     // 4 LFOs with user-editable shape + target. Mirror of LfoState.
     var lfoShapes: [LfoState.Shape]   = [.sine, .sampleAndHold, .sine, .sine]
-    var lfoTargets: [LfoState.Target] = [.pan, .amplitude, .cutoff, .pitch]
+    /// v1.1 multi-target: each LFO drives a SET of destinations
+    /// simultaneously. v1.0 was single-target (one LfoState.Target per
+    /// LFO); now an LFO can route to e.g. {pan, pitch, cutoff} all
+    /// at once. The render loop iterates each set.
+    var lfoTargets: [Set<LfoState.Target>] = [[.pan], [.amplitude], [.cutoff], [.pitch]]
     var lfoRatesHz: [Double]          = [0.25, 0.50, 0.30, 0.30]
     var lfoDepths: [Double]           = [0.0, 0.0, 0.0, 0.0]
     private var lfoPhases: [Double]   = [0.0, 0.0, 0.0, 0.0]
@@ -280,23 +284,25 @@ final class Voice {
                 // when paired with the right target.
                 value = 1.0 - 2.0 * lfoPhases[k]
             }
-            switch lfoTargets[k] {
-            case .pan:       panMod         += depth * value
-            case .amplitude: ampScale       *= (1.0 + 0.6 * depth * value)
-            case .cutoff:    cutoffOct      += 2.0 * depth * value
-            case .pitch:     pitchSemitones += 2.0 * depth * value
-            case .filterQ:
-                // Multiplicative modulation in log-Q space. depth=1 +
-                // value=±1 = ±1.5 octaves of Q (e.g. Q=5 swings
-                // between ~1.77 and ~14.1). Subtle at depth 0.3, very
-                // resonant pumping at depth 1.
-                qOct += 1.5 * depth * value
-            case .fmIndex:
-                // Additive modulation of FM index (in Hz). depth=1 +
-                // value=±1 = ±200 Hz offset. Lets the LFO drive FM
-                // wobble for evolving timbral motion. Clamped later
-                // when the FM source is applied to the carrier.
-                fmIndexMod += 200.0 * depth * value
+            // v1.1: iterate each LFO's target SET so a single LFO can
+            // drive multiple destinations simultaneously (pan + pitch
+            // + cutoff together, etc.).
+            for target in lfoTargets[k] {
+                switch target {
+                case .pan:       panMod         += depth * value
+                case .amplitude: ampScale       *= (1.0 + 0.6 * depth * value)
+                case .cutoff:    cutoffOct      += 2.0 * depth * value
+                case .pitch:     pitchSemitones += 2.0 * depth * value
+                case .filterQ:
+                    // ±1.5 octaves of Q at full depth — multiplicative
+                    // in log-Q space. Subtle "resonance pumping" at
+                    // low depth, very pronounced sweeps at high depth.
+                    qOct += 1.5 * depth * value
+                case .fmIndex:
+                    // ±200 Hz FM index swing at full depth. Additive.
+                    // Clamped later when applied to the FM source.
+                    fmIndexMod += 200.0 * depth * value
+                }
             }
         }
 

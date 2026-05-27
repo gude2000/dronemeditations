@@ -606,10 +606,17 @@ final class AudioEngine {
         voices[voiceIndex].lfoShapes[lfoIndex] = shape
     }
 
+    /// v1.1: replace the LFO's full target set in one call. Old name
+    /// kept for the few internal call sites that still pass a single
+    /// target — wrapped into a one-element set for backward compat.
     func setLfoTarget(_ target: LfoState.Target, for voiceIndex: Int, lfoIndex: Int) {
+        setLfoTargets([target], for: voiceIndex, lfoIndex: lfoIndex)
+    }
+
+    func setLfoTargets(_ targets: Set<LfoState.Target>, for voiceIndex: Int, lfoIndex: Int) {
         guard voices.indices.contains(voiceIndex),
               (0..<4).contains(lfoIndex) else { return }
-        voices[voiceIndex].lfoTargets[lfoIndex] = target
+        voices[voiceIndex].lfoTargets[lfoIndex] = targets
     }
 
     func setFilterType(_ type: FilterState.FilterType, for voiceIndex: Int) {

@@ -37,10 +37,11 @@ function guessMimeFromName(name = "") {
 }
 
 const defaultLfos = () => ([
-  { shape: "sine", target: "pan",    rateHz: 0.25, depth: 0 },
-  { shape: "sh",   target: "amp",    rateHz: 0.50, depth: 0 },
-  { shape: "sine", target: "cutoff", rateHz: 0.30, depth: 0 },
-  { shape: "sine", target: "pitch",  rateHz: 0.30, depth: 0 }
+  // v1.1 multi-target: targets is a SET (array) of destinations.
+  { shape: "sine", targets: ["pan"],    rateHz: 0.25, depth: 0 },
+  { shape: "sh",   targets: ["amp"],    rateHz: 0.50, depth: 0 },
+  { shape: "sine", targets: ["cutoff"], rateHz: 0.30, depth: 0 },
+  { shape: "sine", targets: ["pitch"],  rateHz: 0.30, depth: 0 }
 ]);
 const defaultFilter = () => ({ type: "lowpass", cutoffHz: 4000, q: 0.7 });
 const defaultReverb = () => ({ decaySec: 2.0, mix: 0 });
@@ -545,12 +546,38 @@ const actions = {
     engine.setLfoShape(oscIndex, lfoIndex, shape);
     renderAll();
   },
+  /// v1.0 compat: setting "the" target wraps it into a one-element
+  /// targets array. Used by preset load + the randomize path.
   setLfoTarget(oscIndex, lfoIndex, target) {
-    const prevTarget = state.oscillators[oscIndex].lfos[lfoIndex].target;
-    state.oscillators[oscIndex].lfos[lfoIndex].target = target;
-    engine.setLfoTarget(oscIndex, lfoIndex, target);
-    // Restore the previous-target param to its base so it doesn't get stuck on the LFO's last value.
-    if (prevTarget !== target) restoreLfoTargetBase(oscIndex, prevTarget);
+    const lfo = state.oscillators[oscIndex].lfos[lfoIndex];
+    const prevTargets = currentTargets(lfo);
+    lfo.targets = [target];
+    delete lfo.target;
+    if (engine.setLfoTargets) engine.setLfoTargets(oscIndex, lfoIndex, lfo.targets);
+    // Restore any target the LFO is no longer driving so the
+    // parameter doesn't stay stuck at the LFO's last output.
+    for (const t of prevTargets) {
+      if (!lfo.targets.includes(t) && !anyOtherLfoUsesTarget(oscIndex, lfoIndex, t)) {
+        restoreLfoTargetBase(oscIndex, t);
+      }
+    }
+    renderAll();
+  },
+
+  /// v1.1 multi-target: toggle membership of `target` in the LFO's
+  /// target set. Restores the underlying slider value if removing the
+  /// target left no other LFO on this voice still driving it.
+  toggleLfoTarget(oscIndex, lfoIndex, target) {
+    const lfo = state.oscillators[oscIndex].lfos[lfoIndex];
+    const set = new Set(currentTargets(lfo));
+    const wasOn = set.has(target);
+    if (wasOn) set.delete(target); else set.add(target);
+    lfo.targets = Array.from(set);
+    delete lfo.target;
+    if (engine.setLfoTargets) engine.setLfoTargets(oscIndex, lfoIndex, lfo.targets);
+    if (wasOn && !anyOtherLfoUsesTarget(oscIndex, lfoIndex, target)) {
+      restoreLfoTargetBase(oscIndex, target);
+    }
     renderAll();
   },
 
@@ -968,7 +995,7 @@ const actions = {
       actions.setDelayMix(i, o.delay.mix);
       // Pad with default LFO 4 (sine→pitch) for presets saved before LFO 4 existed.
       const lfos = o.lfos.slice();
-      while (lfos.length < 4) lfos.push({ shape: "sine", target: "pitch", rateHz: 0.30, depth: 0 });
+      while (lfos.length < 4) lfos.push({ shape: "sine", targets: ["pitch"], rateHz: 0.30, depth: 0 });
       for (let k = 0; k < 4; k++) {
         actions.setLfoShape(i, k, lfos[k].shape);
         actions.setLfoTarget(i, k, lfos[k].target);
@@ -1605,6 +1632,28 @@ function restoreLfoTargetBase(oscIndex, target) {
   else if (target === "amp")    engine.setAmplitude(oscIndex, o.amplitude);
   else if (target === "cutoff") engine.setFilterCutoff(oscIndex, o.filter.cutoffHz);
   else if (target === "pitch")  engine.setFrequency(oscIndex, o.frequencyHz);
+  else if (target === "q")      engine.setFilterQ(oscIndex, o.filter.q);
+  else if (target === "fm")     engine.setFMIndex(oscIndex, o.fm.index);
+}
+
+/// v1.1 multi-target helpers. v1.0 lfos store `target: "X"` (string);
+/// v1.1 stores `targets: ["X", "Y", ...]`. currentTargets() reads
+/// whichever form is present; anyOtherLfoUsesTarget() lets the
+/// toggle action know whether to restore the slider's base when
+/// removing a target (only restore if no other LFO is keeping it
+/// modulated on this voice).
+function currentTargets(lfo) {
+  if (Array.isArray(lfo.targets)) return lfo.targets;
+  if (lfo.target) return [lfo.target];
+  return [];
+}
+function anyOtherLfoUsesTarget(oscIndex, exceptLfoIndex, target) {
+  const lfos = state.oscillators[oscIndex].lfos;
+  for (let i = 0; i < lfos.length; i++) {
+    if (i === exceptLfoIndex) continue;
+    if (currentTargets(lfos[i]).includes(target)) return true;
+  }
+  return false;
 }
 
 // ──────────────────────────────────────────────────

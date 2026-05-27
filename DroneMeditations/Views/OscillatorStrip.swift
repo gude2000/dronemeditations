@@ -879,29 +879,39 @@ struct OscillatorStrip: View {
             .menuStyle(.borderlessButton)
             .frame(width: 44)
 
-            // Target picker — dropdown menu so all 4 options fit cleanly
-            // regardless of how cramped the strip gets.
-            Picker(selection: Binding(
-                get: { lfo.target },
-                set: { vm.setLfoTarget($0, for: index, lfoIndex: lfoIndex) }
-            )) {
+            // v1.1 multi-target picker — Menu with toggleable rows.
+            // Tapping a row adds/removes that target from the LFO's
+            // target set; the LFO drives every active target
+            // simultaneously. Label summarizes the active set with a
+            // comma-joined list (e.g. "pan,pitch") or "—" if empty.
+            Menu {
                 ForEach(LfoState.Target.allCases) { t in
-                    Text(t.shortLabel).tag(t)
+                    Button {
+                        vm.toggleLfoTarget(t, for: index, lfoIndex: lfoIndex)
+                    } label: {
+                        if lfo.targets.contains(t) {
+                            Label(t.shortLabel, systemImage: "checkmark")
+                        } else {
+                            Text(t.shortLabel)
+                        }
+                    }
                 }
             } label: {
                 HStack(spacing: 3) {
                     Text("→").font(.system(size: 10, weight: .bold))
-                    Text(lfo.target.shortLabel)
+                    Text(lfoTargetLabel(lfo.targets))
                         .font(.system(size: 11, weight: .semibold))
+                        .lineLimit(1)
                 }
                 .foregroundStyle(.white)
                 .padding(.horizontal, 8).padding(.vertical, 5)
                 .background(
                     RoundedRectangle(cornerRadius: 6)
-                        .fill(Color.white.opacity(0.10))
+                        .fill(lfo.targets.count > 1
+                              ? Color.accentColor.opacity(0.30)
+                              : Color.white.opacity(0.10))
                 )
             }
-            .pickerStyle(.menu)
             .menuStyle(.borderlessButton)
             .frame(width: 80, alignment: .leading)
 
@@ -1252,4 +1262,17 @@ private struct FrequencySlider: View {
         Slider(value: binding, in: 0.0...1.0)
             .tint(Color(hue: hue, saturation: 0.65, brightness: 0.95))
     }
+}
+
+/// Short summary of an LFO's active target set for the strip-row
+/// trigger label. "—" if nothing's active; comma-joined short labels
+/// otherwise. Stays compact even with all 6 targets active.
+fileprivate func lfoTargetLabel(_ targets: Set<LfoState.Target>) -> String {
+    if targets.isEmpty { return "—" }
+    // Use the canonical enum order so the output is stable instead of
+    // shuffling with Set's hash order.
+    return LfoState.Target.allCases
+        .filter { targets.contains($0) }
+        .map { $0.shortLabel }
+        .joined(separator: ",")
 }
