@@ -115,16 +115,16 @@ final class DroneController: ObservableObject {
         if engine.isRecording {
             finalizeRecording()
         }
-        // 3 s logarithmic fade — faster than the previous 5 s smoothstep
-        // (user feedback: "not very gradual"), and the logarithmic curve
-        // makes the dB drop linearly over time so the descent FEELS
-        // uniformly gradual to the ear. The audio reaches -40 dB at
-        // t=3 s and snaps inaudibly to silence. Combined with the
-        // 200 ms post-silence buffer in fadeOutMaster, no click on
-        // engine.stop().
+        // 1.2 s exponential fade — same as pause(). Earlier attempts at
+        // a "more gradual" longer stop fade (5 s smoothstep, then 3 s
+        // logarithmic) all felt either too slow or not gradual enough
+        // in practice. User asked for stop = pause feel: same curve,
+        // same duration. Simpler is better here — the user expects
+        // pause/stop to be the same kind of "wind it down quickly"
+        // gesture, not two different musical statements.
         pendingFadeOutTask?.cancel()
         pendingFadeOutTask = Task { @MainActor in
-            await engine.fadeOutMaster(seconds: 3.0, curve: .logarithmic)
+            await engine.fadeOutMaster(seconds: 1.2, curve: .exponential)
             // If the user re-pressed Play during the fade, state is no
             // longer .stopped — skip the engine stop.
             guard self.state == .stopped else { return }
