@@ -448,15 +448,18 @@ struct OscillatorStrip: View {
     @ViewBuilder
     private var filterSection: some View {
         let f = osc.filter
-        HStack(spacing: 8) {
+        // Bigger row spacing on iPad — the segmented picker + sliders
+        // need cushion between them so the picker's rendered edge
+        // doesn't kiss the CUTOFF slider track.
+        HStack(spacing: isPad ? 16 : 8) {
             Text("FILT")
                 .font(.system(size: isPad ? 12 : 9, weight: .heavy))
                 .foregroundStyle(.secondary)
-                .frame(width: 36, alignment: .leading)
+                .frame(width: isPad ? 44 : 36, alignment: .leading)
 
-            // Type segmented picker — controlSize(.large) on iPad
-            // matches the waveform picker above and properly reserves
-            // layout space (unlike scaleEffect, which overflows).
+            // Type segmented picker — controlSize(.large) on iPad.
+            // Wider frame (240pt) so the picker has room and there's
+            // breathing room before the CUTOFF slider.
             Picker("Filter type", selection: Binding(
                 get: { f.type },
                 set: { vm.setFilterType($0, for: index) }
@@ -467,7 +470,7 @@ struct OscillatorStrip: View {
             }
             .pickerStyle(.segmented)
             .controlSize(isPad ? .large : .regular)
-            .frame(width: isPad ? 200 : 116)
+            .frame(width: isPad ? 240 : 116)
 
             VStack(alignment: .leading, spacing: 0) {
                 Text(cutoffLabel(f.cutoffHz))
