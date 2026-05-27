@@ -23,14 +23,18 @@ struct ControlsOverlay: View {
     private var isCompact: Bool { verticalSizeClass == .compact }
 
     // iPhone reports horizontalSizeClass == .compact in every orientation;
-    // iPad reports .regular. We use this to widen the controls panel on
-    // iPad — the old 900pt cap left ~1.5" of unused canvas on each side
-    // of an iPad Pro 13" portrait (1024pt wide) and even more in landscape
-    // (1366pt). At 1200pt the strips visibly breathe on iPad without
-    // affecting any iPhone layout (iPhone Pro Max is 440pt wide).
+    // iPad reports .regular. Per-device width cap:
+    //   - iPad (regular):  1200pt — wide enough to fill iPad Pro 13"
+    //     portrait (1024pt) without overshoot and use most of landscape.
+    //   - iPhone portrait: 900pt — a no-op since iPhone is < 500pt wide.
+    //   - iPhone landscape: .infinity — iPhone Pro Max in landscape is
+    //     956pt, so a 900pt cap left ~28pt of wasted gutter on each
+    //     side. Let the strips fill the whole device width.
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     private var panelMaxWidth: CGFloat {
-        horizontalSizeClass == .regular ? 1200 : 900
+        if horizontalSizeClass == .regular { return 1200 }
+        if isCompact { return .infinity }      // iPhone landscape
+        return 900                             // iPhone portrait
     }
 
     var body: some View {
@@ -83,7 +87,7 @@ struct ControlsOverlay: View {
                                 .buttonStyle(.plain)
                             }
                         }
-                        .padding(.horizontal, isCompact ? 10 : 12)
+                        .padding(.horizontal, isCompact ? 6 : 12)
 
                         ScrollView {
                             VStack(spacing: isCompact ? 6 : 10) {
@@ -93,14 +97,14 @@ struct ControlsOverlay: View {
                                 }
                                 masterRow
                             }
-                            .padding(.horizontal, isCompact ? 10 : 12)
+                            .padding(.horizontal, isCompact ? 6 : 12)
                             .padding(.bottom, isCompact ? 6 : 10)
                         }
                     }
                 }
 
                 TransportView(controller: vm.controller)
-                    .padding(.horizontal, isCompact ? 10 : 12)
+                    .padding(.horizontal, isCompact ? 6 : 12)
                     .padding(.bottom, isCompact ? 1 : 4)
 
                 // Copyright + Manual link inlined under the transport. Sits at
