@@ -11,12 +11,18 @@ struct OscillatorStrip: View {
     @State private var loadError: String? = nil
 
     @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     private var isCompact: Bool { verticalSizeClass == .compact }
+    /// True on iPad (regular horizontal size class in any orientation).
+    /// Used to scale up button sizes, font sizes, and vertical spacing
+    /// so one OSC strip visibly breathes on the larger canvas rather
+    /// than looking like a postage stamp at iPhone scale.
+    private var isPad: Bool { horizontalSizeClass == .regular }
 
     private var osc: OscillatorState { vm.oscillators[index] }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: isPad ? 14 : 8) {
             HStack(alignment: .center) {
                 Text("OSC \(index + 1)")
                     .font(.caption.weight(.heavy))
@@ -49,7 +55,9 @@ struct OscillatorStrip: View {
             )
 
             HStack(spacing: 12) {
-                // Waveform picker
+                // Waveform picker — segmented control. On iPad we widen
+                // the frame so each segment is roughly 40pt wide
+                // (matches the bigger LFO shape buttons below).
                 Picker("Waveform", selection: Binding(
                     get: { osc.waveform },
                     set: { vm.setWaveform($0, for: index) }
@@ -59,7 +67,8 @@ struct OscillatorStrip: View {
                     }
                 }
                 .pickerStyle(.segmented)
-                .frame(maxWidth: 168)
+                .frame(maxWidth: isPad ? 260 : 168)
+                .scaleEffect(isPad ? 1.15 : 1.0, anchor: .leading)
 
                 // Pan slider
                 VStack(alignment: .leading, spacing: 2) {
@@ -117,17 +126,17 @@ struct OscillatorStrip: View {
             delaySection
             reverbSection
 
-            // 3 LFO rows.
-            VStack(spacing: 6) {
+            // 4 LFO rows.
+            VStack(spacing: isPad ? 12 : 6) {
                 lfoSection(0)
                 lfoSection(1)
                 lfoSection(2)
                 lfoSection(3)
             }
-            .padding(.top, 2)
+            .padding(.top, isPad ? 6 : 2)
         }
-        .padding(.horizontal, isCompact ? 10 : 14)
-        .padding(.vertical, isCompact ? 6 : 10)
+        .padding(.horizontal, isCompact ? 10 : (isPad ? 20 : 14))
+        .padding(.vertical, isCompact ? 6 : (isPad ? 18 : 10))
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(.ultraThinMaterial)
@@ -198,7 +207,7 @@ struct OscillatorStrip: View {
     private var sampleSection: some View {
         HStack(spacing: 10) {
             Text("SAMPLE")
-                .font(.system(size: 9, weight: .heavy))
+                .font(.system(size: isPad ? 12 : 9, weight: .heavy))
                 .foregroundStyle(.secondary)
                 .frame(width: 56, alignment: .leading)
 
@@ -286,14 +295,14 @@ struct OscillatorStrip: View {
         // compact while still being clearly self-explanatory.
         HStack(spacing: 10) {
             Text("WINDOW")
-                .font(.system(size: 9, weight: .heavy))
+                .font(.system(size: isPad ? 12 : 9, weight: .heavy))
                 .foregroundStyle(Color(red: 0.97, green: 0.79, blue: 0.28))
                 .frame(width: 56, alignment: .leading)
 
             // Start (0..1)
             VStack(alignment: .leading, spacing: 2) {
                 Text("start · \(Int(osc.sampleStartFrac * 100))%")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: isPad ? 13 : 10, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
                 Slider(value: Binding(
@@ -306,7 +315,7 @@ struct OscillatorStrip: View {
             // End (0..1)
             VStack(alignment: .leading, spacing: 2) {
                 Text("end · \(Int(osc.sampleEndFrac * 100))%")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: isPad ? 13 : 10, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
                 Slider(value: Binding(
@@ -319,7 +328,7 @@ struct OscillatorStrip: View {
             // Fade-in (0..10s)
             VStack(alignment: .leading, spacing: 2) {
                 Text("fade-in · \(String(format: "%.1fs", osc.sampleFadeInSec))")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: isPad ? 13 : 10, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
                 Slider(value: Binding(
@@ -332,7 +341,7 @@ struct OscillatorStrip: View {
             // Fade-out (0..10s)
             VStack(alignment: .leading, spacing: 2) {
                 Text("fade-out · \(String(format: "%.1fs", osc.sampleFadeOutSec))")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: isPad ? 13 : 10, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
                 Slider(value: Binding(
@@ -357,14 +366,14 @@ struct OscillatorStrip: View {
 
         HStack(spacing: 10) {
             Text("GRAIN")
-                .font(.system(size: 9, weight: .heavy))
+                .font(.system(size: isPad ? 12 : 9, weight: .heavy))
                 .foregroundStyle(Color(red: 0.72, green: 0.86, blue: 1.0))
                 .frame(width: 56, alignment: .leading)
 
             // Size slider (log scale)
             VStack(alignment: .leading, spacing: 2) {
                 Text("size · \(Int(g.sizeMs)) ms")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: isPad ? 13 : 10, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
                 Slider(value: Binding(
@@ -381,7 +390,7 @@ struct OscillatorStrip: View {
             // Density slider (log scale)
             VStack(alignment: .leading, spacing: 2) {
                 Text("density · \(formatDensity(g.densityHz))")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: isPad ? 13 : 10, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
                 Slider(value: Binding(
@@ -398,7 +407,7 @@ struct OscillatorStrip: View {
             // Jitter slider (linear 0..1)
             VStack(alignment: .leading, spacing: 2) {
                 Text("jitter · \(Int(g.jitter * 100))")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: isPad ? 13 : 10, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
                 Slider(value: Binding(
@@ -411,7 +420,7 @@ struct OscillatorStrip: View {
             // Pan-spread slider (linear 0..1)
             VStack(alignment: .leading, spacing: 2) {
                 Text("spread · \(Int(g.panSpread * 100))")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: isPad ? 13 : 10, weight: .semibold))
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
                 Slider(value: Binding(
@@ -438,11 +447,12 @@ struct OscillatorStrip: View {
         let f = osc.filter
         HStack(spacing: 8) {
             Text("FILT")
-                .font(.system(size: 9, weight: .heavy))
+                .font(.system(size: isPad ? 12 : 9, weight: .heavy))
                 .foregroundStyle(.secondary)
                 .frame(width: 36, alignment: .leading)
 
-            // Type segmented picker
+            // Type segmented picker — bigger on iPad to match the
+            // scaled-up waveform picker above and the LFO buttons below.
             Picker("Filter type", selection: Binding(
                 get: { f.type },
                 set: { vm.setFilterType($0, for: index) }
@@ -452,11 +462,12 @@ struct OscillatorStrip: View {
                 }
             }
             .pickerStyle(.segmented)
-            .frame(width: 116)
+            .frame(width: isPad ? 180 : 116)
+            .scaleEffect(isPad ? 1.15 : 1.0, anchor: .leading)
 
             VStack(alignment: .leading, spacing: 0) {
                 Text(cutoffLabel(f.cutoffHz))
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: isPad ? 12 : 9, weight: .bold))
                     .foregroundStyle(.secondary)
                 FilterCutoffSlider(
                     cutoffHz: Binding(
@@ -468,7 +479,7 @@ struct OscillatorStrip: View {
 
             VStack(alignment: .leading, spacing: 0) {
                 Text(String(format: "Q %.2f", f.q))
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: isPad ? 12 : 9, weight: .bold))
                     .foregroundStyle(.secondary)
                 FilterQSlider(
                     q: Binding(
@@ -485,7 +496,7 @@ struct OscillatorStrip: View {
                 Text(osc.drive <= 1.01
                      ? "DRIVE clean"
                      : String(format: "DRIVE %.1fx", osc.drive))
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: isPad ? 12 : 9, weight: .bold))
                     .foregroundStyle(osc.drive > 1.01 ? Color.accentColor : .secondary)
                 Slider(
                     value: Binding(
@@ -578,7 +589,7 @@ struct OscillatorStrip: View {
         let active = fm.isActive
         HStack(spacing: 8) {
             Text("FM")
-                .font(.system(size: 9, weight: .heavy))
+                .font(.system(size: isPad ? 12 : 9, weight: .heavy))
                 .foregroundStyle(active ? Color.accentColor : .secondary)
                 .frame(width: 36, alignment: .leading)
 
@@ -612,7 +623,7 @@ struct OscillatorStrip: View {
                 Text(fm.index < 10
                      ? String(format: "INDEX %.1f", fm.index)
                      : String(format: "INDEX %d", Int(fm.index)))
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: isPad ? 12 : 9, weight: .bold))
                     .foregroundStyle(.secondary)
                 LogScaleSlider(
                     value: Binding(
@@ -636,7 +647,7 @@ struct OscillatorStrip: View {
         let active = ch.mix > 0.001
         HStack(spacing: 8) {
             Text("CHO")
-                .font(.system(size: 9, weight: .heavy))
+                .font(.system(size: isPad ? 12 : 9, weight: .heavy))
                 .foregroundStyle(active ? Color.accentColor : .secondary)
                 .frame(width: 36, alignment: .leading)
 
@@ -644,7 +655,7 @@ struct OscillatorStrip: View {
                 Text(ch.rateHz < 1
                      ? String(format: "RATE %.2fHz", ch.rateHz)
                      : String(format: "RATE %.1fHz", ch.rateHz))
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: isPad ? 12 : 9, weight: .bold))
                     .foregroundStyle(.secondary)
                 LogScaleSlider(
                     value: Binding(
@@ -658,7 +669,7 @@ struct OscillatorStrip: View {
 
             VStack(alignment: .leading, spacing: 0) {
                 Text("DEPTH \(Int(ch.depth * 100))")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: isPad ? 12 : 9, weight: .bold))
                     .foregroundStyle(.secondary)
                 Slider(
                     value: Binding(
@@ -671,7 +682,7 @@ struct OscillatorStrip: View {
 
             VStack(alignment: .leading, spacing: 0) {
                 Text("WIDTH \(Int(ch.width * 100))")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: isPad ? 12 : 9, weight: .bold))
                     .foregroundStyle(.secondary)
                 Slider(
                     value: Binding(
@@ -684,7 +695,7 @@ struct OscillatorStrip: View {
 
             VStack(alignment: .leading, spacing: 0) {
                 Text("MIX \(Int(ch.mix * 100))")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: isPad ? 12 : 9, weight: .bold))
                     .foregroundStyle(.secondary)
                 Slider(
                     value: Binding(
@@ -706,7 +717,7 @@ struct OscillatorStrip: View {
         let active = rv.mix > 0.001
         HStack(spacing: 8) {
             Text("REV")
-                .font(.system(size: 9, weight: .heavy))
+                .font(.system(size: isPad ? 12 : 9, weight: .heavy))
                 .foregroundStyle(active ? Color.accentColor : .secondary)
                 .frame(width: 36, alignment: .leading)
 
@@ -714,7 +725,7 @@ struct OscillatorStrip: View {
                 Text(rv.decaySec < 1
                      ? String(format: "DECAY %.2fs", rv.decaySec)
                      : String(format: "DECAY %.1fs", rv.decaySec))
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: isPad ? 12 : 9, weight: .bold))
                     .foregroundStyle(.secondary)
                 LogScaleSlider(
                     value: Binding(
@@ -728,7 +739,7 @@ struct OscillatorStrip: View {
 
             VStack(alignment: .leading, spacing: 0) {
                 Text("MIX \(Int(rv.mix * 100))")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: isPad ? 12 : 9, weight: .bold))
                     .foregroundStyle(.secondary)
                 Slider(
                     value: Binding(
@@ -750,7 +761,7 @@ struct OscillatorStrip: View {
         let active = dl.mix > 0.001
         HStack(spacing: 8) {
             Text("DLY")
-                .font(.system(size: 9, weight: .heavy))
+                .font(.system(size: isPad ? 12 : 9, weight: .heavy))
                 .foregroundStyle(active ? Color.accentColor : .secondary)
                 .frame(width: 36, alignment: .leading)
 
@@ -800,7 +811,7 @@ struct OscillatorStrip: View {
                 Text(dl.timeSec < 1
                      ? String(format: "TIME %.0fms", dl.timeSec * 1000)
                      : String(format: "TIME %.2fs", dl.timeSec))
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: isPad ? 12 : 9, weight: .bold))
                     .foregroundStyle(.secondary)
                 LogScaleSlider(
                     value: Binding(
@@ -815,7 +826,7 @@ struct OscillatorStrip: View {
             }
             VStack(alignment: .leading, spacing: 0) {
                 Text("FB \(Int(dl.feedback * 100))")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: isPad ? 12 : 9, weight: .bold))
                     .foregroundStyle(.secondary)
                 Slider(
                     value: Binding(
@@ -827,7 +838,7 @@ struct OscillatorStrip: View {
             }
             VStack(alignment: .leading, spacing: 0) {
                 Text("MIX \(Int(dl.mix * 100))")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: isPad ? 12 : 9, weight: .bold))
                     .foregroundStyle(.secondary)
                 Slider(
                     value: Binding(
@@ -849,7 +860,7 @@ struct OscillatorStrip: View {
         let active = lfo.depth > 0.001
         HStack(spacing: 8) {
             Text("LFO \(lfoIndex + 1)")
-                .font(.system(size: 9, weight: .heavy))
+                .font(.system(size: isPad ? 12 : 9, weight: .heavy))
                 .foregroundStyle(active ? Color.accentColor : .secondary)
                 .frame(width: 36, alignment: .leading)
 
@@ -857,17 +868,17 @@ struct OscillatorStrip: View {
             // buttons (matches the web layout). One shape is active at
             // a time; tapping switches. SF Symbol icon, filled when
             // active. Compact enough that 6 fit on iPhone in portrait.
-            HStack(spacing: 3) {
+            HStack(spacing: isPad ? 5 : 3) {
                 ForEach(LfoState.Shape.allCases) { s in
                     let isOn = (s == lfo.shape)
                     Button {
                         vm.setLfoShape(s, for: index, lfoIndex: lfoIndex)
                     } label: {
                         Image(systemName: s.sfSymbol)
-                            .font(.system(size: 9, weight: .semibold))
-                            .frame(width: 20, height: 20)
+                            .font(.system(size: isPad ? 14 : 9, weight: .semibold))
+                            .frame(width: isPad ? 32 : 20, height: isPad ? 32 : 20)
                             .background(
-                                RoundedRectangle(cornerRadius: 4)
+                                RoundedRectangle(cornerRadius: isPad ? 6 : 4)
                                     .fill(isOn ? Color.white.opacity(0.85) : Color.white.opacity(0.10))
                             )
                             .foregroundStyle(isOn ? Color.black : Color.white.opacity(0.85))
@@ -881,20 +892,20 @@ struct OscillatorStrip: View {
             // from the LFO's target SET (not radio-select). All active
             // targets are driven simultaneously by the one LFO. Filled
             // accent background = active.
-            HStack(spacing: 3) {
+            HStack(spacing: isPad ? 5 : 3) {
                 ForEach(LfoState.Target.allCases) { t in
                     let isOn = lfo.targets.contains(t)
                     Button {
                         vm.toggleLfoTarget(t, for: index, lfoIndex: lfoIndex)
                     } label: {
                         Text(t.shortLabel)
-                            .font(.system(size: 9, weight: .semibold))
+                            .font(.system(size: isPad ? 13 : 9, weight: .semibold))
                             .lineLimit(1)
                             .fixedSize(horizontal: true, vertical: false)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 3)
+                            .padding(.horizontal, isPad ? 8 : 4)
+                            .padding(.vertical, isPad ? 7 : 3)
                             .background(
-                                RoundedRectangle(cornerRadius: 4)
+                                RoundedRectangle(cornerRadius: isPad ? 6 : 4)
                                     .fill(isOn ? Color.accentColor : Color.white.opacity(0.10))
                             )
                             .foregroundStyle(isOn ? .white : .white.opacity(0.75))
@@ -906,7 +917,7 @@ struct OscillatorStrip: View {
 
             VStack(alignment: .leading, spacing: 0) {
                 Text(rateLabel(lfo.rateHz))
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: isPad ? 12 : 9, weight: .bold))
                     .foregroundStyle(.secondary)
                 LfoRateSlider(
                     rateHz: Binding(
@@ -918,7 +929,7 @@ struct OscillatorStrip: View {
 
             VStack(alignment: .leading, spacing: 0) {
                 Text("DEPTH \(Int(lfo.depth * 100))")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: isPad ? 12 : 9, weight: .bold))
                     .foregroundStyle(.secondary)
                 Slider(
                     value: Binding(
