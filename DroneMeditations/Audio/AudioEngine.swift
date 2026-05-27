@@ -288,16 +288,31 @@ final class AudioEngine {
                 // happens fast in amplitude).
                 t = tLin * tLin * (3 - 2 * tLin)
             case .logarithmic:
-                // amplitude = startVol * 10^(-2 * tLin), which makes
-                // perceived loudness (= 20·log10(amp)) descend linearly
-                // from 0 dB at tLin=0 to -40 dB at tLin=1. The final
-                // snap to 0 (handled by the tLin >= 1 clamp below) is
-                // inaudible at -40 dB. Used for the meditation stop
-                // fade so the user hears a steady wind-down rather
-                // than a hold-then-drop. Faster than smoothstep at the
-                // same nominal duration because the perceived volume
-                // descent begins immediately.
-                t = 1 - pow(10, -2 * tLin)
+                // Normalized logarithmic: amplitude follows
+                // 10^(-2 * tLin), giving a perceived-linear loudness
+                // descent (every second of the fade drops the same
+                // number of dB). Then we RESCALE so the curve actually
+                // hits t=1 (amplitude=0) at tLin=1, rather than
+                // asymptoting at -40 dB.
+                //
+                // Why the rescale: with the unnormalized form
+                // (t = 1 - 10^(-2*tLin)), the curve reaches t=0.99 at
+                // tLin=1, leaving residual amplitude ≈ 1 % of
+                // startVolume. The final snap-to-target from there
+                // is a small but real amplitude discontinuity which
+                // produces an audible click on real hardware,
+                // especially with headphones — reported by the user
+                // when Stop is pressed within 1 s of Play start
+                // (startVolume = 0.10–0.15, residual ≈ 0.001).
+                //
+                // Rescaling by /0.99 maps the asymptote to exactly 1,
+                // so the final sample lands on 0 with no
+                // discontinuity. The perceived curve shape is
+                // basically identical to the unnormalized version
+                // for the bulk of the fade.
+                let logT = 1 - pow(10, -2 * tLin)
+                let normalize = 1.0 - pow(10.0, -2.0)   // ≈ 0.99
+                t = logT / normalize
             }
             mixer.outputVolume = startVolume + (target - startVolume) * Float(t)
             if tLin >= 1.0 {
