@@ -95,21 +95,34 @@ final class MicPitchDetector: ObservableObject {
         }
         log("permission OK")
 
-        // 2. Stop the engine before reconfiguring the session — switching
-        //    category live can leave the inputNode in a stale state where
-        //    its format reports channelCount = 0 and the tap silently drops.
+        // 2. Session swap to .playAndRecord — only if not already there.
+        //    Once we've done one Listen this app session, the category
+        //    is already correct and there's nothing to do. The previous
+        //    flow ALWAYS stopped + restarted the engine, which on real
+        //    iPhone hardware left the source-node → main-mixer connection
+        //    in a stale format. `engine.isRunning` stayed `true` but the
+        //    render block was no longer called — so audio silently went
+        //    to zero. The transport buttons "worked" (calling pause/stop
+        //    on already-silent audio is a no-op the user can't hear).
+        //
+        //    The new flow: only stop+restart the engine on the FIRST
+        //    Listen of the app session, when we genuinely need to add
+        //    the input AU to the graph and swap the session category.
+        //    Subsequent Listens (and every Listen invoked while audio is
+        //    playing once the input AU is already wired up) skip the
+        //    restart entirely and just install the tap on a live engine.
         let wasRunning = engine.engine.isRunning
         engineWasRunningBeforeListen = wasRunning
-        log("engine.isRunning=\(wasRunning), stopping if needed…")
-        if wasRunning { engine.engine.stop() }
-        log("engine stopped")
+        let session = AVAudioSession.sharedInstance()
+        let needsSessionSwap = (session.category != .playAndRecord)
+        let needsInputWireUp = (silentInputSink == nil)
+        log("engine.isRunning=\(wasRunning) needsSessionSwap=\(needsSessionSwap) needsInputWireUp=\(needsInputWireUp)")
 
-        // 2a. If the user wasn't playing, silence the master output so
-        //     they don't suddenly hear the preset audio just because we
-        //     had to start the engine for the mic tap to function. We
-        //     restore the original volume in stop(). When the user IS
-        //     playing, leave the master volume alone — they're already
-        //     hearing the synth and that's expected during tune-to-room.
+        // 2a. Master-volume hygiene. If the user wasn't playing, silence
+        //     the master so the preset audio doesn't suddenly come on
+        //     just because we may have started the engine for the mic.
+        //     If they ARE playing, leave volume alone — they expect to
+        //     keep hearing the synth while they tune.
         masterVolumeBeforeListen = engine.engine.mainMixerNode.outputVolume
         if !wasRunning {
             engine.engine.mainMixerNode.outputVolume = 0
@@ -119,67 +132,77 @@ final class MicPitchDetector: ObservableObject {
             didOverrideMasterVolume = false
         }
 
-        do {
-            let session = AVAudioSession.sharedInstance()
-            log("setCategory playAndRecord…")
-            // Use .default mode (not .measurement). .measurement disables
-            // AGC + echo cancellation which sounds great in theory but
-            // leaves the input route in an inconsistent format state on
-            // many devices — outputFormat reports sr=0 indefinitely and
-            // installTap with any explicit format throws "format mismatch".
-            // .default uses the standard hardware route (typically 48 kHz
-            // mono Float32) and is reliable. AGC doesn't break pitch
-            // detection because YIN/autocorrelation uses zero-crossings
-            // not amplitude.
-            try session.setCategory(
-                .playAndRecord,
-                mode: .default,
-                options: [.mixWithOthers, .defaultToSpeaker, .allowBluetoothA2DP]
-            )
-            log("setActive true…")
-            try session.setActive(true, options: [])
-        } catch {
-            lastError = "Couldn't switch audio session: \(error.localizedDescription)"
-            log("BAIL: session error \(error.localizedDescription)")
-            if wasRunning { try? engine.engine.start() }
-            return
+        // 2b. Session category swap (only if not already .playAndRecord).
+        if needsSessionSwap {
+            do {
+                log("setCategory playAndRecord…")
+                // Use .default mode (not .measurement). .measurement disables
+                // AGC + echo cancellation which sounds great in theory but
+                // leaves the input route in an inconsistent format state on
+                // many devices.
+                try session.setCategory(
+                    .playAndRecord,
+                    mode: .default,
+                    options: [.mixWithOthers, .defaultToSpeaker, .allowBluetoothA2DP]
+                )
+                log("setActive true…")
+                try session.setActive(true, options: [])
+            } catch {
+                lastError = "Couldn't switch audio session: \(error.localizedDescription)"
+                log("BAIL: session error \(error.localizedDescription)")
+                return
+            }
+            // Give iOS time to wire up the new input route.
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            log("session configured + settled")
         }
-        log("session configured")
 
-        // 2b. Give iOS time to wire up the input route after activation.
-        log("sleep 300 ms…")
-        try? await Task.sleep(nanoseconds: 300_000_000)   // 300 ms
-        log("post-sleep")
-
-        // 3. Ensure inputNode is in the engine's active graph BEFORE we
-        //    restart the engine. AVAudioEngine input taps fire only when
-        //    the node is connected to something the engine is actively
-        //    rendering. The connection MUST be in place at start() time
-        //    — adding it after the engine is running may not take effect.
+        // 2c. Lazily wire up input → silentInputSink. This requires the
+        //     engine to be stopped briefly so the connection takes effect
+        //     deterministically. Only happens the very first time Listen
+        //     runs in this app session. Subsequent invocations skip this
+        //     entirely and the engine stays running through Listen.
         let bus = 0
         let input = engine.engine.inputNode
-        log("got inputNode (before start)")
-        if silentInputSink == nil {
+        if needsInputWireUp {
+            log("input AU needs to be wired into the graph — stopping engine briefly…")
+            if wasRunning { engine.engine.stop() }
             let sink = AVAudioMixerNode()
-            sink.outputVolume = 0    // belt + suspenders: zero output
+            sink.outputVolume = 0
             engine.engine.attach(sink)
             engine.engine.connect(input, to: sink, format: nil)
             silentInputSink = sink
-            log("connected inputNode → silent sink (first time)")
+            log("connected inputNode → silent sink")
+            // Refresh the source-node → main-mixer connection so it
+            // renegotiates its format with the new session/route. Without
+            // this, the engine restart could leave the source node with
+            // a stale connection — engine.isRunning stays true but the
+            // render block is never called and audio silently drops to
+            // zero, leaving the transport "frozen-feeling" to the user.
+            engine.refreshOutputGraph()
+            if wasRunning {
+                do {
+                    try engine.engine.start()
+                    log("engine restarted after input wire-up; isRunning=\(engine.engine.isRunning)")
+                } catch {
+                    lastError = "Couldn't restart engine after input wire-up: \(error.localizedDescription)"
+                    log("BAIL: engine start error \(error.localizedDescription)")
+                    return
+                }
+            }
+        } else if !wasRunning {
+            // Cold start path — input already wired, engine just needs
+            // to start (e.g. user opened Listen without ever pressing play).
+            do {
+                try engine.engine.start()
+                log("engine cold-started; isRunning=\(engine.engine.isRunning)")
+            } catch {
+                lastError = "Couldn't start engine for input: \(error.localizedDescription)"
+                log("BAIL: engine start error \(error.localizedDescription)")
+                return
+            }
         } else {
-            log("silent sink already in place")
-        }
-
-        // 4. Now start the engine — graph includes input → silentSink so
-        //    the input node will actually deliver buffers to its tap.
-        do {
-            log("engine.start()…")
-            try engine.engine.start()
-            log("engine started; isRunning=\(engine.engine.isRunning)")
-        } catch {
-            lastError = "Couldn't start engine for input: \(error.localizedDescription)"
-            log("BAIL: engine start error \(error.localizedDescription)")
-            return
+            log("engine already running with input wired — no restart needed (the new fast path)")
         }
         // outputFormat after a session switch needs a brief moment on some
         // devices; if channelCount is 0 we retry with backoff up to ~3 s

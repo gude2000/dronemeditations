@@ -137,6 +137,23 @@ final class AudioEngine {
         }
     }
 
+    /// Disconnect + reconnect the source node → mainMixer connection so it
+    /// renegotiates its format with whatever sample rate / channel layout
+    /// the session is now offering. Called by `MicPitchDetector` after a
+    /// session category swap, where AVAudioEngine has been observed to
+    /// leave the source-node connection in a stale state — `isRunning`
+    /// reports true but the render block is never called, so audio
+    /// silently goes to zero. This forces a fresh negotiation that
+    /// rewires the render path. Safe to call when the engine is stopped
+    /// (intended call site), since `connect()` while stopped is the
+    /// documented happy path for AVAudioEngine graph mutations.
+    func refreshOutputGraph() {
+        guard let src = sourceNode else { return }
+        let format = engine.mainMixerNode.outputFormat(forBus: 0)
+        engine.disconnectNodeOutput(src)
+        engine.connect(src, to: engine.mainMixerNode, format: format)
+    }
+
     // MARK: - Recording
 
     /// Output URL of the currently active recording, if any.
