@@ -23,6 +23,13 @@ final class AudioEngine {
     }
     private var masterTarget: Float = 0.30
     private var fadeTimer: Timer?
+    /// Bumped on every new rampMaster call so any in-flight async ramp
+    /// loop bails out on its next tick rather than fighting the newer
+    /// one. Plays the same role for async-loop fades that
+    /// fadeTimer.invalidate() played for Timer-based ones.
+    private var rampGeneration: Int = 0
+    /// Same idea for the reverb-bloom loop.
+    private var bloomGeneration: Int = 0
 
     /// Transport elapsed seconds, pushed in by DroneController on every
     /// transport tick. The audio render thread reads it once per render
@@ -211,7 +218,11 @@ final class AudioEngine {
     /// Gently ramp master output up to `masterTarget` over `seconds`. Used by
     /// DroneController on play to avoid a hard cut-in.
     func fadeInMaster(seconds: Double = 3.0) {
-        rampMaster(to: masterTarget, over: seconds, curve: .equalPower)
+        // Fire-and-forget — fade-in doesn't need to be awaited by the
+        // caller (play() returns immediately after kicking it off).
+        Task { @MainActor in
+            await rampMaster(to: masterTarget, over: seconds, curve: .equalPower)
+        }
     }
 
     /// Ramp master output to silence over `seconds` with the chosen
@@ -221,9 +232,10 @@ final class AudioEngine {
     /// substantial post-silence buffer so a follow-up `engine.stop()`
     /// can't introduce a DC click.
     func fadeOutMaster(seconds: Double = 5.0, curve: FadeCurve = .smoothstep) async {
-        rampMaster(to: 0, over: seconds, curve: curve)
-        // Wait for the fade to fully complete.
-        try? await Task.sleep(nanoseconds: UInt64((seconds + 0.10) * 1_000_000_000))
+        // rampMaster is now async + self-pumped; awaiting it returns
+        // when the curve has finished ticking. No separate sleep
+        // needed for the fade itself.
+        await rampMaster(to: 0, over: seconds, curve: curve)
         // Snap to exact zero — floating-point dust at very low volumes
         // can still click on engine.stop().
         engine.mainMixerNode.outputVolume = 0
@@ -275,7 +287,7 @@ final class AudioEngine {
         peakAt: Double = 0.30,
         peakMix: Float = 0.50,
         peakDecay: Double = 6.0
-    ) {
+    ) async {
         cancelStopBloom()
         preBloomReverb = voices.map { (mix: $0.reverbMix, decay: $0.reverbDecaySec) }
         let startMix = voices.map { $0.reverbMix }
@@ -283,14 +295,18 @@ final class AudioEngine {
         let startDate = Date()
         let voicesRef = voices
         let clampedPeakAt = max(0.05, min(0.95, peakAt))
-        stopBloomTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60.0, repeats: true) { [weak self] timer in
-            guard self != nil else { timer.invalidate(); return }
+        let tickNanos: UInt64 = 16_000_000   // ~60 fps
+
+        bloomGeneration &+= 1
+        let myGen = bloomGeneration
+
+        while myGen == bloomGeneration {
             let elapsed = Date().timeIntervalSince(startDate)
             let tLin = min(1.0, elapsed / totalDuration)
 
             // Triangular envelope: 0 → 1 over [0, peakAt], 1 → 0 over
             // [peakAt, 1]. Smoothstep on each half so the peak isn't a
-            // sharp corner (still sounds like a natural swell + decay).
+            // sharp corner (reads as a natural swell + decay).
             let raw: Double
             if tLin <= clampedPeakAt {
                 let phase = tLin / clampedPeakAt   // 0 → 1
@@ -309,15 +325,15 @@ final class AudioEngine {
                 voicesRef[i].reverbDecaySec = sd + (peakDecay - sd) * tD
             }
             if tLin >= 1.0 {
-                // Defense in depth: snap exactly back to the snapshot.
-                // (Should already match given the envelope returns to 0.)
+                // Snap back to the snapshot (envelope already returns
+                // to 0 by this point, but defense in depth).
                 for i in 0..<voicesRef.count {
                     voicesRef[i].reverbMix = startMix[i]
                     voicesRef[i].reverbDecaySec = startDecay[i]
                 }
-                timer.invalidate()
-                self?.stopBloomTimer = nil
+                break
             }
+            try? await Task.sleep(nanoseconds: tickNanos)
         }
     }
 
@@ -327,6 +343,10 @@ final class AudioEngine {
     /// master fade completes) and when Play interrupts a stop fade
     /// mid-flight.
     func cancelStopBloom() {
+        // Bump the generation so the async bloom loop bails on its
+        // next tick. (Legacy Timer field also cleared, for any future
+        // re-introduction of a timer-based fallback.)
+        bloomGeneration &+= 1
         stopBloomTimer?.invalidate()
         stopBloomTimer = nil
         if !preBloomReverb.isEmpty {
@@ -353,14 +373,18 @@ final class AudioEngine {
         peakDecay: Double = 6.0,
         fadeCurve: FadeCurve = .logarithmic
     ) async {
-        startStopBloom(
+        // Run bloom + master fade concurrently. async let starts the
+        // bloom loop in the background; await rampMaster ticks the
+        // master fade on the current actor. When both finish, await
+        // the bloom future to make sure its restore code has run.
+        async let bloomTask: () = startStopBloom(
             totalDuration: fadeDuration,
             peakAt: peakAt,
             peakMix: peakMix,
             peakDecay: peakDecay
         )
-        rampMaster(to: 0, over: fadeDuration, curve: fadeCurve)
-        try? await Task.sleep(nanoseconds: UInt64((fadeDuration + 0.10) * 1_000_000_000))
+        await rampMaster(to: 0, over: fadeDuration, curve: fadeCurve)
+        await bloomTask
         engine.mainMixerNode.outputVolume = 0
         try? await Task.sleep(nanoseconds: 200_000_000)
         cancelStopBloom()
@@ -377,14 +401,18 @@ final class AudioEngine {
         peakDecay: Double = 3.0,
         fadeCurve: FadeCurve = .exponential
     ) async {
-        startStopBloom(
+        // Run bloom + master fade concurrently. async let starts the
+        // bloom loop in the background; await rampMaster ticks the
+        // master fade on the current actor. When both finish, await
+        // the bloom future to make sure its restore code has run.
+        async let bloomTask: () = startStopBloom(
             totalDuration: fadeDuration,
             peakAt: peakAt,
             peakMix: peakMix,
             peakDecay: peakDecay
         )
-        rampMaster(to: 0, over: fadeDuration, curve: fadeCurve)
-        try? await Task.sleep(nanoseconds: UInt64((fadeDuration + 0.10) * 1_000_000_000))
+        await rampMaster(to: 0, over: fadeDuration, curve: fadeCurve)
+        await bloomTask
         engine.mainMixerNode.outputVolume = 0
         try? await Task.sleep(nanoseconds: 200_000_000)
         cancelStopBloom()
@@ -405,18 +433,34 @@ final class AudioEngine {
     ///    stop fade.
     enum FadeCurve { case linear, equalPower, exponential, smoothstep, logarithmic }
 
-    private func rampMaster(to target: Float, over duration: Double, curve: FadeCurve = .linear) {
-        cancelFade()
+    /// Asynchronous master-volume ramp. The previous implementation used
+    /// `Timer.scheduledTimer` to tick the fade, but the timer turned
+    /// out to be unreliable when scheduled from inside the @MainActor
+    /// `Task` that wraps fadeOutMaster — depending on runloop mode it
+    /// would simply never fire on real iPhone hardware. Symptom: volume
+    /// stays at startVolume for the entire fade duration, then snaps to
+    /// target at the very end when fadeOutMaster's explicit
+    /// `outputVolume = 0` runs after the sleep. Switched to a pure
+    /// async loop pumped by `Task.sleep` — the same 60-fps tick rate,
+    /// runs on whatever actor called us (typically @MainActor), no
+    /// dependence on the runloop firing the timer at the right time.
+    private func rampMaster(to target: Float, over duration: Double, curve: FadeCurve = .linear) async {
+        cancelFade()   // legacy no-op; still safe in case any legacy callers exist
         guard duration > 0 else {
             engine.mainMixerNode.outputVolume = target
             return
         }
         let startVolume = engine.mainMixerNode.outputVolume
         let startDate = Date()
-        // ~60 fps tick is buttery smooth for multi-second meditation fades
-        // and well under any audible zipper-noise rate.
         let mixer = engine.mainMixerNode
-        fadeTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60.0, repeats: true) { [weak self] timer in
+        let tickNanos: UInt64 = 16_000_000  // ~60 fps
+
+        // Bump the ramp generation so any older in-flight rampMaster
+        // loop bails out on its next tick (modeled after cancelFade()).
+        rampGeneration &+= 1
+        let myGen = rampGeneration
+
+        while myGen == rampGeneration {
             let elapsed = Date().timeIntervalSince(startDate)
             let tLin = min(1.0, elapsed / duration)
             let t: Double
@@ -482,9 +526,9 @@ final class AudioEngine {
             mixer.outputVolume = startVolume + (target - startVolume) * Float(t)
             if tLin >= 1.0 {
                 mixer.outputVolume = target
-                timer.invalidate()
-                self?.fadeTimer = nil
+                break
             }
+            try? await Task.sleep(nanoseconds: tickNanos)
         }
     }
 
