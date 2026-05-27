@@ -185,6 +185,29 @@ body:has(.controls.hidden) #zoom-wrap,
   display: flex; gap: 8px; margin-bottom: 12px;
   flex-wrap: wrap;
 }
+
+/* OSC nav pills (v1.1) — quick jump to any oscillator strip without
+   scrolling. Smaller / more subtle than the main pill row above; sits
+   between the main pills and the strip column. */
+.osc-nav {
+  display: flex; gap: 6px; margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.osc-nav-pill {
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.78);
+  cursor: pointer;
+  transition: background 100ms ease, color 100ms ease;
+}
+.osc-nav-pill:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
 .pill {
   display: inline-flex; align-items: center; gap: 8px;
   background: rgba(255, 255, 255, 0.10);

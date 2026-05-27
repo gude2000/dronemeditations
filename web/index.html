@@ -80,6 +80,16 @@
       </button>
     </div>
 
+    <!-- v1.1 OSC nav pills — quick jump to any oscillator without
+         scrolling. Each button scrolls its strip into view. Wired up
+         in ui.js. -->
+    <nav class="osc-nav" aria-label="Jump to oscillator">
+      <button type="button" class="osc-nav-pill" data-osc-nav="0">OSC 1</button>
+      <button type="button" class="osc-nav-pill" data-osc-nav="1">OSC 2</button>
+      <button type="button" class="osc-nav-pill" data-osc-nav="2">OSC 3</button>
+      <button type="button" class="osc-nav-pill" data-osc-nav="3">OSC 4</button>
+    </nav>
+
     <section id="oscillator-strips" class="strips" aria-label="Oscillators"></section>
 
     <section class="master-row">

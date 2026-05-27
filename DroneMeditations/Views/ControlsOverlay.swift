@@ -50,15 +50,53 @@ struct ControlsOverlay: View {
             VStack(spacing: isCompact ? 6 : 12) {
                 if isCompact { compactHeader } else { header }
 
-                ScrollView {
-                    VStack(spacing: isCompact ? 6 : 10) {
-                        ForEach(0..<4, id: \.self) { i in
-                            OscillatorStrip(index: i)
+                // OSC nav pills + scrollable strip column. The
+                // ScrollViewReader lets the nav pills above jump
+                // directly to a chosen oscillator without the user
+                // having to scroll the whole strip column to find
+                // OSC 3 / OSC 4. Each strip is tagged with .id("osc-N")
+                // so scrollTo can find it. Animation gives a smooth
+                // glide rather than a jarring jump.
+                ScrollViewReader { proxy in
+                    VStack(spacing: isCompact ? 4 : 6) {
+                        // Nav pills — 4 compact pills aligned with the
+                        // pill row above. Tap → scroll to that osc.
+                        HStack(spacing: isCompact ? 6 : 8) {
+                            ForEach(0..<4, id: \.self) { i in
+                                Button {
+                                    withAnimation(.easeInOut(duration: 0.32)) {
+                                        proxy.scrollTo("osc-\(i)", anchor: .top)
+                                    }
+                                } label: {
+                                    Text("OSC \(i + 1)")
+                                        .font(.system(size: isCompact ? 9 : 10, weight: .semibold))
+                                        .padding(.horizontal, isCompact ? 8 : 10)
+                                        .padding(.vertical, isCompact ? 3 : 4)
+                                        .background(
+                                            Capsule().fill(Color.white.opacity(0.10))
+                                        )
+                                        .overlay(
+                                            Capsule().stroke(Color.white.opacity(0.18), lineWidth: 1)
+                                        )
+                                        .foregroundStyle(.white.opacity(0.85))
+                                }
+                                .buttonStyle(.plain)
+                            }
                         }
-                        masterRow
+                        .padding(.horizontal, isCompact ? 10 : 12)
+
+                        ScrollView {
+                            VStack(spacing: isCompact ? 6 : 10) {
+                                ForEach(0..<4, id: \.self) { i in
+                                    OscillatorStrip(index: i)
+                                        .id("osc-\(i)")
+                                }
+                                masterRow
+                            }
+                            .padding(.horizontal, isCompact ? 10 : 12)
+                            .padding(.bottom, isCompact ? 6 : 10)
+                        }
                     }
-                    .padding(.horizontal, isCompact ? 10 : 12)
-                    .padding(.bottom, isCompact ? 6 : 10)
                 }
 
                 TransportView(controller: vm.controller)

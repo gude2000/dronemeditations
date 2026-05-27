@@ -40,6 +40,20 @@ export function initUI(state, actions) {
   // First render of strips (we re-render whole strips on state change — cheap, only 4).
   renderStrips();
 
+  // v1.1 OSC nav pills — wire each pill to scroll its corresponding
+  // strip into view. Uses event delegation so we don't have to
+  // re-attach if the strip column re-renders (it doesn't, but cheap
+  // either way).
+  document.querySelectorAll('[data-osc-nav]').forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const idx = parseInt(btn.dataset.oscNav, 10);
+      const strip = stripContainer.children[idx];
+      if (strip && typeof strip.scrollIntoView === "function") {
+        strip.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  });
+
   // Build modal sheet contents (static lists with selected-state toggling).
   buildKeyGrid();
   buildTuningGrid();
