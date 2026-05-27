@@ -256,15 +256,25 @@ final class AudioEngine {
     /// to the user's actual reverb settings.
     private var preBloomReverb: [(mix: Float, decay: Double)] = []
 
-    /// Begin ramping each voice's reverb mix up toward `targetMix` and
-    /// decay up toward `targetDecay` over `bloomDuration` seconds.
-    /// Equal-power ramp (sin curve) for a gentle onset so the bloom
-    /// feels like the room opening up rather than a sudden wash.
+    /// Triangular reverb bloom over `totalDuration` seconds: ramp each
+    /// voice's reverb mix + decay UP from current to (peakMix, peakDecay)
+    /// over the first `peakAt`-fraction of the duration, then ramp BACK
+    /// DOWN to the pre-bloom values over the remainder.
+    ///
+    /// Why triangular: the voice render mixes wet additively
+    /// (`output = dry + revMix * wet`), so a constant bloom would
+    /// compensate for the master fade and the user would hear "still
+    /// loud" until the bloom collapses — which is exactly the
+    /// "100 % → silence" symptom users reported. A triangular bloom
+    /// means the wet signal also fades after its peak, so the perceived
+    /// total loudness actually drops throughout the fade.
+    ///
     /// Idempotent: cancels any prior bloom first.
     func startStopBloom(
-        bloomDuration: Double = 3.0,
-        targetMix: Float = 0.85,
-        targetDecay: Double = 8.0
+        totalDuration: Double = 8.0,
+        peakAt: Double = 0.30,
+        peakMix: Float = 0.50,
+        peakDecay: Double = 6.0
     ) {
         cancelStopBloom()
         preBloomReverb = voices.map { (mix: $0.reverbMix, decay: $0.reverbDecaySec) }
@@ -272,20 +282,39 @@ final class AudioEngine {
         let startDecay = voices.map { $0.reverbDecaySec }
         let startDate = Date()
         let voicesRef = voices
+        let clampedPeakAt = max(0.05, min(0.95, peakAt))
         stopBloomTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60.0, repeats: true) { [weak self] timer in
             guard self != nil else { timer.invalidate(); return }
             let elapsed = Date().timeIntervalSince(startDate)
-            let tLin = min(1.0, elapsed / bloomDuration)
-            // sin(πt/2) — gentle onset, eased landing at full bloom.
-            let t = Float(sin(tLin * .pi / 2))
-            let tD = Double(t)
+            let tLin = min(1.0, elapsed / totalDuration)
+
+            // Triangular envelope: 0 → 1 over [0, peakAt], 1 → 0 over
+            // [peakAt, 1]. Smoothstep on each half so the peak isn't a
+            // sharp corner (still sounds like a natural swell + decay).
+            let raw: Double
+            if tLin <= clampedPeakAt {
+                let phase = tLin / clampedPeakAt   // 0 → 1
+                raw = phase * phase * (3 - 2 * phase)
+            } else {
+                let phase = (1 - tLin) / (1 - clampedPeakAt)   // 1 → 0
+                raw = phase * phase * (3 - 2 * phase)
+            }
+            let t = Float(raw)
+            let tD = raw
+
             for i in 0..<voicesRef.count {
                 let sm = startMix[i]
                 let sd = startDecay[i]
-                voicesRef[i].reverbMix = sm + (targetMix - sm) * t
-                voicesRef[i].reverbDecaySec = sd + (targetDecay - sd) * tD
+                voicesRef[i].reverbMix = sm + (peakMix - sm) * t
+                voicesRef[i].reverbDecaySec = sd + (peakDecay - sd) * tD
             }
             if tLin >= 1.0 {
+                // Defense in depth: snap exactly back to the snapshot.
+                // (Should already match given the envelope returns to 0.)
+                for i in 0..<voicesRef.count {
+                    voicesRef[i].reverbMix = startMix[i]
+                    voicesRef[i].reverbDecaySec = startDecay[i]
+                }
                 timer.invalidate()
                 self?.stopBloomTimer = nil
             }
@@ -309,17 +338,52 @@ final class AudioEngine {
         }
     }
 
-    /// Combined "atmospheric stop": kick off a reverb bloom ramp and a
-    /// logarithmic master fade-out concurrently, await both, then
-    /// restore reverb settings. Caller is responsible for engine.stop()
-    /// after this returns (usually on a detached task for UI
-    /// responsiveness).
+    /// Combined "atmospheric stop": triangular reverb bloom (up, then
+    /// back down) running ALONGSIDE a logarithmic master fade-out over
+    /// the same duration. Because the bloom envelope returns to the
+    /// pre-bloom values by the end, the wet signal also fades — so the
+    /// user perceives total loudness actually dropping throughout
+    /// (rather than a constant bloom masking the master fade until
+    /// both collapse at the end). Caller is responsible for
+    /// engine.stop() after this returns.
     func stopWithReverbBloom(
         fadeDuration: Double = 8.0,
-        bloomDuration: Double = 3.0
+        peakAt: Double = 0.30,
+        peakMix: Float = 0.50,
+        peakDecay: Double = 6.0,
+        fadeCurve: FadeCurve = .logarithmic
     ) async {
-        startStopBloom(bloomDuration: bloomDuration)
-        rampMaster(to: 0, over: fadeDuration, curve: .logarithmic)
+        startStopBloom(
+            totalDuration: fadeDuration,
+            peakAt: peakAt,
+            peakMix: peakMix,
+            peakDecay: peakDecay
+        )
+        rampMaster(to: 0, over: fadeDuration, curve: fadeCurve)
+        try? await Task.sleep(nanoseconds: UInt64((fadeDuration + 0.10) * 1_000_000_000))
+        engine.mainMixerNode.outputVolume = 0
+        try? await Task.sleep(nanoseconds: 200_000_000)
+        cancelStopBloom()
+    }
+
+    /// Smaller, faster bloom for pause — a gentle "lift then settle"
+    /// while the master fade-out runs. Same triangular envelope shape
+    /// as stopWithReverbBloom, just tuned for a short pause gesture
+    /// (smaller peak mix, shorter decay target).
+    func pauseWithReverbBloom(
+        fadeDuration: Double = 1.4,
+        peakAt: Double = 0.25,
+        peakMix: Float = 0.25,
+        peakDecay: Double = 3.0,
+        fadeCurve: FadeCurve = .exponential
+    ) async {
+        startStopBloom(
+            totalDuration: fadeDuration,
+            peakAt: peakAt,
+            peakMix: peakMix,
+            peakDecay: peakDecay
+        )
+        rampMaster(to: 0, over: fadeDuration, curve: fadeCurve)
         try? await Task.sleep(nanoseconds: UInt64((fadeDuration + 0.10) * 1_000_000_000))
         engine.mainMixerNode.outputVolume = 0
         try? await Task.sleep(nanoseconds: 200_000_000)

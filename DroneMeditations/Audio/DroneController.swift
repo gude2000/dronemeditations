@@ -89,14 +89,16 @@ final class DroneController: ObservableObject {
         guard state == .playing else { return }
         stopTicker()
         state = .paused
-        // 1.2 s exponential fade — snappy response, no click. Good for
-        // pause where the user expects quick silence. Held onto so
-        // play() can cancel it before it fires engine.stop() against
-        // resumed playback.
+        // 1.4 s exponential master fade + small triangular reverb
+        // bloom (peak mix 0.25 at t=0.35 s, peak decay 3 s). Per user
+        // feedback: pause is the right gesture for a "quick wind
+        // down", but a touch of bloom adds atmosphere without making
+        // it feel like a stop. Held onto so play() can cancel it
+        // before it fires engine.stop() against resumed playback.
         pendingFadeOutTask?.cancel()
         let engineRef = engine
         pendingFadeOutTask = Task { @MainActor in
-            await engineRef.fadeOutMaster(seconds: 1.2, curve: .exponential)
+            await engineRef.pauseWithReverbBloom()
             // If the user re-pressed Play during the fade, state is no
             // longer .paused — skip the engine stop so the now-playing
             // engine isn't torn down.
@@ -146,7 +148,16 @@ final class DroneController: ObservableObject {
         pendingFadeOutTask?.cancel()
         let engineRef = engine
         pendingFadeOutTask = Task { @MainActor in
-            await engineRef.stopWithReverbBloom(fadeDuration: 8.0, bloomDuration: 3.0)
+            // 8 s fade, bloom peaking 30 % in (at t≈2.4 s) with mix=0.5
+            // and decay=6 s — then the bloom ramps BACK down over the
+            // remaining 5.6 s so the wet signal joins the master fade
+            // instead of holding loud and then collapsing at the end.
+            await engineRef.stopWithReverbBloom(
+                fadeDuration: 8.0,
+                peakAt: 0.30,
+                peakMix: 0.50,
+                peakDecay: 6.0
+            )
             // If the user re-pressed Play during the fade, state is no
             // longer .stopped — skip the engine stop. (Play also calls
             // engine.cancelStopBloom() so reverb is restored even if
