@@ -853,66 +853,55 @@ struct OscillatorStrip: View {
                 .foregroundStyle(active ? Color.accentColor : .secondary)
                 .frame(width: 36, alignment: .leading)
 
-            // Shape picker — switched from segmented to menu style in
-            // v1.1 when sawtooth + ramp were added. 6 icons in a
-            // segmented control at 96 pt was 16 pt per option, below
-            // the tappable threshold. Menu shows all 6 cleanly with
-            // their display names and SF symbols.
-            Picker(selection: Binding(
-                get: { lfo.shape },
-                set: { vm.setLfoShape($0, for: index, lfoIndex: lfoIndex) }
-            )) {
+            // Shape picker — inline row of small toggleable icon
+            // buttons (matches the web layout). One shape is active at
+            // a time; tapping switches. SF Symbol icon, filled when
+            // active. Compact enough that 6 fit on iPhone in portrait.
+            HStack(spacing: 3) {
                 ForEach(LfoState.Shape.allCases) { s in
-                    Label(s.displayName, systemImage: s.sfSymbol).tag(s)
+                    let isOn = (s == lfo.shape)
+                    Button {
+                        vm.setLfoShape(s, for: index, lfoIndex: lfoIndex)
+                    } label: {
+                        Image(systemName: s.sfSymbol)
+                            .font(.system(size: 9, weight: .semibold))
+                            .frame(width: 20, height: 20)
+                            .background(
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(isOn ? Color.white.opacity(0.85) : Color.white.opacity(0.10))
+                            )
+                            .foregroundStyle(isOn ? Color.black : Color.white.opacity(0.85))
+                    }
+                    .buttonStyle(.plain)
                 }
-            } label: {
-                Image(systemName: lfo.shape.sfSymbol)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 36, height: 26)
-                    .background(
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(Color.white.opacity(0.10))
-                    )
             }
-            .pickerStyle(.menu)
-            .menuStyle(.borderlessButton)
-            .frame(width: 44)
 
-            // v1.1 multi-target picker — Menu with toggleable rows.
-            // Tapping a row adds/removes that target from the LFO's
-            // target set; the LFO drives every active target
-            // simultaneously. Label summarizes the active set with a
-            // comma-joined list (e.g. "pan,pitch") or "—" if empty.
-            Menu {
+            // v1.1 multi-target row — inline toggleable text buttons,
+            // one per target. Tapping any target adds or removes it
+            // from the LFO's target SET (not radio-select). All active
+            // targets are driven simultaneously by the one LFO. Filled
+            // accent background = active.
+            HStack(spacing: 3) {
                 ForEach(LfoState.Target.allCases) { t in
+                    let isOn = lfo.targets.contains(t)
                     Button {
                         vm.toggleLfoTarget(t, for: index, lfoIndex: lfoIndex)
                     } label: {
-                        if lfo.targets.contains(t) {
-                            Label(t.shortLabel, systemImage: "checkmark")
-                        } else {
-                            Text(t.shortLabel)
-                        }
+                        Text(t.shortLabel)
+                            .font(.system(size: 9, weight: .semibold))
+                            .lineLimit(1)
+                            .frame(minWidth: 22)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 3)
+                            .background(
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(isOn ? Color.accentColor : Color.white.opacity(0.10))
+                            )
+                            .foregroundStyle(isOn ? .white : .white.opacity(0.75))
                     }
+                    .buttonStyle(.plain)
                 }
-            } label: {
-                HStack(spacing: 3) {
-                    Text("→").font(.system(size: 10, weight: .bold))
-                    Text(lfoTargetLabel(lfo.targets))
-                        .font(.system(size: 11, weight: .semibold))
-                        .lineLimit(1)
-                }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 8).padding(.vertical, 5)
-                .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(lfo.targets.count > 1
-                              ? Color.accentColor.opacity(0.30)
-                              : Color.white.opacity(0.10))
-                )
             }
-            .menuStyle(.borderlessButton)
             .frame(width: 80, alignment: .leading)
 
             VStack(alignment: .leading, spacing: 0) {
@@ -1262,17 +1251,4 @@ private struct FrequencySlider: View {
         Slider(value: binding, in: 0.0...1.0)
             .tint(Color(hue: hue, saturation: 0.65, brightness: 0.95))
     }
-}
-
-/// Short summary of an LFO's active target set for the strip-row
-/// trigger label. "—" if nothing's active; comma-joined short labels
-/// otherwise. Stays compact even with all 6 targets active.
-fileprivate func lfoTargetLabel(_ targets: Set<LfoState.Target>) -> String {
-    if targets.isEmpty { return "—" }
-    // Use the canonical enum order so the output is stable instead of
-    // shuffling with Set's hash order.
-    return LfoState.Target.allCases
-        .filter { targets.contains($0) }
-        .map { $0.shortLabel }
-        .joined(separator: ",")
 }
