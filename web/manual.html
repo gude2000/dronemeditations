@@ -481,7 +481,8 @@
   </table>
 
   <h3>Filter</h3>
-  <p>Each voice has a state-variable filter with selectable mode (<strong>LP</strong>, <strong>HP</strong>, <strong>BP</strong>), cutoff (20 Hz – 8 kHz, log), and resonance (Q 0.3 – 20).</p>
+  <p>Each voice has a state-variable filter with selectable mode (<strong>LP</strong>, <strong>HP</strong>, <strong>BP</strong>), cutoff (20 Hz – 8 kHz, log), and <strong>Q</strong> 0.3 – 20.</p>
+  <p class="note"><strong>Q = resonance.</strong> They're the same control under two names — Q is the technical term (quality factor: cutoff ÷ bandwidth), resonance is the common synth term. Higher Q narrows the filter peak around the cutoff, which we hear as a taller, more whistling/squelchy emphasis at that frequency. Low Q (0.3–1) = smooth pad shaping; high Q (5–20) = vowel-like resonant sweeps.</p>
 </section>
 
 <!-- ───────────────── Chord/Key/Octave ───────────────── -->
@@ -592,7 +593,7 @@
   <div class="grid-2">
     <div class="card">
       <h4>Filter</h4>
-      <p>Mode (LP / HP / BP), cutoff, resonance. LFO 2 by default modulates cutoff. Use BP + high Q for "vowel" sweeps; LP + low Q for warm pads.</p>
+      <p>Mode (LP / HP / BP), cutoff, <strong>Q (= resonance)</strong>. LFO 2 by default modulates cutoff. Use BP + high Q for "vowel" sweeps; LP + low Q for warm pads. Q is also an LFO target — sweeping it makes the filter peak "breathe."</p>
     </div>
     <div class="card">
       <h4>Drive (soft saturation)</h4>
@@ -637,8 +638,8 @@
 
   <p>For each LFO you control:</p>
   <ul>
-    <li><strong>Shape</strong> — Sine, Triangle, Sawtooth, Square.</li>
-    <li><strong>Target</strong> — Amplitude, Pan, Filter cutoff, or Pitch (any LFO can drive any target).</li>
+    <li><strong>Shape</strong> — Sine, Triangle, Sawtooth, Ramp, Square, Sample &amp; Hold.</li>
+    <li><strong>Target(s)</strong> — Amplitude (VOL), Pan, Filter cutoff (CUT), Filter Q (resonance), Pitch, or FM index. Target buttons are toggleable: <strong>one LFO can drive multiple targets at once</strong> — tap PAN and CUT on the same LFO and a single triangle wave will sweep both stereo position and cutoff in lock-step.</li>
     <li><strong>Rate</strong> — 0.02 – 8 Hz (log).</li>
     <li><strong>Depth</strong> — how strongly it modulates the target.</li>
   </ul>
