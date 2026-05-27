@@ -239,6 +239,93 @@ final class AudioEngine {
         fadeTimer = nil
     }
 
+    // MARK: - Stop with reverb bloom
+    //
+    // "Atmospheric stop" — instead of a pure amplitude fade-out, ramp
+    // each voice's reverb mix + decay UP over the first few seconds of
+    // the stop while the master volume simultaneously fades down. The
+    // dry signal disappears, the wet signal extends and dissolves into
+    // space. Sounds far more "musical" than a pure volume drop and
+    // hides the perceptual unevenness inherent in any amplitude fade
+    // (the human ear has trouble parsing fast dB descents as smooth).
+
+    private var stopBloomTimer: Timer?
+    /// Snapshot of per-voice (mix, decaySec) captured when the bloom
+    /// starts. Restored on cancelStopBloom() so a Play during the
+    /// fade — or a clean teardown after the fade — returns each voice
+    /// to the user's actual reverb settings.
+    private var preBloomReverb: [(mix: Float, decay: Double)] = []
+
+    /// Begin ramping each voice's reverb mix up toward `targetMix` and
+    /// decay up toward `targetDecay` over `bloomDuration` seconds.
+    /// Equal-power ramp (sin curve) for a gentle onset so the bloom
+    /// feels like the room opening up rather than a sudden wash.
+    /// Idempotent: cancels any prior bloom first.
+    func startStopBloom(
+        bloomDuration: Double = 3.0,
+        targetMix: Float = 0.85,
+        targetDecay: Double = 8.0
+    ) {
+        cancelStopBloom()
+        preBloomReverb = voices.map { (mix: $0.reverbMix, decay: $0.reverbDecaySec) }
+        let startMix = voices.map { $0.reverbMix }
+        let startDecay = voices.map { $0.reverbDecaySec }
+        let startDate = Date()
+        let voicesRef = voices
+        stopBloomTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60.0, repeats: true) { [weak self] timer in
+            guard self != nil else { timer.invalidate(); return }
+            let elapsed = Date().timeIntervalSince(startDate)
+            let tLin = min(1.0, elapsed / bloomDuration)
+            // sin(πt/2) — gentle onset, eased landing at full bloom.
+            let t = Float(sin(tLin * .pi / 2))
+            let tD = Double(t)
+            for i in 0..<voicesRef.count {
+                let sm = startMix[i]
+                let sd = startDecay[i]
+                voicesRef[i].reverbMix = sm + (targetMix - sm) * t
+                voicesRef[i].reverbDecaySec = sd + (targetDecay - sd) * tD
+            }
+            if tLin >= 1.0 {
+                timer.invalidate()
+                self?.stopBloomTimer = nil
+            }
+        }
+    }
+
+    /// Stop any in-flight bloom ramp AND restore each voice's reverb
+    /// settings to the values they had before the bloom started.
+    /// Called both at the end of a clean stop sequence (after the
+    /// master fade completes) and when Play interrupts a stop fade
+    /// mid-flight.
+    func cancelStopBloom() {
+        stopBloomTimer?.invalidate()
+        stopBloomTimer = nil
+        if !preBloomReverb.isEmpty {
+            for (i, snap) in preBloomReverb.enumerated() where i < voices.count {
+                voices[i].reverbMix = snap.mix
+                voices[i].reverbDecaySec = snap.decay
+            }
+            preBloomReverb = []
+        }
+    }
+
+    /// Combined "atmospheric stop": kick off a reverb bloom ramp and a
+    /// logarithmic master fade-out concurrently, await both, then
+    /// restore reverb settings. Caller is responsible for engine.stop()
+    /// after this returns (usually on a detached task for UI
+    /// responsiveness).
+    func stopWithReverbBloom(
+        fadeDuration: Double = 8.0,
+        bloomDuration: Double = 3.0
+    ) async {
+        startStopBloom(bloomDuration: bloomDuration)
+        rampMaster(to: 0, over: fadeDuration, curve: .logarithmic)
+        try? await Task.sleep(nanoseconds: UInt64((fadeDuration + 0.10) * 1_000_000_000))
+        engine.mainMixerNode.outputVolume = 0
+        try? await Task.sleep(nanoseconds: 200_000_000)
+        cancelStopBloom()
+    }
+
     /// Curve shape for `rampMaster`.
     ///  - equalPower: sin-shaped, gentle onset — used for fade-ins.
     ///  - exponential: sharp early drop, gradual tail — "snappy" stop.

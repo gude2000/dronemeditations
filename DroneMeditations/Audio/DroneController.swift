@@ -50,6 +50,10 @@ final class DroneController: ObservableObject {
         // pendingFadeOutTask comment.
         pendingFadeOutTask?.cancel()
         pendingFadeOutTask = nil
+        // ALSO restore reverb settings if a stop-bloom was in flight —
+        // otherwise the next play would inherit the bloomed values
+        // (mix=0.85, decay=8s) instead of the user's preset settings.
+        engine.cancelStopBloom()
 
         let fromStopped = (state == .stopped)
         // If the engine is already running (typically because Listen left
@@ -124,29 +128,29 @@ final class DroneController: ObservableObject {
         if engine.isRecording {
             finalizeRecording()
         }
-        // 6 s logarithmic fade — paired with the rewritten .logarithmic
-        // curve (true linear-dB descent over the bulk + linear taper
-        // for the inaudible tail). User feedback on the previous 5 s
-        // version: "longer but not audibly smoother". That curve was
-        // /0.99-normalized which squeezed the -40 dB descent into the
-        // first 95 % of duration — giving a per-second drop of about
-        // 12 dB/sec, above the perceptual smoothness threshold.
+        // 8 s "atmospheric stop" — per-voice reverb mix + decay ramp UP
+        // over the first 3 s of the fade (bloom into space) while the
+        // master volume simultaneously fades down on the logarithmic
+        // curve over the full 8 s. The dry signal disappears, the wet
+        // signal extends and dissolves into the room. Hides the
+        // perceptual unevenness of pure amplitude fades and feels much
+        // more "musical" than a flat volume drop.
         //
-        // The rewritten curve delivers a true -7.4 dB/sec uniform
-        // descent over the audible portion. 6 seconds gives the ear
-        // ~5 seconds of perceivable wind-down before the inaudible
-        // tail finishes the curve at exactly 0 — no click.
+        // After the master hits 0, voice reverb settings are restored
+        // automatically (by stopWithReverbBloom → cancelStopBloom) so
+        // the next Play resumes with the user's preset reverb intact.
         //
         // Pause stays at the snappier 1.2 s exponential — it's a
-        // "quick wind down" gesture rather than a "settle into
-        // silence" one. If you want pause to also feel smooth,
-        // holler.
+        // "quick wind down" gesture rather than a "settle into space"
+        // one.
         pendingFadeOutTask?.cancel()
         let engineRef = engine
         pendingFadeOutTask = Task { @MainActor in
-            await engineRef.fadeOutMaster(seconds: 6.0, curve: .logarithmic)
+            await engineRef.stopWithReverbBloom(fadeDuration: 8.0, bloomDuration: 3.0)
             // If the user re-pressed Play during the fade, state is no
-            // longer .stopped — skip the engine stop.
+            // longer .stopped — skip the engine stop. (Play also calls
+            // engine.cancelStopBloom() so reverb is restored even if
+            // the fade Task was cancelled mid-bloom.)
             guard self.state == .stopped else { return }
             // engine.stop() can block on real hardware when the mic
             // input AU is wired into the graph (post-Listen). Detach
