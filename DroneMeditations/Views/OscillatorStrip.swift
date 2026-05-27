@@ -994,6 +994,22 @@ struct OscillatorStrip: View {
             // plus optional amount-in-semitones + period-in-seconds overrides
             // (the "Ocean" mode demonstrates this — slow ±¼-semi wave).
             Menu {
+                // Quantize-to-scale toggle (v1.1). Snaps the voice's
+                // final pitch (drift + LFO + FM) to the nearest chord
+                // note across 2 octaves. Turns continuous motion into
+                // arpeggio-like jumps along the current chord.
+                Section {
+                    Button {
+                        vm.setVoiceQuantizeToScale(!osc.drift.quantizeToScale, for: index)
+                    } label: {
+                        if osc.drift.quantizeToScale {
+                            Label("Quantize to scale", systemImage: "checkmark")
+                        } else {
+                            Text("Quantize to scale")
+                        }
+                    }
+                }
+
                 Section("OSC \(index + 1) · Pitch") {
                     ForEach(DriftVoiceConfig.PitchMode.allCases) { mode in
                         Button {

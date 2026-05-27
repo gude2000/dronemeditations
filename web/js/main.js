@@ -110,7 +110,12 @@ const defaultDrift  = () => ({
   pitchPhase: 0,        // 0..1 modular phase offset
   panMode: "static",    // "static" | "sweepLR" | "sweepRL" | "pendulum" | "antiPendulum" | "glacial"
   panAmount: 1.0,
-  panPhase: 0
+  panPhase: 0,
+  // v1.1 quantize-to-scale: when true, the voice's final pitch
+  // (drift + LFO + FM combined) snaps to the nearest chord note
+  // across 2 octaves. Turns continuous motion into arpeggio-like
+  // jumps along the current chord.
+  quantizeToScale: false
 });
 
 const state = {
@@ -1131,6 +1136,19 @@ const actions = {
   setVoicePitchDrift(voiceIndex, mode) { setVoicePitchDrift(voiceIndex, mode); },
   setVoicePanDrift(voiceIndex, mode)   { setVoicePanDrift(voiceIndex, mode); },
 
+  /// v1.1 quantize-to-scale per voice. Mirror of iOS
+  /// setVoiceQuantizeToScale. Recomputes the scale cache on the
+  /// engine on first enable so the snap can take effect immediately.
+  setVoiceQuantizeToScale(voiceIndex, on) {
+    if (!state.oscillators[voiceIndex]) return;
+    state.oscillators[voiceIndex].drift.quantizeToScale = !!on;
+    if (engine && engine.voices && engine.voices[voiceIndex]) {
+      engine.voices[voiceIndex].pitchQuantizeToScale = !!on;
+    }
+    if (on) recomputeQuantizeScale();
+    renderAll();
+  },
+
   /// Randomize this oscillator's parameters — everything except level so
   /// the voice doesn't suddenly blast or vanish. Touches frequency,
   /// waveform (non-sample), pan, filter type/cutoff/Q, reverb decay/mix,
@@ -1602,7 +1620,27 @@ function applyChord() {
     engine.setFrequency(i, hz);
   }
   state.activePresetName = null;
+  recomputeQuantizeScale();
   renderAll();
+}
+
+/// Cache of chord-note frequencies spanning 2 octaves up from the
+/// current chord root. Pushed into the engine so any voice with
+/// `drift.quantizeToScale` true snaps to the nearest note. Recomputed
+/// whenever chord / tuning / key / octave changes.
+function recomputeQuantizeScale() {
+  const chord = CHORDS.find((c) => c.id === state.chordId);
+  if (!chord) return;
+  const rootHz = pitchToFrequency(state.keyId, state.octave);
+  const freqs = chordFrequencies(chord, rootHz, state.tuningId);
+  const set = new Set();
+  for (const n of freqs) {
+    if (n > 0) {
+      set.add(n);
+      set.add(n * 2);   // +1 octave
+    }
+  }
+  engine.scaleNotesHz = Array.from(set).sort((a, b) => a - b);
 }
 
 function startTicker() {

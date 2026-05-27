@@ -17,6 +17,11 @@ export class AudioEngine {
     /** @type {GainNode|null} */
     this.master = null;
     this.started = false;
+    // v1.1 quantize-to-scale cache. Populated by main.js's
+    // recomputeQuantizeScale() whenever chord/tuning/key/octave
+    // changes. Read in the LFO/pitch dispatch when a voice has
+    // pitchQuantizeToScale = true.
+    this.scaleNotesHz = [];
 
     // The user-visible volume target (0..1). Applied after solo/mute logic resolves.
     // Default 0.30 — with 4 voices + reverb/delay wet sends, anything higher
@@ -687,17 +692,32 @@ export class AudioEngine {
       v.filter.frequency.setValueAtTime(v.filter.frequency.value, now);
       v.filter.frequency.linearRampToValueAtTime(cutoffEff, now + LFO_SMOOTH);
     }
-    if (anyPitch) {
+    if (anyPitch || v.pitchQuantizeToScale) {
       const pitchMult = Math.pow(2, pitchSemitones / 12);
-      // Apply to synth oscillator frequency.
-      const freqEff = Math.max(0.01, v.params.freq * pitchMult);
+      let freqEff = Math.max(0.01, v.params.freq * pitchMult);
+      // v1.1 quantize-to-scale: snap freqEff to the nearest entry in
+      // the engine's scaleNotesHz cache (populated by main.js's
+      // recomputeQuantizeScale on chord/tuning/key/octave change).
+      // Snap in log space so the "nearest" measure is musically
+      // meaningful (halfstep above and below count equidistant).
+      if (v.pitchQuantizeToScale && this.scaleNotesHz && this.scaleNotesHz.length > 0) {
+        const logTarget = Math.log2(freqEff);
+        let bestNote = this.scaleNotesHz[0];
+        let bestDiff = Math.abs(Math.log2(bestNote) - logTarget);
+        for (const n of this.scaleNotesHz) {
+          if (n <= 0) continue;
+          const d = Math.abs(Math.log2(n) - logTarget);
+          if (d < bestDiff) { bestDiff = d; bestNote = n; }
+        }
+        freqEff = bestNote;
+      }
       v.osc.frequency.cancelScheduledValues(now);
       v.osc.frequency.setValueAtTime(v.osc.frequency.value, now);
       v.osc.frequency.linearRampToValueAtTime(freqEff, now + LFO_SMOOTH);
       // Apply to sample playback rate too, so loaded samples vibrato along.
       if (v.sampleSrc) {
         const rateBase = Math.max(0.05, Math.min(20, v.params.freq / 220));
-        const rateEff = Math.max(0.05, Math.min(20, rateBase * pitchMult));
+        const rateEff = Math.max(0.05, Math.min(20, freqEff / 220));
         v.sampleSrc.playbackRate.cancelScheduledValues(now);
         v.sampleSrc.playbackRate.setValueAtTime(v.sampleSrc.playbackRate.value, now);
         v.sampleSrc.playbackRate.linearRampToValueAtTime(rateEff, now + LFO_SMOOTH);

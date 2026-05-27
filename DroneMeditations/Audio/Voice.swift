@@ -116,6 +116,15 @@ final class Voice {
     // Reverb (Schroeder JCRev: 4 parallel combs + 2 series allpasses).
     var reverbDecaySec: Double = 2.0
     var reverbMix: Float = 0.0
+
+    /// Quantize-to-scale state (v1.1). When `pitchQuantizeToScale` is
+    /// true, the voice render snaps its effective frequency to the
+    /// nearest entry in `scaleNotesHz`. The cache is populated from
+    /// DroneViewModel.updateScaleNotes(for:) whenever chord / tuning /
+    /// voice base freq changes, spanning 2 octaves up from the voice's
+    /// base frequency.
+    var pitchQuantizeToScale: Bool = false
+    var scaleNotesHz: [Double] = []
     private static let combLengths: [Int] = [1116, 1188, 1277, 1356]
     private static let allpassLengths: [Int] = [556, 441]
     private static let allpassFb: Double = 0.5
@@ -295,7 +304,23 @@ final class Voice {
         let ampTarget = Float(max(0.0, min(1.0, Double(baseAmp) * ampScale)))
         // Pitch-modulated frequency target — slew loop tracks this rather than
         // the raw targetFrequencyHz when an LFO is routed to pitch.
-        let effectiveFreqTarget = targetFrequencyHz * pow(2.0, pitchSemitones / 12.0)
+        var effectiveFreqTarget = targetFrequencyHz * pow(2.0, pitchSemitones / 12.0)
+        // v1.1 quantize-to-scale: snap the post-modulation pitch to the
+        // nearest chord note (cache populated by DroneViewModel when
+        // chord/tuning/base-freq changes). Snap is in log space so the
+        // "nearest" measure is musically meaningful (a halfstep above
+        // and below count as equidistant). No-op when the cache is
+        // empty or the flag is off.
+        if pitchQuantizeToScale, !scaleNotesHz.isEmpty, effectiveFreqTarget > 0 {
+            let logTarget = log2(effectiveFreqTarget)
+            var bestNote = scaleNotesHz[0]
+            var bestDiff = abs(log2(bestNote) - logTarget)
+            for n in scaleNotesHz where n > 0 {
+                let d = abs(log2(n) - logTarget)
+                if d < bestDiff { bestDiff = d; bestNote = n }
+            }
+            effectiveFreqTarget = bestNote
+        }
 
         // ── Update biquad coefficients with LFO-modulated cutoff + Q.
         let effectiveCutoff = filterCutoffHz * pow(2.0, cutoffOct)

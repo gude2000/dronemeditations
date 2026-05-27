@@ -675,6 +675,40 @@ final class DroneViewModel: ObservableObject {
             audioEngine.setFrequency(clamped, for: i)
         }
         activePresetName = nil
+        // Recompute the quantize-to-scale cache so any voice with that
+        // drift option enabled now snaps to the new chord's notes.
+        recomputeQuantizeScale()
+    }
+
+    /// Cache of chord-note frequencies spanning 2 octaves up from the
+    /// chord root, used by any voice with `drift.quantizeToScale` on.
+    /// Pushed into each voice's DSP cache via Voice.scaleNotesHz.
+    private func recomputeQuantizeScale() {
+        let rootHz = Pitch(currentKey, octave: currentOctave).frequencyEqual12()
+        let chordNotes = currentChord.frequencies(rootHz: rootHz, tuning: currentTuning)
+        // Each chord interval + that interval one octave up = 2 octaves
+        // of chord tones to quantize to. De-dup via Set (root is often
+        // duplicated as the 4th chord voice an octave up).
+        var unique: Set<Double> = []
+        for n in chordNotes where n > 0 {
+            unique.insert(n)
+            unique.insert(n * 2)
+        }
+        let sorted = Array(unique).sorted()
+        for i in 0..<audioEngine.voices.count {
+            audioEngine.voices[i].scaleNotesHz = sorted
+        }
+    }
+
+    /// Per-voice toggle for quantize-to-scale. Mirrors the flag in
+    /// oscillators[i].drift to the Voice's DSP flag.
+    func setVoiceQuantizeToScale(_ on: Bool, for index: Int) {
+        guard oscillators.indices.contains(index),
+              audioEngine.voices.indices.contains(index) else { return }
+        oscillators[index].drift.quantizeToScale = on
+        audioEngine.voices[index].pitchQuantizeToScale = on
+        if on { recomputeQuantizeScale() }
+        objectWillChange.send()
     }
 
     // MARK: - Preset

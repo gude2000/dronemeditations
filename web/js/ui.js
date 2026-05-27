@@ -2053,6 +2053,14 @@ function openVoiceDriftMenu(e, voiceIndex) {
     menu.appendChild(b);
   };
 
+  // v1.1 quantize-to-scale toggle — at the top so it reads as a
+  // top-level voice option, not a drift mode itself.
+  addOption(
+    { id: "_quant_on", label: drift.quantizeToScale ? "✓ Quantize to scale" : "Quantize to scale" },
+    "",
+    () => dispatch.setVoiceQuantizeToScale(voiceIndex, !drift.quantizeToScale)
+  );
+
   addSection(`OSC ${voiceIndex + 1} · Pitch`);
   for (const m of VOICE_PITCH_DRIFT_MODES) {
     addOption(m, drift.pitchMode, (id) => dispatch.setVoicePitchDrift(voiceIndex, id));

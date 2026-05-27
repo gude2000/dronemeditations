@@ -54,6 +54,14 @@ struct DriftVoiceConfig: Equatable, Codable {
     /// nil = use session-progress behavior (default for existing presets).
     var pitchPeriodSec: Double? = nil
 
+    /// Quantize the FINAL voice pitch (drift + LFO + FM combined) to the
+    /// nearest note in the current chord, spanning 2 octaves up from
+    /// the voice's base frequency. Off by default — when on, smooth
+    /// continuous pitch motion becomes arpeggio-like jumps between
+    /// scale notes. Lets the user turn slow drift into a meditative
+    /// melody, or fast LFO pitch into stepped melodic patterns.
+    var quantizeToScale: Bool = false
+
     /// Convenience for the static (no-drift) default.
     static let off = DriftVoiceConfig()
 
