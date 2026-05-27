@@ -740,6 +740,11 @@
   </ul>
   <p>These overrides make every voice's motion independent of session length, so you can build slow-bloom textures inside a long meditation: a 20-minute glacial-up bass paired with a 30-second wave on a high pad creates intentional layered motion that the simple "scene" presets can't produce alone.</p>
 
+  <h4>Quantize to scale (v1.1)</h4>
+  <p>At the top of each oscillator's <strong>🌀 Drift</strong> menu there's a <strong>Quantize to scale</strong> toggle. When on, that voice's <em>final</em> pitch — drift + any pitch-targeted LFOs + FM, all combined — is snapped in real time to the nearest note of the <strong>current chord</strong> across roughly 2 octaves around the voice's base frequency.</p>
+  <p>What this turns into musically: continuous pitch wobble becomes <em>arpeggio-like jumps</em> along the chord tones. A slow wave drift that would normally smear ±¼ octave now steps through the chord notes inside that range. Faster LFOs on pitch turn into bouncing arpeggios. The voice always lands on chord-correct pitches, so dense modulation no longer dissonates against the rest of the chord.</p>
+  <p>Per-voice — so you can leave bass continuous and quantize only the high pad, or vice versa. Changes to the chord (CHORD pill, root, type, octave) recompute the snap targets immediately. Set to <em>off</em> to return to smooth/continuous drift.</p>
+
   <h3>LISTEN — tune to room</h3>
 
   <figure class="shot">
