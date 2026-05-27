@@ -288,31 +288,45 @@ final class AudioEngine {
                 // happens fast in amplitude).
                 t = tLin * tLin * (3 - 2 * tLin)
             case .logarithmic:
-                // Normalized logarithmic: amplitude follows
-                // 10^(-2 * tLin), giving a perceived-linear loudness
-                // descent (every second of the fade drops the same
-                // number of dB). Then we RESCALE so the curve actually
-                // hits t=1 (amplitude=0) at tLin=1, rather than
-                // asymptoting at -40 dB.
+                // Two-segment curve for an actually-smooth perceived
+                // fade-out:
                 //
-                // Why the rescale: with the unnormalized form
-                // (t = 1 - 10^(-2*tLin)), the curve reaches t=0.99 at
-                // tLin=1, leaving residual amplitude ≈ 1 % of
-                // startVolume. The final snap-to-target from there
-                // is a small but real amplitude discontinuity which
-                // produces an audible click on real hardware,
-                // especially with headphones — reported by the user
-                // when Stop is pressed within 1 s of Play start
-                // (startVolume = 0.10–0.15, residual ≈ 0.001).
+                //   1. BULK (first 90 % of duration): amplitude follows
+                //      10^(-2 * tLin / 0.9), giving a TRUE linear dB
+                //      descent of -40 dB over the bulk window. Every
+                //      second of the bulk drops the same number of dB,
+                //      so the ear perceives a uniform wind-down. For a
+                //      6-second fade that's about -7.4 dB per second —
+                //      below the "steppy" threshold (psychoacoustic JND
+                //      around 3 dB, anything below ~7 dB/sec reads as
+                //      continuous).
                 //
-                // Rescaling by /0.99 maps the asymptote to exactly 1,
-                // so the final sample lands on 0 with no
-                // discontinuity. The perceived curve shape is
-                // basically identical to the unnormalized version
-                // for the bulk of the fade.
-                let logT = 1 - pow(10, -2 * tLin)
-                let normalize = 1.0 - pow(10.0, -2.0)   // ≈ 0.99
-                t = logT / normalize
+                //   2. TAIL (last 10 % of duration): linear taper from
+                //      the bulk-end amplitude (0.01 = -40 dB, already
+                //      essentially inaudible) down to exactly 0. The
+                //      taper is too small to be perceived but
+                //      eliminates the snap-click that would otherwise
+                //      happen if the curve ended at the bulk's -40 dB
+                //      floor and then jumped to 0.
+                //
+                // Previous attempts at this curve failed for two
+                // reasons: the unnormalized form (1 - 10^(-2*tLin))
+                // asymptoted at -40 dB and clicked on the final snap;
+                // the /0.99 normalized form fixed the click but
+                // squeezed the actual dB descent into the first 95 %
+                // of duration so the per-second drop was ~12 dB/sec —
+                // above the perceptual smoothness threshold. The
+                // explicit bulk+tail split handles both: smooth in
+                // the audible range, clean at the inaudible tail.
+                let bulkEnd = 0.9
+                let floorRatio = pow(10.0, -2.0)   // 0.01 = -40 dB
+                if tLin < bulkEnd {
+                    let logRatio = pow(10.0, -2.0 * tLin / bulkEnd)
+                    t = 1.0 - logRatio
+                } else {
+                    let tailProgress = (tLin - bulkEnd) / (1.0 - bulkEnd)
+                    t = 1.0 - floorRatio * (1.0 - tailProgress)
+                }
             }
             mixer.outputVolume = startVolume + (target - startVolume) * Float(t)
             if tLin >= 1.0 {

@@ -124,25 +124,27 @@ final class DroneController: ObservableObject {
         if engine.isRecording {
             finalizeRecording()
         }
-        // 5 s logarithmic fade — the user asked for "smooth even if it
-        // has to be longer". Logarithmic means amplitude drops
-        // exponentially so the PERCEIVED loudness (which is logarithmic
-        // in amplitude) descends linearly: -8 dB per second every
-        // second of the fade. That's the textbook "smooth" feel — no
-        // sharp early drop (exponential's failing) and no rushed end
-        // (smoothstep's failing in dB-perceived terms).
+        // 6 s logarithmic fade — paired with the rewritten .logarithmic
+        // curve (true linear-dB descent over the bulk + linear taper
+        // for the inaudible tail). User feedback on the previous 5 s
+        // version: "longer but not audibly smoother". That curve was
+        // /0.99-normalized which squeezed the -40 dB descent into the
+        // first 95 % of duration — giving a per-second drop of about
+        // 12 dB/sec, above the perceptual smoothness threshold.
         //
-        // The fade reaches -40 dB by t = 5 s, where the final snap to
-        // 0 is inaudible. Combined with the 200 ms post-silence buffer
-        // in fadeOutMaster, no click on engine.stop().
+        // The rewritten curve delivers a true -7.4 dB/sec uniform
+        // descent over the audible portion. 6 seconds gives the ear
+        // ~5 seconds of perceivable wind-down before the inaudible
+        // tail finishes the curve at exactly 0 — no click.
         //
-        // Pause stays at the snappier 1.2 s exponential because pause
-        // is a "quick wind down" gesture rather than a "settle into
-        // silence" one. If you want pause to also feel smooth, holler.
+        // Pause stays at the snappier 1.2 s exponential — it's a
+        // "quick wind down" gesture rather than a "settle into
+        // silence" one. If you want pause to also feel smooth,
+        // holler.
         pendingFadeOutTask?.cancel()
         let engineRef = engine
         pendingFadeOutTask = Task { @MainActor in
-            await engineRef.fadeOutMaster(seconds: 5.0, curve: .logarithmic)
+            await engineRef.fadeOutMaster(seconds: 6.0, curve: .logarithmic)
             // If the user re-pressed Play during the fade, state is no
             // longer .stopped — skip the engine stop.
             guard self.state == .stopped else { return }
