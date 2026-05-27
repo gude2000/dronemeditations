@@ -378,6 +378,7 @@
       <li><strong>38 Drone Artists presets</strong> — originals + granular / fading variants + a Drift Showcase set.</li>
       <li><strong>Tune to Room</strong> (LISTEN) — YIN pitch detection from the mic, snap chord root to the pitch you sing or play.</li>
       <li><strong>Mastered .m4a export</strong> (iOS) — record a session and export with loudness normalization + 2 s/4 s fades + metadata.</li>
+      <li><strong>Reverb-bloom Pause/Stop</strong> (iOS) — Pause and Stop don't just fade volume; the per-voice reverb mix + decay <em>bloom</em> upward then descend with the master, so the sound dissolves into the room rather than disappearing. 8 s on Stop, 1.4 s on Pause. See <a href="#transport">§15 → Play / pause / stop</a>.</li>
     </ul>
   </div>
 </section>
@@ -908,7 +909,18 @@
   <h2><span class="num">15</span>Transport &amp; recording</h2>
 
   <h3>Play / pause / stop</h3>
-  <p>The round play button fades audio in over ~1 s. Pause fades it down quickly; stop also resets the timer.</p>
+  <p>The round play button fades audio in over ~1 s (or 3 s if this is the first play of a fresh session). Pause and Stop both do something <strong>different from any other synth's transport</strong> — read on.</p>
+
+  <h4 style="margin-top: 14px;">Reverb-bloom fades (iOS, v1.0+)</h4>
+  <p>When you tap <strong>Pause</strong> or <strong>Stop</strong>, the app doesn't just drop the master volume. Each voice's reverb mix and decay <em>simultaneously bloom upward</em>, then descend back to your preset values as the master volume fades to silence. The effect is the sound <em>dissolving into the room</em> rather than getting quieter and quieter — like the last note of a song letting the hall finish for it.</p>
+  <ul>
+    <li><strong>Stop</strong>: <strong>8 s total</strong> fade. Logarithmic master descent (every second drops the same number of dB, so the wind-down feels uniform). Reverb bloom peaks at ~2.4 s (mix climbs to 0.7, decay to 7 s), then ramps back down so the wet signal joins the master in silence by t=8 s.</li>
+    <li><strong>Pause</strong>: <strong>1.4 s total</strong> fade. Same triangular shape, smaller bloom (peak mix 0.35, decay 3.5 s, peaks at ~0.35 s). A gentle "lift then settle" — quick enough to feel like a pause, atmospheric enough to feel composed.</li>
+  </ul>
+  <p>Both fades restore each voice's <em>original</em> reverb settings on completion (or immediately, if you press Play while a fade is in flight) — so your preset reverb mix isn't permanently changed. Stop also resets the session timer to 0.</p>
+  <div class="callout note">
+    <strong>Why the bloom helps.</strong> The human ear has a hard time hearing pure amplitude fades as smooth past ~6 dB per second — drops faster than that read as steps rather than continuous descent. The reverb tail gives the ear something rich to follow during the fade window, so the descent feels gradual and musical even at the longer durations meditation work needs.
+  </div>
 
   <h3>Session timer</h3>
   <p>Default 30 min. Tap the timer readout to change the duration. The app fades out gently in the last few seconds. Useful when you're using Drone Meditations as a sleep aid — set 20 min and trust it to fade itself.</p>
