@@ -24,15 +24,17 @@ struct ControlsOverlay: View {
 
     // iPhone reports horizontalSizeClass == .compact in every orientation;
     // iPad reports .regular. Per-device width cap:
-    //   - iPad (regular):  1200pt — wide enough to fill iPad Pro 13"
-    //     portrait (1024pt) without overshoot and use most of landscape.
+    //   - iPad (regular):  1320pt — fills iPad Pro 13" portrait (1024pt)
+    //     completely and leaves only ~23pt gutters in landscape (1366pt).
+    //     Up from 1200pt to recover ~60pt per side in landscape (≈1 cm
+    //     at iPad's 163 ppi) without making portrait feel cramped.
     //   - iPhone portrait: 900pt — a no-op since iPhone is < 500pt wide.
     //   - iPhone landscape: .infinity — iPhone Pro Max in landscape is
     //     956pt, so a 900pt cap left ~28pt of wasted gutter on each
     //     side. Let the strips fill the whole device width.
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     private var panelMaxWidth: CGFloat {
-        if horizontalSizeClass == .regular { return 1200 }
+        if horizontalSizeClass == .regular { return 1320 }
         if isCompact { return .infinity }      // iPhone landscape
         return 900                             // iPhone portrait
     }
