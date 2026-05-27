@@ -853,17 +853,31 @@ struct OscillatorStrip: View {
                 .foregroundStyle(active ? Color.accentColor : .secondary)
                 .frame(width: 36, alignment: .leading)
 
-            // Shape picker
-            Picker("Shape", selection: Binding(
+            // Shape picker — switched from segmented to menu style in
+            // v1.1 when sawtooth + ramp were added. 6 icons in a
+            // segmented control at 96 pt was 16 pt per option, below
+            // the tappable threshold. Menu shows all 6 cleanly with
+            // their display names and SF symbols.
+            Picker(selection: Binding(
                 get: { lfo.shape },
                 set: { vm.setLfoShape($0, for: index, lfoIndex: lfoIndex) }
             )) {
                 ForEach(LfoState.Shape.allCases) { s in
-                    Image(systemName: s.sfSymbol).tag(s)
+                    Label(s.displayName, systemImage: s.sfSymbol).tag(s)
                 }
+            } label: {
+                Image(systemName: lfo.shape.sfSymbol)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 36, height: 26)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(Color.white.opacity(0.10))
+                    )
             }
-            .pickerStyle(.segmented)
-            .frame(width: 96)
+            .pickerStyle(.menu)
+            .menuStyle(.borderlessButton)
+            .frame(width: 44)
 
             // Target picker — dropdown menu so all 4 options fit cleanly
             // regardless of how cramped the strip gets.
