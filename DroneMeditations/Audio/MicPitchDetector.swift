@@ -341,7 +341,17 @@ final class MicPitchDetector: ObservableObject {
 
     func stop() {
         guard isListening else { return }
-        engine.engine.inputNode.removeTap(onBus: 0)
+        // removeTap on the inputNode can block the calling thread for
+        // several seconds on real iPhone hardware while iOS unwires the
+        // mic AU — same family of issue as engine.stop() blocking when
+        // input is wired. Since this runs on @MainActor (from the
+        // Listen sheet's .onDismiss callback), it would freeze UI taps
+        // (Play, Pause, sliders) for that whole window. Detach the
+        // teardown so the @MainActor returns immediately.
+        let inputNodeRef = engine.engine.inputNode
+        Task.detached {
+            inputNodeRef.removeTap(onBus: 0)
+        }
         isListening = false
         detectedHz = nil
         smoothHz = 0
