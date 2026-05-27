@@ -55,9 +55,12 @@ struct OscillatorStrip: View {
             )
 
             HStack(spacing: 12) {
-                // Waveform picker — segmented control. On iPad we widen
-                // the frame so each segment is roughly 40pt wide
-                // (matches the bigger LFO shape buttons below).
+                // Waveform picker — segmented control. iPad uses
+                // controlSize(.large) which physically grows the
+                // segments (including their icons) and reserves
+                // correct layout space — unlike scaleEffect, which
+                // only scales pixels and would visually overflow into
+                // the PAN slider.
                 Picker("Waveform", selection: Binding(
                     get: { osc.waveform },
                     set: { vm.setWaveform($0, for: index) }
@@ -67,8 +70,8 @@ struct OscillatorStrip: View {
                     }
                 }
                 .pickerStyle(.segmented)
-                .frame(maxWidth: isPad ? 260 : 168)
-                .scaleEffect(isPad ? 1.15 : 1.0, anchor: .leading)
+                .controlSize(isPad ? .large : .regular)
+                .frame(maxWidth: isPad ? 300 : 168)
 
                 // Pan slider
                 VStack(alignment: .leading, spacing: 2) {
@@ -451,8 +454,9 @@ struct OscillatorStrip: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 36, alignment: .leading)
 
-            // Type segmented picker — bigger on iPad to match the
-            // scaled-up waveform picker above and the LFO buttons below.
+            // Type segmented picker — controlSize(.large) on iPad
+            // matches the waveform picker above and properly reserves
+            // layout space (unlike scaleEffect, which overflows).
             Picker("Filter type", selection: Binding(
                 get: { f.type },
                 set: { vm.setFilterType($0, for: index) }
@@ -462,8 +466,8 @@ struct OscillatorStrip: View {
                 }
             }
             .pickerStyle(.segmented)
-            .frame(width: isPad ? 180 : 116)
-            .scaleEffect(isPad ? 1.15 : 1.0, anchor: .leading)
+            .controlSize(isPad ? .large : .regular)
+            .frame(width: isPad ? 200 : 116)
 
             VStack(alignment: .leading, spacing: 0) {
                 Text(cutoffLabel(f.cutoffHz))
@@ -611,9 +615,9 @@ struct OscillatorStrip: View {
                 }
             } label: {
                 Text(fm.sourceIndex < 0 ? "Off" : "Osc \(fm.sourceIndex + 1)")
-                    .font(.system(size: 9, weight: .semibold))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 3)
+                    .font(.system(size: isPad ? 13 : 9, weight: .semibold))
+                    .padding(.horizontal, isPad ? 12 : 6)
+                    .padding(.vertical, isPad ? 7 : 3)
                     .background(Capsule().fill(Color.white.opacity(0.10)))
                     .foregroundStyle(.white)
             }
@@ -778,9 +782,9 @@ struct OscillatorStrip: View {
                 }
             } label: {
                 Text(dl.mode.label)
-                    .font(.system(size: 9, weight: .semibold))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 3)
+                    .font(.system(size: isPad ? 13 : 9, weight: .semibold))
+                    .padding(.horizontal, isPad ? 12 : 6)
+                    .padding(.vertical, isPad ? 7 : 3)
                     .background(Capsule().fill(Color.white.opacity(0.10)))
                     .foregroundStyle(.white)
             }
@@ -799,9 +803,9 @@ struct OscillatorStrip: View {
                 }
             } label: {
                 Text(dl.timing.label)
-                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 3)
+                    .font(.system(size: isPad ? 13 : 9, weight: .semibold, design: .monospaced))
+                    .padding(.horizontal, isPad ? 12 : 6)
+                    .padding(.vertical, isPad ? 7 : 3)
                     .background(Capsule().fill(Color.white.opacity(0.10)))
                     .foregroundStyle(.white)
             }
