@@ -1685,8 +1685,10 @@ function recomputeQuantizeScale() {
   const set = new Set();
   for (const n of freqs) {
     if (n > 0) {
-      set.add(n);
+      set.add(n / 2);   // -1 octave (so LFO swing down still snaps)
+      set.add(n);       // root
       set.add(n * 2);   // +1 octave
+      set.add(n * 4);   // +2 octaves
     }
   }
   engine.scaleNotesHz = Array.from(set).sort((a, b) => a - b);

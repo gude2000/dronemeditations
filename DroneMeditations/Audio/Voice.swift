@@ -292,7 +292,16 @@ final class Voice {
                 case .pan:       panMod         += depth * value
                 case .amplitude: ampScale       *= (1.0 + 0.6 * depth * value)
                 case .cutoff:    cutoffOct      += 2.0 * depth * value
-                case .pitch:     pitchSemitones += 2.0 * depth * value
+                case .pitch:
+                    // Pitch swing widens when quantize-to-scale is on
+                    // so the LFO can actually reach distant chord
+                    // notes — otherwise ±2 semis only ever snaps to
+                    // the 1-2 closest scale degrees and the modulation
+                    // is inaudible. Quantize on: ±12 semis (1 octave)
+                    // at full depth → arpeggio across the chord with
+                    // S&H. Quantize off: ±2 semis = classic vibrato.
+                    let pitchSpan: Double = pitchQuantizeToScale ? 12.0 : 2.0
+                    pitchSemitones += pitchSpan * depth * value
                 case .filterQ:
                     // ±1.5 octaves of Q at full depth — multiplicative
                     // in log-Q space. Subtle "resonance pumping" at

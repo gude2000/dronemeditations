@@ -1151,6 +1151,72 @@ extension Preset {
                     Voice(hz: 110.00, pan: 0.0, wave: .sine, amp: 0.35,
                           reverb: rev, drift: dance(amount: 2.0, period: 240))
                    ]
+               }()),
+
+        // v1.1 quantize-to-scale showcases. Both rely on the CURRENT
+        // CHORD selection (try C Minor 7, Bb Maj9, A Phrygian…). With
+        // quantize on, the pitch LFO widens to ±1 octave so the snap
+        // can actually reach every chord tone in the 2-octave snap
+        // cache — turning continuous LFO motion into arpeggios.
+
+        // Chord Arpeggio — single triangle voice with a slow S&H LFO
+        // on pitch, fully quantized. Triangle wave through gentle LP
+        // gives a soft mallet-like timbre. One chord tone every ~2 sec
+        // chosen randomly from the current chord, with a long reverb
+        // tail so notes overlap into a chord cloud.
+        Preset("Chord Arpeggio", .droneArtists,
+               subtitle: "Solo voice · S&H pitch quantized to current chord · slow random walk",
+               {
+                   let rev = ReverbState(decaySec: 7.0, mix: 0.55)
+                   let f   = FilterState(type: .lowpass, cutoffHz: 2400, q: 0.8)
+                   let sh: [LfoState?] = [
+                       LfoState(shape: .sampleAndHold, targets: [.pitch],
+                                rateHz: 0.5, depth: 1.0),
+                       nil, nil, nil
+                   ]
+                   let drift = DriftVoiceConfig(
+                       pitchMode: .static, panMode: .static,
+                       quantizeToScale: true)
+                   return [
+                    Voice(hz: 220.00, pan: 0.0, wave: .triangle, amp: 0.50,
+                          filter: f, reverb: rev, lfos: sh, drift: drift),
+                    silent, silent, silent
+                   ]
+               }()),
+
+        // Quantum Bells — 4 voices, each with a fast S&H pitch LFO
+        // (rates 2 / 3 / 5 / 7 Hz — coprime so they never re-align)
+        // all quantized to the current chord. Result is a sparkling
+        // 4-part stochastic arpeggio across ±1 octave. Long reverb +
+        // gentle low-pass keep it from feeling brittle. Try over
+        // C Minor 7 or Maj9 chords.
+        Preset("Quantum Bells", .droneArtists,
+               subtitle: "4 voices · coprime S&H rates · quantized arpeggio cloud",
+               {
+                   let rev = ReverbState(decaySec: 8.0, mix: 0.55)
+                   let f   = FilterState(type: .lowpass, cutoffHz: 3200, q: 0.6)
+                   func bellLFO(rate: Double) -> [LfoState?] {
+                       [LfoState(shape: .sampleAndHold, targets: [.pitch],
+                                 rateHz: rate, depth: 1.0),
+                        nil, nil, nil]
+                   }
+                   let drift = DriftVoiceConfig(
+                       pitchMode: .static, panMode: .static,
+                       quantizeToScale: true)
+                   return [
+                    Voice(hz: 220.00, pan: -0.7, wave: .triangle, amp: 0.32,
+                          filter: f, reverb: rev,
+                          lfos: bellLFO(rate: 2.0), drift: drift),
+                    Voice(hz: 277.18, pan: -0.2, wave: .sine, amp: 0.32,
+                          filter: f, reverb: rev,
+                          lfos: bellLFO(rate: 3.0), drift: drift),
+                    Voice(hz: 329.63, pan:  0.2, wave: .triangle, amp: 0.30,
+                          filter: f, reverb: rev,
+                          lfos: bellLFO(rate: 5.0), drift: drift),
+                    Voice(hz: 440.00, pan:  0.7, wave: .sine, amp: 0.28,
+                          filter: f, reverb: rev,
+                          lfos: bellLFO(rate: 7.0), drift: drift)
+                   ]
                }())
     ]
 

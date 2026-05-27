@@ -661,7 +661,13 @@ export class AudioEngine {
           cutoffOct += 2 * lfo.depth * lfoValue;
           anyCutoff = true;
         } else if (target === "pitch") {
-          pitchSemitones += 2 * lfo.depth * lfoValue;
+          // Pitch swing widens when quantize-to-scale is on so the
+          // LFO can actually reach distant chord notes. ±2 semis is
+          // vibrato range and only snaps to the 1-2 nearest scale
+          // degrees; ±12 semis (1 octave) gives full chord-range
+          // arpeggiation with S&H.
+          const pitchSpan = v.pitchQuantizeToScale ? 12 : 2;
+          pitchSemitones += pitchSpan * lfo.depth * lfoValue;
           anyPitch = true;
         } else if (target === "q") {
           qOct += 1.5 * lfo.depth * lfoValue;

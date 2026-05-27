@@ -701,19 +701,24 @@ final class DroneViewModel: ObservableObject {
         recomputeQuantizeScale()
     }
 
-    /// Cache of chord-note frequencies spanning 2 octaves up from the
-    /// chord root, used by any voice with `drift.quantizeToScale` on.
-    /// Pushed into each voice's DSP cache via Voice.scaleNotesHz.
+    /// Cache of chord-note frequencies spanning 4 octaves centered on
+    /// the chord root (1 octave below + chord + 2 octaves above), used
+    /// by any voice with `drift.quantizeToScale` on. Pushed into each
+    /// voice's DSP cache via Voice.scaleNotesHz. The wide span matters
+    /// because the pitch LFO can swing ±1 octave at full depth when
+    /// quantize is on, so a high voice swinging down must still find
+    /// chord notes to snap to.
     private func recomputeQuantizeScale() {
         let rootHz = Pitch(currentKey, octave: currentOctave).frequencyEqual12()
         let chordNotes = currentChord.frequencies(rootHz: rootHz, tuning: currentTuning)
-        // Each chord interval + that interval one octave up = 2 octaves
-        // of chord tones to quantize to. De-dup via Set (root is often
-        // duplicated as the 4th chord voice an octave up).
+        // For each chord tone, add that tone -1, 0, +1, +2 octaves.
+        // De-dup via Set (root is often already an octave duplicate).
         var unique: Set<Double> = []
         for n in chordNotes where n > 0 {
-            unique.insert(n)
-            unique.insert(n * 2)
+            unique.insert(n / 2)   // -1 oct
+            unique.insert(n)       // root
+            unique.insert(n * 2)   // +1 oct
+            unique.insert(n * 4)   // +2 oct
         }
         let sorted = Array(unique).sorted()
         for i in 0..<audioEngine.voices.count {

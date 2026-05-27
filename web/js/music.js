@@ -1248,6 +1248,68 @@ export const PRESETS = [
           reverb: { decaySec: 5.0, mix: 0.40 },
           drift: { pitchMode: "wave", pitchSemitones: 2.0, pitchPeriodSec: 240 } })
     ]
+  },
+
+  // v1.1 quantize-to-scale showcases. Both rely on the CURRENT CHORD
+  // (try C Minor 7 / Bb Maj9 / A Phrygian). With quantize on, the
+  // pitch LFO widens to ±1 octave so the snap can actually reach
+  // every chord tone in the 2-octave snap cache.
+
+  {
+    id: "drift_chord_arpeggio", name: "Chord Arpeggio", category: "Drone Artists",
+    sub: "Solo voice · S&H pitch quantized to current chord · slow random walk",
+    voices: [
+      V({ hz: 220.00, pan: 0.0, wave: "triangle", amp: 0.50,
+          filter: { type: "lowpass", cutoffHz: 2400, q: 0.8 },
+          reverb: { decaySec: 7.0, mix: 0.55 },
+          lfos: [
+            { shape: "sh", targets: ["pitch"], rateHz: 0.5, depth: 1.0 },
+            null, null, null
+          ],
+          drift: { pitchMode: "static", panMode: "static", quantizeToScale: true } }),
+      V({ hz: 110.00, pan: 0.0 }),  // silent slots
+      V({ hz: 110.00, pan: 0.0 }),
+      V({ hz: 110.00, pan: 0.0 })
+    ]
+  },
+
+  {
+    id: "drift_quantum_bells", name: "Quantum Bells", category: "Drone Artists",
+    sub: "4 voices · coprime S&H rates · quantized arpeggio cloud",
+    voices: [
+      V({ hz: 220.00, pan: -0.7, wave: "triangle", amp: 0.32,
+          filter: { type: "lowpass", cutoffHz: 3200, q: 0.6 },
+          reverb: { decaySec: 8.0, mix: 0.55 },
+          lfos: [
+            { shape: "sh", targets: ["pitch"], rateHz: 2.0, depth: 1.0 },
+            null, null, null
+          ],
+          drift: { pitchMode: "static", panMode: "static", quantizeToScale: true } }),
+      V({ hz: 277.18, pan: -0.2, wave: "sine", amp: 0.32,
+          filter: { type: "lowpass", cutoffHz: 3200, q: 0.6 },
+          reverb: { decaySec: 8.0, mix: 0.55 },
+          lfos: [
+            { shape: "sh", targets: ["pitch"], rateHz: 3.0, depth: 1.0 },
+            null, null, null
+          ],
+          drift: { pitchMode: "static", panMode: "static", quantizeToScale: true } }),
+      V({ hz: 329.63, pan:  0.2, wave: "triangle", amp: 0.30,
+          filter: { type: "lowpass", cutoffHz: 3200, q: 0.6 },
+          reverb: { decaySec: 8.0, mix: 0.55 },
+          lfos: [
+            { shape: "sh", targets: ["pitch"], rateHz: 5.0, depth: 1.0 },
+            null, null, null
+          ],
+          drift: { pitchMode: "static", panMode: "static", quantizeToScale: true } }),
+      V({ hz: 440.00, pan:  0.7, wave: "sine", amp: 0.28,
+          filter: { type: "lowpass", cutoffHz: 3200, q: 0.6 },
+          reverb: { decaySec: 8.0, mix: 0.55 },
+          lfos: [
+            { shape: "sh", targets: ["pitch"], rateHz: 7.0, depth: 1.0 },
+            null, null, null
+          ],
+          drift: { pitchMode: "static", panMode: "static", quantizeToScale: true } })
+    ]
   }
 ];
 
