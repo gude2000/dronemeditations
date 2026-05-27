@@ -157,11 +157,26 @@ final class MicPitchDetector: ObservableObject {
             log("session configured + settled")
         }
 
-        // 2c. Lazily wire up input → silentInputSink. This requires the
-        //     engine to be stopped briefly so the connection takes effect
-        //     deterministically. Only happens the very first time Listen
-        //     runs in this app session. Subsequent invocations skip this
-        //     entirely and the engine stays running through Listen.
+        // 2c. Lazily wire up input → silentInputSink → mainMixer. This
+        //     requires the engine to be stopped briefly so the connection
+        //     takes effect deterministically. Only happens the very first
+        //     time Listen runs in this app session. Subsequent invocations
+        //     skip this entirely and the engine stays running through
+        //     Listen.
+        //
+        //     CRITICAL: silentInputSink MUST be connected downstream to
+        //     mainMixerNode, not left as a dangling endpoint. AVAudioEngine
+        //     only pulls samples from input when there's an actual sink
+        //     chain that reaches the engine's output. A mixer with no
+        //     output connection is treated as "no consumer" and the input
+        //     AU goes silent — the tap fires with empty buffers and pitch
+        //     detection returns -1 forever, leaving the UI stuck at
+        //     "Listening — hold a steady tone".
+        //
+        //     silentInputSink.outputVolume = 0 silences ONLY the mic in
+        //     the final output mix, so the user's preset audio still
+        //     plays at full volume but they don't get a feedback howl
+        //     from mic-into-speakers.
         let bus = 0
         let input = engine.engine.inputNode
         if needsInputWireUp {
@@ -171,8 +186,12 @@ final class MicPitchDetector: ObservableObject {
             sink.outputVolume = 0
             engine.engine.attach(sink)
             engine.engine.connect(input, to: sink, format: nil)
+            // Connect the sink to mainMixer so the engine actually
+            // pulls samples from input. Format nil = let the engine
+            // negotiate (typically the mixer's stereo format).
+            engine.engine.connect(sink, to: engine.engine.mainMixerNode, format: nil)
             silentInputSink = sink
-            log("connected inputNode → silent sink")
+            log("connected inputNode → silent sink → mainMixer")
             // NOTE: removed an earlier refreshOutputGraph() call that
             // disconnected + reconnected the source node here. That was
             // added in 1.0(3) to fix a "post-Listen transport feels frozen"
