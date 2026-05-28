@@ -26,6 +26,16 @@ struct TransportView: View {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(.ultraThinMaterial)
         )
+        // SINGLE share sheet at the top-level body, NOT duplicated in
+        // each layout branch. Previously each of fullBody/padBody/
+        // compactBody declared its own .sheet(item:) with the same
+        // binding — SwiftUI evaluated all three (even though only one
+        // is visible), so they fought over presentation state. Combined
+        // with the UUID identity bug below, this caused the sheet to
+        // flicker in/out continuously when a recording finished.
+        .sheet(item: shareItemBinding) { item in
+            ShareSheet(items: [item.url])
+        }
     }
 
     private var fullBody: some View {
@@ -48,9 +58,7 @@ struct TransportView: View {
                 durationMenu
             }
         }
-        .sheet(item: shareItemBinding) { item in
-            ShareSheet(items: [item.url])
-        }
+        // .sheet moved to outer body — was previously duplicated here
     }
 
     /// iPad single-row transport: bigger touch targets than iPhone
@@ -70,9 +78,7 @@ struct TransportView: View {
 
             durationMenu
         }
-        .sheet(item: shareItemBinding) { item in
-            ShareSheet(items: [item.url])
-        }
+        // .sheet moved to outer body — was previously duplicated here
     }
 
     private var compactBody: some View {
@@ -92,9 +98,7 @@ struct TransportView: View {
 
             durationMenu
         }
-        .sheet(item: shareItemBinding) { item in
-            ShareSheet(items: [item.url])
-        }
+        // .sheet moved to outer body — was previously duplicated here
     }
 
     private func playPauseButton(size: CGFloat, iconSize: CGFloat) -> some View {
@@ -161,9 +165,20 @@ struct TransportView: View {
     // Drives the share sheet. Wraps the URL in an Identifiable so SwiftUI's
     // .sheet(item:) presents whenever a recording finishes and clears it
     // afterward so the sheet doesn't reappear.
+    //
+    // CRITICAL: id is derived from the URL, NOT a fresh UUID. With
+    // `let id = UUID()`, every time SwiftUI evaluates the binding's
+    // get (which happens on every body re-render), it created a NEW
+    // ShareItem with a NEW UUID. SwiftUI saw that as "new item" and
+    // re-presented the sheet → set newValue=nil → re-presented → loop.
+    // Symptom: share sheet flickering in/out continuously after a
+    // recording finishes, with the user unable to interact.
+    //
+    // Using url.absoluteString as id keeps the identity stable across
+    // re-evaluations of the same URL — sheet presents once and stays.
     private struct ShareItem: Identifiable {
-        let id = UUID()
         let url: URL
+        var id: String { url.absoluteString }
     }
     private var shareItemBinding: Binding<ShareItem?> {
         Binding(
