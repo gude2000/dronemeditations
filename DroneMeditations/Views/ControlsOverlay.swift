@@ -66,6 +66,10 @@ struct ControlsOverlay: View {
                     VStack(spacing: isCompact ? 4 : 6) {
                         // Nav pills — 4 compact pills aligned with the
                         // pill row above. Tap → scroll to that osc.
+                        // Plus a dice button at the right: randomizes
+                        // the WHOLE preset (all 4 voices + chord) but
+                        // preserves volume levels so the user isn't
+                        // blasted by a roll.
                         HStack(spacing: isCompact ? 6 : 8) {
                             ForEach(0..<4, id: \.self) { i in
                                 Button {
@@ -87,6 +91,27 @@ struct ControlsOverlay: View {
                                 }
                                 .buttonStyle(.plain)
                             }
+
+                            // Global randomize. Sits flush against the
+                            // OSC pills since it operates on all of them
+                            // at once.
+                            Button {
+                                vm.randomizeAll()
+                            } label: {
+                                Image(systemName: "dice")
+                                    .font(.system(size: isCompact ? 11 : 12, weight: .semibold))
+                                    .padding(.horizontal, isCompact ? 8 : 10)
+                                    .padding(.vertical, isCompact ? 3 : 4)
+                                    .background(
+                                        Capsule().fill(Color.accentColor.opacity(0.25))
+                                    )
+                                    .overlay(
+                                        Capsule().stroke(Color.accentColor.opacity(0.50), lineWidth: 1)
+                                    )
+                                    .foregroundStyle(.white)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Randomize all oscillators")
                         }
                         .padding(.horizontal, isCompact ? 6 : 12)
 

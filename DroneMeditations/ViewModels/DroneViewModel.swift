@@ -1476,6 +1476,44 @@ final class DroneViewModel: ObservableObject {
         activePresetName = nil
     }
 
+    /// Randomize the WHOLE preset — all 4 voices' parameters plus a
+    /// random chord (root + type) so the result really sounds different,
+    /// not just "same chord, different timbres." Volume levels are
+    /// deliberately preserved so the user doesn't get blasted or muted
+    /// by a roll. Wired to the dice button next to the OSC nav pills.
+    func randomizeAll() {
+        // Pick a random chord first so randomizeOscillator's frequency
+        // re-rolls below aren't immediately stomped by applyCurrentChord.
+        // Actually we WANT them stomped — chord drives the four voice
+        // frequencies, while randomizeOscillator(i) picks a random
+        // standalone frequency. Order matters: apply chord LAST so the
+        // chord wins. Otherwise per-voice random frequencies overwrite
+        // the chord notes.
+        let randomKey = PitchClass.allCases.randomElement() ?? .a
+        let randomOctave = Int.random(in: 2...4)
+        // Pick a chord from the "Common" + "Extended" categories — skip
+        // exotic ones (clusters / quartal) that don't always sound
+        // pleasant cold.
+        let chordCandidates = ChordType.all.filter { ct in
+            let n = ct.id.lowercased()
+            return !(n.contains("cluster") || n.contains("quartal")
+                  || n.contains("xenakis") || n.contains("scriabin")
+                  || n.contains("sable"))
+        }
+        let randomChord = chordCandidates.randomElement() ?? ChordType.all[0]
+
+        for i in 0..<oscillators.count {
+            randomizeOscillator(i)
+        }
+        // setChord runs applyCurrentChord which overwrites voice
+        // frequencies with chord notes — perfect, that's what we want.
+        currentKey = randomKey
+        currentOctave = max(0, min(7, randomOctave))
+        setChord(randomChord)
+        // setChord clears activePresetName via applyCurrentChord; that's
+        // correct since this isn't a saved preset.
+    }
+
     // MARK: - Drift scenes
     //
     // Each scene assigns a per-voice pitch + pan motion profile. Baselines
