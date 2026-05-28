@@ -178,11 +178,31 @@ final class MicPitchDetector: ObservableObject {
         //     plays at full volume but they don't get a feedback howl
         //     from mic-into-speakers.
         let bus = 0
-        let input = engine.engine.inputNode
+        var input = engine.engine.inputNode
         // Pre-log the input's actual format so we know if iOS sees the mic.
-        let preFmt = input.inputFormat(forBus: bus)
+        var preFmt = input.inputFormat(forBus: bus)
         let preOutFmt = input.outputFormat(forBus: bus)
         log("input pre-wire: inputFormat sr=\(preFmt.sampleRate) ch=\(preFmt.channelCount) | outputFormat sr=\(preOutFmt.sampleRate) ch=\(preOutFmt.channelCount)")
+
+        // Recovery for first-time-permission-grant scenario: if the
+        // input AU is in the placeholder state (sr=0, ch=2), the
+        // AVAudioEngine instance was started before mic permission was
+        // granted, so its inputNode is permanently captured in a "no
+        // input route" state. The only reliable fix is to rebuild the
+        // engine from scratch.
+        if preFmt.sampleRate <= 0 {
+            log("input AU in placeholder state (sr=0) — recreating AVAudioEngine instance")
+            engine.recreateEngineForFreshInput()
+            // Re-bind to the NEW engine's inputNode + re-poll its
+            // format. silentInputSink is stale (held a reference to
+            // the old engine's nodes) — clear it.
+            silentInputSink = nil
+            input = engine.engine.inputNode
+            // Give iOS a moment to finish wiring the fresh input AU.
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            preFmt = input.inputFormat(forBus: bus)
+            log("after recreate: inputFormat sr=\(preFmt.sampleRate) ch=\(preFmt.channelCount) | outputFormat sr=\(input.outputFormat(forBus: bus).sampleRate)")
+        }
 
         // Tear down the silentInputSink workaround if it's lingering
         // from previous Listen attempts. The new approach: install

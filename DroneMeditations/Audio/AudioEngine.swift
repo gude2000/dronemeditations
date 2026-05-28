@@ -5,7 +5,13 @@ import AVFoundation
 /// the engine's source node renders sample-accurate sine/triangle/saw/square audio
 /// with smoothed parameter ramps.
 final class AudioEngine {
-    let engine = AVAudioEngine()
+    /// The underlying AVAudioEngine. `var` (not `let`) so we can fully
+    /// recreate the instance after mic permission is granted for the
+    /// first time — once an AVAudioEngine has been started without
+    /// mic permission, its inputNode is permanently captured in a
+    /// "no input route" state for the lifetime of that instance.
+    /// Recreating is the only way to get a fresh inputNode.
+    var engine = AVAudioEngine()
     let voices: [Voice]
     let sampleRate: Double
 
@@ -159,6 +165,48 @@ final class AudioEngine {
         }
         engine.attach(sourceNode)
         engine.connect(sourceNode, to: engine.mainMixerNode, format: format)
+    }
+
+    // MARK: - Engine recreation (post-mic-permission)
+
+    /// Recreate the underlying AVAudioEngine instance. Used by
+    /// MicPitchDetector after the user grants mic permission for the
+    /// first time — the existing engine instance has its inputNode
+    /// permanently captured in a "no input" state (because it was
+    /// started under .playAndRecord but without permission), and
+    /// stop/start does not refresh it. Building a fresh engine
+    /// instance is the only reliable way to get a working inputNode.
+    ///
+    /// Preserves: voices array (parameter state lives on Voice
+    /// objects, not the engine), session state (still .playAndRecord),
+    /// master volume target.
+    /// Loses: any in-flight async fades or blooms (caller should
+    /// re-establish state if needed).
+    func recreateEngineForFreshInput() {
+        let savedVolume = engine.mainMixerNode.outputVolume
+        let wasRunning = engine.isRunning
+        if wasRunning {
+            engine.stop()
+        }
+        // Old engine + nodes will be released when this method returns
+        // (assuming no other strong references). Source node was the
+        // only thing attached besides the implicit mainMixer/inputNode.
+        engine = AVAudioEngine()
+        // Re-touch inputNode under the new instance with mic permission
+        // now granted, so it initializes with a real hardware format.
+        _ = engine.inputNode
+        // Re-build source node + connect to new mainMixer.
+        attachSourceNode()
+        engine.mainMixerNode.outputVolume = savedVolume
+        if wasRunning {
+            do {
+                try engine.start()
+            } catch {
+                #if DEBUG
+                print("recreateEngineForFreshInput: engine.start failed: \(error)")
+                #endif
+            }
+        }
     }
 
     // MARK: - Session lifecycle
