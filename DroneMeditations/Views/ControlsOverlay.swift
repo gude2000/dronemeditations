@@ -112,6 +112,33 @@ struct ControlsOverlay: View {
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel("Randomize all oscillators")
+
+                            // Undo last randomize — one-level undo back
+                            // to the snapshot saved before the most
+                            // recent dice tap. Greyed out when no
+                            // snapshot is available (fresh launch, or
+                            // already undone).
+                            Button {
+                                vm.undoRandomize()
+                            } label: {
+                                Image(systemName: "arrow.uturn.backward")
+                                    .font(.system(size: isCompact ? 11 : 12, weight: .semibold))
+                                    .padding(.horizontal, isCompact ? 8 : 10)
+                                    .padding(.vertical, isCompact ? 3 : 4)
+                                    .background(
+                                        Capsule().fill(Color.white.opacity(
+                                            vm.canUndoRandomize ? 0.18 : 0.05))
+                                    )
+                                    .overlay(
+                                        Capsule().stroke(Color.white.opacity(
+                                            vm.canUndoRandomize ? 0.35 : 0.10), lineWidth: 1)
+                                    )
+                                    .foregroundStyle(.white.opacity(
+                                        vm.canUndoRandomize ? 0.90 : 0.35))
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(!vm.canUndoRandomize)
+                            .accessibilityLabel("Undo last randomize")
                         }
                         .padding(.horizontal, isCompact ? 6 : 12)
 

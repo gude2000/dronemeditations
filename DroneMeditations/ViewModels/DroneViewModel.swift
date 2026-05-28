@@ -1476,12 +1476,111 @@ final class DroneViewModel: ObservableObject {
         activePresetName = nil
     }
 
+    // MARK: - Randomize-all + one-step undo
+
+    /// Snapshot taken right before a randomizeAll(). Holds enough state
+    /// to fully restore the previous preset via undoRandomize(). Only
+    /// the LAST randomize is undoable — taking a second snapshot
+    /// replaces the first.
+    private struct RandomizeSnapshot {
+        let oscillators: [OscillatorState]
+        let key: PitchClass
+        let octave: Int
+        let chord: ChordType
+        let tuning: TuningSystem
+        let activePresetName: String?
+    }
+    private var preRandomizeSnapshot: RandomizeSnapshot?
+
+    /// True when there's a pre-randomize snapshot available to undo.
+    /// Bound to the undo button's `.disabled` state.
+    @Published private(set) var canUndoRandomize: Bool = false
+
+    /// Restore the state captured before the most recent randomizeAll().
+    /// No-op if no snapshot exists.
+    func undoRandomize() {
+        guard let snap = preRandomizeSnapshot else { return }
+        // 1. Assign the @Published model state — SwiftUI re-renders.
+        oscillators = snap.oscillators
+        currentKey = snap.key
+        currentOctave = snap.octave
+        currentChord = snap.chord
+        currentTuning = snap.tuning
+        activePresetName = snap.activePresetName
+        // 2. Push each voice's audio params to the DSP engine. The
+        //    model assign above only updates the UI; the engine needs
+        //    its parameter ramps reset to the snapshot values too.
+        for i in 0..<oscillators.count {
+            pushVoiceStateToEngine(i)
+        }
+        // 3. Recompute the quantize-to-scale cache for the restored
+        //    chord so any voice with the toggle on snaps correctly.
+        recomputeQuantizeScale()
+        // 4. Clear the snapshot — single-level undo.
+        preRandomizeSnapshot = nil
+        canUndoRandomize = false
+    }
+
+    /// Push every audio parameter of oscillators[index] down into the
+    /// DSP engine voice. Used by undoRandomize() to restore engine
+    /// state after assigning the snapshot back into the model.
+    private func pushVoiceStateToEngine(_ index: Int) {
+        guard index >= 0 && index < oscillators.count,
+              audioEngine.voices.indices.contains(index) else { return }
+        let o = oscillators[index]
+        audioEngine.setFrequency(o.frequencyHz, for: index)
+        audioEngine.setWaveform(o.waveform, for: index)
+        audioEngine.setAmplitude(o.amplitude, for: index)
+        audioEngine.setPan(o.pan, for: index)
+        audioEngine.setDrive(o.drive, for: index)
+        audioEngine.setFilterType(o.filter.type, for: index)
+        audioEngine.setFilterCutoff(o.filter.cutoffHz, for: index)
+        audioEngine.setFilterQ(o.filter.q, for: index)
+        audioEngine.setReverbDecay(o.reverb.decaySec, for: index)
+        audioEngine.setReverbMix(o.reverb.mix, for: index)
+        audioEngine.setDelayTime(o.delay.timeSec, for: index)
+        audioEngine.setDelayFeedback(o.delay.feedback, for: index)
+        audioEngine.setDelayMix(o.delay.mix, for: index)
+        audioEngine.setDelayMode(o.delay.mode, for: index)
+        audioEngine.setChorusRate(o.chorus.rateHz, for: index)
+        audioEngine.setChorusDepth(o.chorus.depth, for: index)
+        audioEngine.setChorusWidth(o.chorus.width, for: index)
+        audioEngine.setChorusMix(o.chorus.mix, for: index)
+        audioEngine.setFMSource(o.fm.sourceIndex, for: index)
+        audioEngine.setFMIndex(o.fm.index, for: index)
+        audioEngine.setGrainSize(o.grain.sizeMs, for: index)
+        audioEngine.setGrainDensity(o.grain.densityHz, for: index)
+        audioEngine.setGrainJitter(o.grain.jitter, for: index)
+        audioEngine.setGrainPanSpread(o.grain.panSpread, for: index)
+        for k in 0..<o.lfos.count {
+            audioEngine.setLfoShape(o.lfos[k].shape, for: index, lfoIndex: k)
+            audioEngine.setLfoTarget(o.lfos[k].target, for: index, lfoIndex: k)
+            audioEngine.setLfoRate(o.lfos[k].rateHz, for: index, lfoIndex: k)
+            audioEngine.setLfoDepth(o.lfos[k].depth, for: index, lfoIndex: k)
+        }
+        audioEngine.voices[index].pitchQuantizeToScale = o.drift.quantizeToScale
+    }
+
     /// Randomize the WHOLE preset — all 4 voices' parameters plus a
     /// random chord (root + type) so the result really sounds different,
     /// not just "same chord, different timbres." Volume levels are
     /// deliberately preserved so the user doesn't get blasted or muted
     /// by a roll. Wired to the dice button next to the OSC nav pills.
+    /// Saves a snapshot first so undoRandomize() can restore the
+    /// previous state.
     func randomizeAll() {
+        // ── 0. Snapshot the current state for undoRandomize. ───────
+        // OscillatorState is a value type, so the array copy is deep.
+        preRandomizeSnapshot = RandomizeSnapshot(
+            oscillators: oscillators,
+            key: currentKey,
+            octave: currentOctave,
+            chord: currentChord,
+            tuning: currentTuning,
+            activePresetName: activePresetName
+        )
+        canUndoRandomize = true
+
         // Pick a random chord first so randomizeOscillator's frequency
         // re-rolls below aren't immediately stomped by applyCurrentChord.
         // Actually we WANT them stomped — chord drives the four voice
