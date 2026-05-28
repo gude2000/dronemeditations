@@ -356,7 +356,8 @@ final class AudioEngine {
         totalDuration: Double = 8.0,
         peakAt: Double = 0.30,
         peakMix: Float = 0.50,
-        peakDecay: Double = 6.0
+        peakDecay: Double = 6.0,
+        plateauWidth: Double = 0.0
     ) async {
         cancelStopBloom()
         preBloomReverb = voices.map { (mix: $0.reverbMix, decay: $0.reverbDecaySec) }
@@ -365,6 +366,11 @@ final class AudioEngine {
         let startDate = Date()
         let voicesRef = voices
         let clampedPeakAt = max(0.05, min(0.95, peakAt))
+        // Plateau spans [peakAt, peakAt + plateauWidth], clipped to 1.0.
+        // Ramp-down then runs from plateauEnd to 1.0. plateauWidth=0
+        // collapses back to the original triangular envelope.
+        let clampedPlateauWidth = max(0, min(1 - clampedPeakAt, plateauWidth))
+        let plateauEnd = clampedPeakAt + clampedPlateauWidth
         let tickNanos: UInt64 = 16_000_000   // ~60 fps
 
         bloomGeneration &+= 1
@@ -374,15 +380,21 @@ final class AudioEngine {
             let elapsed = Date().timeIntervalSince(startDate)
             let tLin = min(1.0, elapsed / totalDuration)
 
-            // Triangular envelope: 0 → 1 over [0, peakAt], 1 → 0 over
-            // [peakAt, 1]. Smoothstep on each half so the peak isn't a
-            // sharp corner (reads as a natural swell + decay).
+            // Trapezoidal envelope:
+            //   [0, peakAt]            ramp UP   (smoothstep)
+            //   [peakAt, plateauEnd]   hold at 1 (plateau — wet wash)
+            //   [plateauEnd, 1]        ramp DOWN (smoothstep)
+            // With plateauWidth=0, plateauEnd == peakAt → collapses to
+            // the original triangular shape (no behaviour change for
+            // pauseWithReverbBloom which doesn't pass plateauWidth).
             let raw: Double
             if tLin <= clampedPeakAt {
                 let phase = tLin / clampedPeakAt   // 0 → 1
                 raw = phase * phase * (3 - 2 * phase)
+            } else if tLin <= plateauEnd {
+                raw = 1.0
             } else {
-                let phase = (1 - tLin) / (1 - clampedPeakAt)   // 1 → 0
+                let phase = (1 - tLin) / max(0.0001, 1 - plateauEnd)   // 1 → 0
                 raw = phase * phase * (3 - 2 * phase)
             }
             let t = Float(raw)
@@ -441,6 +453,7 @@ final class AudioEngine {
         peakAt: Double = 0.30,
         peakMix: Float = 0.50,
         peakDecay: Double = 6.0,
+        plateauWidth: Double = 0.0,
         fadeCurve: FadeCurve = .logarithmic
     ) async {
         // Run bloom + master fade concurrently. async let starts the
@@ -451,7 +464,8 @@ final class AudioEngine {
             totalDuration: fadeDuration,
             peakAt: peakAt,
             peakMix: peakMix,
-            peakDecay: peakDecay
+            peakDecay: peakDecay,
+            plateauWidth: plateauWidth
         )
         await rampMaster(to: 0, over: fadeDuration, curve: fadeCurve)
         await bloomTask

@@ -105,35 +105,27 @@ final class DroneController: ObservableObject {
         guard state == .playing else { return }
         stopTicker()
         state = .paused
-        // 1.4 s exponential master fade + small triangular reverb
-        // bloom (peak mix 0.25 at t=0.35 s, peak decay 3 s). Per user
-        // feedback: pause is the right gesture for a "quick wind
-        // down", but a touch of bloom adds atmosphere without making
-        // it feel like a stop. Held onto so play() can cancel it
-        // before it fires engine.stop() against resumed playback.
+        // 1.4 s exponential master fade + small triangular reverb bloom.
+        // CLICK-FREE STRATEGY: don't touch engine state at all on pause —
+        // just fade master to 0 and leave the engine running silently.
+        // engine.pause() (and engine.stop() before that) were the source
+        // of an audible click on iPhone hardware because they suspend
+        // the I/O AU mid-render. With the engine left running at
+        // outputVolume=0, source nodes produce zero samples through
+        // a continuously-running render thread — no AU state change,
+        // no click. CPU cost is negligible (4 silent oscillators).
+        // Play resumes via fadeInMaster + state flip; engine never
+        // needs to be re-prepared.
         pendingFadeOutTask?.cancel()
         let engineRef = engine
         pendingFadeOutTask = Task { @MainActor in
             await engineRef.pauseWithReverbBloom()
             // If the user re-pressed Play during the fade, state is no
-            // longer .paused — skip the engine suspend so the now-
-            // playing engine isn't interrupted.
+            // longer .paused — but we don't need to do anything special
+            // here since play() handles the resume. Just exit.
             guard self.state == .paused else { return }
-            // Use engine.pause() — NOT engine.stop() — on the pause
-            // path. pause() suspends the I/O AU without tearing it
-            // down, eliminating the occasional click that stop()
-            // produces on real iPhone hardware (the AU rebind can
-            // pop the output device). Resume on the next Play is
-            // also faster since there's no HW re-init.
-            //
-            // Still on a detached task so the @MainActor stays
-            // unblocked and UI taps stay responsive — pause() is
-            // fast but the Listen mic AU teardown isn't, and we
-            // want this code to be safe whether or not the mic is
-            // wired in.
-            Task.detached { [engineRef] in
-                engineRef.pause()
-            }
+            // Intentionally NO engine.pause() / engine.stop() — see
+            // CLICK-FREE STRATEGY above. Engine keeps running silently.
         }
     }
 
@@ -170,30 +162,38 @@ final class DroneController: ObservableObject {
         pendingFadeOutTask?.cancel()
         let engineRef = engine
         pendingFadeOutTask = Task { @MainActor in
-            // 8 s fade, bloom peaking 30 % in (at t≈2.4 s) with mix=0.7
-            // and decay=7 s — then the bloom ramps BACK down over the
-            // remaining 5.6 s so the wet signal joins the master fade
-            // instead of holding loud and then collapsing at the end.
-            // User confirmed the bloom feels good; bumped peakMix
-            // 0.50→0.70 (more wash) and peakDecay 6→7 s (a touch
-            // longer hall) per user request.
+            // 10 s atmospheric stop. Bloom envelope is now trapezoidal
+            // (ramp up → plateau at peak → ramp down) so the wet wash
+            // SUSTAINS instead of immediately collapsing right after
+            // peak. User feedback: previous triangular bloom "bailed
+            // too soon" — the peak felt instantaneous because the
+            // envelope started ramping down the instant it hit peak.
+            //
+            // Bigger numbers all around: 10 s instead of 8, mix 0.85
+            // (was 0.70), decay 12 s (was 7), and a 0.25-fraction
+            // plateau at the top (2.5 s of sustained wash before the
+            // ramp-down starts). The peak is at 30 % in, so the
+            // plateau runs from 30 % → 55 % of the fade, then the
+            // bloom ramps down over the last 45 %.
             await engineRef.stopWithReverbBloom(
-                fadeDuration: 8.0,
+                fadeDuration: 10.0,
                 peakAt: 0.30,
-                peakMix: 0.70,
-                peakDecay: 7.0
+                peakMix: 0.85,
+                peakDecay: 12.0,
+                plateauWidth: 0.25
             )
             // If the user re-pressed Play during the fade, state is no
-            // longer .stopped — skip the engine stop. (Play also calls
-            // engine.cancelStopBloom() so reverb is restored even if
-            // the fade Task was cancelled mid-bloom.)
+            // longer .stopped — exit cleanly. (Play also calls
+            // cancelStopBloom() so reverb is restored even if the fade
+            // Task was cancelled mid-bloom.)
             guard self.state == .stopped else { return }
-            // engine.stop() can block on real hardware when the mic
-            // input AU is wired into the graph (post-Listen). Detach
-            // so UI stays responsive — see pause() for details.
-            Task.detached { [engineRef] in
-                engineRef.stop()
-            }
+            // CLICK-FREE STRATEGY (same as pause): don't call
+            // engine.stop(). Master is already at 0 from the fade;
+            // the engine keeps running silently. Avoids the audible
+            // click that the AU rebind produces on real iPhone
+            // hardware. CPU cost is sub-1 % (4 silent oscillators
+            // through a 0-volume mixer). Engine truly stops on app
+            // deinit.
         }
     }
 
