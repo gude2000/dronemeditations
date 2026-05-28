@@ -677,6 +677,19 @@ final class DroneViewModel: ObservableObject {
         applyCurrentChord()
     }
 
+    /// Set both key + octave in a single applyCurrentChord pass. Used
+    /// by Tune to Room's "Set as Root" — calling setKey then setOctave
+    /// separately fired applyCurrentChord twice, each triggering 4
+    /// frequency publishes + a quantize-scale recompute + SwiftUI
+    /// re-render of every voice strip. The doubled work made the Play
+    /// button unresponsive for ~1 s on the main UI right after dismiss
+    /// while SwiftUI processed the change burst.
+    func setKeyAndOctave(_ key: PitchClass, octave: Int) {
+        currentKey = key
+        currentOctave = max(0, min(7, octave))
+        applyCurrentChord()
+    }
+
     func setChord(_ chord: ChordType) {
         currentChord = chord
         applyCurrentChord()

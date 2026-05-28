@@ -221,16 +221,20 @@ struct ListenSheetView: View {
 
     private func applyDetectedRoot() {
         guard let note = detectedNote else { return }
-        // pitchClassId is 0..11 with C=0; PitchClass.allCases also has C=0.
-        if note.pitchClassId >= 0 && note.pitchClassId < PitchClass.allCases.count {
-            vm.setKey(PitchClass.allCases[note.pitchClassId])
-        }
-        vm.setOctave(max(1, min(6, note.octave)))
+        // Use the batched setter so applyCurrentChord (and its 4
+        // frequency publishes + quantize-scale recompute) only runs
+        // ONCE instead of twice. Halves the SwiftUI render-pass work
+        // and the @MainActor blocking that made Play unresponsive
+        // for ~1 s on the main UI after dismiss.
+        let pcId = note.pitchClassId
+        let safeKey: PitchClass = (pcId >= 0 && pcId < PitchClass.allCases.count)
+            ? PitchClass.allCases[pcId]
+            : vm.currentKey
+        vm.setKeyAndOctave(safeKey, octave: max(1, min(6, note.octave)))
         // Dismiss without SwiftUI's default sheet-slide animation so
         // the user can tap Play on the main UI immediately. With the
         // default animation, the sheet takes ~400 ms to slide out and
-        // touches on the parent are ignored during that window —
-        // makes the Play button feel unresponsive right after Set as Root.
+        // touches on the parent are ignored during that window.
         var transaction = Transaction()
         transaction.disablesAnimations = true
         withTransaction(transaction) {
