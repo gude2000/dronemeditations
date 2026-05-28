@@ -56,9 +56,18 @@ final class AudioEngine {
         // playback. Listen will likely fail but the user can still play.
         let session = AVAudioSession.sharedInstance()
         do {
+            // .measurement mode disables Apple's automatic gain control
+            // AND echo cancellation. Critical for Tune to Room: with
+            // .default mode, iOS aggressively cancels anything it
+            // thinks is "echo from speaker output" — and that often
+            // includes the user humming into the mic while a preset
+            // plays. AGC also normalizes the mic input, washing out
+            // the dynamic range pitch detection relies on. With
+            // .measurement the mic delivers raw samples that YIN can
+            // actually find a pitch in.
             try session.setCategory(
                 .playAndRecord,
-                mode: .default,
+                mode: .measurement,
                 options: [.mixWithOthers, .defaultToSpeaker, .allowBluetoothA2DP]
             )
             try session.setActive(true, options: [])
