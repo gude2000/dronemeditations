@@ -231,30 +231,58 @@ final class MicPitchDetector: ObservableObject {
                 log("tore down stale silentInputSink")
             }
 
-            // CRITICAL ORDERING: connect input → sink with format: nil
-            // BEFORE prepare(). When inputNode has no downstream
-            // consumer, iOS doesn't bother initializing the input AU,
-            // and inputFormat returns garbage (sr=0, ch=2 placeholder).
-            // Connecting it gives the engine something to pull through,
-            // which prompts iOS to negotiate a real format at start time.
+            // The crash we keep hitting: connect(input, to: sink, format:
+            // anything) CRASHES with -10875 when the input AU is wedged
+            // at sr=0. Core Audio validates the connection IMMEDIATELY,
+            // not at engine.start() — there's no way to "defer" this.
             //
-            // format: nil here means "negotiate at engine.start()" — the
-            // engine queries the actual hardware format then, not now.
-            // That avoids the chicken-and-egg of needing the format
-            // before it's been negotiated.
+            // So we MUST check input.inputFormat.sampleRate > 0 BEFORE
+            // calling connect(). If it's 0, we cannot proceed.
+            //
+            // Recovery attempt: deactivate + reactivate the session.
+            // This sometimes wakes up a stuck input AU because iOS
+            // tears down the input route and renegotiates from scratch.
+            var hwFormat = input.inputFormat(forBus: bus)
+            if hwFormat.sampleRate <= 0 {
+                log("input AU wedged (sr=0). Trying session deactivate+reactivate to wake it…")
+                try? session.setActive(false, options: [.notifyOthersOnDeactivation])
+                try? await Task.sleep(nanoseconds: 300_000_000)
+                do {
+                    try session.setCategory(
+                        .playAndRecord,
+                        mode: .default,
+                        options: [.mixWithOthers, .defaultToSpeaker, .allowBluetoothA2DP]
+                    )
+                    try session.setActive(true, options: [])
+                    try? await Task.sleep(nanoseconds: 500_000_000)
+                } catch {
+                    log("session reactivation failed: \(error)")
+                }
+                hwFormat = input.inputFormat(forBus: bus)
+                log("after session bounce: inputFormat sr=\(hwFormat.sampleRate) ch=\(hwFormat.channelCount)")
+            }
+
+            // Still no format? Bail without touching the graph. Defer
+            // block will restart the engine so transport stays alive.
+            if hwFormat.sampleRate <= 0 {
+                lastError = "Microphone temporarily unavailable. Close any other audio app, or quit and relaunch Drone Meditations."
+                log("BAIL: input AU still wedged after session bounce. Won't call connect() — that would crash with -10875.")
+                return
+            }
+
+            // Format is valid — safe to wire up the graph now.
             let sink = AVAudioMixerNode()
             sink.outputVolume = 0
             engine.engine.attach(sink)
-            engine.engine.connect(input, to: sink, format: nil)
+            engine.engine.connect(input, to: sink, format: hwFormat)
             engine.engine.connect(sink, to: engine.engine.mainMixerNode, format: nil)
             silentInputSink = sink
-            log("connected inputNode → silent sink → mainMixer (format: nil — will negotiate at start)")
+            log("connected inputNode → silent sink → mainMixer with sr=\(hwFormat.sampleRate)")
 
-            // Now call prepare() — with the input in the graph, this
-            // will actually initialize the input AU.
+            // prepare() after the connection so the input AU has a
+            // downstream consumer and can complete initialization.
             engine.engine.prepare()
-            try? await Task.sleep(nanoseconds: 200_000_000)
-            log("after engine.prepare(): input outputFormat sr=\(input.outputFormat(forBus: bus).sampleRate) inputFormat sr=\(input.inputFormat(forBus: bus).sampleRate)")
+            try? await Task.sleep(nanoseconds: 100_000_000)
         } else {
             log("fast path: silentInputSink exists with valid hw format sr=\(input.inputFormat(forBus: bus).sampleRate)")
         }
