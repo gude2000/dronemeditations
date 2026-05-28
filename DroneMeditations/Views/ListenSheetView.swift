@@ -226,6 +226,15 @@ struct ListenSheetView: View {
             vm.setKey(PitchClass.allCases[note.pitchClassId])
         }
         vm.setOctave(max(1, min(6, note.octave)))
-        dismiss()
+        // Dismiss without SwiftUI's default sheet-slide animation so
+        // the user can tap Play on the main UI immediately. With the
+        // default animation, the sheet takes ~400 ms to slide out and
+        // touches on the parent are ignored during that window —
+        // makes the Play button feel unresponsive right after Set as Root.
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            dismiss()
+        }
     }
 }
