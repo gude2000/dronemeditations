@@ -427,8 +427,14 @@ private let MIN_FREQ: Double = 70
 // Defense in depth alongside the hard clamp at the end of autocorrelate().
 private let MAX_FREQ: Double = 1500
 private let RMS_FLOOR: Double = 0.005
-private let YIN_THRESHOLD: Double = 0.10   // tightened from 0.15
-private let YIN_ABSMAX: Double = 0.4       // tightened from 0.5
+// YIN thresholds — loosened from previous "tightened" values back
+// toward more permissive defaults. Use case is "Tune to Room": user
+// often points the mic at speakers playing a preset (chord/drone)
+// rather than singing a single note. Looser thresholds let YIN
+// commit to the strongest fundamental in a complex signal instead
+// of returning "no pitch found" on every chord.
+private let YIN_THRESHOLD: Double = 0.15
+private let YIN_ABSMAX: Double = 0.55
 
 private func autocorrelate(samples: UnsafePointer<Float>, count: Int, sampleRate: Double) -> Double {
     if count < 64 { return -1 }
