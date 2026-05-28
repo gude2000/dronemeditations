@@ -105,26 +105,28 @@ final class DroneController: ObservableObject {
         guard state == .playing else { return }
         stopTicker()
         state = .paused
-        // PAUSE: just a 1.4s exponential master fade. NO reverb bloom.
+        // PAUSE: 1.4s exponential master fade + very subtle bloom
+        // (peakMix=0.08). Per user: "lower the bloom effect in volume
+        // and keep just a little in there."
         //
-        // The bloom was producing audible distortion at high iPhone
-        // volume because the wet signal it adds on top of the existing
-        // dry voices pushes the SUMMED per-sample value past the
-        // tanh soft-limiter in the source-node render block — that
-        // saturation is harmonics, audible as a click at loud volumes,
-        // inaudible at quiet ones. The pause is short (1.4s) so the
-        // master fade doesn't have time to attenuate the signal before
-        // the bloom peaks. Easiest fix: skip the bloom on pause
-        // entirely. A pause is meant to be a quick wind-down, not an
-        // atmospheric event — keep it clean.
+        // peakMix=0.08 is roughly +0.7 dB of added wet signal at peak —
+        // far below the source-node soft-limiter (tanh at line 142-147)
+        // saturation point, so no audible distortion even at max iPhone
+        // volume. Just enough wet to add a hint of "settling" atmosphere
+        // without the clicking that 0.25+ produced.
         //
         // CLICK-FREE engine strategy unchanged: don't call engine.pause()
         // or engine.stop(). Leave engine running silently at outputVolume=0.
-        // No AU state changes = no AU-rebind click.
         pendingFadeOutTask?.cancel()
         let engineRef = engine
         pendingFadeOutTask = Task { @MainActor in
-            await engineRef.fadeOutMaster(seconds: 1.4, curve: .exponential)
+            await engineRef.pauseWithReverbBloom(
+                fadeDuration: 1.4,
+                peakAt: 0.25,
+                peakMix: 0.08,
+                peakDecay: 3.0,
+                fadeCurve: .exponential
+            )
             guard self.state == .paused else { return }
             // No engine.pause() — see CLICK-FREE strategy above.
         }
@@ -169,16 +171,15 @@ final class DroneController: ObservableObject {
             // soon" because the envelope started ramping down the
             // instant it hit peak — the plateau fixes that.
             //
-            // peakMix kept at the conservative 0.65 (was briefly 0.85
-            // but at high iPhone volume the summed wet signal pushed
-            // into the tanh soft-limiter in the source node render
-            // block — audible as volume-dependent distortion/click).
-            // The plateau still gives the "sustained room" feel
-            // without saturating the limiter.
+            // peakMix dropped to 0.50 (was 0.65/0.85 earlier) — at the
+            // very top of the bloom plateau, the summed wet+dry signal
+            // sometimes pushed the source-node tanh soft-limiter into
+            // saturation at max iPhone volume. 0.50 keeps the bloom
+            // audible and atmospheric but stays well within headroom.
             await engineRef.stopWithReverbBloom(
                 fadeDuration: 10.0,
                 peakAt: 0.30,
-                peakMix: 0.65,
+                peakMix: 0.50,
                 peakDecay: 7.0,
                 plateauWidth: 0.25
             )
