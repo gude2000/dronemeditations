@@ -69,27 +69,67 @@ struct ChladniView: View {
                           height: size.height / CGFloat(grid))
 
         let z = max(0.01, zoom)
-        for j in 0..<grid {
-            for i in 0..<grid {
-                let screenX = (Double(i) + 0.5) / Double(grid)
-                let screenY = (Double(j) + 0.5) / Double(grid)
-                // Inverse zoom transform around plate center. We do NOT
-                // clip outside [0,1]² — the Chladni cos math is naturally
-                // periodic, so the pattern tiles to fill the screen at
-                // every zoom level (z<1 shows several copies, z>1 zooms
-                // into a single copy).
-                let x = (screenX - 0.5) / z + 0.5
-                let y = (screenY - 0.5) / z + 0.5
+
+        // ── PRECOMPUTE per-axis cos LUTs (huge perf win). ────────────────
+        // The Chladni formula `cos(mπx)·cos(nπy) − cos(nπx)·cos(mπy)`
+        // factors cleanly: every cos depends on ONLY x or ONLY y. So we
+        // can precompute, per mode, 4 grid-sized arrays of cos values
+        // once per frame and reduce the per-cell inner loop to 4 array
+        // reads + 2 multiplies.
+        //
+        // Before: G² × M × 4 cos calls per frame
+        //   (140² × 8 modes × 4 = ~627k cos/frame at 24 fps = ~15M cos/s)
+        // After:  G × M × 4 cos calls per frame
+        //   (140 × 8 × 4 = 4,480 cos/frame at 24 fps = ~107k cos/s)
+        //
+        // ~140× reduction. This is the difference between starving the
+        // main thread (which knock-on-effects the audio render thread,
+        // causing crackling on busy presets) and idling at 5% CPU.
+        let G = grid
+        // x[i] and y[j] are post-zoom-transform coords — pre-cache them.
+        var xs = [Double](repeating: 0, count: G)
+        var ys = [Double](repeating: 0, count: G)
+        for i in 0..<G {
+            let screenX = (Double(i) + 0.5) / Double(G)
+            xs[i] = (screenX - 0.5) / z + 0.5
+        }
+        for j in 0..<G {
+            let screenY = (Double(j) + 0.5) / Double(G)
+            ys[j] = (screenY - 0.5) / z + 0.5
+        }
+        // Per-mode cos LUTs along X and Y. Flat row-major: index = mode*G + i.
+        let modeCount = modes.count
+        var cmx = [Double](repeating: 0, count: modeCount * G)
+        var cnx = [Double](repeating: 0, count: modeCount * G)
+        var cmy = [Double](repeating: 0, count: modeCount * G)
+        var cny = [Double](repeating: 0, count: modeCount * G)
+        for (k, v) in modes.enumerated() {
+            let mPi = Double(v.m) * .pi
+            let nPi = Double(v.n) * .pi
+            let base = k * G
+            for i in 0..<G {
+                cmx[base + i] = cos(mPi * xs[i])
+                cnx[base + i] = cos(nPi * xs[i])
+            }
+            for j in 0..<G {
+                cmy[base + j] = cos(mPi * ys[j])
+                cny[base + j] = cos(nPi * ys[j])
+            }
+        }
+
+        for j in 0..<G {
+            for i in 0..<G {
+                let x = xs[i]
+                let y = ys[j]
 
                 var field = 0.0
                 var hueAccum = 0.0
                 var weightAccum = 0.0
-                for v in modes {
-                    let mPi = Double(v.m) * .pi
-                    let nPi = Double(v.n) * .pi
-                    // Antisymmetric — calibration table only has m < n.
-                    let term = 0.5 * (cos(mPi * x) * cos(nPi * y)
-                                    - cos(nPi * x) * cos(mPi * y))
+                for (k, v) in modes.enumerated() {
+                    let base = k * G
+                    // Antisymmetric formula via LUT — no cos calls here.
+                    let term = 0.5 * (cmx[base + i] * cny[base + j]
+                                    - cnx[base + i] * cmy[base + j])
                     field += term * v.weight
                     hueAccum += v.hue * v.weight
                     weightAccum += v.weight

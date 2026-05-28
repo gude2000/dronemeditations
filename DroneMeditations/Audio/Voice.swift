@@ -78,6 +78,44 @@ final class Voice {
     private var pinkB5: Double = 0
     private var pinkB6: Double = 0
 
+    // ── Fast lock-free PRNG for per-sample noise (xorshift64*). ─────────
+    // Swift's Double.random(in:) goes through SystemRandomNumberGenerator
+    // which on Apple platforms calls arc4random — fine for general use but
+    // each call is ~20-30 ns and at 48 kHz × 4 voices that's ~200k calls/s
+    // hitting the render thread. xorshift64* is a handful of XOR/shift ops
+    // (~1 ns), bit-identical determinism per voice, and zero syscall risk.
+    // Seeded per-voice in init() so each voice gets a different noise
+    // stream (otherwise all 4 voices would produce correlated noise).
+    private var rngState: UInt64 = 0
+    @inline(__always)
+    private func nextRandomBipolar() -> Double {
+        // xorshift64*. State must be non-zero (init seeds it).
+        var x = rngState
+        x ^= x &>> 12
+        x ^= x &<< 25
+        x ^= x &>> 27
+        rngState = x
+        let scrambled = x &* 0x2545_F491_4F6C_DD1D
+        // Take the top 53 bits → Double in [0, 1) with full mantissa.
+        let unit = Double(scrambled >> 11) * (1.0 / Double(UInt64(1) << 53))
+        return unit * 2.0 - 1.0
+    }
+
+    // ── Hann window lookup table for granular grains. ───────────────────
+    // Replaces a per-sample `cos(2π t)` (15-30 ns on Apple Silicon) with
+    // a single LUT read. 1024 entries gives 0.1% positional resolution —
+    // inaudible for amplitude windowing. Static so all voices share the
+    // same memory; the array is read-only after init.
+    private static let hannLUT: [Float] = {
+        let size = 1024
+        var lut = [Float](repeating: 0, count: size)
+        for i in 0..<size {
+            let t = Double(i) / Double(size)
+            lut[i] = Float(0.5 * (1.0 - cos(2.0 * .pi * t)))
+        }
+        return lut
+    }()
+
     // Granular mode — UI-writable targets. Only consumed when waveform ==
     // .granular. The scheduler fires Hann-windowed pink-noise grains at the
     // requested density; `grainJitter` randomizes inter-grain timing; each
@@ -102,6 +140,16 @@ final class Voice {
     private var bqA2: Double = 0.0
     private var bqS1: Double = 0.0
     private var bqS2: Double = 0.0
+
+    // Slewed LFO→filter modulation. Square / S&H / saw-endpoint LFO shapes
+    // jump from one buffer to the next; the old code computed biquad
+    // coefficients once per buffer from the raw LFO value, so the
+    // coefficient set changed abruptly at buffer boundaries — audible as
+    // a click/snap with discrete LFO shapes. These two values track the
+    // per-buffer LFO target and slew toward it sample-by-sample, with
+    // biquad coefficients recomputed every BIQUAD_CHUNK samples below.
+    private var currentCutoffOct: Double = 0
+    private var currentQOct: Double = 0
 
     // Loaded sample buffer (mono float, -1..1) + native sample rate.
     var sampleData: [Float]? = nil
@@ -201,6 +249,11 @@ final class Voice {
     private let freqSlewPerSample: Double
     private let ampSlewPerSample: Float
     private let panSlewPerSample: Float
+    // ~15 ms time constant for filter-mod slew. Slow enough to eliminate
+    // the click on square / S&H / ramp LFO shapes, fast enough that the
+    // square-wave character is still clearly audible at LFO rates up to
+    // ~10 Hz. Shared between cutoff and Q modulation.
+    private let modSlewPerSample: Double
 
     init(id: Int, sampleRate: Double) {
         self.id = id
@@ -212,6 +265,7 @@ final class Voice {
         self.freqSlewPerSample = 1.0 / (freqMs * sampleRate)
         self.ampSlewPerSample = Float(1.0 / (levelMs * sampleRate))
         self.panSlewPerSample = Float(1.0 / (levelMs * sampleRate))
+        self.modSlewPerSample = 1.0 / (0.015 * sampleRate)
 
         // Allocate reverb + delay buffers.
         // (Note: delayBuffer is now two separate L/R circular buffers; see init below.)
@@ -227,6 +281,11 @@ final class Voice {
         // Seed R-channel LFO phase by the width offset so L/R move counter-phase.
         self.chorusLfoPhaseR = chorusWidth * 0.5
         self.lastChorusWidth = chorusWidth
+        // Seed the per-voice xorshift PRNG with a Weyl-sequence-style
+        // golden-ratio constant times (id+1) so each voice gets a
+        // distinct non-zero start state, decorrelating the noise streams.
+        self.rngState = 0x9E37_79B9_7F4A_7C15 &* UInt64(id &+ 1)
+        if self.rngState == 0 { self.rngState = 0xDEAD_BEEF_CAFE_BABE }
     }
 
     /// Render `frameCount` stereo samples, summing into `left` and `right` (output is additive).
@@ -337,11 +396,24 @@ final class Voice {
             effectiveFreqTarget = bestNote
         }
 
-        // ── Update biquad coefficients with LFO-modulated cutoff + Q.
-        let effectiveCutoff = filterCutoffHz * pow(2.0, cutoffOct)
-        let effectiveQ = max(FilterState.qMin,
-                             min(FilterState.qMax, filterQ * pow(2.0, qOct)))
-        updateBiquadCoefficients(cutoff: effectiveCutoff, q: effectiveQ)
+        // Biquad coefficients are now updated INSIDE the per-sample loop
+        // every BIQUAD_CHUNK samples, with currentCutoffOct / currentQOct
+        // slewed sample-by-sample toward the per-buffer LFO targets
+        // (cutoffOct / qOct). See modSlewPerSample comment above. This
+        // smooths the click that discrete LFO shapes (square / S&H /
+        // ramp endpoints) used to produce when their value jumped from
+        // one buffer to the next.
+        let cutoffOctTarget = cutoffOct
+        let qOctTarget = qOct
+        let modSlew = modSlewPerSample
+        // Recompute biquad every 16 samples = 333 µs @ 48 kHz. Coarse
+        // enough to be ~1% of per-sample work, fine enough that the
+        // remaining chunk-boundary discontinuity is well below the audio
+        // band (3 kHz fundamental at worst — masked by the slew + the
+        // running biquad state). Use a countdown so the first sample of
+        // every buffer always recomputes.
+        let biquadChunk = 16
+        var biquadCountdown = 0
 
         // ── Recompute reverb comb feedbacks (cheap, once per buffer).
         let ln10x3 = 3.0 * 2.302585092994046
@@ -446,6 +518,21 @@ final class Voice {
             f += (effectiveFreqTarget - f) * fStep
             a += Float((Double(ampTarget) - Double(a)) * aStep)
             p += Float((Double(panTarget) - Double(p)) * pStep)
+            // Slew filter-mod values per-sample (cheap) and recompute
+            // biquad every biquadChunk samples (expensive). See the
+            // biquadCountdown / modSlew setup above the loop for why
+            // this exists — kills the click on square / S&H / ramp LFO
+            // shapes targeting cutoff or Q.
+            currentCutoffOct += (cutoffOctTarget - currentCutoffOct) * modSlew
+            currentQOct      += (qOctTarget      - currentQOct)      * modSlew
+            biquadCountdown -= 1
+            if biquadCountdown <= 0 {
+                biquadCountdown = biquadChunk
+                let effC = filterCutoffHz * pow(2.0, currentCutoffOct)
+                let effQ = max(FilterState.qMin,
+                               min(FilterState.qMax, filterQ * pow(2.0, currentQOct)))
+                updateBiquadCoefficients(cutoff: effC, q: effQ)
+            }
 
             var raw: Double
             if isSampleMode, sampleCount > 0 {
@@ -493,14 +580,16 @@ final class Voice {
             } else if wave.isNoise {
                 // Noise voices skip phase math + FM entirely (no periodic
                 // frequency to modulate). Frequency knob has no effect.
+                // Uses the per-voice xorshift PRNG (nextRandomBipolar)
+                // instead of Double.random — ~20× faster and never blocks.
                 if wave == .whiteNoise {
-                    raw = Double.random(in: -1.0 ... 1.0)
+                    raw = nextRandomBipolar()
                 } else {
                     // Pink noise (Paul Kellet). Six leaky integrators + a HF
                     // compensation tap on the raw white sample. Output gain
                     // 0.11 keeps peaks roughly in [-1, 1]. Reused as the
                     // source for granular mode below.
-                    let white = Double.random(in: -1.0 ... 1.0)
+                    let white = nextRandomBipolar()
                     pinkB0 = 0.99886 * pinkB0 + white * 0.0555179
                     pinkB1 = 0.99332 * pinkB1 + white * 0.0750759
                     pinkB2 = 0.96900 * pinkB2 + white * 0.1538520
@@ -524,7 +613,7 @@ final class Voice {
                             let lenSamples = max(8, Int(grainSizeMs * 0.001 * sampleRate))
                             grainCurrentLength = lenSamples
                             grainCurrentPos = 0
-                            grainCurrentPanOffset = Float(Double.random(in: -1.0 ... 1.0) * grainPanSpread)
+                            grainCurrentPanOffset = Float(nextRandomBipolar() * grainPanSpread)
                             // Mean inter-grain spacing from density. jitter
                             // randomizes the gap multiplicatively — at
                             // jitter=1 the gap varies 0.3×..2.5× the mean,
@@ -532,15 +621,21 @@ final class Voice {
                             let meanGap = sampleRate / max(0.5, grainDensityHz)
                             let lo = max(0.05, 1.0 - grainJitter * 0.7)
                             let hi = 1.0 + grainJitter * 1.5
-                            let gap = meanGap * Double.random(in: lo...hi)
+                            // Random in [lo, hi]: (nextRandomBipolar*0.5+0.5) ∈ [0,1].
+                            let r01 = nextRandomBipolar() * 0.5 + 0.5
+                            let gap = meanGap * (lo + (hi - lo) * r01)
                             // Don't schedule next grain to start before the
                             // current one finishes (avoid overlap pile-up at
                             // sparse density + long grains).
                             grainSamplesUntilNext = max(lenSamples + 8, Int(gap))
                         }
                         if grainCurrentPos < grainCurrentLength {
-                            let t = Double(grainCurrentPos) / Double(grainCurrentLength)
-                            let window = 0.5 * (1.0 - cos(2.0 * .pi * t))
+                            // Hann window via 1024-entry LUT (replaces a
+                            // per-sample cos call). Index is grainCurrentPos
+                            // scaled into [0, hannLUT.count) by integer math.
+                            let lutSize = Voice.hannLUT.count
+                            let idx = (grainCurrentPos * lutSize) / max(1, grainCurrentLength)
+                            let window = Double(Voice.hannLUT[min(lutSize - 1, idx)])
                             raw *= window * 3.0
                             grainCurrentPos += 1
                         } else {
