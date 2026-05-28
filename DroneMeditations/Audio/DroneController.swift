@@ -110,28 +110,27 @@ final class DroneController: ObservableObject {
         guard state == .playing else { return }
         stopTicker()
         state = .paused
-        // PAUSE: just a 1.4s exponential master fade. NO reverb bloom.
+        // PAUSE: 0.6s exponential master fade. NO reverb bloom.
         //
-        // The bloom was producing audible distortion at high iPhone
-        // volume because the wet signal it adds on top of the existing
-        // dry voices pushes the SUMMED per-sample value past the
-        // tanh soft-limiter in the source-node render block — that
-        // saturation is harmonics, audible as a click at loud volumes,
-        // inaudible at quiet ones. The pause is short (1.4s) so the
-        // master fade doesn't have time to attenuate the signal before
-        // the bloom peaks. Easiest fix: skip the bloom on pause
-        // entirely. A pause is meant to be a quick wind-down, not an
-        // atmospheric event — keep it clean.
+        // Dropped from 1.4s because user reported pause-after-Listen
+        // perceived as ~3s. Likely cause: after the first-time
+        // engine-recreate path (Listen + mic permission grant), iOS
+        // sets up a longer audio output buffer under .playAndRecord
+        // with the input route active. The buffered samples drain
+        // for ~1-2s after outputVolume hits 0, on top of our ramp.
+        // 1.4s ramp + ~1.5s buffer drain = ~3s effective fade.
+        //
+        // A 0.6s ramp + buffer drain still gives the user a sense of
+        // "wind down" but the total perceived fade is much closer to
+        // what pause used to feel like before mic was ever wired in.
         //
         // CLICK-FREE engine strategy unchanged: don't call engine.pause()
         // or engine.stop(). Leave engine running silently at outputVolume=0.
-        // No AU state changes = no AU-rebind click.
         pendingFadeOutTask?.cancel()
         let engineRef = engine
         pendingFadeOutTask = Task { @MainActor in
-            await engineRef.fadeOutMaster(seconds: 1.4, curve: .exponential)
+            await engineRef.fadeOutMaster(seconds: 0.6, curve: .exponential)
             guard self.state == .paused else { return }
-            // No engine.pause() — see CLICK-FREE strategy above.
         }
     }
 
