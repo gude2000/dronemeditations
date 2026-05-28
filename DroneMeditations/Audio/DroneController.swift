@@ -44,6 +44,12 @@ final class DroneController: ObservableObject {
     }
 
     func play() {
+        #if DEBUG
+        let playStart = Date()
+        let preVol = engine.engine.mainMixerNode.outputVolume
+        let preRunning = engine.engine.isRunning
+        print("▶️ [\(timestamp())] play() called — state=\(state), engine.isRunning=\(preRunning), outputVolume=\(preVol)")
+        #endif
         // Cancel any in-flight fade-out from a recent pause/stop so it
         // can't wake up post-sleep and slam audio to 0 / stop the engine
         // out from under the just-resumed playback. See the
@@ -65,6 +71,10 @@ final class DroneController: ObservableObject {
         let engineAlreadyRunning = engine.engine.isRunning
         do {
             try engine.start()
+            #if DEBUG
+            let startElapsed = Date().timeIntervalSince(playStart)
+            print("▶️ [\(timestamp())] engine.start returned in \(String(format: "%.3f", startElapsed))s, isRunning=\(engine.engine.isRunning)")
+            #endif
         } catch {
             #if DEBUG
             print("AudioEngine start failed: \(error)")
@@ -72,6 +82,9 @@ final class DroneController: ObservableObject {
             return
         }
         if state != .playing {
+            #if DEBUG
+            print("▶️ [\(timestamp())] firing fadeInMaster, fromStopped=\(fromStopped), engineAlreadyRunning=\(engineAlreadyRunning)")
+            #endif
             // Choose fade-in duration:
             //  - 3 s if this is a true cold start (engine wasn't running)
             //    — preserves the "meditative onset" for the very first
@@ -110,6 +123,11 @@ final class DroneController: ObservableObject {
         guard state == .playing else { return }
         stopTicker()
         state = .paused
+        #if DEBUG
+        let pauseStart = Date()
+        let preVol = engine.engine.mainMixerNode.outputVolume
+        print("⏸️ [\(timestamp())] pause() called — state=.paused, mainMixer.outputVolume=\(preVol)")
+        #endif
         // PAUSE: 1.4s exponential master fade. NO reverb bloom.
         // (The audio-session preferredIOBufferDuration is forced to
         // 20 ms in AudioEngine.init so the buffer doesn't drain a
@@ -121,10 +139,25 @@ final class DroneController: ObservableObject {
         pendingFadeOutTask?.cancel()
         let engineRef = engine
         pendingFadeOutTask = Task { @MainActor in
+            #if DEBUG
+            print("⏸️ [\(self.timestamp())] pause Task starting fadeOutMaster(1.4s)")
+            #endif
             await engineRef.fadeOutMaster(seconds: 1.4, curve: .exponential)
+            #if DEBUG
+            let elapsed = Date().timeIntervalSince(pauseStart)
+            let postVol = engineRef.engine.mainMixerNode.outputVolume
+            print("⏸️ [\(self.timestamp())] pause Task DONE — elapsed=\(String(format: "%.2f", elapsed))s, mainMixer.outputVolume=\(postVol)")
+            #endif
             guard self.state == .paused else { return }
         }
     }
+
+    #if DEBUG
+    private func timestamp() -> String {
+        let t = String(format: "%.3f", Date().timeIntervalSince1970)
+        return String(t.suffix(7))
+    }
+    #endif
 
     func stop() {
         stopTicker()
