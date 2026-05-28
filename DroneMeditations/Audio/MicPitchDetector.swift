@@ -219,14 +219,10 @@ final class MicPitchDetector: ObservableObject {
             // Diagnostic — dump session state so we can see what iOS thinks.
             log("session: cat=\(session.category.rawValue) mode=\(session.mode.rawValue) inputAvail=\(session.isInputAvailable) sr=\(session.sampleRate) inputCh=\(session.inputNumberOfChannels) route=\(session.currentRoute.inputs.map { $0.portType.rawValue })")
 
-            // Stop the engine before mutating the input graph — Core Audio
-            // expects a stopped engine for attach/connect/detach to take
-            // effect deterministically.
+            // Stop the engine before mutating the input graph.
             if engine.engine.isRunning { engine.engine.stop() }
 
-            // Tear down any stale silentInputSink. Disconnect both ends
-            // first; detach() alone leaves dangling formats in the engine
-            // graph that re-fail on next start.
+            // Tear down any stale silentInputSink.
             if let stale = silentInputSink {
                 engine.engine.disconnectNodeOutput(stale)
                 engine.engine.disconnectNodeOutput(input)
@@ -235,51 +231,30 @@ final class MicPitchDetector: ObservableObject {
                 log("tore down stale silentInputSink")
             }
 
-            // CRITICAL: call engine.prepare() to force iOS to allocate
-            // the input AU's resources. Without this, inputFormat may
-            // return sr=0 indefinitely because the AU was never
-            // initialized after the session swap. prepare() is what
-            // tells Core Audio "this engine is about to start; get
-            // everything ready including input nodes."
-            engine.engine.prepare()
-            try? await Task.sleep(nanoseconds: 200_000_000)
-            log("after engine.prepare(): input inputFormat sr=\(input.inputFormat(forBus: bus).sampleRate)")
-
-            // Poll the HARDWARE format. inputFormat returns the format
-            // the input AU expects from the hardware route. After
-            // prepare() this should be valid quickly.
-            var hwFormat = input.inputFormat(forBus: bus)
-            var preWirePolls = 0
-            while hwFormat.sampleRate <= 0 && preWirePolls < 30 {
-                try? await Task.sleep(nanoseconds: 100_000_000)
-                hwFormat = input.inputFormat(forBus: bus)
-                preWirePolls += 1
-            }
-            log("pre-wire HARDWARE format: sr=\(hwFormat.sampleRate) ch=\(hwFormat.channelCount) after \(preWirePolls) polls")
-
-            // If inputFormat is still 0 after prepare() + 3s polling,
-            // the input AU is genuinely wedged. We CANNOT recover by
-            // making up a format from the session — Core Audio
-            // validates the connection format against the real input
-            // hardware format on engine.start() and throws an
-            // uncatchable NSException ('Input HW format is invalid')
-            // that crashes the app. Earlier code that did this was
-            // crashing. Bail cleanly instead.
-            if hwFormat.sampleRate <= 0 {
-                lastError = "Microphone unavailable — another app may be using it, or try restarting Drone Meditations."
-                log("BAIL: input HW format is genuinely 0 after prepare() + polling. Not connecting silentInputSink to avoid 'Input HW format is invalid' crash on engine.start().")
-                return
-            }
-
-            // Connect input → sink using the explicit hardware format.
-            // sink → mainMixer can stay format: nil (engine negotiates).
+            // CRITICAL ORDERING: connect input → sink with format: nil
+            // BEFORE prepare(). When inputNode has no downstream
+            // consumer, iOS doesn't bother initializing the input AU,
+            // and inputFormat returns garbage (sr=0, ch=2 placeholder).
+            // Connecting it gives the engine something to pull through,
+            // which prompts iOS to negotiate a real format at start time.
+            //
+            // format: nil here means "negotiate at engine.start()" — the
+            // engine queries the actual hardware format then, not now.
+            // That avoids the chicken-and-egg of needing the format
+            // before it's been negotiated.
             let sink = AVAudioMixerNode()
             sink.outputVolume = 0
             engine.engine.attach(sink)
-            engine.engine.connect(input, to: sink, format: hwFormat)
+            engine.engine.connect(input, to: sink, format: nil)
             engine.engine.connect(sink, to: engine.engine.mainMixerNode, format: nil)
             silentInputSink = sink
-            log("connected inputNode → silent sink → mainMixer with sr=\(hwFormat.sampleRate)")
+            log("connected inputNode → silent sink → mainMixer (format: nil — will negotiate at start)")
+
+            // Now call prepare() — with the input in the graph, this
+            // will actually initialize the input AU.
+            engine.engine.prepare()
+            try? await Task.sleep(nanoseconds: 200_000_000)
+            log("after engine.prepare(): input outputFormat sr=\(input.outputFormat(forBus: bus).sampleRate) inputFormat sr=\(input.inputFormat(forBus: bus).sampleRate)")
         } else {
             log("fast path: silentInputSink exists with valid hw format sr=\(input.inputFormat(forBus: bus).sampleRate)")
         }
@@ -292,43 +267,20 @@ final class MicPitchDetector: ObservableObject {
                 try engine.engine.start()
                 log("engine started; isRunning=\(engine.engine.isRunning)")
             } catch let error as NSError where error.code == -10875 {
-                // Input chain is broken. Tear down, rewire, retry.
-                log("engine.start() failed with -10875 — input chain corrupted. Recovering…")
+                // Input chain is broken — the input AU is wedged at sr=0.
+                // Tear down silentInputSink so the engine can start
+                // WITHOUT the input chain (for synth playback). Bail
+                // cleanly — Listen can't work this session, but
+                // transport stays responsive.
+                log("engine.start() failed with -10875 — input AU wedged. Tearing down sink + bailing.")
                 if let stale = silentInputSink {
                     engine.engine.disconnectNodeOutput(stale)
                     engine.engine.disconnectNodeOutput(input)
                     engine.engine.detach(stale)
                     silentInputSink = nil
                 }
-                // Re-poll HARDWARE format after the teardown (use
-                // inputFormat for the same chicken-and-egg reason
-                // documented above).
-                var recoveryFormat = input.inputFormat(forBus: bus)
-                var recoveryPolls = 0
-                while recoveryFormat.sampleRate <= 0 && recoveryPolls < 30 {
-                    try? await Task.sleep(nanoseconds: 100_000_000)
-                    recoveryFormat = input.inputFormat(forBus: bus)
-                    recoveryPolls += 1
-                }
-                if recoveryFormat.sampleRate <= 0 {
-                    lastError = "Microphone unavailable after recovery. Try closing and reopening Listen."
-                    log("BAIL: format still 0 after teardown + \(recoveryPolls * 100)ms wait")
-                    return
-                }
-                let sink = AVAudioMixerNode()
-                sink.outputVolume = 0
-                engine.engine.attach(sink)
-                engine.engine.connect(input, to: sink, format: recoveryFormat)
-                engine.engine.connect(sink, to: engine.engine.mainMixerNode, format: nil)
-                silentInputSink = sink
-                do {
-                    try engine.engine.start()
-                    log("engine recovered after rewire with sr=\(recoveryFormat.sampleRate)")
-                } catch {
-                    lastError = "Couldn't start audio engine even after rewire: \(error.localizedDescription)"
-                    log("BAIL: recovery engine.start() failed: \(error.localizedDescription)")
-                    return
-                }
+                lastError = "Microphone unavailable — try restarting Drone Meditations (close from app switcher + relaunch)."
+                return
             } catch {
                 lastError = "Couldn't start engine for input: \(error.localizedDescription)"
                 log("BAIL: engine start error \(error.localizedDescription)")
