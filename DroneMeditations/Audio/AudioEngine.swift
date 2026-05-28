@@ -431,12 +431,26 @@ final class AudioEngine {
         bloomGeneration &+= 1
         stopBloomTimer?.invalidate()
         stopBloomTimer = nil
-        if !preBloomReverb.isEmpty {
-            for (i, snap) in preBloomReverb.enumerated() where i < voices.count {
+        // SNAPSHOT-THEN-CLEAR pattern. pauseWithReverbBloom/stopWithReverbBloom
+        // calls this twice per cycle (once at the start of startStopBloom, once
+        // at the end after the master fade + bloom complete). If those two
+        // calls land on different concurrent dispatch queues — which they
+        // can since AudioEngine isn't actor-isolated and the async let
+        // bloomTask runs on the cooperative pool — both could try to
+        // release the same preBloomReverb buffer at once: double-free
+        // → EXC_BAD_ACCESS in objc_class::realizeIfNeeded during ARC.
+        //
+        // Capture the local snapshot AND clear the property in one
+        // synchronous burst, then iterate the local. Two concurrent
+        // callers race on the swap, but only one wins the non-empty
+        // snapshot; the other gets [] and does nothing.
+        let snapshot = preBloomReverb
+        preBloomReverb = []
+        if !snapshot.isEmpty {
+            for (i, snap) in snapshot.enumerated() where i < voices.count {
                 voices[i].reverbMix = snap.mix
                 voices[i].reverbDecaySec = snap.decay
             }
-            preBloomReverb = []
         }
     }
 
