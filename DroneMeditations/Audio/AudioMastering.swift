@@ -1,36 +1,36 @@
 import Foundation
 import AVFoundation
 
-/// Post-recording mastering pipeline. Takes the raw CAF capture from the
-/// engine's recording tap and produces a release-ready 24-bit PCM WAV:
+/// Post-recording mastering pipeline. Takes the raw CAF capture and
+/// produces TWO files in the Recordings/ folder:
 ///
+///   • `<name>.wav` — uncompressed 24-bit PCM, professional quality,
+///     for DAW editing / archival / remastering. Big (~17 MB/min
+///     stereo @48k) but bit-perfect.
+///   • `<name>.m4a` — AAC sidecar, ~10× smaller, ideal for sharing /
+///     AirDrop / email / Music app. Same loudness + fades baked in;
+///     just compressed for portability.
+///
+/// Pipeline:
 ///   1. **Loudness normalization** — scans the recording, computes its
-///      RMS, and applies a single gain so the result lands around
+///      RMS, applies a single gain so the result lands around
 ///      -16 dBFS RMS (a reasonable proxy for -14 LUFS on stationary
 ///      ambient/drone content; not true ITU-R BS.1770, but predictable).
 ///   2. **Fade-in / fade-out** — 2 s in, 4 s out. Softens session edges
 ///      so the file doesn't start or end with an abrupt click.
-///   3. **24-bit PCM WAV** — uncompressed, lossless, professional
-///      quality. Universally accepted by DAWs, samplers, mastering
-///      software, and AirDrop / share workflows. File size is larger
-///      than AAC (~17 MB/min for stereo 48k) but quality is bit-perfect
-///      for downstream editing or remastering.
-///
-/// Switched from M4A (AVAssetExportSession + AAC) to WAV per user
-/// request. WAV can't go through ExportSession (the preset list is
-/// AAC-only for audio), so we read the CAF chunk-by-chunk via
-/// AVAudioFile, apply gain + fades in Swift, and write to a WAV file
-/// in 24-bit PCM. Per-sample fade math (vs. AVAudioMix's volume ramps)
-/// is fine here — drone sessions are short enough that the loop runs
-/// faster than realtime even on older iPhones.
+///   3. **WAV write** — chunked AVAudioFile read of the CAF, per-frame
+///      gain * fade envelope, written to 24-bit PCM WAV.
+///   4. **M4A sidecar** — AVAssetExportSession over the mastered WAV
+///      with AppleM4A preset. Embeds title/artist/comment metadata.
+///      Best-effort: WAV success is required; M4A failure is silent.
 enum AudioMastering {
 
     /// Run the full master on `inputCAFURL` and return the URL of the
-    /// finished .wav. The input CAF is deleted on success.
-    /// Throws if any stage of the pipeline fails.
-    /// `presetName` is currently unused (WAV via AVAudioFile doesn't
-    /// support embedded metadata) but kept in the signature so call
-    /// sites don't need to change.
+    /// finished .wav. The input CAF is deleted on success. A compressed
+    /// .m4a sidecar is also written alongside the WAV using the same
+    /// gain + fades; `presetName` is embedded as metadata in that M4A.
+    /// Throws if the WAV pipeline fails; M4A sidecar failures are
+    /// silently swallowed (WAV is the primary deliverable).
     static func master(
         inputCAFURL: URL,
         presetName: String?,
@@ -38,7 +38,6 @@ enum AudioMastering {
         fadeInSec: Double = 2.0,
         fadeOutSec: Double = 4.0
     ) async throws -> URL {
-        _ = presetName  // unused; see note above
         // ── 1. Measure loudness ───────────────────────────────────
         let (rmsDBFS, peakDBFS, durationSec) = try measureLoudness(url: inputCAFURL)
         guard durationSec > 0.5 else {
@@ -132,9 +131,104 @@ enum AudioMastering {
             try outFile.write(from: buffer)
         }
 
-        // ── 6. Clean up the source CAF ────────────────────────────
+        // ── 6. Also export an AAC M4A from the finished WAV ───────
+        // User wants both: WAV for editing/archival, M4A for easy
+        // sharing (~10× smaller, universally playable). The M4A is
+        // written alongside the WAV in the Recordings/ folder. If
+        // export fails we silently skip — the WAV is the primary
+        // output and shouldn't be blocked by a secondary format.
+        await exportM4ASidecar(from: outURL, presetName: presetName)
+
+        // ── 7. Clean up the source CAF ────────────────────────────
         try? FileManager.default.removeItem(at: inputCAFURL)
         return outURL
+    }
+
+    /// Write a compressed AAC .m4a copy alongside the mastered WAV.
+    /// Reads the already-mastered WAV (gain + fades baked in) and runs
+    /// it through AVAssetExportSession with the AppleM4A preset.
+    /// Best-effort: any failure is logged but not thrown — the WAV is
+    /// the primary deliverable and the M4A is a convenience sidecar.
+    private static func exportM4ASidecar(from wavURL: URL, presetName: String?) async {
+        let m4aURL = wavURL.deletingPathExtension().appendingPathExtension("m4a")
+        try? FileManager.default.removeItem(at: m4aURL)
+
+        let asset = AVURLAsset(url: wavURL)
+        guard let export = AVAssetExportSession(
+            asset: asset,
+            presetName: AVAssetExportPresetAppleM4A
+        ) else {
+            #if DEBUG
+            print("AudioMastering: M4A sidecar — couldn't create export session")
+            #endif
+            return
+        }
+        export.outputURL = m4aURL
+        export.outputFileType = .m4a
+        // Embed friendly metadata so the M4A shows up nicely in
+        // Music / Files / share sheets (title, artist, etc).
+        let durationSec: Double = {
+            if let f = try? AVAudioFile(forReading: wavURL) {
+                return Double(f.length) / f.processingFormat.sampleRate
+            }
+            return 0
+        }()
+        export.metadata = buildMetadata(presetName: presetName,
+                                        durationSec: durationSec)
+
+        do {
+            if #available(iOS 18.0, *) {
+                try await export.export(to: m4aURL, as: .m4a)
+            } else {
+                await export.export()
+                if let err = export.error {
+                    #if DEBUG
+                    print("AudioMastering: M4A sidecar export failed: \(err)")
+                    #endif
+                    return
+                }
+            }
+        } catch {
+            #if DEBUG
+            print("AudioMastering: M4A sidecar export threw: \(error)")
+            #endif
+        }
+    }
+
+    // MARK: - Metadata (M4A sidecar only)
+
+    /// Build a metadata block embedded into the .m4a so the file's
+    /// title/artist/comment fields display nicely in Music, Files, etc.
+    /// Not used for WAV — AVAudioFile doesn't support WAV LIST/INFO
+    /// metadata writing.
+    private static func buildMetadata(presetName: String?, durationSec: Double) -> [AVMetadataItem] {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        let dateStr = df.string(from: Date())
+
+        let mins = Int(durationSec / 60)
+        let secs = Int(durationSec.truncatingRemainder(dividingBy: 60))
+        let durStr = String(format: "%d:%02d", mins, secs)
+
+        let title = presetName.map { "Drone Meditation — \($0)" }
+            ?? "Drone Meditation — \(dateStr)"
+        let comment = "Recorded with Drone Meditations · \(dateStr) · \(durStr)"
+
+        func meta(_ key: AVMetadataIdentifier, _ value: String) -> AVMetadataItem {
+            let m = AVMutableMetadataItem()
+            m.identifier = key
+            m.value = value as NSString
+            m.extendedLanguageTag = "en"
+            return m.copy() as! AVMetadataItem
+        }
+
+        return [
+            meta(.commonIdentifierTitle, title),
+            meta(.commonIdentifierArtist, "Drone Meditations"),
+            meta(.commonIdentifierCreator, "Drone Meditations"),
+            meta(.commonIdentifierDescription, comment),
+            meta(.commonIdentifierSoftware, "Drone Meditations iOS")
+        ]
     }
 
     // MARK: - Loudness measurement
