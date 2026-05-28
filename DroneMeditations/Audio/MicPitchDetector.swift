@@ -68,30 +68,6 @@ final class MicPitchDetector: ObservableObject {
         }
         log("entered")
 
-        // CRITICAL: start() mutates engine state (stops the engine to
-        // wire up silentInputSink). If we bail out before isListening
-        // is set true (e.g. "Microphone unavailable" path), stop()'s
-        // guard !isListening skips its cleanup — leaving the engine
-        // stopped. User then taps Play, controller calls engine.start()
-        // which may succeed but state mismatch makes audio not resume.
-        // Result: transport feels unresponsive after a failed Listen.
-        //
-        // This defer ensures the engine is running when start() returns,
-        // regardless of which path we took. If start() succeeded all
-        // the way through, the engine is already running and this is
-        // a no-op. If we bailed, this restarts it so the user's preset
-        // audio (or just the silent engine ready for Play) is intact.
-        defer {
-            if !engine.engine.isRunning {
-                do {
-                    try engine.engine.start()
-                    log("defer: engine wasn't running on return — restarted")
-                } catch {
-                    log("defer: engine.start() failed on return: \(error)")
-                }
-            }
-        }
-
         // 1. Check + request mic permission. iOS 17+ API. We must NOT
         //    blindly `await` requestRecordPermission() — it has a known
         //    hang on some devices when permission was already granted in
@@ -203,117 +179,52 @@ final class MicPitchDetector: ObservableObject {
         //     from mic-into-speakers.
         let bus = 0
         let input = engine.engine.inputNode
-
-        // FAST PATH: silentInputSink exists from a previous Listen AND
-        // the input AU still reports a valid hardware format. Skip rewire.
-        // We query inputFormat (hardware format) not outputFormat — the
-        // latter is 0 until there's a downstream consumer, creating a
-        // chicken-and-egg problem (can't get a valid format until you
-        // connect, can't connect without a valid format).
-        let existingSinkFormatOK = (silentInputSink != nil)
-            && input.inputFormat(forBus: bus).sampleRate > 0
-
-        if !existingSinkFormatOK {
-            log("rewiring silentInputSink (needsInputWireUp=\(needsInputWireUp), existingSinkFormatOK=\(existingSinkFormatOK))")
-
-            // Diagnostic — dump session state so we can see what iOS thinks.
-            log("session: cat=\(session.category.rawValue) mode=\(session.mode.rawValue) inputAvail=\(session.isInputAvailable) sr=\(session.sampleRate) inputCh=\(session.inputNumberOfChannels) route=\(session.currentRoute.inputs.map { $0.portType.rawValue })")
-
-            // Stop the engine before mutating the input graph.
-            if engine.engine.isRunning { engine.engine.stop() }
-
-            // Tear down any stale silentInputSink.
-            if let stale = silentInputSink {
-                engine.engine.disconnectNodeOutput(stale)
-                engine.engine.disconnectNodeOutput(input)
-                engine.engine.detach(stale)
-                silentInputSink = nil
-                log("tore down stale silentInputSink")
-            }
-
-            // The crash we keep hitting: connect(input, to: sink, format:
-            // anything) CRASHES with -10875 when the input AU is wedged
-            // at sr=0. Core Audio validates the connection IMMEDIATELY,
-            // not at engine.start() — there's no way to "defer" this.
-            //
-            // So we MUST check input.inputFormat.sampleRate > 0 BEFORE
-            // calling connect(). If it's 0, we cannot proceed.
-            //
-            // Recovery attempt: deactivate + reactivate the session.
-            // This sometimes wakes up a stuck input AU because iOS
-            // tears down the input route and renegotiates from scratch.
-            var hwFormat = input.inputFormat(forBus: bus)
-            if hwFormat.sampleRate <= 0 {
-                log("input AU wedged (sr=0). Trying session deactivate+reactivate to wake it…")
-                try? session.setActive(false, options: [.notifyOthersOnDeactivation])
-                try? await Task.sleep(nanoseconds: 300_000_000)
-                do {
-                    try session.setCategory(
-                        .playAndRecord,
-                        mode: .default,
-                        options: [.mixWithOthers, .defaultToSpeaker, .allowBluetoothA2DP]
-                    )
-                    try session.setActive(true, options: [])
-                    try? await Task.sleep(nanoseconds: 500_000_000)
-                } catch {
-                    log("session reactivation failed: \(error)")
-                }
-                hwFormat = input.inputFormat(forBus: bus)
-                log("after session bounce: inputFormat sr=\(hwFormat.sampleRate) ch=\(hwFormat.channelCount)")
-            }
-
-            // Still no format? Bail without touching the graph. Defer
-            // block will restart the engine so transport stays alive.
-            if hwFormat.sampleRate <= 0 {
-                lastError = "Microphone temporarily unavailable. Close any other audio app, or quit and relaunch Drone Meditations."
-                log("BAIL: input AU still wedged after session bounce. Won't call connect() — that would crash with -10875.")
-                return
-            }
-
-            // Format is valid — safe to wire up the graph now.
+        if needsInputWireUp {
+            log("input AU needs to be wired into the graph — stopping engine briefly…")
+            if wasRunning { engine.engine.stop() }
             let sink = AVAudioMixerNode()
             sink.outputVolume = 0
             engine.engine.attach(sink)
-            engine.engine.connect(input, to: sink, format: hwFormat)
+            engine.engine.connect(input, to: sink, format: nil)
+            // Connect the sink to mainMixer so the engine actually
+            // pulls samples from input. Format nil = let the engine
+            // negotiate (typically the mixer's stereo format).
             engine.engine.connect(sink, to: engine.engine.mainMixerNode, format: nil)
             silentInputSink = sink
-            log("connected inputNode → silent sink → mainMixer with sr=\(hwFormat.sampleRate)")
-
-            // prepare() after the connection so the input AU has a
-            // downstream consumer and can complete initialization.
-            engine.engine.prepare()
-            try? await Task.sleep(nanoseconds: 100_000_000)
-        } else {
-            log("fast path: silentInputSink exists with valid hw format sr=\(input.inputFormat(forBus: bus).sampleRate)")
-        }
-
-        // Ensure engine is running. Try start(); if it fails with
-        // -10875 (input format broken in the existing graph), tear down
-        // the sink and rewire from scratch — last-resort recovery.
-        if !engine.engine.isRunning {
+            log("connected inputNode → silent sink → mainMixer")
+            // NOTE: removed an earlier refreshOutputGraph() call that
+            // disconnected + reconnected the source node here. That was
+            // added in 1.0(3) to fix a "post-Listen transport feels frozen"
+            // bug — but the actual cause of that bug turned out to be the
+            // stale fade-out Task in DroneController (fixed in 1.0(4)).
+            // The extra graph mutation between stop and start was
+            // confusing the input AU initialization and leaving its
+            // outputFormat stuck at sr=0 — i.e. the "Microphone format
+            // unavailable" error path. Leaving the output graph alone
+            // gives the input AU the room it needs to settle.
+            if wasRunning {
+                do {
+                    try engine.engine.start()
+                    log("engine restarted after input wire-up; isRunning=\(engine.engine.isRunning)")
+                } catch {
+                    lastError = "Couldn't restart engine after input wire-up: \(error.localizedDescription)"
+                    log("BAIL: engine start error \(error.localizedDescription)")
+                    return
+                }
+            }
+        } else if !wasRunning {
+            // Cold start path — input already wired, engine just needs
+            // to start (e.g. user opened Listen without ever pressing play).
             do {
                 try engine.engine.start()
-                log("engine started; isRunning=\(engine.engine.isRunning)")
-            } catch let error as NSError where error.code == -10875 {
-                // Input chain is broken — the input AU is wedged at sr=0.
-                // Tear down silentInputSink so the engine can start
-                // WITHOUT the input chain (for synth playback). Bail
-                // cleanly — Listen can't work this session, but
-                // transport stays responsive.
-                log("engine.start() failed with -10875 — input AU wedged. Tearing down sink + bailing.")
-                if let stale = silentInputSink {
-                    engine.engine.disconnectNodeOutput(stale)
-                    engine.engine.disconnectNodeOutput(input)
-                    engine.engine.detach(stale)
-                    silentInputSink = nil
-                }
-                lastError = "Microphone unavailable — try restarting Drone Meditations (close from app switcher + relaunch)."
-                return
+                log("engine cold-started; isRunning=\(engine.engine.isRunning)")
             } catch {
                 lastError = "Couldn't start engine for input: \(error.localizedDescription)"
                 log("BAIL: engine start error \(error.localizedDescription)")
                 return
             }
+        } else {
+            log("engine already running with input wired — no restart needed (the new fast path)")
         }
         // Poll the input bus until it reports a valid (non-zero) sample
         // rate. The input AU takes time to fully initialize after a
@@ -475,52 +386,6 @@ final class MicPitchDetector: ObservableObject {
         if didOverrideMasterVolume {
             engine.engine.mainMixerNode.outputVolume = masterVolumeBeforeListen
             didOverrideMasterVolume = false
-        }
-
-        // Clean up corrupted silentInputSink BEFORE attempting to
-        // resume the engine. If the input AU's format went bad during
-        // Listen (e.g. a route swap), the sink's input bus carries
-        // sr=0 and any subsequent engine.start() throws Core Audio
-        // -10875. Tearing the sink down on Listen close means the
-        // user's next Play tap finds a clean graph; the next Listen
-        // will fully re-wire from scratch (small one-time cost).
-        let inputFormatStillValid = engine.engine.inputNode
-            .outputFormat(forBus: 0).sampleRate > 0
-        if !inputFormatStillValid, let stale = silentInputSink {
-            if engine.engine.isRunning { engine.engine.stop() }
-            engine.engine.disconnectNodeOutput(stale)
-            engine.engine.disconnectNodeOutput(engine.engine.inputNode)
-            engine.engine.detach(stale)
-            silentInputSink = nil
-            print("🎤 MicPitchDetector.stop: input format went bad — tore down silentInputSink for clean next-Play")
-        }
-
-        // Safety net: if the engine somehow got paused/stopped during
-        // the Listen session, resume it so the user's next transport
-        // tap finds the engine running. If start() fails with -10875,
-        // tear down silentInputSink as a last resort (it's the most
-        // common cause of -10875 in this codebase).
-        if !engine.engine.isRunning {
-            do {
-                try engine.engine.start()
-                print("🎤 MicPitchDetector.stop: engine wasn't running, resumed")
-            } catch let error as NSError where error.code == -10875 {
-                print("🎤 MicPitchDetector.stop: engine.start() got -10875 — tearing down silentInputSink and retrying")
-                if let stale = silentInputSink {
-                    engine.engine.disconnectNodeOutput(stale)
-                    engine.engine.disconnectNodeOutput(engine.engine.inputNode)
-                    engine.engine.detach(stale)
-                    silentInputSink = nil
-                }
-                do {
-                    try engine.engine.start()
-                    print("🎤 MicPitchDetector.stop: recovered after sink teardown")
-                } catch {
-                    print("🎤 MicPitchDetector.stop: still failed: \(error)")
-                }
-            } catch {
-                print("🎤 MicPitchDetector.stop: engine.start() recovery failed: \(error)")
-            }
         }
     }
 
