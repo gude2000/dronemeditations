@@ -198,18 +198,21 @@ final class DroneController: ObservableObject {
             // soon" because the envelope started ramping down the
             // instant it hit peak — the plateau fixes that.
             //
-            // peakMix kept at the conservative 0.65 (was briefly 0.85
-            // but at high iPhone volume the summed wet signal pushed
-            // into the tanh soft-limiter in the source node render
-            // block — audible as volume-dependent distortion/click).
-            // The plateau still gives the "sustained room" feel
-            // without saturating the limiter.
+            // peakMix lowered to 0.30 — user finally heard the bloom
+            // clearly (an earlier buffer-size experiment was masking
+            // it audibly by starving render cycles) and 0.65 felt
+            // "huge / too much." 0.30 keeps the atmospheric expansion
+            // present and noticeable without overwhelming the preset's
+            // original character.
+            // plateauWidth shortened 0.25 → 0.15 so the sustained peak
+            // is briefer — wet wash still carries through the mid-fade
+            // but doesn't dominate.
             await engineRef.stopWithReverbBloom(
                 fadeDuration: 10.0,
                 peakAt: 0.30,
-                peakMix: 0.65,
+                peakMix: 0.30,
                 peakDecay: 7.0,
-                plateauWidth: 0.25
+                plateauWidth: 0.15
             )
             // If the user re-pressed Play during the fade, state is no
             // longer .stopped — exit cleanly. (Play also calls
