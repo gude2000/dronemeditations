@@ -210,15 +210,18 @@ final class MicPitchDetector: ObservableObject {
             // outputFormat stuck at sr=0 — i.e. the "Microphone format
             // unavailable" error path. Leaving the output graph alone
             // gives the input AU the room it needs to settle.
-            if wasRunning {
-                do {
-                    try engine.engine.start()
-                    log("engine restarted after input wire-up; isRunning=\(engine.engine.isRunning)")
-                } catch {
-                    lastError = "Couldn't restart engine after input wire-up: \(error.localizedDescription)"
-                    log("BAIL: engine start error \(error.localizedDescription)")
-                    return
-                }
+            // Always start the engine after wireup, regardless of
+            // whether it was running before. The tap on inputNode only
+            // fires when the engine is running — installing a tap on a
+            // stopped engine results in "Listening…" forever with no
+            // buffer callbacks (the symptom the user reported).
+            do {
+                try engine.engine.start()
+                log("engine started after input wire-up; isRunning=\(engine.engine.isRunning)")
+            } catch {
+                lastError = "Couldn't start engine after input wire-up: \(error.localizedDescription)"
+                log("BAIL: engine start error \(error.localizedDescription)")
+                return
             }
         } else if !wasRunning {
             // Cold start path — input already wired, engine just needs
