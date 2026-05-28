@@ -198,9 +198,24 @@ final class AudioEngine {
         if wasRunning {
             engine.stop()
         }
-        // Old engine + nodes will be released when this method returns
-        // (assuming no other strong references). Source node was the
-        // only thing attached besides the implicit mainMixer/inputNode.
+        // AGGRESSIVE TEARDOWN. iOS's audio thread holds strong refs to
+        // attached nodes via its render graph. If we just reassign
+        // `engine = AVAudioEngine()`, the OLD engine + its sourceNode
+        // + its output buffer can stay alive for SECONDS, with iOS
+        // continuing to drain the OLD engine's buffered audio through
+        // the speaker. Symptom: pause on the NEW engine sets its
+        // outputVolume = 0, but the OLD engine keeps playing for ~3 s
+        // until its buffer + retain cycle releases.
+        //
+        // Explicitly disconnect + detach so iOS releases the old graph
+        // synchronously before we replace the engine reference.
+        engine.mainMixerNode.outputVolume = 0   // silence old graph first
+        if let oldSource = sourceNode {
+            engine.disconnectNodeOutput(oldSource)
+            engine.detach(oldSource)
+        }
+        sourceNode = nil
+        engine.reset()
         engine = AVAudioEngine()
         // Re-touch inputNode under the new instance with mic permission
         // now granted, so it initializes with a real hardware format.
