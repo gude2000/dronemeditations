@@ -320,8 +320,10 @@ final class AudioEngine {
     private var recordingFile: AVAudioFile?
 
     /// Install a tap on the main mixer and write each render block to a CAF
-    /// file in the Documents directory. Returns the URL of the file being
-    /// captured, or nil if recording couldn't start.
+    /// file in the Documents/Recordings subdirectory. Returns the URL of the
+    /// file being captured, or nil if recording couldn't start. The post-
+    /// recording mastering pass (AudioMastering) writes the final M4A to
+    /// the same directory, so both intermediate + final live in Recordings.
     @discardableResult
     func startRecording() -> URL? {
         guard recordingFile == nil else { return recordingURL }
@@ -329,9 +331,19 @@ final class AudioEngine {
         let format = mixer.outputFormat(forBus: 0)
 
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        // Put recordings in a dedicated Recordings/ subfolder so the
+        // top-level Drone Meditations folder in the Files app doesn't
+        // get cluttered with .caf intermediates + .m4a finals mixed
+        // in with Samples and presets. Create the dir if it doesn't
+        // exist yet (first ever recording on this device).
+        let recordingsDir = docs.appendingPathComponent("Recordings", isDirectory: true)
+        try? FileManager.default.createDirectory(
+            at: recordingsDir,
+            withIntermediateDirectories: true
+        )
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd_HHmmss"
-        let url = docs.appendingPathComponent("drone-meditations-\(df.string(from: Date())).caf")
+        let url = recordingsDir.appendingPathComponent("drone-meditations-\(df.string(from: Date())).caf")
 
         do {
             let file = try AVAudioFile(forWriting: url, settings: format.settings)
