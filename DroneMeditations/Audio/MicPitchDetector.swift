@@ -436,10 +436,6 @@ private let RMS_FLOOR: Double = 0.005
 private let YIN_THRESHOLD: Double = 0.15
 private let YIN_ABSMAX: Double = 0.55
 
-// Diagnostic counter — log every Nth autocorrelate decision so we
-// can see why pitch detection fails in the field.
-nonisolated(unsafe) private var autocorrLogCounter: Int = 0
-
 private func autocorrelate(samples: UnsafePointer<Float>, count: Int, sampleRate: Double) -> Double {
     if count < 64 { return -1 }
     var rmsSum: Double = 0
@@ -448,13 +444,7 @@ private func autocorrelate(samples: UnsafePointer<Float>, count: Int, sampleRate
         rmsSum += v * v
     }
     let rms = (rmsSum / Double(count)).squareRoot()
-    if rms < RMS_FLOOR {
-        autocorrLogCounter += 1
-        if autocorrLogCounter % 25 == 1 {
-            print("🎤 yin: -1 (rms=\(rms) below floor \(RMS_FLOOR))")
-        }
-        return -1
-    }
+    if rms < RMS_FLOOR { return -1 }
 
     let minLag = max(2, Int(sampleRate / MAX_FREQ))
     let maxLag = min(count / 2, Int(sampleRate / MIN_FREQ))
@@ -499,10 +489,6 @@ private func autocorrelate(samples: UnsafePointer<Float>, count: Int, sampleRate
         var minVal = Double.infinity
         for l in minLag..<maxLag {
             if cmndf[l] < minVal { minVal = cmndf[l]; bestLag = l }
-        }
-        autocorrLogCounter += 1
-        if autocorrLogCounter % 25 == 1 {
-            print("🎤 yin: rms=\(String(format: "%.4f", rms)) bestLag=\(bestLag) minCMNDF=\(String(format: "%.3f", minVal)) (absmax=\(YIN_ABSMAX))")
         }
         if bestLag < 0 || minVal > YIN_ABSMAX { return -1 }
     }
