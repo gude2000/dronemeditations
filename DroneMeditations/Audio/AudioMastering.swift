@@ -2,7 +2,7 @@ import Foundation
 import AVFoundation
 
 /// Post-recording mastering pipeline. Takes the raw CAF capture from the
-/// engine's recording tap and produces a release-ready M4A:
+/// engine's recording tap and produces a release-ready 24-bit PCM WAV:
 ///
 ///   1. **Loudness normalization** — scans the recording, computes its
 ///      RMS, and applies a single gain so the result lands around
@@ -10,19 +10,27 @@ import AVFoundation
 ///      ambient/drone content; not true ITU-R BS.1770, but predictable).
 ///   2. **Fade-in / fade-out** — 2 s in, 4 s out. Softens session edges
 ///      so the file doesn't start or end with an abrupt click.
-///   3. **AAC encoding** — packaged into an .m4a container at high
-///      quality. ~10× smaller than the lossless CAF; universally
-///      playable in Music, Files, share sheets, AirDrop, etc.
-///   4. **Metadata** — title, artist, comments, made-with tag.
+///   3. **24-bit PCM WAV** — uncompressed, lossless, professional
+///      quality. Universally accepted by DAWs, samplers, mastering
+///      software, and AirDrop / share workflows. File size is larger
+///      than AAC (~17 MB/min for stereo 48k) but quality is bit-perfect
+///      for downstream editing or remastering.
 ///
-/// Implemented via AVAssetExportSession + AVAudioMix so the heavy
-/// lifting (encoding + gain ramps) happens in optimized system code
-/// rather than per-sample Swift loops.
+/// Switched from M4A (AVAssetExportSession + AAC) to WAV per user
+/// request. WAV can't go through ExportSession (the preset list is
+/// AAC-only for audio), so we read the CAF chunk-by-chunk via
+/// AVAudioFile, apply gain + fades in Swift, and write to a WAV file
+/// in 24-bit PCM. Per-sample fade math (vs. AVAudioMix's volume ramps)
+/// is fine here — drone sessions are short enough that the loop runs
+/// faster than realtime even on older iPhones.
 enum AudioMastering {
 
     /// Run the full master on `inputCAFURL` and return the URL of the
-    /// finished .m4a. The input CAF is deleted on success.
+    /// finished .wav. The input CAF is deleted on success.
     /// Throws if any stage of the pipeline fails.
+    /// `presetName` is currently unused (WAV via AVAudioFile doesn't
+    /// support embedded metadata) but kept in the signature so call
+    /// sites don't need to change.
     static func master(
         inputCAFURL: URL,
         presetName: String?,
@@ -30,6 +38,7 @@ enum AudioMastering {
         fadeInSec: Double = 2.0,
         fadeOutSec: Double = 4.0
     ) async throws -> URL {
+        _ = presetName  // unused; see note above
         // ── 1. Measure loudness ───────────────────────────────────
         let (rmsDBFS, peakDBFS, durationSec) = try measureLoudness(url: inputCAFURL)
         guard durationSec > 0.5 else {
@@ -44,74 +53,86 @@ enum AudioMastering {
         let safeGainDB = min(neededGainDB, peakHeadroomDB)
         let safeGainLinear = Float(pow(10.0, safeGainDB / 20.0))
 
-        // ── 2. Prepare output URL ─────────────────────────────────
-        let outURL = inputCAFURL.deletingPathExtension().appendingPathExtension("m4a")
-        // Clean any stale file at the target path so the exporter can write.
+        // ── 2. Prepare output WAV path ────────────────────────────
+        let outURL = inputCAFURL.deletingPathExtension().appendingPathExtension("wav")
         try? FileManager.default.removeItem(at: outURL)
 
-        // ── 3. Build the asset + audio mix (gain + fades) ─────────
-        let asset = AVURLAsset(url: inputCAFURL)
-        guard let audioTrack = try await asset.loadTracks(withMediaType: .audio).first else {
-            throw MasteringError.noAudioTrack
-        }
-        let totalDuration = try await asset.load(.duration)
-        let totalSeconds = CMTimeGetSeconds(totalDuration)
+        // ── 3. Open the CAF reader ────────────────────────────────
+        let inFile = try AVAudioFile(forReading: inputCAFURL)
+        let inFormat = inFile.processingFormat   // Float32, interleaved or non
+        let sampleRate = inFormat.sampleRate
+        let channelCount = Int(inFormat.channelCount)
+        let totalFrames = inFile.length
 
-        let mix = AVMutableAudioMix()
-        let params = AVMutableAudioMixInputParameters(track: audioTrack)
-        // Apply the normalization gain as the base volume across the whole file.
-        params.setVolume(safeGainLinear, at: .zero)
+        // ── 4. Open the WAV writer: 24-bit interleaved PCM ────────
+        // 24-bit is the professional standard for mastering output —
+        // bit-perfect within audible dynamic range, ~50% smaller than
+        // 32-bit float without quality loss for human-audible content.
+        let wavSettings: [String: Any] = [
+            AVFormatIDKey: kAudioFormatLinearPCM,
+            AVSampleRateKey: sampleRate,
+            AVNumberOfChannelsKey: channelCount,
+            AVLinearPCMBitDepthKey: 24,
+            AVLinearPCMIsFloatKey: false,
+            AVLinearPCMIsBigEndianKey: false,
+            AVLinearPCMIsNonInterleaved: false
+        ]
+        let outFile = try AVAudioFile(forWriting: outURL, settings: wavSettings)
 
-        // Fade-in: 0 → safeGainLinear over the first `fadeInSec`.
-        if fadeInSec > 0.01 && fadeInSec < totalSeconds {
-            let inRange = CMTimeRange(start: .zero,
-                                      duration: CMTime(seconds: fadeInSec, preferredTimescale: 44100))
-            params.setVolumeRamp(fromStartVolume: 0,
-                                 toEndVolume: safeGainLinear,
-                                 timeRange: inRange)
-        }
-        // Fade-out: safeGainLinear → 0 over the last `fadeOutSec`.
-        if fadeOutSec > 0.01 && fadeOutSec < totalSeconds {
-            let outStart = CMTime(seconds: max(0, totalSeconds - fadeOutSec),
-                                  preferredTimescale: 44100)
-            let outRange = CMTimeRange(start: outStart,
-                                       duration: CMTime(seconds: fadeOutSec, preferredTimescale: 44100))
-            params.setVolumeRamp(fromStartVolume: safeGainLinear,
-                                 toEndVolume: 0,
-                                 timeRange: outRange)
-        }
-        mix.inputParameters = [params]
+        // ── 5. Stream-process: apply gain + linear fade ramps ─────
+        // Linear fades are simpler than smoothstep/exponential and
+        // indistinguishable to the ear for the 2 s / 4 s ramps used
+        // here — fades are slow enough that the curve shape doesn't
+        // matter audibly.
+        let fadeInFrames  = AVAudioFramePosition(fadeInSec  * sampleRate)
+        let fadeOutFrames = AVAudioFramePosition(fadeOutSec * sampleRate)
+        let fadeOutStartFrame = max(0, totalFrames - fadeOutFrames)
 
-        // ── 4. Export to AAC/M4A ──────────────────────────────────
-        guard let export = AVAssetExportSession(
-            asset: asset,
-            presetName: AVAssetExportPresetAppleM4A
-        ) else {
-            throw MasteringError.exportSessionInit
+        let chunkSize: AVAudioFrameCount = 16384
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: inFormat,
+                                            frameCapacity: chunkSize) else {
+            throw MasteringError.bufferAlloc
         }
-        export.outputURL = outURL
-        export.outputFileType = .m4a
-        export.audioMix = mix
-        export.metadata = buildMetadata(presetName: presetName,
-                                        durationSec: totalSeconds)
 
-        // iOS 17+ async export. We deliberately don't poll progress
-        // here — typical drone sessions are 5-20 min and the export
-        // is faster than realtime; UI can show a spinner during the
-        // call site's `await`.
-        if #available(iOS 18.0, *) {
-            try await export.export(to: outURL, as: .m4a)
-        } else {
-            await export.export()
-            if let err = export.error {
-                throw MasteringError.exportFailed(err)
+        inFile.framePosition = 0
+        while inFile.framePosition < totalFrames {
+            buffer.frameLength = 0
+            try inFile.read(into: buffer, frameCount: chunkSize)
+            let n = Int(buffer.frameLength)
+            if n == 0 { break }
+            guard let chans = buffer.floatChannelData else { break }
+
+            // Frame index within the FILE of the first sample in this chunk.
+            // file.framePosition has already advanced past the chunk by this
+            // point, so the starting frame is (now − n).
+            let chunkStart = inFile.framePosition - AVAudioFramePosition(n)
+
+            for f in 0..<n {
+                let frame = chunkStart + AVAudioFramePosition(f)
+                var envelope = safeGainLinear
+
+                // Fade-in: linear 0 → 1 over [0, fadeInFrames)
+                if fadeInFrames > 0 && frame < fadeInFrames {
+                    envelope *= Float(frame) / Float(fadeInFrames)
+                }
+                // Fade-out: linear 1 → 0 over [fadeOutStartFrame, totalFrames)
+                if fadeOutFrames > 0 && frame >= fadeOutStartFrame {
+                    let into = frame - fadeOutStartFrame
+                    let t = 1.0 - Float(into) / Float(fadeOutFrames)
+                    envelope *= max(0, t)
+                }
+
+                for c in 0..<channelCount {
+                    chans[c][f] *= envelope
+                }
             }
-            if export.status != .completed {
-                throw MasteringError.exportNotCompleted(export.status)
-            }
+
+            // AVAudioFile.write handles the Float32 → 24-bit PCM
+            // conversion internally based on the file's settings.
+            try outFile.write(from: buffer)
         }
 
-        // ── 5. Clean up the source CAF ────────────────────────────
+        // ── 6. Clean up the source CAF ────────────────────────────
         try? FileManager.default.removeItem(at: inputCAFURL)
         return outURL
     }
@@ -160,61 +181,18 @@ enum AudioMastering {
         return (rmsDB, peakDB, durSec)
     }
 
-    // MARK: - Metadata
-
-    /// Build a metadata block embedded into the .m4a so the file's
-    /// title/artist/comment fields display nicely in Music, Files, etc.
-    private static func buildMetadata(presetName: String?, durationSec: Double) -> [AVMetadataItem] {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        let dateStr = df.string(from: Date())
-
-        let mins = Int(durationSec / 60)
-        let secs = Int(durationSec.truncatingRemainder(dividingBy: 60))
-        let durStr = String(format: "%d:%02d", mins, secs)
-
-        let title = presetName.map { "Drone Meditation — \($0)" }
-            ?? "Drone Meditation — \(dateStr)"
-        let comment = "Recorded with Drone Meditations · \(dateStr) · \(durStr)"
-
-        func meta(_ key: AVMetadataIdentifier, _ value: String) -> AVMetadataItem {
-            let m = AVMutableMetadataItem()
-            m.identifier = key
-            m.value = value as NSString
-            m.extendedLanguageTag = "en"
-            return m.copy() as! AVMetadataItem
-        }
-
-        return [
-            meta(.commonIdentifierTitle, title),
-            meta(.commonIdentifierArtist, "Drone Meditations"),
-            meta(.commonIdentifierCreator, "Drone Meditations"),
-            meta(.commonIdentifierDescription, comment),
-            meta(.commonIdentifierSoftware, "Drone Meditations iOS")
-        ]
-    }
-
     // MARK: - Errors
 
     enum MasteringError: LocalizedError {
         case recordingTooShort
-        case noAudioTrack
-        case exportSessionInit
-        case exportFailed(Error)
-        case exportNotCompleted(AVAssetExportSession.Status)
+        case bufferAlloc
 
         var errorDescription: String? {
             switch self {
             case .recordingTooShort:
                 return "Recording was too short to master (need at least 0.5 s)."
-            case .noAudioTrack:
-                return "Couldn't find audio data in the recording."
-            case .exportSessionInit:
-                return "Couldn't create AAC export session."
-            case .exportFailed(let e):
-                return "Export failed: \(e.localizedDescription)"
-            case .exportNotCompleted(let status):
-                return "Export ended with unexpected status: \(status.rawValue)"
+            case .bufferAlloc:
+                return "Couldn't allocate audio buffer for mastering pass."
             }
         }
     }
