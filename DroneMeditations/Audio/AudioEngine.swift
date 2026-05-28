@@ -41,12 +41,43 @@ final class AudioEngine {
     private var isSessionConfigured = false
 
     init() {
-        // Use the system's preferred sample rate; the source node format must match.
+        // CRITICAL: configure the audio session as .playAndRecord BEFORE
+        // touching ANY AVAudioEngine node (mainMixerNode, inputNode,
+        // sourceNode). AVAudioEngine implicitly initializes its full
+        // graph — including inputNode — based on the session category
+        // that's active when the first node is touched. If we touch
+        // mainMixerNode under .soloAmbient or .playback, the inputNode
+        // is permanently captured in a "no input route" state and
+        // reports sr=0 forever. Any later attempt to use the mic
+        // (Listen / Tune to Room) crashes with Core Audio -10875.
+        //
+        // We swallow errors silently here — if session config fails,
+        // the rest of init proceeds and the engine still works for
+        // playback. Listen will likely fail but the user can still play.
         let session = AVAudioSession.sharedInstance()
+        do {
+            try session.setCategory(
+                .playAndRecord,
+                mode: .default,
+                options: [.mixWithOthers, .defaultToSpeaker, .allowBluetoothA2DP]
+            )
+            try session.setActive(true, options: [])
+            isSessionConfigured = true
+        } catch {
+            print("AudioEngine.init session config failed: \(error)")
+        }
+
+        // NOW use the session's preferred sample rate; the source node
+        // format must match (under .playAndRecord this is typically 48k).
         let sr = session.sampleRate > 0 ? session.sampleRate : 48000.0
         self.sampleRate = sr
         self.voices = (0..<4).map { Voice(id: $0, sampleRate: sr) }
         attachSourceNode()
+        // Pre-touch inputNode so it's created RIGHT NOW under the correct
+        // .playAndRecord session. Otherwise its first access (from
+        // MicPitchDetector) might happen too late and it'll be initialized
+        // with stale graph state.
+        _ = engine.inputNode
         // Default 0.30 — with 4 voices + reverb/delay wet sends, anything higher
         // can hit the soft-limiter and audibly compress. Remember as the fade
         // target; actual outputVolume starts at 0 and is ramped by play().
