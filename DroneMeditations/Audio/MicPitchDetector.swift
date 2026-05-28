@@ -408,6 +408,22 @@ final class MicPitchDetector: ObservableObject {
             engine.engine.mainMixerNode.outputVolume = masterVolumeBeforeListen
             didOverrideMasterVolume = false
         }
+
+        // Safety net: if the engine somehow got paused during the
+        // Listen session (e.g. a controller pause Task that slipped
+        // past prepareForListen's cancellation), resume it now so the
+        // user's next transport tap (Play / Pause / Stop) finds the
+        // engine in a sane running state. Without this, the user can
+        // tap Play and nothing audible happens until they tap again,
+        // which feels like the transport is unresponsive.
+        if !engine.engine.isRunning {
+            do {
+                try engine.engine.start()
+                print("🎤 MicPitchDetector.stop: engine wasn't running, resumed")
+            } catch {
+                print("🎤 MicPitchDetector.stop: engine.start() recovery failed: \(error)")
+            }
+        }
     }
 
     private func consumePitch(_ hz: Double) {
