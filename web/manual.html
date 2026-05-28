@@ -452,7 +452,7 @@
 
   <figure class="shot">
     <img src="manual-images/02-main-ui.jpg" alt="Drone Meditations main screen on iPhone — header with help / camera / spectrum / cymatics icons, CHORD · PRESET · DRIFT pill row, then the OSC 1 · OSC 2 · OSC 3 · OSC 4 row ending in a 🎲 randomize-all dice plus a faint disabled ↶ undo, oscillator 1 strip with waveform icons / PAN / LVL / FILT (LP HP BP, CUTOFF, Q, DRIVE) / FM / CHO / DLY / REV / LFO 1 row with shape icons and a target row (pan, amp, cut, pitch, Q, FM) showing PAN highlighted to demo a multi-target LFO, then the play-stop-record transport with 07:01 / 15:00 timer and the © 2026 Jose Gude MD · Manual link at the bottom" loading="lazy" />
-    <figcaption>The v1.1 controls panel. Note the new <strong>🎲 dice</strong> and faint <strong>↶ undo</strong> at the right end of the OSC pill row (top-of-strip global randomize / undo), and the LFO target row where multiple destinations can be enabled simultaneously.</figcaption>
+    <figcaption>The full controls panel. Note the <strong>🎲 dice</strong> and faint <strong>↶ undo</strong> at the right end of the OSC pill row (top-of-strip global randomize / undo), and the LFO target row where multiple destinations can be enabled simultaneously.</figcaption>
   </figure>
 
   <p>From top to bottom: <strong>header</strong> (app name, tuning + chord summary, spectrum / camera / cymatics-style toggles) → <strong>pill row</strong> (CHORD · PRESET · DRIFT · LISTEN · PERFORM · JOURNEY · MORPH · GALLERY) → <strong>oscillator strips</strong> (one per voice, each carrying waveform + frequency + pan + level + filter + FX + 4 LFOs) → <strong>transport</strong> (Play / Stop / Record + session timer) → <strong>copyright + Manual link</strong> (the slim row at the very bottom).</p>
@@ -474,7 +474,7 @@
     <tr><td><kbd>S</kbd></td><td>Solo. Any voice soloed silences the unsoloed ones.</td></tr>
     <tr><td><kbd>M</kbd></td><td>Mute.</td></tr>
     <tr><td>🎲 Randomize (per strip)</td><td>Re-rolls just <em>this</em> oscillator. Everything <em>except level</em> changes: waveform, freq, filter, all 4 LFOs, reverb, delay, drift. One tap = a new world.</td></tr>
-    <tr><td>🎲 Randomize all (top OSC bar)</td><td>v1.1. The dice button at the end of the OSC 1·2·3·4 pill row rolls <em>all four voices at once</em>, then picks a fresh chord — without disturbing your master volumes. The faint <strong>↶ undo</strong> button next to it restores the exact state you had before the last randomize, so you can A/B between "the patch you had" and "the patch the dice gave you."</td></tr>
+    <tr><td>🎲 Randomize all (top OSC bar)</td><td>The dice button at the end of the OSC 1·2·3·4 pill row rolls <em>all four voices at once</em>, then picks a fresh chord — without disturbing your master volumes. The faint <strong>↶ undo</strong> button next to it restores the exact state you had before the last randomize, so you can A/B between "the patch you had" and "the patch the dice gave you."</td></tr>
     <tr><td>⭐ Voice presets</td><td>Save / load / delete <em>just this oscillator</em>'s settings. Great for keeping a favorite bass + cycling through pads above.</td></tr>
     <tr><td>🌀 Drift</td><td>Per-voice pitch &amp; pan drift (off, glacial up/down, octave up/down, slow pan, deep vibrato, etc.).</td></tr>
     <tr><td>⏱ Timing</td><td>Stagger when this voice enters the mix: <em>Start after</em> (Now / 15 s / 30 s / 1 / 2 / 5 / 10 min — silent then 8 s fade-in) and <em>Play duration</em> (Forever / 1 / 3 / 5 / 10 / 15 / 20 min — 8 s fade-out at the end). Lets you introduce drones gradually during long meditations, then let them recede. Several Drone Artists presets use this — Stars of the Lid blooms its chord at 0 / 30 / 90 / 180 s; Basinski's pink-noise hiss enters at 90 s; Riley's cascade enters at 0 / 15 / 45 / 90 s.</td></tr>
@@ -741,7 +741,7 @@
   </ul>
   <p>These overrides make every voice's motion independent of session length, so you can build slow-bloom textures inside a long meditation: a 20-minute glacial-up bass paired with a 30-second wave on a high pad creates intentional layered motion that the simple "scene" presets can't produce alone.</p>
 
-  <h4>Quantize to scale (v1.1)</h4>
+  <h4>Quantize to scale</h4>
   <p>At the top of each oscillator's <strong>🌀 Drift</strong> menu there's a <strong>Quantize to scale</strong> toggle. When on, that voice's <em>final</em> pitch — drift + any pitch-targeted LFOs + FM, all combined — is snapped in real time to the nearest note of the <strong>current chord</strong> across roughly 2 octaves around the voice's base frequency.</p>
   <p>What this turns into musically: continuous pitch wobble becomes <em>arpeggio-like jumps</em> along the chord tones. A slow wave drift that would normally smear ±¼ octave now steps through the chord notes inside that range. Faster LFOs on pitch turn into bouncing arpeggios. The voice always lands on chord-correct pitches, so dense modulation no longer dissonates against the rest of the chord.</p>
   <p>Per-voice — so you can leave bass continuous and quantize only the high pad, or vice versa. Changes to the chord (CHORD pill, root, type, octave) recompute the snap targets immediately. Set to <em>off</em> to return to smooth/continuous drift.</p>
@@ -907,7 +907,7 @@
   <h3>Play / pause / stop</h3>
   <p>The round play button fades audio in over ~1 s (or 3 s if this is the first play of a fresh session). Pause and Stop both do something <strong>different from any other synth's transport</strong> — read on.</p>
 
-  <h4 style="margin-top: 14px;">Reverb-bloom fades (iOS, v1.0+)</h4>
+  <h4 style="margin-top: 14px;">Reverb-bloom fades (iOS)</h4>
   <p>When you tap <strong>Pause</strong> or <strong>Stop</strong>, the app doesn't just drop the master volume. Each voice's reverb mix and decay <em>simultaneously bloom upward</em>, then descend back to your preset values as the master volume fades to silence. The effect is the sound <em>dissolving into the room</em> rather than getting quieter and quieter — like the last note of a song letting the hall finish for it.</p>
   <ul>
     <li><strong>Stop</strong>: <strong>8 s total</strong> fade. Logarithmic master descent (every second drops the same number of dB, so the wind-down feels uniform). Reverb bloom peaks at ~2.4 s (mix climbs to 0.7, decay to 7 s), then ramps back down so the wet signal joins the master in silence by t=8 s.</li>
