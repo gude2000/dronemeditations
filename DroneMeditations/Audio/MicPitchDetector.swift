@@ -191,6 +191,10 @@ final class MicPitchDetector: ObservableObject {
 
         if !existingSinkFormatOK {
             log("rewiring silentInputSink (needsInputWireUp=\(needsInputWireUp), existingSinkFormatOK=\(existingSinkFormatOK))")
+
+            // Diagnostic — dump session state so we can see what iOS thinks.
+            log("session: cat=\(session.category.rawValue) mode=\(session.mode.rawValue) inputAvail=\(session.isInputAvailable) sr=\(session.sampleRate) inputCh=\(session.inputNumberOfChannels) route=\(session.currentRoute.inputs.map { $0.portType.rawValue })")
+
             // Stop the engine before mutating the input graph — Core Audio
             // expects a stopped engine for attach/connect/detach to take
             // effect deterministically.
@@ -207,13 +211,19 @@ final class MicPitchDetector: ObservableObject {
                 log("tore down stale silentInputSink")
             }
 
-            // Poll the HARDWARE format (inputFormat, not outputFormat).
-            // inputFormat returns the format the input AU expects from the
-            // hardware route — it's defined as long as the session is in
-            // .playAndRecord, with no graph-connection dependency. That
-            // sidesteps the chicken-and-egg of outputFormat (which only
-            // settles AFTER a downstream consumer is connected). Up to
-            // 3 s in case the session swap is still settling.
+            // CRITICAL: call engine.prepare() to force iOS to allocate
+            // the input AU's resources. Without this, inputFormat may
+            // return sr=0 indefinitely because the AU was never
+            // initialized after the session swap. prepare() is what
+            // tells Core Audio "this engine is about to start; get
+            // everything ready including input nodes."
+            engine.engine.prepare()
+            try? await Task.sleep(nanoseconds: 200_000_000)
+            log("after engine.prepare(): input inputFormat sr=\(input.inputFormat(forBus: bus).sampleRate)")
+
+            // Poll the HARDWARE format. inputFormat returns the format
+            // the input AU expects from the hardware route. After
+            // prepare() this should be valid quickly.
             var hwFormat = input.inputFormat(forBus: bus)
             var preWirePolls = 0
             while hwFormat.sampleRate <= 0 && preWirePolls < 30 {
@@ -223,10 +233,27 @@ final class MicPitchDetector: ObservableObject {
             }
             log("pre-wire HARDWARE format: sr=\(hwFormat.sampleRate) ch=\(hwFormat.channelCount) after \(preWirePolls) polls")
 
+            // FALLBACK: if inputFormat is still 0, derive a working
+            // format from the audio session (which always reports a
+            // valid sample rate + channel count when .playAndRecord
+            // is active). This gives us a viable connection format
+            // even when the input node itself is uncooperative —
+            // installTap later will use the actual hardware format.
             if hwFormat.sampleRate <= 0 {
-                lastError = "Microphone unavailable — close any other app using the mic and try again."
-                log("BAIL: input HARDWARE format never settled (sr=0) — mic not available.")
-                return
+                let sessionSR = session.sampleRate
+                let sessionCh = max(1, UInt32(session.inputNumberOfChannels))
+                if sessionSR > 0,
+                   let derived = AVAudioFormat(commonFormat: .pcmFormatFloat32,
+                                               sampleRate: sessionSR,
+                                               channels: sessionCh,
+                                               interleaved: false) {
+                    hwFormat = derived
+                    log("falling back to session-derived format: sr=\(sessionSR) ch=\(sessionCh)")
+                } else {
+                    lastError = "Microphone unavailable — check Settings → Drone Meditations → Microphone, or close any other app using the mic."
+                    log("BAIL: no usable format anywhere (input AU=0, session sr=\(sessionSR))")
+                    return
+                }
             }
 
             // Connect input → sink using the explicit hardware format.
