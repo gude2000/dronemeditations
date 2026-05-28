@@ -162,24 +162,23 @@ final class DroneController: ObservableObject {
         pendingFadeOutTask?.cancel()
         let engineRef = engine
         pendingFadeOutTask = Task { @MainActor in
-            // 10 s atmospheric stop. Bloom envelope is now trapezoidal
-            // (ramp up → plateau at peak → ramp down) so the wet wash
-            // SUSTAINS instead of immediately collapsing right after
-            // peak. User feedback: previous triangular bloom "bailed
-            // too soon" — the peak felt instantaneous because the
-            // envelope started ramping down the instant it hit peak.
+            // 10 s atmospheric stop. Trapezoidal bloom envelope:
+            //   ramp up → plateau at peak (sustained wash) → ramp down.
+            // User feedback: previous triangular bloom "bailed too
+            // soon" because the envelope started ramping down the
+            // instant it hit peak — the plateau fixes that.
             //
-            // Bigger numbers all around: 10 s instead of 8, mix 0.85
-            // (was 0.70), decay 12 s (was 7), and a 0.25-fraction
-            // plateau at the top (2.5 s of sustained wash before the
-            // ramp-down starts). The peak is at 30 % in, so the
-            // plateau runs from 30 % → 55 % of the fade, then the
-            // bloom ramps down over the last 45 %.
+            // peakMix kept at the conservative 0.65 (was briefly 0.85
+            // but at high iPhone volume the summed wet signal pushed
+            // into the tanh soft-limiter in the source node render
+            // block — audible as volume-dependent distortion/click).
+            // The plateau still gives the "sustained room" feel
+            // without saturating the limiter.
             await engineRef.stopWithReverbBloom(
                 fadeDuration: 10.0,
                 peakAt: 0.30,
-                peakMix: 0.85,
-                peakDecay: 12.0,
+                peakMix: 0.65,
+                peakDecay: 7.0,
                 plateauWidth: 0.25
             )
             // If the user re-pressed Play during the fade, state is no
