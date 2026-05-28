@@ -179,71 +179,117 @@ final class MicPitchDetector: ObservableObject {
         //     from mic-into-speakers.
         let bus = 0
         let input = engine.engine.inputNode
-        if needsInputWireUp {
-            log("input AU needs to be wired into the graph — stopping engine briefly…")
-            if wasRunning { engine.engine.stop() }
+
+        // FAST PATH: silentInputSink exists from a previous Listen AND
+        // the input AU still reports a valid format. Skip the rewire.
+        // Otherwise fall through to a full re-wire — the previous
+        // "skip if sink exists" check was a fast-path with no safety
+        // net: if the input AU's format became 0Hz between sessions
+        // (route swap, mic AU teardown after engine.stop(), etc.),
+        // the next engine.start() failed with Core Audio -10875
+        // because the silentInputSink's input bus inherited the bad
+        // sample rate from the broken inputNode connection.
+        let existingSinkFormatOK = (silentInputSink != nil)
+            && input.outputFormat(forBus: bus).sampleRate > 0
+
+        if !existingSinkFormatOK {
+            log("rewiring silentInputSink (needsInputWireUp=\(needsInputWireUp), existingSinkFormatOK=\(existingSinkFormatOK))")
+            // Stop the engine before mutating the input graph — Core Audio
+            // expects a stopped engine for attach/connect/detach to take
+            // effect deterministically.
+            if engine.engine.isRunning { engine.engine.stop() }
+
+            // Tear down any stale silentInputSink. Disconnect both ends
+            // first; detach() alone leaves dangling formats in the engine
+            // graph that re-fail on next start.
+            if let stale = silentInputSink {
+                engine.engine.disconnectNodeOutput(stale)
+                engine.engine.disconnectNodeOutput(input)
+                engine.engine.detach(stale)
+                silentInputSink = nil
+                log("tore down stale silentInputSink")
+            }
+
+            // CRITICAL: poll input AU format until it reports a non-zero
+            // sample rate BEFORE connecting it. Connecting with format: nil
+            // captures the format AT CONNECT TIME — if it's 0Hz at that
+            // moment, the connection is permanently broken and every
+            // future engine.start() throws -10875. We MUST wait for the
+            // input AU to settle. Up to 3s.
+            var preFormat = input.outputFormat(forBus: bus)
+            var preWirePolls = 0
+            while preFormat.sampleRate <= 0 && preWirePolls < 30 {
+                try? await Task.sleep(nanoseconds: 100_000_000)
+                preFormat = input.outputFormat(forBus: bus)
+                preWirePolls += 1
+            }
+            log("pre-wire input format: sr=\(preFormat.sampleRate) ch=\(preFormat.channelCount) after \(preWirePolls) polls")
+
+            if preFormat.sampleRate <= 0 {
+                lastError = "Microphone unavailable — close any other app using the mic and try again."
+                log("BAIL: input format never settled before wireup (sr=0). Won't create broken connection.")
+                return
+            }
+
+            // Wire fresh — now connect() will capture the valid format.
             let sink = AVAudioMixerNode()
             sink.outputVolume = 0
             engine.engine.attach(sink)
-            engine.engine.connect(input, to: sink, format: nil)
-            // Connect the sink to mainMixer so the engine actually
-            // pulls samples from input. Format nil = let the engine
-            // negotiate (typically the mixer's stereo format).
+            engine.engine.connect(input, to: sink, format: preFormat)
             engine.engine.connect(sink, to: engine.engine.mainMixerNode, format: nil)
             silentInputSink = sink
-            log("connected inputNode → silent sink → mainMixer")
-            // NOTE: removed an earlier refreshOutputGraph() call that
-            // disconnected + reconnected the source node here. That was
-            // added in 1.0(3) to fix a "post-Listen transport feels frozen"
-            // bug — but the actual cause of that bug turned out to be the
-            // stale fade-out Task in DroneController (fixed in 1.0(4)).
-            // The extra graph mutation between stop and start was
-            // confusing the input AU initialization and leaving its
-            // outputFormat stuck at sr=0 — i.e. the "Microphone format
-            // unavailable" error path. Leaving the output graph alone
-            // gives the input AU the room it needs to settle.
-            if wasRunning {
-                do {
-                    try engine.engine.start()
-                    log("engine restarted after input wire-up; isRunning=\(engine.engine.isRunning)")
-                } catch {
-                    lastError = "Couldn't restart engine after input wire-up: \(error.localizedDescription)"
-                    log("BAIL: engine start error \(error.localizedDescription)")
-                    return
-                }
-            }
-        } else if !wasRunning {
-            // Cold start path — input already wired, engine just needs
-            // to start (e.g. user opened Listen without ever pressing
-            // play, OR engine was paused via engine.pause() from a
-            // recent transport pause — pause() makes isRunning return
-            // false but leaves nodes connected, so start() is a fast
-            // resume here, no HW re-init).
-            do {
-                try engine.engine.start()
-                log("engine cold-started/resumed; isRunning=\(engine.engine.isRunning)")
-            } catch {
-                lastError = "Couldn't start engine for input: \(error.localizedDescription)"
-                log("BAIL: engine start error \(error.localizedDescription)")
-                return
-            }
+            log("connected inputNode → silent sink → mainMixer with sr=\(preFormat.sampleRate)")
         } else {
-            log("engine already running with input wired — no restart needed (the new fast path)")
+            log("fast path: silentInputSink exists with valid format sr=\(input.outputFormat(forBus: bus).sampleRate)")
         }
-        // Belt-and-suspenders: regardless of which branch we took,
-        // verify the engine is actually running before installing the
-        // tap. If it isn't (an in-flight controller pause/stop fade
-        // somehow snuck through despite prepareForListen(), or the
-        // engine got into an unexpected state), try one more start —
-        // installing a tap on a non-running engine is one of the
-        // documented ways to get the NSException crash.
+
+        // Ensure engine is running. Try start(); if it fails with
+        // -10875 (input format broken in the existing graph), tear down
+        // the sink and rewire from scratch — last-resort recovery.
         if !engine.engine.isRunning {
             do {
                 try engine.engine.start()
-                log("engine wasn't running before tap install — recovered with extra start()")
+                log("engine started; isRunning=\(engine.engine.isRunning)")
+            } catch let error as NSError where error.code == -10875 {
+                // Input chain is broken. Tear down, rewire, retry.
+                log("engine.start() failed with -10875 — input chain corrupted. Recovering…")
+                if let stale = silentInputSink {
+                    engine.engine.disconnectNodeOutput(stale)
+                    engine.engine.disconnectNodeOutput(input)
+                    engine.engine.detach(stale)
+                    silentInputSink = nil
+                }
+                // Re-poll format after the teardown (the disconnect may
+                // have nudged the input AU to re-init).
+                var recoveryFormat = input.outputFormat(forBus: bus)
+                var recoveryPolls = 0
+                while recoveryFormat.sampleRate <= 0 && recoveryPolls < 30 {
+                    try? await Task.sleep(nanoseconds: 100_000_000)
+                    recoveryFormat = input.outputFormat(forBus: bus)
+                    recoveryPolls += 1
+                }
+                if recoveryFormat.sampleRate <= 0 {
+                    lastError = "Microphone unavailable after recovery. Try closing and reopening Listen."
+                    log("BAIL: format still 0 after teardown + \(recoveryPolls * 100)ms wait")
+                    return
+                }
+                let sink = AVAudioMixerNode()
+                sink.outputVolume = 0
+                engine.engine.attach(sink)
+                engine.engine.connect(input, to: sink, format: recoveryFormat)
+                engine.engine.connect(sink, to: engine.engine.mainMixerNode, format: nil)
+                silentInputSink = sink
+                do {
+                    try engine.engine.start()
+                    log("engine recovered after rewire with sr=\(recoveryFormat.sampleRate)")
+                } catch {
+                    lastError = "Couldn't start audio engine even after rewire: \(error.localizedDescription)"
+                    log("BAIL: recovery engine.start() failed: \(error.localizedDescription)")
+                    return
+                }
             } catch {
-                lastError = "Audio engine refused to start. Try closing and reopening Listen."
-                log("BAIL: extra-safety engine.start() failed: \(error.localizedDescription)")
+                lastError = "Couldn't start engine for input: \(error.localizedDescription)"
+                log("BAIL: engine start error \(error.localizedDescription)")
                 return
             }
         }
@@ -409,17 +455,47 @@ final class MicPitchDetector: ObservableObject {
             didOverrideMasterVolume = false
         }
 
-        // Safety net: if the engine somehow got paused during the
-        // Listen session (e.g. a controller pause Task that slipped
-        // past prepareForListen's cancellation), resume it now so the
-        // user's next transport tap (Play / Pause / Stop) finds the
-        // engine in a sane running state. Without this, the user can
-        // tap Play and nothing audible happens until they tap again,
-        // which feels like the transport is unresponsive.
+        // Clean up corrupted silentInputSink BEFORE attempting to
+        // resume the engine. If the input AU's format went bad during
+        // Listen (e.g. a route swap), the sink's input bus carries
+        // sr=0 and any subsequent engine.start() throws Core Audio
+        // -10875. Tearing the sink down on Listen close means the
+        // user's next Play tap finds a clean graph; the next Listen
+        // will fully re-wire from scratch (small one-time cost).
+        let inputFormatStillValid = engine.engine.inputNode
+            .outputFormat(forBus: 0).sampleRate > 0
+        if !inputFormatStillValid, let stale = silentInputSink {
+            if engine.engine.isRunning { engine.engine.stop() }
+            engine.engine.disconnectNodeOutput(stale)
+            engine.engine.disconnectNodeOutput(engine.engine.inputNode)
+            engine.engine.detach(stale)
+            silentInputSink = nil
+            print("🎤 MicPitchDetector.stop: input format went bad — tore down silentInputSink for clean next-Play")
+        }
+
+        // Safety net: if the engine somehow got paused/stopped during
+        // the Listen session, resume it so the user's next transport
+        // tap finds the engine running. If start() fails with -10875,
+        // tear down silentInputSink as a last resort (it's the most
+        // common cause of -10875 in this codebase).
         if !engine.engine.isRunning {
             do {
                 try engine.engine.start()
                 print("🎤 MicPitchDetector.stop: engine wasn't running, resumed")
+            } catch let error as NSError where error.code == -10875 {
+                print("🎤 MicPitchDetector.stop: engine.start() got -10875 — tearing down silentInputSink and retrying")
+                if let stale = silentInputSink {
+                    engine.engine.disconnectNodeOutput(stale)
+                    engine.engine.disconnectNodeOutput(engine.engine.inputNode)
+                    engine.engine.detach(stale)
+                    silentInputSink = nil
+                }
+                do {
+                    try engine.engine.start()
+                    print("🎤 MicPitchDetector.stop: recovered after sink teardown")
+                } catch {
+                    print("🎤 MicPitchDetector.stop: still failed: \(error)")
+                }
             } catch {
                 print("🎤 MicPitchDetector.stop: engine.start() recovery failed: \(error)")
             }
