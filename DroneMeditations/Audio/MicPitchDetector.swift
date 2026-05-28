@@ -261,11 +261,21 @@ final class MicPitchDetector: ObservableObject {
         // Capture sample rate locally so the closure (which runs on the
         // audio thread) doesn't have to touch `self` or anything else
         // that might have race issues.
-        let sampleRateForPitch = settledFormat.sampleRate
+        // installTap requires the format's sampleRate to match the
+        // input AU's HARDWARE format (inputFormat), NOT the negotiated
+        // downstream format (outputFormat). On Bluetooth headphones,
+        // external mics, etc., hardware delivers 44.1 kHz while our
+        // mixer chain may be at 48 kHz. Passing the negotiated format
+        // crashes with NSException:
+        //   "format.sampleRate == inputHWFormat.sampleRate"
+        let hwFormat = input.inputFormat(forBus: bus)
+        let tapFormat: AVAudioFormat = hwFormat.sampleRate > 0 ? hwFormat : settledFormat
+        let sampleRateForPitch = tapFormat.sampleRate
+        log("installTap with hw format sr=\(tapFormat.sampleRate) ch=\(tapFormat.channelCount) (was settled sr=\(settledFormat.sampleRate))")
         // Log first 5 callbacks unconditionally so we can see if the tap
         // is even firing, then drop to 1-per-50 for steady-state.
         nonisolated(unsafe) var tapCallbackCount = 0
-        input.installTap(onBus: bus, bufferSize: 4096, format: settledFormat) { [weak self] buffer, _ in
+        input.installTap(onBus: bus, bufferSize: 4096, format: tapFormat) { [weak self] buffer, _ in
             guard let self = self else { return }
             tapCallbackCount += 1
             let shouldLog = (tapCallbackCount <= 5) || (tapCallbackCount % 50 == 1)
