@@ -75,11 +75,18 @@ final class AudioEngine {
         self.sampleRate = sr
         self.voices = (0..<4).map { Voice(id: $0, sampleRate: sr) }
         attachSourceNode()
-        // Pre-touch inputNode so it's created RIGHT NOW under the correct
-        // .playAndRecord session. Otherwise its first access (from
-        // MicPitchDetector) might happen too late and it'll be initialized
-        // with stale graph state.
-        _ = engine.inputNode
+        // DELIBERATELY don't pre-touch engine.inputNode here. Accessing
+        // inputNode under .playAndRecord triggers iOS's mic permission
+        // prompt AT LAUNCH — a terrible first-launch experience. iOS
+        // also takes 3-5s to fully wire the mic HW after the user
+        // accepts, during which the transport buttons are unresponsive.
+        //
+        // Instead: the session is already .playAndRecord (set above),
+        // so when MicPitchDetector lazily accesses inputNode on first
+        // Listen tap, it will still be created under the correct
+        // session — no inputNode "stuck in .playback state" bug. The
+        // permission prompt also happens at the moment the user
+        // explicitly asks for Tune to Room, which is the expected UX.
         // Default 0.30 — with 4 voices + reverb/delay wet sends, anything higher
         // can hit the soft-limiter and audibly compress. Remember as the fade
         // target; actual outputVolume starts at 0 and is ramped by play().
