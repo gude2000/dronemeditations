@@ -105,27 +105,28 @@ final class DroneController: ObservableObject {
         guard state == .playing else { return }
         stopTicker()
         state = .paused
-        // 1.4 s exponential master fade + small triangular reverb bloom.
-        // CLICK-FREE STRATEGY: don't touch engine state at all on pause —
-        // just fade master to 0 and leave the engine running silently.
-        // engine.pause() (and engine.stop() before that) were the source
-        // of an audible click on iPhone hardware because they suspend
-        // the I/O AU mid-render. With the engine left running at
-        // outputVolume=0, source nodes produce zero samples through
-        // a continuously-running render thread — no AU state change,
-        // no click. CPU cost is negligible (4 silent oscillators).
-        // Play resumes via fadeInMaster + state flip; engine never
-        // needs to be re-prepared.
+        // PAUSE: just a 1.4s exponential master fade. NO reverb bloom.
+        //
+        // The bloom was producing audible distortion at high iPhone
+        // volume because the wet signal it adds on top of the existing
+        // dry voices pushes the SUMMED per-sample value past the
+        // tanh soft-limiter in the source-node render block — that
+        // saturation is harmonics, audible as a click at loud volumes,
+        // inaudible at quiet ones. The pause is short (1.4s) so the
+        // master fade doesn't have time to attenuate the signal before
+        // the bloom peaks. Easiest fix: skip the bloom on pause
+        // entirely. A pause is meant to be a quick wind-down, not an
+        // atmospheric event — keep it clean.
+        //
+        // CLICK-FREE engine strategy unchanged: don't call engine.pause()
+        // or engine.stop(). Leave engine running silently at outputVolume=0.
+        // No AU state changes = no AU-rebind click.
         pendingFadeOutTask?.cancel()
         let engineRef = engine
         pendingFadeOutTask = Task { @MainActor in
-            await engineRef.pauseWithReverbBloom()
-            // If the user re-pressed Play during the fade, state is no
-            // longer .paused — but we don't need to do anything special
-            // here since play() handles the resume. Just exit.
+            await engineRef.fadeOutMaster(seconds: 1.4, curve: .exponential)
             guard self.state == .paused else { return }
-            // Intentionally NO engine.pause() / engine.stop() — see
-            // CLICK-FREE STRATEGY above. Engine keeps running silently.
+            // No engine.pause() — see CLICK-FREE strategy above.
         }
     }
 
