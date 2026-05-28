@@ -135,7 +135,15 @@ struct ControlsOverlay: View {
                 .environmentObject(vm)
         }
         .sheet(isPresented: $showingListenSheet, onDismiss: {
-            vm.micPitch.stop()
+            // Defer mic teardown to the next runloop tick. The cleanup
+            // fires multiple @Published changes (isListening / detectedHz
+            // / inputLevel) which trigger SwiftUI diff passes — running
+            // them synchronously here can hold the @MainActor for several
+            // frames AFTER the sheet has dismissed, making the parent UI
+            // (Play button) feel unresponsive for ~1 s.
+            Task { @MainActor in
+                vm.micPitch.stop()
+            }
         }) {
             ListenSheetView()
                 .environmentObject(vm)
