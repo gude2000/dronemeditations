@@ -58,13 +58,13 @@ final class MicPitchDetector: ObservableObject {
         guard !isListening else { return }
         lastError = nil
 
-        // Diagnostic prints with timestamps so we can pinpoint exactly
-        // where the function hangs when reported by users. Remove (or
-        // wrap in #if DEBUG) before App Store submission.
+        // Diagnostic prints with timestamps. Compiled out in Release.
         func log(_ msg: String) {
+            #if DEBUG
             let t = String(format: "%.3f", Date().timeIntervalSince1970)
                 .suffix(7)
             print("🎤 [\(t)] MicPitchDetector.start: \(msg)")
+            #endif
         }
         log("entered")
 
@@ -273,10 +273,12 @@ final class MicPitchDetector: ObservableObject {
             // Diagnostics: what's the buffer format? Is floatChannelData nil?
             // What's the peak amplitude? This tells us whether audio is
             // actually flowing or the input is silent / wrong format.
+            #if DEBUG
             if shouldLog {
                 let fmt = buffer.format
                 print("🎤 tap#\(tapCallbackCount): frames=\(buffer.frameLength) sr=\(fmt.sampleRate) ch=\(fmt.channelCount) common=\(fmt.commonFormat.rawValue) floatCh=\(buffer.floatChannelData != nil) int16Ch=\(buffer.int16ChannelData != nil) int32Ch=\(buffer.int32ChannelData != nil)")
             }
+            #endif
 
             // Try floatChannelData first (most common: Float32 PCM)…
             var monoSamples: [Float]? = nil
@@ -298,7 +300,9 @@ final class MicPitchDetector: ObservableObject {
                 monoSamples = floats
             }
             guard let samples = monoSamples else {
+                #if DEBUG
                 if shouldLog { print("🎤 tap#\(tapCallbackCount): NO channel data — bailing") }
+                #endif
                 return
             }
             let frameCount = samples.count
@@ -307,7 +311,9 @@ final class MicPitchDetector: ObservableObject {
             var sumSq: Double = 0
             for v in samples { sumSq += Double(v) * Double(v) }
             let rms = Float((sumSq / Double(max(1, frameCount))).squareRoot())
+            #if DEBUG
             if shouldLog { print("🎤 tap#\(tapCallbackCount): rms=\(rms)") }
+            #endif
 
             // If buffer.format reports a valid sample rate, prefer that;
             // otherwise use what we computed before installTap.
@@ -315,7 +321,9 @@ final class MicPitchDetector: ObservableObject {
             let hz = samples.withUnsafeBufferPointer { ptr in
                 autocorrelate(samples: ptr.baseAddress!, count: frameCount, sampleRate: sr)
             }
+            #if DEBUG
             if shouldLog { print("🎤 tap#\(tapCallbackCount): detected hz=\(hz)") }
+            #endif
             Task { @MainActor in
                 self.inputLevel = rms
                 self.consumePitch(hz)

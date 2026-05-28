@@ -64,7 +64,9 @@ final class AudioEngine {
             try session.setActive(true, options: [])
             isSessionConfigured = true
         } catch {
+            #if DEBUG
             print("AudioEngine.init session config failed: \(error)")
+            #endif
         }
 
         // NOW use the session's preferred sample rate; the source node

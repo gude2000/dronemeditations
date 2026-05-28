@@ -66,7 +66,9 @@ final class DroneController: ObservableObject {
         do {
             try engine.start()
         } catch {
+            #if DEBUG
             print("AudioEngine start failed: \(error)")
+            #endif
             return
         }
         if state != .playing {
