@@ -214,10 +214,14 @@ final class MicPitchDetector: ObservableObject {
             }
         } else if !wasRunning {
             // Cold start path — input already wired, engine just needs
-            // to start (e.g. user opened Listen without ever pressing play).
+            // to start (e.g. user opened Listen without ever pressing
+            // play, OR engine was paused via engine.pause() from a
+            // recent transport pause — pause() makes isRunning return
+            // false but leaves nodes connected, so start() is a fast
+            // resume here, no HW re-init).
             do {
                 try engine.engine.start()
-                log("engine cold-started; isRunning=\(engine.engine.isRunning)")
+                log("engine cold-started/resumed; isRunning=\(engine.engine.isRunning)")
             } catch {
                 lastError = "Couldn't start engine for input: \(error.localizedDescription)"
                 log("BAIL: engine start error \(error.localizedDescription)")
@@ -225,6 +229,23 @@ final class MicPitchDetector: ObservableObject {
             }
         } else {
             log("engine already running with input wired — no restart needed (the new fast path)")
+        }
+        // Belt-and-suspenders: regardless of which branch we took,
+        // verify the engine is actually running before installing the
+        // tap. If it isn't (an in-flight controller pause/stop fade
+        // somehow snuck through despite prepareForListen(), or the
+        // engine got into an unexpected state), try one more start —
+        // installing a tap on a non-running engine is one of the
+        // documented ways to get the NSException crash.
+        if !engine.engine.isRunning {
+            do {
+                try engine.engine.start()
+                log("engine wasn't running before tap install — recovered with extra start()")
+            } catch {
+                lastError = "Audio engine refused to start. Try closing and reopening Listen."
+                log("BAIL: extra-safety engine.start() failed: \(error.localizedDescription)")
+                return
+            }
         }
         // Poll the input bus until it reports a valid (non-zero) sample
         // rate. The input AU takes time to fully initialize after a

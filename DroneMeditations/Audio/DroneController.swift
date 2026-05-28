@@ -85,6 +85,22 @@ final class DroneController: ObservableObject {
         }
     }
 
+    /// Called by ListenSheetView.onAppear BEFORE MicPitchDetector.start().
+    /// Cancels any in-flight pause/stop fade Task so its scheduled
+    /// engine.pause()/engine.stop() can't fire while a mic tap is
+    /// installed — that race used to cause occasional NSException
+    /// crashes (audio thread modifying graph while tap is active) and
+    /// the "Listen picks up nothing" failure mode (engine.pause() fires
+    /// during Listen, suspending the I/O render loop and starving the
+    /// tap of audio buffers). Also restores reverb settings if a
+    /// stop-bloom was mid-flight so Listen doesn't inherit the bloomed
+    /// state. Safe to call multiple times.
+    func prepareForListen() {
+        pendingFadeOutTask?.cancel()
+        pendingFadeOutTask = nil
+        engine.cancelStopBloom()
+    }
+
     func pause() {
         guard state == .playing else { return }
         stopTicker()

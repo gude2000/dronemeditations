@@ -146,6 +146,15 @@ struct ListenSheetView: View {
             .task {
                 if !didStart {
                     didStart = true
+                    // Cancel any in-flight pause/stop fade tasks on the
+                    // controller BEFORE starting the mic. Otherwise a
+                    // scheduled engine.pause() (from a recent pause
+                    // button tap) can fire mid-Listen, suspending the
+                    // I/O render loop and starving the mic tap of
+                    // audio → "Listening — hold a steady tone" forever,
+                    // or in the worst case an NSException crash from
+                    // modifying the audio graph while a tap is active.
+                    vm.controller.prepareForListen()
                     await vm.micPitch.start()
                 }
             }
