@@ -181,16 +181,13 @@ final class MicPitchDetector: ObservableObject {
         let input = engine.engine.inputNode
 
         // FAST PATH: silentInputSink exists from a previous Listen AND
-        // the input AU still reports a valid format. Skip the rewire.
-        // Otherwise fall through to a full re-wire — the previous
-        // "skip if sink exists" check was a fast-path with no safety
-        // net: if the input AU's format became 0Hz between sessions
-        // (route swap, mic AU teardown after engine.stop(), etc.),
-        // the next engine.start() failed with Core Audio -10875
-        // because the silentInputSink's input bus inherited the bad
-        // sample rate from the broken inputNode connection.
+        // the input AU still reports a valid hardware format. Skip rewire.
+        // We query inputFormat (hardware format) not outputFormat — the
+        // latter is 0 until there's a downstream consumer, creating a
+        // chicken-and-egg problem (can't get a valid format until you
+        // connect, can't connect without a valid format).
         let existingSinkFormatOK = (silentInputSink != nil)
-            && input.outputFormat(forBus: bus).sampleRate > 0
+            && input.inputFormat(forBus: bus).sampleRate > 0
 
         if !existingSinkFormatOK {
             log("rewiring silentInputSink (needsInputWireUp=\(needsInputWireUp), existingSinkFormatOK=\(existingSinkFormatOK))")
@@ -210,37 +207,39 @@ final class MicPitchDetector: ObservableObject {
                 log("tore down stale silentInputSink")
             }
 
-            // CRITICAL: poll input AU format until it reports a non-zero
-            // sample rate BEFORE connecting it. Connecting with format: nil
-            // captures the format AT CONNECT TIME — if it's 0Hz at that
-            // moment, the connection is permanently broken and every
-            // future engine.start() throws -10875. We MUST wait for the
-            // input AU to settle. Up to 3s.
-            var preFormat = input.outputFormat(forBus: bus)
+            // Poll the HARDWARE format (inputFormat, not outputFormat).
+            // inputFormat returns the format the input AU expects from the
+            // hardware route — it's defined as long as the session is in
+            // .playAndRecord, with no graph-connection dependency. That
+            // sidesteps the chicken-and-egg of outputFormat (which only
+            // settles AFTER a downstream consumer is connected). Up to
+            // 3 s in case the session swap is still settling.
+            var hwFormat = input.inputFormat(forBus: bus)
             var preWirePolls = 0
-            while preFormat.sampleRate <= 0 && preWirePolls < 30 {
+            while hwFormat.sampleRate <= 0 && preWirePolls < 30 {
                 try? await Task.sleep(nanoseconds: 100_000_000)
-                preFormat = input.outputFormat(forBus: bus)
+                hwFormat = input.inputFormat(forBus: bus)
                 preWirePolls += 1
             }
-            log("pre-wire input format: sr=\(preFormat.sampleRate) ch=\(preFormat.channelCount) after \(preWirePolls) polls")
+            log("pre-wire HARDWARE format: sr=\(hwFormat.sampleRate) ch=\(hwFormat.channelCount) after \(preWirePolls) polls")
 
-            if preFormat.sampleRate <= 0 {
+            if hwFormat.sampleRate <= 0 {
                 lastError = "Microphone unavailable — close any other app using the mic and try again."
-                log("BAIL: input format never settled before wireup (sr=0). Won't create broken connection.")
+                log("BAIL: input HARDWARE format never settled (sr=0) — mic not available.")
                 return
             }
 
-            // Wire fresh — now connect() will capture the valid format.
+            // Connect input → sink using the explicit hardware format.
+            // sink → mainMixer can stay format: nil (engine negotiates).
             let sink = AVAudioMixerNode()
             sink.outputVolume = 0
             engine.engine.attach(sink)
-            engine.engine.connect(input, to: sink, format: preFormat)
+            engine.engine.connect(input, to: sink, format: hwFormat)
             engine.engine.connect(sink, to: engine.engine.mainMixerNode, format: nil)
             silentInputSink = sink
-            log("connected inputNode → silent sink → mainMixer with sr=\(preFormat.sampleRate)")
+            log("connected inputNode → silent sink → mainMixer with sr=\(hwFormat.sampleRate)")
         } else {
-            log("fast path: silentInputSink exists with valid format sr=\(input.outputFormat(forBus: bus).sampleRate)")
+            log("fast path: silentInputSink exists with valid hw format sr=\(input.inputFormat(forBus: bus).sampleRate)")
         }
 
         // Ensure engine is running. Try start(); if it fails with
@@ -259,13 +258,14 @@ final class MicPitchDetector: ObservableObject {
                     engine.engine.detach(stale)
                     silentInputSink = nil
                 }
-                // Re-poll format after the teardown (the disconnect may
-                // have nudged the input AU to re-init).
-                var recoveryFormat = input.outputFormat(forBus: bus)
+                // Re-poll HARDWARE format after the teardown (use
+                // inputFormat for the same chicken-and-egg reason
+                // documented above).
+                var recoveryFormat = input.inputFormat(forBus: bus)
                 var recoveryPolls = 0
                 while recoveryFormat.sampleRate <= 0 && recoveryPolls < 30 {
                     try? await Task.sleep(nanoseconds: 100_000_000)
-                    recoveryFormat = input.outputFormat(forBus: bus)
+                    recoveryFormat = input.inputFormat(forBus: bus)
                     recoveryPolls += 1
                 }
                 if recoveryFormat.sampleRate <= 0 {
