@@ -18,6 +18,15 @@ struct OscillatorStrip: View {
     /// so one OSC strip visibly breathes on the larger canvas rather
     /// than looking like a postage stamp at iPhone scale.
     private var isPad: Bool { horizontalSizeClass == .regular }
+    /// True on iPhone PORTRAIT specifically. Compact width + regular
+    /// height = portrait phone. Used to split the LFO row into 2 sub-
+    /// rows since the single-line layout overflows: 6 shape icons +
+    /// 6 target pills consume ~300pt, leaving only ~50pt for the
+    /// RATE + DEPTH slider columns — SwiftUI then squeezes the
+    /// labels vertically (one letter per line) which is unreadable.
+    private var isPhonePortrait: Bool {
+        horizontalSizeClass == .compact && verticalSizeClass == .regular
+    }
 
     private var osc: OscillatorState { vm.oscillators[index] }
 
@@ -865,90 +874,126 @@ struct OscillatorStrip: View {
     private func lfoSection(_ lfoIndex: Int) -> some View {
         let lfo = osc.lfos[lfoIndex]
         let active = lfo.depth > 0.001
-        HStack(spacing: 8) {
-            Text("LFO \(lfoIndex + 1)")
-                .font(.system(size: isPad ? 12 : 9, weight: .heavy))
-                .foregroundStyle(active ? Color.accentColor : .secondary)
-                .frame(width: 36, alignment: .leading)
-
-            // Shape picker — inline row of small toggleable icon
-            // buttons (matches the web layout). One shape is active at
-            // a time; tapping switches. SF Symbol icon, filled when
-            // active. Compact enough that 6 fit on iPhone in portrait.
-            HStack(spacing: isPad ? 5 : 3) {
-                ForEach(LfoState.Shape.allCases) { s in
-                    let isOn = (s == lfo.shape)
-                    Button {
-                        vm.setLfoShape(s, for: index, lfoIndex: lfoIndex)
-                    } label: {
-                        Image(systemName: s.sfSymbol)
-                            .font(.system(size: isPad ? 14 : 9, weight: .semibold))
-                            .frame(width: isPad ? 32 : 20, height: isPad ? 32 : 20)
-                            .background(
-                                RoundedRectangle(cornerRadius: isPad ? 6 : 4)
-                                    .fill(isOn ? Color.white.opacity(0.85) : Color.white.opacity(0.10))
-                            )
-                            .foregroundStyle(isOn ? Color.black : Color.white.opacity(0.85))
-                    }
-                    .buttonStyle(.plain)
+        // iPhone portrait: split into 2 rows so RATE + DEPTH sliders get
+        // full width (vs. 50pt crammed at the right where SwiftUI was
+        // squeezing the labels into vertical letter columns).
+        if isPhonePortrait {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text("LFO \(lfoIndex + 1)")
+                        .font(.system(size: 9, weight: .heavy))
+                        .foregroundStyle(active ? Color.accentColor : .secondary)
+                        .frame(width: 36, alignment: .leading)
+                    lfoShapeButtons(lfo: lfo, lfoIndex: lfoIndex)
+                    lfoTargetPills(lfo: lfo, lfoIndex: lfoIndex)
+                    Spacer(minLength: 0)
+                }
+                HStack(spacing: 10) {
+                    // Spacer indent matching the LFO label width above
+                    // so the sliders line up visually with the buttons.
+                    Spacer().frame(width: 36)
+                    lfoRateColumn(lfo: lfo, lfoIndex: lfoIndex)
+                    lfoDepthColumn(lfo: lfo, lfoIndex: lfoIndex)
                 }
             }
+            .opacity(active ? 1.0 : 0.55)
+        } else {
+            // iPhone landscape + iPad: single-row layout with everything
+            // in one HStack. Plenty of horizontal real estate here.
+            HStack(spacing: 8) {
+                Text("LFO \(lfoIndex + 1)")
+                    .font(.system(size: isPad ? 12 : 9, weight: .heavy))
+                    .foregroundStyle(active ? Color.accentColor : .secondary)
+                    .frame(width: 36, alignment: .leading)
+                lfoShapeButtons(lfo: lfo, lfoIndex: lfoIndex)
+                lfoTargetPills(lfo: lfo, lfoIndex: lfoIndex)
+                    .layoutPriority(1)
+                lfoRateColumn(lfo: lfo, lfoIndex: lfoIndex)
+                lfoDepthColumn(lfo: lfo, lfoIndex: lfoIndex)
+            }
+            .opacity(active ? 1.0 : 0.55)
+        }
+    }
 
-            // v1.1 multi-target row — inline toggleable text buttons,
-            // one per target. Tapping any target adds or removes it
-            // from the LFO's target SET (not radio-select). All active
-            // targets are driven simultaneously by the one LFO. Filled
-            // accent background = active.
-            HStack(spacing: isPad ? 5 : 3) {
-                ForEach(LfoState.Target.allCases) { t in
-                    let isOn = lfo.targets.contains(t)
-                    Button {
-                        vm.toggleLfoTarget(t, for: index, lfoIndex: lfoIndex)
-                    } label: {
-                        Text(t.shortLabel)
-                            .font(.system(size: isPad ? 13 : 9, weight: .semibold))
-                            .lineLimit(1)
-                            .fixedSize(horizontal: true, vertical: false)
-                            .padding(.horizontal, isPad ? 8 : 4)
-                            .padding(.vertical, isPad ? 7 : 3)
-                            .background(
-                                RoundedRectangle(cornerRadius: isPad ? 6 : 4)
-                                    .fill(isOn ? Color.accentColor : Color.white.opacity(0.10))
-                            )
-                            .foregroundStyle(isOn ? .white : .white.opacity(0.75))
-                    }
-                    .buttonStyle(.plain)
+    // MARK: - LFO row pieces (factored for portrait vs landscape/iPad layouts)
+
+    @ViewBuilder
+    private func lfoShapeButtons(lfo: LfoState, lfoIndex: Int) -> some View {
+        HStack(spacing: isPad ? 5 : 3) {
+            ForEach(LfoState.Shape.allCases) { s in
+                let isOn = (s == lfo.shape)
+                Button {
+                    vm.setLfoShape(s, for: index, lfoIndex: lfoIndex)
+                } label: {
+                    Image(systemName: s.sfSymbol)
+                        .font(.system(size: isPad ? 14 : 9, weight: .semibold))
+                        .frame(width: isPad ? 32 : 20, height: isPad ? 32 : 20)
+                        .background(
+                            RoundedRectangle(cornerRadius: isPad ? 6 : 4)
+                                .fill(isOn ? Color.white.opacity(0.85) : Color.white.opacity(0.10))
+                        )
+                        .foregroundStyle(isOn ? Color.black : Color.white.opacity(0.85))
                 }
-            }
-            .layoutPriority(1)
-
-            VStack(alignment: .leading, spacing: 0) {
-                Text(rateLabel(lfo.rateHz))
-                    .font(.system(size: isPad ? 12 : 9, weight: .bold))
-                    .foregroundStyle(.secondary)
-                LfoRateSlider(
-                    rateHz: Binding(
-                        get: { lfo.rateHz },
-                        set: { vm.setLfoRate($0, for: index, lfoIndex: lfoIndex) }
-                    )
-                )
-            }
-
-            VStack(alignment: .leading, spacing: 0) {
-                Text("DEPTH \(Int(lfo.depth * 100))")
-                    .font(.system(size: isPad ? 12 : 9, weight: .bold))
-                    .foregroundStyle(.secondary)
-                Slider(
-                    value: Binding(
-                        get: { lfo.depth },
-                        set: { vm.setLfoDepth($0, for: index, lfoIndex: lfoIndex) }
-                    ),
-                    in: 0.0...1.0
-                )
-                .tint(.white.opacity(0.7))
+                .buttonStyle(.plain)
             }
         }
-        .opacity(active ? 1.0 : 0.55)
+    }
+
+    @ViewBuilder
+    private func lfoTargetPills(lfo: LfoState, lfoIndex: Int) -> some View {
+        HStack(spacing: isPad ? 5 : 3) {
+            ForEach(LfoState.Target.allCases) { t in
+                let isOn = lfo.targets.contains(t)
+                Button {
+                    vm.toggleLfoTarget(t, for: index, lfoIndex: lfoIndex)
+                } label: {
+                    Text(t.shortLabel)
+                        .font(.system(size: isPad ? 13 : 9, weight: .semibold))
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .padding(.horizontal, isPad ? 8 : 4)
+                        .padding(.vertical, isPad ? 7 : 3)
+                        .background(
+                            RoundedRectangle(cornerRadius: isPad ? 6 : 4)
+                                .fill(isOn ? Color.accentColor : Color.white.opacity(0.10))
+                        )
+                        .foregroundStyle(isOn ? .white : .white.opacity(0.75))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func lfoRateColumn(lfo: LfoState, lfoIndex: Int) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(rateLabel(lfo.rateHz))
+                .font(.system(size: isPad ? 12 : 9, weight: .bold))
+                .foregroundStyle(.secondary)
+            LfoRateSlider(
+                rateHz: Binding(
+                    get: { lfo.rateHz },
+                    set: { vm.setLfoRate($0, for: index, lfoIndex: lfoIndex) }
+                )
+            )
+        }
+    }
+
+    @ViewBuilder
+    private func lfoDepthColumn(lfo: LfoState, lfoIndex: Int) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("DEPTH \(Int(lfo.depth * 100))")
+                .font(.system(size: isPad ? 12 : 9, weight: .bold))
+                .foregroundStyle(.secondary)
+            Slider(
+                value: Binding(
+                    get: { lfo.depth },
+                    set: { vm.setLfoDepth($0, for: index, lfoIndex: lfoIndex) }
+                ),
+                in: 0.0...1.0
+            )
+            .tint(.white.opacity(0.7))
+        }
     }
 
     private func rateLabel(_ hz: Double) -> String {
