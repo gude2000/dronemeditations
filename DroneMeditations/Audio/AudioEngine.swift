@@ -67,6 +67,16 @@ final class AudioEngine {
                 mode: .default,
                 options: [.mixWithOthers, .defaultToSpeaker, .allowBluetoothA2DP]
             )
+            // Force a small I/O buffer (~20 ms). Under .playAndRecord
+            // with an active input route, iOS defaults to a longer
+            // buffer (~1 s) for power efficiency — which means up to
+            // 1 s of audio can still play through the speaker AFTER
+            // we set outputVolume to 0. User perceives that as the
+            // pause fade "dragging" for a few seconds. A 20 ms buffer
+            // gives near-instant response to master fades. Slight
+            // CPU cost (more frequent render callbacks) is negligible
+            // for our 4-voice synth.
+            try session.setPreferredIOBufferDuration(0.020)
             try session.setActive(true, options: [])
             isSessionConfigured = true
         } catch {

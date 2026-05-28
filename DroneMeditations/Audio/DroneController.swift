@@ -110,26 +110,18 @@ final class DroneController: ObservableObject {
         guard state == .playing else { return }
         stopTicker()
         state = .paused
-        // PAUSE: 0.6s exponential master fade. NO reverb bloom.
-        //
-        // Dropped from 1.4s because user reported pause-after-Listen
-        // perceived as ~3s. Likely cause: after the first-time
-        // engine-recreate path (Listen + mic permission grant), iOS
-        // sets up a longer audio output buffer under .playAndRecord
-        // with the input route active. The buffered samples drain
-        // for ~1-2s after outputVolume hits 0, on top of our ramp.
-        // 1.4s ramp + ~1.5s buffer drain = ~3s effective fade.
-        //
-        // A 0.6s ramp + buffer drain still gives the user a sense of
-        // "wind down" but the total perceived fade is much closer to
-        // what pause used to feel like before mic was ever wired in.
+        // PAUSE: 1.4s exponential master fade. NO reverb bloom.
+        // (The audio-session preferredIOBufferDuration is forced to
+        // 20 ms in AudioEngine.init so the buffer doesn't drain a
+        // second of audio after we set outputVolume = 0 — that was
+        // the post-Listen "dragging" the user heard.)
         //
         // CLICK-FREE engine strategy unchanged: don't call engine.pause()
         // or engine.stop(). Leave engine running silently at outputVolume=0.
         pendingFadeOutTask?.cancel()
         let engineRef = engine
         pendingFadeOutTask = Task { @MainActor in
-            await engineRef.fadeOutMaster(seconds: 0.6, curve: .exponential)
+            await engineRef.fadeOutMaster(seconds: 1.4, curve: .exponential)
             guard self.state == .paused else { return }
         }
     }
