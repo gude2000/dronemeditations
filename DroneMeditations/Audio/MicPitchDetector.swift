@@ -183,59 +183,35 @@ final class MicPitchDetector: ObservableObject {
         let preFmt = input.inputFormat(forBus: bus)
         let preOutFmt = input.outputFormat(forBus: bus)
         log("input pre-wire: inputFormat sr=\(preFmt.sampleRate) ch=\(preFmt.channelCount) | outputFormat sr=\(preOutFmt.sampleRate) ch=\(preOutFmt.channelCount)")
-        if needsInputWireUp {
-            log("input AU needs to be wired into the graph — stopping engine briefly…")
-            if wasRunning { engine.engine.stop() }
-            // Use a small NON-ZERO outputVolume on the silent sink. Some
-            // iOS versions optimize away zero-volume chains, which kills
-            // the pull from inputNode and the tap never fires. 0.001 is
-            // -60dB — inaudible but keeps the chain "live."
-            let sink = AVAudioMixerNode()
-            sink.outputVolume = 0.001
-            engine.engine.attach(sink)
-            engine.engine.connect(input, to: sink, format: nil)
-            // Connect the sink to mainMixer so the engine actually
-            // pulls samples from input. Format nil = let the engine
-            // negotiate (typically the mixer's stereo format).
-            engine.engine.connect(sink, to: engine.engine.mainMixerNode, format: nil)
-            silentInputSink = sink
-            log("connected inputNode → silent sink (vol=0.001) → mainMixer")
-            // NOTE: removed an earlier refreshOutputGraph() call that
-            // disconnected + reconnected the source node here. That was
-            // added in 1.0(3) to fix a "post-Listen transport feels frozen"
-            // bug — but the actual cause of that bug turned out to be the
-            // stale fade-out Task in DroneController (fixed in 1.0(4)).
-            // The extra graph mutation between stop and start was
-            // confusing the input AU initialization and leaving its
-            // outputFormat stuck at sr=0 — i.e. the "Microphone format
-            // unavailable" error path. Leaving the output graph alone
-            // gives the input AU the room it needs to settle.
-            // Always start the engine after wireup, regardless of
-            // whether it was running before. The tap on inputNode only
-            // fires when the engine is running — installing a tap on a
-            // stopped engine results in "Listening…" forever with no
-            // buffer callbacks (the symptom the user reported).
+
+        // Tear down the silentInputSink workaround if it's lingering
+        // from previous Listen attempts. The new approach: install
+        // tap directly on bare inputNode, per Apple's canonical
+        // pattern. The silentInputSink mixer wasn't actually delivering
+        // buffer callbacks even when the engine was running — likely
+        // because iOS pull-graph optimization treats a near-zero-volume
+        // mixer as "no consumer" and starves the input AU.
+        if let stale = silentInputSink {
+            if engine.engine.isRunning { engine.engine.stop() }
+            engine.engine.disconnectNodeOutput(stale)
+            engine.engine.disconnectNodeOutput(input)
+            engine.engine.detach(stale)
+            silentInputSink = nil
+            log("removed legacy silentInputSink — using bare inputNode + tap")
+        }
+
+        // Ensure the engine is running. installTap requires it.
+        if !engine.engine.isRunning {
             do {
                 try engine.engine.start()
-                log("engine started after input wire-up; isRunning=\(engine.engine.isRunning)")
-            } catch {
-                lastError = "Couldn't start engine after input wire-up: \(error.localizedDescription)"
-                log("BAIL: engine start error \(error.localizedDescription)")
-                return
-            }
-        } else if !wasRunning {
-            // Cold start path — input already wired, engine just needs
-            // to start (e.g. user opened Listen without ever pressing play).
-            do {
-                try engine.engine.start()
-                log("engine cold-started; isRunning=\(engine.engine.isRunning)")
+                log("engine started for Listen; isRunning=\(engine.engine.isRunning)")
             } catch {
                 lastError = "Couldn't start engine for input: \(error.localizedDescription)"
                 log("BAIL: engine start error \(error.localizedDescription)")
                 return
             }
         } else {
-            log("engine already running with input wired — no restart needed (the new fast path)")
+            log("engine already running — no restart needed")
         }
         // Poll the input bus until it reports a valid (non-zero) sample
         // rate. The input AU takes time to fully initialize after a
