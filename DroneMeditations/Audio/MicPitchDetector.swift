@@ -179,11 +179,19 @@ final class MicPitchDetector: ObservableObject {
         //     from mic-into-speakers.
         let bus = 0
         let input = engine.engine.inputNode
+        // Pre-log the input's actual format so we know if iOS sees the mic.
+        let preFmt = input.inputFormat(forBus: bus)
+        let preOutFmt = input.outputFormat(forBus: bus)
+        log("input pre-wire: inputFormat sr=\(preFmt.sampleRate) ch=\(preFmt.channelCount) | outputFormat sr=\(preOutFmt.sampleRate) ch=\(preOutFmt.channelCount)")
         if needsInputWireUp {
             log("input AU needs to be wired into the graph — stopping engine briefly…")
             if wasRunning { engine.engine.stop() }
+            // Use a small NON-ZERO outputVolume on the silent sink. Some
+            // iOS versions optimize away zero-volume chains, which kills
+            // the pull from inputNode and the tap never fires. 0.001 is
+            // -60dB — inaudible but keeps the chain "live."
             let sink = AVAudioMixerNode()
-            sink.outputVolume = 0
+            sink.outputVolume = 0.001
             engine.engine.attach(sink)
             engine.engine.connect(input, to: sink, format: nil)
             // Connect the sink to mainMixer so the engine actually
@@ -191,7 +199,7 @@ final class MicPitchDetector: ObservableObject {
             // negotiate (typically the mixer's stereo format).
             engine.engine.connect(sink, to: engine.engine.mainMixerNode, format: nil)
             silentInputSink = sink
-            log("connected inputNode → silent sink → mainMixer")
+            log("connected inputNode → silent sink (vol=0.001) → mainMixer")
             // NOTE: removed an earlier refreshOutputGraph() call that
             // disconnected + reconnected the source node here. That was
             // added in 1.0(3) to fix a "post-Listen transport feels frozen"
@@ -275,14 +283,13 @@ final class MicPitchDetector: ObservableObject {
         // audio thread) doesn't have to touch `self` or anything else
         // that might have race issues.
         let sampleRateForPitch = settledFormat.sampleRate
-        // Throttle diagnostic logging to one print per ~50 buffers
-        // (~half a second at 48kHz/4096-frame buffers) — otherwise the
-        // log spams the console at every buffer callback.
+        // Log first 5 callbacks unconditionally so we can see if the tap
+        // is even firing, then drop to 1-per-50 for steady-state.
         nonisolated(unsafe) var tapCallbackCount = 0
-        input.installTap(onBus: bus, bufferSize: 4096, format: nil) { [weak self] buffer, _ in
+        input.installTap(onBus: bus, bufferSize: 4096, format: settledFormat) { [weak self] buffer, _ in
             guard let self = self else { return }
             tapCallbackCount += 1
-            let shouldLog = (tapCallbackCount % 50 == 1)
+            let shouldLog = (tapCallbackCount <= 5) || (tapCallbackCount % 50 == 1)
 
             // Diagnostics: what's the buffer format? Is floatChannelData nil?
             // What's the peak amplitude? This tells us whether audio is
