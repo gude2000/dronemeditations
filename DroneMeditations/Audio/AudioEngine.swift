@@ -362,7 +362,10 @@ final class AudioEngine {
         cancelStopBloom()
         preBloomReverb = voices.map { (mix: $0.reverbMix, decay: $0.reverbDecaySec) }
         let startMix = voices.map { $0.reverbMix }
-        let startDecay = voices.map { $0.reverbDecaySec }
+        // startDecay no longer used: we don't ramp reverbDecaySec
+        // anymore (mid-fade decay changes click — see startStopBloom
+        // loop comment). Kept the comment as a marker for future
+        // re-introduction if the comb-filter state can be smoothed.
         let startDate = Date()
         let voicesRef = voices
         let clampedPeakAt = max(0.05, min(0.95, peakAt))
@@ -402,16 +405,22 @@ final class AudioEngine {
 
             for i in 0..<voicesRef.count {
                 let sm = startMix[i]
-                let sd = startDecay[i]
+                // ONLY ramp reverbMix. Do NOT ramp reverbDecaySec
+                // during a bloom, even though the original design did.
+                // Voice.swift line ~349 recomputes the comb filter
+                // feedback coefficients PER BUFFER from reverbDecaySec.
+                // A mid-fade decay change causes the comb feedbacks to
+                // jump discontinuously between buffers — audible as a
+                // click during pause and stop. Mix is safe to ramp
+                // (it's a multiply applied per-sample after the wet
+                // signal is generated, no internal filter state).
                 voicesRef[i].reverbMix = sm + (peakMix - sm) * t
-                voicesRef[i].reverbDecaySec = sd + (peakDecay - sd) * tD
             }
+            _ = tD  // was used for decay ramp
             if tLin >= 1.0 {
-                // Snap back to the snapshot (envelope already returns
-                // to 0 by this point, but defense in depth).
+                // Snap mix back to the snapshot.
                 for i in 0..<voicesRef.count {
                     voicesRef[i].reverbMix = startMix[i]
-                    voicesRef[i].reverbDecaySec = startDecay[i]
                 }
                 break
             }
