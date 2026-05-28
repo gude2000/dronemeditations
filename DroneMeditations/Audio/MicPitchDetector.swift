@@ -68,6 +68,30 @@ final class MicPitchDetector: ObservableObject {
         }
         log("entered")
 
+        // CRITICAL: start() mutates engine state (stops the engine to
+        // wire up silentInputSink). If we bail out before isListening
+        // is set true (e.g. "Microphone unavailable" path), stop()'s
+        // guard !isListening skips its cleanup — leaving the engine
+        // stopped. User then taps Play, controller calls engine.start()
+        // which may succeed but state mismatch makes audio not resume.
+        // Result: transport feels unresponsive after a failed Listen.
+        //
+        // This defer ensures the engine is running when start() returns,
+        // regardless of which path we took. If start() succeeded all
+        // the way through, the engine is already running and this is
+        // a no-op. If we bailed, this restarts it so the user's preset
+        // audio (or just the silent engine ready for Play) is intact.
+        defer {
+            if !engine.engine.isRunning {
+                do {
+                    try engine.engine.start()
+                    log("defer: engine wasn't running on return — restarted")
+                } catch {
+                    log("defer: engine.start() failed on return: \(error)")
+                }
+            }
+        }
+
         // 1. Check + request mic permission. iOS 17+ API. We must NOT
         //    blindly `await` requestRecordPermission() — it has a known
         //    hang on some devices when permission was already granted in
