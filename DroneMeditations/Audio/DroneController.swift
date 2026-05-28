@@ -76,9 +76,12 @@ final class DroneController: ObservableObject {
             //  - 3 s if this is a true cold start (engine wasn't running)
             //    — preserves the "meditative onset" for the very first
             //    play of the session.
-            //  - 1 s if engine was already running (resume from pause OR
-            //    play-after-Listen-close) — feels responsive.
-            let fadeDuration: Double = (fromStopped && !engineAlreadyRunning) ? 3.0 : 1.0
+            //  - 0.4 s if engine was already running (resume from pause OR
+            //    play-after-Listen-close). The previous 1 s value felt
+            //    laggy because the equalPower (sin) curve has a gentle
+            //    onset — the first 100-200 ms are barely audible. 0.4 s
+            //    feels immediate without being a hard cut-in.
+            let fadeDuration: Double = (fromStopped && !engineAlreadyRunning) ? 3.0 : 0.4
             engine.fadeInMaster(seconds: fadeDuration)
             engine.transportElapsed = elapsed
             lastTickDate = Date()
