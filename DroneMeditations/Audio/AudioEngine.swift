@@ -126,7 +126,31 @@ final class AudioEngine {
     func configureSessionIfNeeded() throws {
         guard !isSessionConfigured else { return }
         let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+        // Use .playAndRecord (not .playback) from the very first
+        // session configuration. Reason: AVAudioEngine implicitly
+        // initializes its full audio graph — INCLUDING inputNode —
+        // the first time you touch mainMixerNode (which happens in
+        // our init() at line 54). If that initialization happens
+        // under a .playback session, the inputNode is permanently
+        // captured in a "no input route" state. Subsequent attempts
+        // to swap session to .playAndRecord and use the mic fail
+        // with input AU reporting sr=0, ch=2 (the "no format"
+        // placeholder), and any connect() to it crashes with
+        // Core Audio -10875.
+        //
+        // .playAndRecord with .defaultToSpeaker + .mixWithOthers
+        // behaves identically to .playback for output purposes
+        // (sound comes out the speakers normally, mixes with other
+        // apps' audio). The only user-visible difference: iOS may
+        // show a one-time mic-permission prompt at first launch if
+        // permission was never granted before — but it's OK to
+        // accept-and-never-use, no orange dot until we actually
+        // installTap.
+        try session.setCategory(
+            .playAndRecord,
+            mode: .default,
+            options: [.mixWithOthers, .defaultToSpeaker, .allowBluetoothA2DP]
+        )
         try session.setActive(true, options: [])
         isSessionConfigured = true
     }
