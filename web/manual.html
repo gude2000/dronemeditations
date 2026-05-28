@@ -440,7 +440,7 @@
       <li><strong>25 scripted Journeys</strong> — multi-stage timed meditations (Deep Listening Lineage, Heavy Resonance, Minimalist Arc, Spiritual Path…) plus a composer for your own. See <a href="#pills">§11 → JOURNEY</a>.</li>
       <li><strong>Tune to Room</strong> (LISTEN) — YIN pitch detection from the mic, snap the chord root to whatever you sing or play. See <a href="#pills">§11 → LISTEN</a>.</li>
       <li><strong>Reverb-bloom Pause/Stop</strong> (iOS) — Pause and Stop don't just fade volume; per-voice reverb mix + decay <em>bloom</em> upward then descend with the master, so the sound dissolves into the room rather than disappearing. See <a href="#transport">§15 → Play / pause / stop</a>.</li>
-      <li><strong>Mastered .m4a export</strong> (iOS) — record any session and export with loudness normalization + 2 s/4 s fades + metadata, ready to share or drop into a DAW. See <a href="#transport">§15 → Recording</a>.</li>
+      <li><strong>Mastered WAV + M4A export</strong> (iOS) — record any session and get two files: a 24-bit PCM WAV for editing / archival and an AAC M4A sidecar for sharing. Both carry loudness normalization + 2 s/4 s fades + metadata, ready to drop into a DAW or AirDrop. See <a href="#transport">§15 → Recording</a>.</li>
     </ul>
   </div>
 </section>
@@ -451,8 +451,8 @@
   <p class="lede">Four floating zones: header, pill row, oscillator strips, transport.</p>
 
   <figure class="shot">
-    <img src="manual-images/02-main-ui.jpg" alt="Drone Meditations main screen on iPhone showing the header, chord/preset/drift/listen pill row, oscillator 1 strip with frequency / pan / level / filter / FX / 4 LFO rows, the play-stop-record transport, and the copyright + Manual link inlined at the very bottom" loading="lazy" />
-    <figcaption>The full controls panel — header, pill row, oscillator strips with FX + LFOs, transport, and the new inline copyright / Manual row at the bottom edge.</figcaption>
+    <img src="manual-images/02-main-ui.jpg" alt="Drone Meditations main screen on iPhone — header with help / camera / spectrum / cymatics icons, CHORD · PRESET · DRIFT pill row, then the OSC 1 · OSC 2 · OSC 3 · OSC 4 row ending in a 🎲 randomize-all dice plus a faint disabled ↶ undo, oscillator 1 strip with waveform icons / PAN / LVL / FILT (LP HP BP, CUTOFF, Q, DRIVE) / FM / CHO / DLY / REV / LFO 1 row with shape icons and a target row (pan, amp, cut, pitch, Q, FM) showing PAN highlighted to demo a multi-target LFO, then the play-stop-record transport with 07:01 / 15:00 timer and the © 2026 Jose Gude MD · Manual link at the bottom" loading="lazy" />
+    <figcaption>The v1.1 controls panel. Note the new <strong>🎲 dice</strong> and faint <strong>↶ undo</strong> at the right end of the OSC pill row (top-of-strip global randomize / undo), and the LFO target row where multiple destinations can be enabled simultaneously.</figcaption>
   </figure>
 
   <p>From top to bottom: <strong>header</strong> (app name, tuning + chord summary, spectrum / camera / cymatics-style toggles) → <strong>pill row</strong> (CHORD · PRESET · DRIFT · LISTEN · PERFORM · JOURNEY · MORPH · GALLERY) → <strong>oscillator strips</strong> (one per voice, each carrying waveform + frequency + pan + level + filter + FX + 4 LFOs) → <strong>transport</strong> (Play / Stop / Record + session timer) → <strong>copyright + Manual link</strong> (the slim row at the very bottom).</p>
@@ -473,7 +473,8 @@
     <tr><td>Level</td><td>Per-voice volume, 0–100%.</td></tr>
     <tr><td><kbd>S</kbd></td><td>Solo. Any voice soloed silences the unsoloed ones.</td></tr>
     <tr><td><kbd>M</kbd></td><td>Mute.</td></tr>
-    <tr><td>🎲 Randomize</td><td>Re-rolls everything <em>except level</em>: waveform, freq, filter, all 4 LFOs, reverb, delay, drift. One tap = a new world.</td></tr>
+    <tr><td>🎲 Randomize (per strip)</td><td>Re-rolls just <em>this</em> oscillator. Everything <em>except level</em> changes: waveform, freq, filter, all 4 LFOs, reverb, delay, drift. One tap = a new world.</td></tr>
+    <tr><td>🎲 Randomize all (top OSC bar)</td><td>v1.1. The dice button at the end of the OSC 1·2·3·4 pill row rolls <em>all four voices at once</em>, then picks a fresh chord — without disturbing your master volumes. The faint <strong>↶ undo</strong> button next to it restores the exact state you had before the last randomize, so you can A/B between "the patch you had" and "the patch the dice gave you."</td></tr>
     <tr><td>⭐ Voice presets</td><td>Save / load / delete <em>just this oscillator</em>'s settings. Great for keeping a favorite bass + cycling through pads above.</td></tr>
     <tr><td>🌀 Drift</td><td>Per-voice pitch &amp; pan drift (off, glacial up/down, octave up/down, slow pan, deep vibrato, etc.).</td></tr>
     <tr><td>⏱ Timing</td><td>Stagger when this voice enters the mix: <em>Start after</em> (Now / 15 s / 30 s / 1 / 2 / 5 / 10 min — silent then 8 s fade-in) and <em>Play duration</em> (Forever / 1 / 3 / 5 / 10 / 15 / 20 min — 8 s fade-out at the end). Lets you introduce drones gradually during long meditations, then let them recede. Several Drone Artists presets use this — Stars of the Lid blooms its chord at 0 / 30 / 90 / 180 s; Basinski's pink-noise hiss enters at 90 s; Riley's cascade enters at 0 / 15 / 45 / 90 s.</td></tr>
@@ -571,8 +572,8 @@
   <h3>Granular synthesis (the <em>Granular</em> waveform)</h3>
 
   <figure class="shot">
-    <img src="manual-images/05-granular.jpg" alt="Oscillator strip with the Granular waveform selected — a blue GRAIN row sits under the waveform picker with SIZE, DENSITY, JITTER, and SPREAD sliders" loading="lazy" />
-    <figcaption>The GRAIN row appears in blue under the waveform picker whenever Granular is the chosen waveform.</figcaption>
+    <img src="manual-images/05-granular.jpg" alt="OSC 1 strip with the Granular waveform selected (the pink-noise droplet icon in the waveform picker). A blue GRAIN row now sits between the waveform picker and the FILT row with four sliders labelled size · 13 ms, density · 57/min, jitter · 36, and spread · 82" loading="lazy" />
+    <figcaption>Picking the granular waveform reveals the blue <strong>GRAIN</strong> row directly under the waveform picker — size · density · jitter · spread.</figcaption>
   </figure>
 
   <p>When you pick <strong>Granular</strong> as the waveform, a <strong>GRAIN</strong> row appears under the picker with four sliders:</p>
@@ -748,8 +749,8 @@
   <h3>LISTEN — tune to room</h3>
 
   <figure class="shot">
-    <img src="manual-images/06-listen.jpg" alt="The Listen / Tune to Room sheet showing a large note readout, Hz value, cents-off-tuning bar, audio input level meter, and a Set as Root button" loading="lazy" />
-    <figcaption>The Listen sheet detects the nearest note + cents offset in real time. Tap "Set as Root" to snap the chord generator to the pitch you're playing.</figcaption>
+    <img src="manual-images/06-listen.jpg" alt="The Tune to Room sheet with a Done button in the corner, a Listening label, a very large note readout (A3), the detected frequency (223.39 Hz) and offset (+26 cents) below it, a blue-to-pink gradient level meter, and the blue Set as Root primary button next to a smaller Reset button. Below: 'Hold a steady tone — voice, instrument, tuning fork. The last detected pitch is held on screen until you tap Reset or sing a new one — so you don't have to race the readout.'" loading="lazy" />
+    <figcaption>The Tune to Room sheet detects the nearest note + cents offset in real time and holds the last reading on screen. Tap <strong>Set as Root</strong> to snap the chord generator to the pitch you're playing; <strong>Reset</strong> clears the readout to listen for a new tone.</figcaption>
   </figure>
 
   <p>Pop the sheet, grant mic access, and play a sustained note from any instrument (voice, tuning fork, singing bowl). The app runs <strong>YIN pitch detection</strong> (de Cheveigné &amp; Kawahara) in real time, displays the nearest note + cents offset + Hz + live audio level, and a "Set as Root" button snaps the chord generator's root key to match.</p>
@@ -924,9 +925,14 @@
   <p>The record button writes the master output to a file:</p>
   <ul>
     <li><strong>Web</strong> — WebM/Opus or WebM/PCM (whatever your browser supports), saved to Downloads.</li>
-    <li><strong>iOS</strong> — CAF (uncompressed Linear PCM) saved to the app's documents directory; share via the system share sheet.</li>
+    <li><strong>iOS</strong> — two files per session, both written into <code>Drone Meditations/Recordings/</code> in the Files app:
+      <ul>
+        <li><strong>.wav</strong> — 24-bit uncompressed PCM. The primary deliverable: bit-perfect, professional-grade, ideal for editing in a DAW or archival. Large (~17 MB/min stereo).</li>
+        <li><strong>.m4a</strong> — AAC sidecar, ~10× smaller, identical loudness + fades baked in. Ideal for AirDropping, emailing, or dropping into the Music app.</li>
+      </ul>
+      Both files are mastered through the same pipeline: a single gain stage targets ≈ -16 dBFS RMS while keeping peaks below -0.3 dBFS, then a 2-second linear fade-in and 4-second fade-out are applied so the file doesn't start or end with a click. The M4A also gets embedded title / artist / date metadata so it shows up nicely in Music and Files.</li>
   </ul>
-  <p>Recording captures whatever is going through the master limiter — so all FX, drift, LFO modulation, journeys, etc. — exactly as you hear them.</p>
+  <p>Recording captures whatever is going through the master limiter — so all FX, drift, LFO modulation, journeys, etc. — exactly as you hear them. The share sheet appears automatically when mastering finishes (typically &lt; 1 second after Stop).</p>
 </section>
 
 <!-- ───────────────── MIDI ───────────────── -->
