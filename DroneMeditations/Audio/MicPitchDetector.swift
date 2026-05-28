@@ -257,27 +257,18 @@ final class MicPitchDetector: ObservableObject {
             }
             log("pre-wire HARDWARE format: sr=\(hwFormat.sampleRate) ch=\(hwFormat.channelCount) after \(preWirePolls) polls")
 
-            // FALLBACK: if inputFormat is still 0, derive a working
-            // format from the audio session (which always reports a
-            // valid sample rate + channel count when .playAndRecord
-            // is active). This gives us a viable connection format
-            // even when the input node itself is uncooperative —
-            // installTap later will use the actual hardware format.
+            // If inputFormat is still 0 after prepare() + 3s polling,
+            // the input AU is genuinely wedged. We CANNOT recover by
+            // making up a format from the session — Core Audio
+            // validates the connection format against the real input
+            // hardware format on engine.start() and throws an
+            // uncatchable NSException ('Input HW format is invalid')
+            // that crashes the app. Earlier code that did this was
+            // crashing. Bail cleanly instead.
             if hwFormat.sampleRate <= 0 {
-                let sessionSR = session.sampleRate
-                let sessionCh = max(1, UInt32(session.inputNumberOfChannels))
-                if sessionSR > 0,
-                   let derived = AVAudioFormat(commonFormat: .pcmFormatFloat32,
-                                               sampleRate: sessionSR,
-                                               channels: sessionCh,
-                                               interleaved: false) {
-                    hwFormat = derived
-                    log("falling back to session-derived format: sr=\(sessionSR) ch=\(sessionCh)")
-                } else {
-                    lastError = "Microphone unavailable — check Settings → Drone Meditations → Microphone, or close any other app using the mic."
-                    log("BAIL: no usable format anywhere (input AU=0, session sr=\(sessionSR))")
-                    return
-                }
+                lastError = "Microphone unavailable — another app may be using it, or try restarting Drone Meditations."
+                log("BAIL: input HW format is genuinely 0 after prepare() + polling. Not connecting silentInputSink to avoid 'Input HW format is invalid' crash on engine.start().")
+                return
             }
 
             // Connect input → sink using the explicit hardware format.
