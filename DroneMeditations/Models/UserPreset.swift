@@ -49,6 +49,12 @@ struct UserPreset: Identifiable, Codable, Equatable {
         var sampleGranular: Bool?
         var grainSamplePosFrac: Double?
         var grainSamplePosJitter: Double?
+        /// v1.1 fix: per-voice drift config (pitch / pan modes, amount,
+        /// period, quantize-to-scale). Was missing from the v1.0 schema
+        /// so neither drift motion nor the quantize-to-scale toggle
+        /// round-tripped through Save / Load. Optional for backward
+        /// compatibility — old saves get the per-voice default on load.
+        var drift: DriftVoiceConfig?
     }
 
     static func newId() -> String {

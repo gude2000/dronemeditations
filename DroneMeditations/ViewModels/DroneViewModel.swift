@@ -662,7 +662,8 @@ final class DroneViewModel: ObservableObject {
                 fm: o.fm, chorus: o.chorus, drive: o.drive,
                 startDelaySec: o.startDelaySec, playDurationSec: o.playDurationSec,
                 replayCount: o.replayCount,
-                grain: o.grain
+                grain: o.grain,
+                drift: o.drift   // v1.1 fix: include drift (was being dropped)
             )
         }
         let preset = UserPreset(
@@ -737,7 +738,19 @@ final class DroneViewModel: ObservableObject {
             } else if v.waveform != .sample {
                 setWaveform(v.waveform, for: i)
             }
+            // v1.1 fix: restore drift (incl. quantizeToScale). Old user
+            // presets saved before this field existed have v.drift == nil
+            // — fall through to the per-voice default so they behave as
+            // they did at save time (no drift, no quantize).
+            if let dr = v.drift {
+                oscillators[i].drift = dr
+                audioEngine.voices[i].pitchQuantizeToScale = dr.quantizeToScale
+            }
         }
+        // Refresh the snap cache so any voice with quantizeToScale on
+        // starts hearing the snap immediately, without waiting for the
+        // user to change chord / tuning / octave.
+        recomputeQuantizeScale()
         activePresetName = preset.name
     }
 
@@ -1318,7 +1331,7 @@ final class DroneViewModel: ObservableObject {
                 delay: v.delay, chorus: v.chorus,
                 fm: v.fm, grain: v.grain,
                 lfos: v.lfos.map(Optional.some),
-                drift: nil   // user presets don't capture drift in the snapshot
+                drift: v.drift   // v1.1 fix — user presets DO capture drift now
             )
         }
     }
