@@ -1098,7 +1098,11 @@ struct OscillatorStrip: View {
 
     /// Sheet state for the rename/save-name prompt.
     @State private var showingVoiceNamePrompt = false
-    @State private var voiceNameDraft: String = ""
+    /// v1.1 perf fix: voiceNameDraft is computed at tap time and
+    /// passed into SaveVoicePresetSheet as an initial value. The
+    /// sheet holds its own @State for the typed name so per-keystroke
+    /// updates don't re-evaluate this whole strip's body.
+    @State private var voiceNameSuggested: String = ""
 
     private var soloMuteCluster: some View {
         HStack(spacing: 8) {
@@ -1106,7 +1110,7 @@ struct OscillatorStrip: View {
             // load any previously saved preset into THIS slot.
             Menu {
                 Button {
-                    voiceNameDraft = "\(osc.waveform.displayName) \(String(format: "%.1f", osc.frequencyHz)) Hz"
+                    voiceNameSuggested = "\(osc.waveform.displayName) \(String(format: "%.1f", osc.frequencyHz)) Hz"
                     showingVoiceNamePrompt = true
                 } label: {
                     Label("Save OSC \(index + 1) as preset…", systemImage: "square.and.arrow.down")
@@ -1147,9 +1151,9 @@ struct OscillatorStrip: View {
             .sheet(isPresented: $showingVoiceNamePrompt) {
                 SaveVoicePresetSheet(
                     voiceIndex: index,
-                    name: $voiceNameDraft
-                ) {
-                    vm.saveCurrentVoiceAsPreset(index, name: voiceNameDraft)
+                    initialName: voiceNameSuggested
+                ) { trimmed in
+                    vm.saveCurrentVoiceAsPreset(index, name: trimmed)
                 }
                 .presentationDetents([.height(260)])
             }
@@ -1437,12 +1441,24 @@ private struct FrequencySlider: View {
 /// session rebind (because the keyboard claims an input route),
 /// causing an audible crackle/glitch through the playing drone.
 /// Mirrors the SavePresetSheet pattern from PresetPickerView.swift.
+///
+/// v1.1 perf fix: the typed name is the sheet's OWN @State, not a
+/// Binding from OscillatorStrip. Per-keystroke updates re-evaluate
+/// only this small sheet, never the parent strip's body (which has
+/// many sliders + LFO rows and was causing audio stutter during
+/// typing). The suggested initial name is passed in via init.
 private struct SaveVoicePresetSheet: View {
     @Environment(\.dismiss) private var dismiss
     let voiceIndex: Int
-    @Binding var name: String
-    let onSave: () -> Void
+    @State private var name: String
+    let onSave: (String) -> Void
     @FocusState private var nameFieldFocused: Bool
+
+    init(voiceIndex: Int, initialName: String, onSave: @escaping (String) -> Void) {
+        self.voiceIndex = voiceIndex
+        self._name = State(initialValue: initialName)
+        self.onSave = onSave
+    }
 
     var body: some View {
         NavigationStack {
@@ -1475,7 +1491,7 @@ private struct SaveVoicePresetSheet: View {
     private func save() {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
-        onSave()
+        onSave(trimmed)
         dismiss()
     }
 }

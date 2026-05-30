@@ -4,7 +4,13 @@ struct PresetPickerView: View {
     @EnvironmentObject var vm: DroneViewModel
     @Environment(\.dismiss) private var dismiss
     @State private var showingSaveAlert = false
-    @State private var newPresetName = ""
+    // v1.1 perf fix: do NOT hold the typed preset name as @State on this
+    // view. PresetPickerView's body contains the big ForEach over all
+    // bundled + user presets — re-evaluating it on every keystroke
+    // produced enough main-thread pressure to make the audio render
+    // thread stutter during typing. The name now lives inside
+    // SavePresetSheet (its own @State) and is emitted only when the
+    // user taps Save.
 
     var body: some View {
         NavigationStack {
@@ -102,7 +108,6 @@ struct PresetPickerView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Save Current") {
-                        newPresetName = ""
                         showingSaveAlert = true
                     }
                 }
@@ -117,8 +122,13 @@ struct PresetPickerView: View {
             // SwiftUI sheets stay in our process and don't disturb the
             // session.
             .sheet(isPresented: $showingSaveAlert) {
-                SavePresetSheet(name: $newPresetName) {
-                    vm.saveCurrentAsUserPreset(named: newPresetName)
+                // v1.1 perf fix: the name lives in SavePresetSheet's own
+                // @State now, not as a Binding from this parent. The
+                // typed value is only emitted via the onSave closure,
+                // so per-keystroke updates don't re-render the big
+                // ForEach over presets above.
+                SavePresetSheet { trimmed in
+                    vm.saveCurrentAsUserPreset(named: trimmed)
                 }
                 .presentationDetents([.height(260)])
             }
@@ -131,10 +141,17 @@ struct PresetPickerView: View {
 /// system .alert() (which caused audible crackle from audio-session
 /// keyboard handoff). Submits on Save tap or Enter; Cancel closes
 /// without saving.
+///
+/// v1.1 perf fix: the typed name is held as the sheet's OWN @State
+/// (not a Binding from the parent picker). Per-keystroke updates
+/// re-evaluate only this small sheet's body, never the parent
+/// PresetPickerView's big ForEach over presets — which used to
+/// re-build every preset row on every character and stutter the
+/// audio render thread.
 private struct SavePresetSheet: View {
     @Environment(\.dismiss) private var dismiss
-    @Binding var name: String
-    let onSave: () -> Void
+    @State private var name: String = ""
+    let onSave: (String) -> Void
     @FocusState private var nameFieldFocused: Bool
 
     var body: some View {
@@ -174,7 +191,7 @@ private struct SavePresetSheet: View {
     private func save() {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
-        onSave()
+        onSave(trimmed)
         dismiss()
     }
 }
