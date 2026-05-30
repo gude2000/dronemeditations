@@ -36,6 +36,8 @@ Features built after the v1.0 App Store submission was sent for review. This lis
 
   Presets gain four new optional voice fields — `bundledSampleName`, `sampleGranular`, `grainSamplePosFrac`, `grainSamplePosJitter` — so built-in presets can auto-load samples and configure granular settings. Old presets work unchanged. (commit `b83ce79`)
 
+- **SwiftUI per-voice observation** — each `OscillatorStrip` now subscribes to its own `OscillatorVoice` `ObservableObject` instead of pulling state from the global view-model. Result: dragging a slider on OSC 1 no longer triggers `body` recomputation on OSC 2 / 3 / 4 — **~4× less SwiftUI work per slider frame** on a typical four-voice patch. Combined with the audio-thread bypass guards above, this should largely resolve the "crackling during parameter drags" symptom that came up after the v1.1 features piled on. (commit `f405d2c`)
+
 ### Web app parity
 
 - v1.0 features now run on the web app too: Replay × N in the ⏱ Timing menu, Randomize-all dice + Undo at the end of the OSC nav row, modal chord templates in the chord picker, global BPM with delay sync. (commits `67e5e6d`, `346aa9d`, `ed09ca9`)
