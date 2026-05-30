@@ -340,6 +340,9 @@ export class AudioEngine {
           // fades out over 8s once it's played that long. 0 = no fade-out.
           startDelaySec: v.startDelaySec || 0,
           playDurationSec: v.playDurationSec || 0,
+          // Replay cycles for the timing envelope. 1 = play once (the
+          // v1.0 default), 2/3/5/10 = repeat N times, 0 = ∞.
+          replayCount: (v.replayCount != null) ? v.replayCount : 1,
           // Granular synth params. Only audible when waveform === "granular".
           // The tick scheduler reads these on every tick to queue future
           // grain envelopes via setValueAtTime / linearRampToValueAtTime.
@@ -556,6 +559,7 @@ export class AudioEngine {
     const v = this.voices[i]; if (!v || !v.envelopeGain) return;
     const startDelay = v.params.startDelaySec || 0;
     const playDur    = v.params.playDurationSec || 0;
+    const replayCount = (v.params.replayCount != null) ? v.params.replayCount : 1;
     const elapsed    = this.transportElapsed;
     // Default-skip: no envelope settings AND transport stopped → leave at 1.0.
     if (startDelay <= 0 && playDur <= 0) {
@@ -573,15 +577,40 @@ export class AudioEngine {
       // Transport stopped/paused — leave whatever was there. The master
       // fadeOut covers actual silence; we don't fight it here.
       return;
-    } else if (elapsed < startDelay) {
-      target = 0;
-    } else if (elapsed < startDelay + FADE) {
-      target = (elapsed - startDelay) / FADE;
-    } else if (playDur > 0 && elapsed >= startDelay + playDur) {
-      const fadeOutElapsed = elapsed - (startDelay + playDur);
-      target = fadeOutElapsed >= FADE ? 0 : 1 - (fadeOutElapsed / FADE);
     } else {
-      target = 1;
+      // Cycle-modular time when replayCount != 1. Each cycle =
+      // startDelay (silence) + playDuration (audible, fade-in + full +
+      // fade-out). After all repeats finish, env is silent forever.
+      // ∞ (replayCount === 0) just keeps cycling — the master fade-out
+      // at session end handles real silence.
+      const cycleLen = startDelay + Math.max(0, playDur);
+      const infiniteReplay = (replayCount === 0);
+      const useCycles = (replayCount !== 1) && playDur > 0 && cycleLen > 0;
+      let t;
+      let beyondAll = false;
+      if (useCycles) {
+        const cycleIdx = Math.floor(elapsed / cycleLen);
+        if (!infiniteReplay && cycleIdx >= replayCount) {
+          beyondAll = true;
+          t = 0;
+        } else {
+          t = elapsed - cycleIdx * cycleLen;
+        }
+      } else {
+        t = elapsed;
+      }
+      if (beyondAll) {
+        target = 0;
+      } else if (t < startDelay) {
+        target = 0;
+      } else if (t < startDelay + FADE) {
+        target = (t - startDelay) / FADE;
+      } else if (playDur > 0 && t >= startDelay + playDur) {
+        const fadeOutElapsed = t - (startDelay + playDur);
+        target = fadeOutElapsed >= FADE ? 0 : 1 - (fadeOutElapsed / FADE);
+      } else {
+        target = 1;
+      }
     }
     if (v._envTarget == null || Math.abs(v._envTarget - target) > 0.005) {
       v._envTarget = target;
@@ -906,6 +935,14 @@ export class AudioEngine {
   setPlayDuration(index, sec) {
     const v = this.voices[index]; if (!v) return;
     v.params.playDurationSec = Math.max(0, sec || 0);
+  }
+  /// Replay cycles for the timing envelope. 1 (default) = play once,
+  /// 2/3/5/10 = repeat N times, 0 = ∞. Only meaningful when
+  /// playDurationSec > 0 (otherwise the voice plays forever from the
+  /// first cycle). Mirrors the iOS Voice.replayCount field.
+  setReplayCount(index, count) {
+    const v = this.voices[index]; if (!v) return;
+    v.params.replayCount = Math.max(0, Math.min(99, Math.floor(count ?? 1)));
   }
 
   // ───── Drive (per-voice tanh saturation) ─────────────

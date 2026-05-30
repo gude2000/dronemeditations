@@ -88,6 +88,16 @@
       <button type="button" class="osc-nav-pill" data-osc-nav="1">OSC 2</button>
       <button type="button" class="osc-nav-pill" data-osc-nav="2">OSC 3</button>
       <button type="button" class="osc-nav-pill" data-osc-nav="3">OSC 4</button>
+      <!-- Randomize-all + Undo (mirrors the iOS top-of-OSC-bar dice +
+           undo). Tap dice to roll every voice + pick a fresh chord;
+           Undo restores the previous patch byte-for-byte (single-level
+           undo, clears itself after one use). -->
+      <button type="button" class="osc-nav-action" id="randomize-all-btn"
+              title="Randomize all four voices + pick a new chord (volumes preserved)"
+              aria-label="Randomize all voices">⚄</button>
+      <button type="button" class="osc-nav-action" id="undo-randomize-btn"
+              title="Undo the most recent Randomize All"
+              aria-label="Undo last randomize-all" disabled>↶</button>
     </nav>
 
     <section id="oscillator-strips" class="strips" aria-label="Oscillators"></section>

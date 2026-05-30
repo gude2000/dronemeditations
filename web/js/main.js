@@ -121,10 +121,10 @@ const defaultDrift  = () => ({
 
 const state = {
   oscillators: [
-    { id: 0, frequencyHz: 110.00, waveform: "sine", amplitude: 0.6,  pan: -0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), grain: defaultGrain(), sampleName: null, startDelaySec: 0, playDurationSec: 0, sampleStartFrac: 0, sampleEndFrac: 1, sampleFadeInSec: 0, sampleFadeOutSec: 0 },
-    { id: 1, frequencyHz: 165.00, waveform: "sine", amplitude: 0.6,  pan:  0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), grain: defaultGrain(), sampleName: null, startDelaySec: 0, playDurationSec: 0, sampleStartFrac: 0, sampleEndFrac: 1, sampleFadeInSec: 0, sampleFadeOutSec: 0 },
-    { id: 2, frequencyHz: 220.00, waveform: "sine", amplitude: 0.55, pan: -0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), grain: defaultGrain(), sampleName: null, startDelaySec: 0, playDurationSec: 0, sampleStartFrac: 0, sampleEndFrac: 1, sampleFadeInSec: 0, sampleFadeOutSec: 0 },
-    { id: 3, frequencyHz: 277.18, waveform: "sine", amplitude: 0.5,  pan:  0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), grain: defaultGrain(), sampleName: null, startDelaySec: 0, playDurationSec: 0, sampleStartFrac: 0, sampleEndFrac: 1, sampleFadeInSec: 0, sampleFadeOutSec: 0 }
+    { id: 0, frequencyHz: 110.00, waveform: "sine", amplitude: 0.6,  pan: -0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), grain: defaultGrain(), sampleName: null, startDelaySec: 0, playDurationSec: 0, replayCount: 1, sampleStartFrac: 0, sampleEndFrac: 1, sampleFadeInSec: 0, sampleFadeOutSec: 0 },
+    { id: 1, frequencyHz: 165.00, waveform: "sine", amplitude: 0.6,  pan:  0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), grain: defaultGrain(), sampleName: null, startDelaySec: 0, playDurationSec: 0, replayCount: 1, sampleStartFrac: 0, sampleEndFrac: 1, sampleFadeInSec: 0, sampleFadeOutSec: 0 },
+    { id: 2, frequencyHz: 220.00, waveform: "sine", amplitude: 0.55, pan: -0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), grain: defaultGrain(), sampleName: null, startDelaySec: 0, playDurationSec: 0, replayCount: 1, sampleStartFrac: 0, sampleEndFrac: 1, sampleFadeInSec: 0, sampleFadeOutSec: 0 },
+    { id: 3, frequencyHz: 277.18, waveform: "sine", amplitude: 0.5,  pan:  0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), grain: defaultGrain(), sampleName: null, startDelaySec: 0, playDurationSec: 0, replayCount: 1, sampleStartFrac: 0, sampleEndFrac: 1, sampleFadeInSec: 0, sampleFadeOutSec: 0 }
   ],
   keyId: 9,         // A
   octave: 3,
@@ -135,6 +135,12 @@ const state = {
   showChladni: true,
   showSpectrum: false,
   activePresetName: null,
+
+  // Randomize-all snapshot (single-level undo). Captured by
+  // actions.randomizeAll just before it rolls; consumed by
+  // actions.undoRandomize and then cleared.
+  preRandomizeSnapshot: null,
+  canUndoRandomize: false,
 
   // Transport
   transportState: "stopped",  // "stopped" | "playing" | "paused"
@@ -275,10 +281,13 @@ const actions = {
       // immediately, play forever" which matches the default state.
       const startDelay = (v.startDelaySec != null) ? v.startDelaySec : 0;
       const playDur    = (v.playDurationSec != null) ? v.playDurationSec : 0;
+      const replayCount = (v.replayCount != null) ? v.replayCount : 1;
       state.oscillators[i].startDelaySec = startDelay;
       state.oscillators[i].playDurationSec = playDur;
+      state.oscillators[i].replayCount = replayCount;
       engine.setStartDelay(i, startDelay);
       engine.setPlayDuration(i, playDur);
+      engine.setReplayCount(i, replayCount);
       if (v.reverb) {
         const r = { ...defaultReverb(), ...v.reverb };
         state.oscillators[i].reverb = r;
@@ -619,6 +628,14 @@ const actions = {
     const clamped = Math.max(0, Math.min(60 * 60, sec || 0));
     state.oscillators[oscIndex].playDurationSec = clamped;
     engine.setPlayDuration(oscIndex, clamped);
+    renderAll();
+  },
+  /// Replay cycles for the timing envelope. 1 = play once (the default),
+  /// 2/3/5/10 = repeat N times, 0 = ∞. Only meaningful when playDur > 0.
+  setReplayCount(oscIndex, count) {
+    const clamped = Math.max(0, Math.min(99, Math.floor(count ?? 1)));
+    state.oscillators[oscIndex].replayCount = clamped;
+    engine.setReplayCount(oscIndex, clamped);
     renderAll();
   },
 
@@ -994,6 +1011,7 @@ const actions = {
       actions.setDrive(i, (o.drive != null) ? o.drive : 1.0);
       actions.setStartDelay(i,    o.startDelaySec   || 0);
       actions.setPlayDuration(i,  o.playDurationSec || 0);
+      actions.setReplayCount(i,   (o.replayCount != null) ? o.replayCount : 1);
       actions.setFMSource(i, fm.sourceIndex);
       actions.setFMIndex(i, fm.index);
       actions.setChorusRate(i, chorus.rateHz);
@@ -1143,6 +1161,7 @@ const actions = {
     engine.setDrive(oscIndex, o.drive);
     engine.setStartDelay(oscIndex, o.startDelaySec);
     engine.setPlayDuration(oscIndex, o.playDurationSec);
+    engine.setReplayCount(oscIndex, (o.replayCount != null) ? o.replayCount : 1);
     engine.setFMSource(oscIndex, o.fm.sourceIndex);
     engine.setFMIndex(oscIndex, o.fm.index);
     engine.setChorusRate(oscIndex, o.chorus.rateHz);
@@ -1271,6 +1290,96 @@ const actions = {
 
     // Clear preset selection — randomization makes us "dirty".
     state.activePresetName = null;
+    renderAll();
+  },
+
+  /// Randomize ALL four voices in one tap, then pick a fresh chord — the
+  /// "dice next to OSC pills" feature. Preserves master amplitudes so the
+  /// mix doesn't suddenly blast or vanish. Snapshots the entire pre-roll
+  /// state into `state.preRandomizeSnapshot` so `undoRandomize` can
+  /// restore it byte-for-byte. Single-level undo (one snapshot — the
+  /// most recent randomize).
+  randomizeAll() {
+    // Deep-snapshot oscillators + chord/key so undo restores exactly
+    // what was here a moment ago. JSON round-trip is fine — no
+    // functions, no DOM refs in the snapshot.
+    state.preRandomizeSnapshot = {
+      oscillators: JSON.parse(JSON.stringify(state.oscillators)),
+      keyId: state.keyId,
+      chordId: state.chordId,
+      octave: state.octave
+    };
+    state.canUndoRandomize = true;
+    // Preserve master amps across the dice roll.
+    const savedAmps = state.oscillators.map((o) => o.amplitude);
+    for (let i = 0; i < state.oscillators.length; i++) {
+      actions.randomizeOscillator(i);
+      actions.setAmplitude(i, savedAmps[i]);
+    }
+    // Pick a new chord (random root + chord type) — gives the whole
+    // patch a fresh tonal context to match the rolled FX/LFO settings.
+    // Restrict to the musical "Triads & 7ths" + a few Extensions so
+    // we don't land on diminished / half-diminished / chromatic
+    // clusters that fight any random FX roll.
+    const newRoot = Math.floor(Math.random() * 12);   // 0..11 matches KEYS[id]
+    const goodChordIds = ["maj","min","sus2","sus4","maj7","min7","mMaj7","add9","min_add9","6","min6"];
+    const newChordId = goodChordIds[Math.floor(Math.random() * goodChordIds.length)];
+    actions.setKey(newRoot);
+    actions.setChord(newChordId);
+    renderAll();
+  },
+
+  /// Restore the snapshot captured by the most recent `randomizeAll`.
+  /// Single-level — taking undo clears the snapshot, so undoing twice
+  /// is a no-op. Mirrors the iOS DroneViewModel.undoRandomize behavior.
+  undoRandomize() {
+    if (!state.canUndoRandomize || !state.preRandomizeSnapshot) return;
+    const snap = state.preRandomizeSnapshot;
+    // Restore each voice's full state by pushing every field through
+    // the public setters so the engine reconciles.
+    for (let i = 0; i < snap.oscillators.length; i++) {
+      const o = snap.oscillators[i];
+      state.oscillators[i] = JSON.parse(JSON.stringify(o));
+      actions.setFrequency(i, o.frequencyHz);
+      actions.setWaveform(i, o.waveform);
+      actions.setAmplitude(i, o.amplitude);
+      actions.setPan(i, o.pan);
+      actions.setFilterType(i, o.filter.type);
+      actions.setFilterCutoff(i, o.filter.cutoffHz);
+      actions.setFilterQ(i, o.filter.q);
+      actions.setDrive(i, o.drive ?? 1.0);
+      actions.setReverbDecay(i, o.reverb.decaySec);
+      actions.setReverbMix(i, o.reverb.mix);
+      actions.setDelayTime(i, o.delay.timeSec);
+      actions.setDelayFeedback(i, o.delay.feedback);
+      actions.setDelayMix(i, o.delay.mix);
+      actions.setChorusRate(i, o.chorus.rateHz);
+      actions.setChorusDepth(i, o.chorus.depth);
+      actions.setChorusWidth(i, o.chorus.width);
+      actions.setChorusMix(i, o.chorus.mix);
+      actions.setFMSource(i, o.fm.sourceIndex);
+      actions.setFMIndex(i, o.fm.index);
+      actions.setStartDelay(i, o.startDelaySec || 0);
+      actions.setPlayDuration(i, o.playDurationSec || 0);
+      actions.setReplayCount(i, (o.replayCount != null) ? o.replayCount : 1);
+      for (let lfo = 0; lfo < o.lfos.length; lfo++) {
+        actions.setLfoShape(i, lfo, o.lfos[lfo].shape);
+        actions.setLfoTarget(i, lfo, (o.lfos[lfo].targets || ["pan"])[0]);
+        actions.setLfoRate(i, lfo, o.lfos[lfo].rateHz);
+        actions.setLfoDepth(i, lfo, o.lfos[lfo].depth);
+      }
+      actions.setVoicePitchDrift(i, o.drift.pitchMode || "static");
+      actions.setVoicePanDrift(i, o.drift.panMode || "static");
+    }
+    // Restore the chord / key / octave too.
+    if (snap.keyId != null)    actions.setKey(snap.keyId);
+    if (snap.chordId != null)  actions.setChord(snap.chordId);
+    if (snap.octave != null && typeof actions.setOctave === "function") {
+      actions.setOctave(snap.octave);
+    }
+    // Single-level undo — clear the snapshot after applying it.
+    state.preRandomizeSnapshot = null;
+    state.canUndoRandomize = false;
     renderAll();
   }
 };

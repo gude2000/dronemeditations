@@ -54,6 +54,26 @@ export function initUI(state, actions) {
     });
   });
 
+  // Randomize-all + Undo, mirrors the iOS dice/undo at the top of the
+  // OSC bar. Dice rolls every voice + picks a fresh chord; Undo
+  // restores the snapshot captured by the most recent roll.
+  const diceBtn = document.getElementById("randomize-all-btn");
+  const undoBtn = document.getElementById("undo-randomize-btn");
+  if (diceBtn) {
+    diceBtn.addEventListener("click", () => {
+      dispatch.randomizeAll();
+      // Enable the undo button now that a snapshot exists.
+      if (undoBtn) undoBtn.disabled = false;
+    });
+  }
+  if (undoBtn) {
+    undoBtn.addEventListener("click", () => {
+      dispatch.undoRandomize();
+      // Single-level undo — disable until the next roll.
+      undoBtn.disabled = true;
+    });
+  }
+
   // Build modal sheet contents (static lists with selected-state toggling).
   buildKeyGrid();
   buildTuningGrid();
@@ -2127,6 +2147,7 @@ function openTimingMenu(e, voiceIndex) {
   const o = getState().oscillators[voiceIndex];
   const curStart = o.startDelaySec || 0;
   const curPlay  = o.playDurationSec || 0;
+  const curReplay = (o.replayCount != null) ? o.replayCount : 1;
 
   const rect = e.currentTarget.getBoundingClientRect();
   menu = document.createElement("div");
@@ -2165,13 +2186,36 @@ function openTimingMenu(e, voiceIndex) {
     { label: "20 min", sec: 1200 }
   ];
 
+  // Replay chips — count: 1 = Once (default), 2/3/5/10 = repeat N times, 0 = ∞.
+  // Only meaningful when Play duration > 0; we show them always for
+  // discoverability.
+  const replayPresets = [
+    { label: "Once", count: 1 },
+    { label: "× 2",  count: 2 },
+    { label: "× 3",  count: 3 },
+    { label: "× 5",  count: 5 },
+    { label: "× 10", count: 10 },
+    { label: "∞",    count: 0 }
+  ];
+
   const fmtStart = (s) => s === 0 ? "Now" : (s < 60 ? `${s}s` : `${Math.round(s/60)}m`);
   const fmtPlay  = (s) => s === 0 ? "Forever" : `${Math.round(s/60)}m`;
+  const fmtReplay = (n) => n === 1 ? "once" : (n === 0 ? "∞" : `× ${n}`);
 
   const renderChips = (group, selected, fmt, onPick) =>
     group.map((p) => {
       const sel = p.sec === selected;
       return `<button type="button" data-sec="${p.sec}"
+        style="padding:5px 10px;border-radius:999px;border:0;cursor:pointer;font-size:11px;font-weight:600;
+               background:${sel ? "var(--accent,#6aa9ff)" : "rgba(255,255,255,0.08)"};
+               color:${sel ? "#fff" : "rgba(255,255,255,0.85)"}">${p.label}</button>`;
+    }).join(" ");
+  // Replay chips keyed by `count` rather than `sec` so the click handler
+  // can distinguish them from the start / play chip groups above.
+  const renderReplayChips = (group, selected) =>
+    group.map((p) => {
+      const sel = p.count === selected;
+      return `<button type="button" data-count="${p.count}"
         style="padding:5px 10px;border-radius:999px;border:0;cursor:pointer;font-size:11px;font-weight:600;
                background:${sel ? "var(--accent,#6aa9ff)" : "rgba(255,255,255,0.08)"};
                color:${sel ? "#fff" : "rgba(255,255,255,0.85)"}">${p.label}</button>`;
@@ -2186,6 +2230,11 @@ function openTimingMenu(e, voiceIndex) {
     <div style="font-size:10px;letter-spacing:0.10em;text-transform:uppercase;color:rgba(255,255,255,0.55);margin-bottom:6px">Play duration</div>
     <div id="timing-play-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${
       renderChips(playPresets, curPlay, fmtPlay)
+    }</div>
+
+    <div style="font-size:10px;letter-spacing:0.10em;text-transform:uppercase;color:rgba(255,255,255,0.55);margin-bottom:6px">Replay</div>
+    <div id="timing-replay-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${
+      renderReplayChips(replayPresets, curReplay)
     }</div>
 
     <div style="display:flex;gap:8px;align-items:center;font-size:11px;color:rgba(255,255,255,0.65);margin-top:4px">
@@ -2207,9 +2256,11 @@ function openTimingMenu(e, voiceIndex) {
     const o2 = getState().oscillators[voiceIndex];
     const s = o2.startDelaySec || 0;
     const p = o2.playDurationSec || 0;
+    const r = (o2.replayCount != null) ? o2.replayCount : 1;
     const part1 = s > 0 ? `starts at ${fmtStart(s)}` : "starts immediately";
     const part2 = p > 0 ? `fades out after ${fmtPlay(p)}` : "plays forever";
-    menu.querySelector("#timing-summary").textContent = `Voice ${voiceIndex + 1} ${part1}, ${part2}`;
+    const part3 = (p > 0 && r !== 1) ? `, replays ${fmtReplay(r)}` : "";
+    menu.querySelector("#timing-summary").textContent = `Voice ${voiceIndex + 1} ${part1}, ${part2}${part3}`;
   };
   updateSummary();
 
@@ -2223,6 +2274,13 @@ function openTimingMenu(e, voiceIndex) {
   menu.querySelectorAll('#timing-play-chips [data-sec]').forEach((btn) => {
     btn.addEventListener("click", () => {
       dispatch.setPlayDuration(voiceIndex, parseFloat(btn.dataset.sec));
+      menu.remove();
+      openTimingMenu(e, voiceIndex);
+    });
+  });
+  menu.querySelectorAll('#timing-replay-chips [data-count]').forEach((btn) => {
+    btn.addEventListener("click", () => {
+      dispatch.setReplayCount(voiceIndex, parseInt(btn.dataset.count, 10));
       menu.remove();
       openTimingMenu(e, voiceIndex);
     });

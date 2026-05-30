@@ -208,6 +208,27 @@ body:has(.controls.hidden) #zoom-wrap,
   background: rgba(255, 255, 255, 0.16);
   color: #fff;
 }
+/* Randomize-all dice + Undo at the end of the OSC nav row. Same shape
+   as the nav pills but with an icon glyph instead of a text label. */
+.osc-nav-action {
+  font-size: 13px; line-height: 1;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.86);
+  cursor: pointer;
+  transition: background 100ms ease, color 100ms ease, opacity 100ms ease;
+  margin-left: 4px;
+}
+.osc-nav-action:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.20);
+  color: #fff;
+}
+.osc-nav-action:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
 .pill {
   display: inline-flex; align-items: center; gap: 8px;
   background: rgba(255, 255, 255, 0.10);
