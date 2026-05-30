@@ -38,6 +38,8 @@ Features built after the v1.0 App Store submission was sent for review. This lis
 
 - **SwiftUI per-voice observation** — each `OscillatorStrip` now subscribes to its own `OscillatorVoice` `ObservableObject` instead of pulling state from the global view-model. Result: dragging a slider on OSC 1 no longer triggers `body` recomputation on OSC 2 / 3 / 4 — **~4× less SwiftUI work per slider frame** on a typical four-voice patch. Combined with the audio-thread bypass guards above, this should largely resolve the "crackling during parameter drags" symptom that came up after the v1.1 features piled on. (commit `f405d2c`)
 
+- **Cycle-end reverb bloom** — the fade-out at the end of each timing cycle (one-shot ending, or every cycle when Replay × N > 1) goes from a flat 8-second linear ramp to a 10-second smoothstep with a trapezoidal wet-reverb bloom: wet ramps to 1.5× over the first 3 s, plateaus for 1.5 s, then settles back to 0.3× over the remaining 5.5 s while the gain envelope smoothstep-fades to 0. Every replay cycle now ends with the same "atmospheric stop bloom" character the global transport Stop produces — but per voice, per cycle. Fade-in stays 8 s linear; that already felt right. (commit `f3f4ff0`)
+
 ### Web app parity
 
 - v1.0 features now run on the web app too: Replay × N in the ⏱ Timing menu, Randomize-all dice + Undo at the end of the OSC nav row, modal chord templates in the chord picker, global BPM with delay sync. (commits `67e5e6d`, `346aa9d`, `ed09ca9`)
