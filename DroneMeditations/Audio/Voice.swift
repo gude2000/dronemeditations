@@ -526,8 +526,9 @@ final class Voice {
             envTarget = 1.0
             wetBloomTarget = 1.0
         } else {
-            let fadeIn:  Double = 8.0     // unchanged — linear fade-in feels right
-            let fadeOut: Double = 10.0    // v1.1 — slightly longer than v1.0 + smoothstep
+            let fadeInFirst: Double = 8.0   // first cycle — slow meditative onset
+            let fadeInLoop:  Double = 4.0   // v1.1 — snappier rebloom on cycles 2+
+            let fadeOut:     Double = 10.0  // v1.1 — smoothstep + reverb bloom
             // One full cycle = startDelay (silence) + playDuration
             // (audible window, including the fade-in/fade-out lobes
             // taken from inside the play duration). Use cycle-modular
@@ -536,10 +537,11 @@ final class Voice {
             let cycleLen = startDelaySec + max(0, playDurationSec)
             let infiniteReplay = (replayCount == 0)
             let useCycles = (replayCount != 1) && playDurationSec > 0 && cycleLen > 0
-            let t: Double      // time within the active cycle
+            let t: Double         // time within the active cycle
+            let cycleIdx: Int     // 0 on the first cycle, ≥ 1 on subsequent
             let beyondAll: Bool
             if useCycles {
-                let cycleIdx = Int(transportElapsed / cycleLen)
+                cycleIdx = Int(transportElapsed / cycleLen)
                 if !infiniteReplay && cycleIdx >= replayCount {
                     beyondAll = true
                     t = 0
@@ -548,17 +550,22 @@ final class Voice {
                     t = transportElapsed.truncatingRemainder(dividingBy: cycleLen)
                 }
             } else {
+                cycleIdx = 0
                 beyondAll = false
                 t = transportElapsed
             }
+            // v1.1: shorter fade-in on cycle re-blooms (cycle index ≥ 1)
+            // so the rhythmic feel of Replay × N is preserved without the
+            // slow "meditative onset" repeating every time.
+            let activeFadeIn = (cycleIdx > 0) ? fadeInLoop : fadeInFirst
             if beyondAll {
                 envTarget = 0
                 wetBloomTarget = 1.0
             } else if t < startDelaySec {
                 envTarget = 0
                 wetBloomTarget = 1.0
-            } else if t < startDelaySec + fadeIn {
-                envTarget = (t - startDelaySec) / fadeIn
+            } else if t < startDelaySec + activeFadeIn {
+                envTarget = (t - startDelaySec) / activeFadeIn
                 wetBloomTarget = 1.0
             } else if playDurationSec > 0 && t >= startDelaySec + playDurationSec {
                 // Fade-out portion of the cycle (or one-shot ending).
