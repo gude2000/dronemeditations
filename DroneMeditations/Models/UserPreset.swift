@@ -39,6 +39,9 @@ struct UserPreset: Identifiable, Codable, Equatable {
         /// Per-voice timing envelope. nil = play immediately / forever.
         var startDelaySec: Double?
         var playDurationSec: Double?
+        /// Replay cycles for the timing envelope. nil = play once (the
+        /// v1.0 default). 2/3/5 = repeat N times. 0 = ∞.
+        var replayCount: Int?
         /// Granular settings (T14). Optional for backward compat with presets
         /// saved before the granular waveform existed.
         var grain: GrainState?

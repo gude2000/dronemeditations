@@ -61,6 +61,14 @@ final class Voice {
     // granularity isn't audible there.
     var startDelaySec: Double = 0
     var playDurationSec: Double = 0
+    /// Number of times to repeat the [startDelay → play → fade] cycle
+    /// before going silent forever. 1 (default) = play once and stop —
+    /// preserves the v1.0 behavior for every existing preset. 2 / 3 / 5 =
+    /// replay N times. 0 = sentinel for ∞ (repeat forever; transport
+    /// fade-out at session end handles the actual silencing).
+    /// Only meaningful when playDurationSec > 0 (otherwise there's
+    /// nothing to repeat — voice plays forever from startDelay).
+    var replayCount: Int = 1
     var transportElapsed: Double = .nan
     /// Slewed-from value of the timing-envelope multiplier; per-sample
     /// interpolation from this to the per-buffer target avoids clicks
@@ -428,11 +436,20 @@ final class Voice {
 
         // Per-voice timing envelope target for this buffer. Smoothed per-
         // sample below by interpolating from currentTimingEnv → envTarget
-        // across the buffer so toggles don't click. Math: silent before
-        // startDelay; 8-second fade-in; full; optional 8-second fade-out
-        // after playDuration; then silent. transportElapsed = NaN means
-        // transport stopped — leave the multiplier alone (master fadeOut
-        // handles real silence).
+        // across the buffer so toggles don't click.
+        //
+        // Single-cycle math: silent before startDelay; 8-second fade-in;
+        // full; optional 8-second fade-out after playDuration; then silent.
+        //
+        // With replayCount > 1 (or 0 for ∞), the cycle [startDelay → play
+        // → fade] repeats. We compute the cycle index from transportElapsed
+        // and apply the single-cycle envelope to the within-cycle position.
+        // After all repeats finish (cycleIdx >= replayCount), envelope is
+        // silent forever. The transport's master fade-out at session end
+        // handles the ∞ case gracefully.
+        //
+        // transportElapsed = NaN means transport stopped — leave the
+        // multiplier alone (master fadeOut handles real silence).
         let envTarget: Double
         if !transportElapsed.isFinite {
             envTarget = currentTimingEnv
@@ -440,12 +457,37 @@ final class Voice {
             envTarget = 1.0
         } else {
             let fade = 8.0
-            if transportElapsed < startDelaySec {
+            // One full cycle = startDelay (silence) + playDuration
+            // (audible window, including the fade-in/fade-out lobes
+            // taken from inside the play duration). Use cycle-modular
+            // time when replayCount != 1; otherwise use absolute time
+            // (legacy one-shot behavior).
+            let cycleLen = startDelaySec + max(0, playDurationSec)
+            let infiniteReplay = (replayCount == 0)
+            let useCycles = (replayCount != 1) && playDurationSec > 0 && cycleLen > 0
+            let t: Double      // time within the active cycle
+            let beyondAll: Bool
+            if useCycles {
+                let cycleIdx = Int(transportElapsed / cycleLen)
+                if !infiniteReplay && cycleIdx >= replayCount {
+                    beyondAll = true
+                    t = 0
+                } else {
+                    beyondAll = false
+                    t = transportElapsed.truncatingRemainder(dividingBy: cycleLen)
+                }
+            } else {
+                beyondAll = false
+                t = transportElapsed
+            }
+            if beyondAll {
                 envTarget = 0
-            } else if transportElapsed < startDelaySec + fade {
-                envTarget = (transportElapsed - startDelaySec) / fade
-            } else if playDurationSec > 0 && transportElapsed >= startDelaySec + playDurationSec {
-                let foe = transportElapsed - (startDelaySec + playDurationSec)
+            } else if t < startDelaySec {
+                envTarget = 0
+            } else if t < startDelaySec + fade {
+                envTarget = (t - startDelaySec) / fade
+            } else if playDurationSec > 0 && t >= startDelaySec + playDurationSec {
+                let foe = t - (startDelaySec + playDurationSec)
                 envTarget = foe >= fade ? 0 : 1 - (foe / fade)
             } else {
                 envTarget = 1

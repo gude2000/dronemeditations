@@ -27,6 +27,8 @@ struct VoicePreset: Codable, Identifiable {
         var drive: Double?
         var startDelaySec: Double?
         var playDurationSec: Double?
+        /// Replay cycles for the timing envelope. nil = play once.
+        var replayCount: Int?
         // Granular settings (T14). Optional for backward compat.
         var grain: GrainState?
     }

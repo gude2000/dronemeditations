@@ -549,6 +549,23 @@ struct OscillatorStrip: View {
             }
         }
     }
+    /// Replay-cycle chip in the timing menu. Tapping sets replayCount —
+    /// 1 = play once (default), 2/3/5 = repeat N times, 0 = ∞.
+    /// Only meaningful when playDuration > 0; the menu still shows the
+    /// chips for discoverability but the engine treats anything other
+    /// than 1 as a no-op when duration is Forever.
+    @ViewBuilder
+    private func timingReplayButton(label: String, count: Int) -> some View {
+        Button {
+            vm.setReplayCount(count, for: index)
+        } label: {
+            if osc.replayCount == count {
+                Label(label, systemImage: "checkmark")
+            } else {
+                Text(label)
+            }
+        }
+    }
 
     /// "Amount" chip in the drift menu. Tapping sets the per-voice pitch
     /// drift amplitude in semitones (nil = use mode default).
@@ -1162,8 +1179,22 @@ struct OscillatorStrip: View {
                     timingPlayButton(label: "15 min",   sec: 900)
                     timingPlayButton(label: "20 min",   sec: 1200)
                 }
+                // Replay × N — repeat the [startDelay → play] cycle.
+                // Only meaningful when Play duration > 0 (otherwise the
+                // voice plays forever from the first cycle anyway), but
+                // we always show the section for discoverability.
+                Section("OSC \(index + 1) · Replay") {
+                    timingReplayButton(label: "Once",   count: 1)
+                    timingReplayButton(label: "× 2",    count: 2)
+                    timingReplayButton(label: "× 3",    count: 3)
+                    timingReplayButton(label: "× 5",    count: 5)
+                    timingReplayButton(label: "× 10",   count: 10)
+                    timingReplayButton(label: "∞",      count: 0)
+                }
             } label: {
-                let active = osc.startDelaySec > 0 || osc.playDurationSec > 0
+                let active = osc.startDelaySec > 0
+                    || osc.playDurationSec > 0
+                    || osc.replayCount != 1
                 Image(systemName: active ? "clock.fill" : "clock")
                     .font(.system(.caption, design: .rounded).weight(.heavy))
                     .frame(width: 26, height: 26)

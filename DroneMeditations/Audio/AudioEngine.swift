@@ -829,6 +829,13 @@ final class AudioEngine {
         guard voices.indices.contains(voiceIndex) else { return }
         voices[voiceIndex].playDurationSec = max(0, min(3600, sec))
     }
+    /// Replay cycles for the timing envelope. 1 (default) = play once,
+    /// 2/3/5 = repeat N times, 0 = ∞. Clamped to [0, 99] — anything beyond
+    /// a few dozen would never finish in a normal session anyway.
+    func setReplayCount(_ count: Int, for voiceIndex: Int) {
+        guard voices.indices.contains(voiceIndex) else { return }
+        voices[voiceIndex].replayCount = max(0, min(99, count))
+    }
 
     /// 1.0 = no drive; up to ~12 for heavy saturation. Lower-only clamp so
     /// negative values can't invert the waveshaper.

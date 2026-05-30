@@ -319,6 +319,12 @@ struct OscillatorState: Identifiable, Equatable {
     /// stagger voice introductions across a meditation or journey.
     var startDelaySec: Double = 0
     var playDurationSec: Double = 0
+    /// Replay cycles for the timing envelope. 1 (default) = play once and
+    /// stop, the v1.0 behavior. 2 / 3 / 5 = repeat the [silent startDelay →
+    /// play playDuration] cycle N times. 0 = ∞ (repeat forever; transport
+    /// fade-out at session end handles silencing). Only meaningful when
+    /// playDurationSec > 0.
+    var replayCount: Int = 1
     var fm: FMState = .defaults()
     var chorus: ChorusState = .defaults()
     var reverb: ReverbState = .defaults()

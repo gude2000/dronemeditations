@@ -30,6 +30,10 @@ struct Preset: Identifiable, Hashable {
         let drive: Double?
         let startDelaySec: Double?
         let playDurationSec: Double?
+        /// Replay cycles for the timing envelope. nil = play once (v1.0
+        /// behavior, the implicit default for every preset shipped before
+        /// this field existed). 2/3/5 = repeat N times. 0 = ∞.
+        let replayCount: Int?
         let filter: FilterState?
         let reverb: ReverbState?
         let delay: DelayState?
@@ -47,6 +51,7 @@ struct Preset: Identifiable, Hashable {
              drive: Double? = nil,
              startDelaySec: Double? = nil,
              playDurationSec: Double? = nil,
+             replayCount: Int? = nil,
              filter: FilterState? = nil,
              reverb: ReverbState? = nil,
              delay: DelayState? = nil,
@@ -60,6 +65,7 @@ struct Preset: Identifiable, Hashable {
             self.drive = drive
             self.startDelaySec = startDelaySec
             self.playDurationSec = playDurationSec
+            self.replayCount = replayCount
             self.filter = filter; self.reverb = reverb
             self.delay = delay; self.chorus = chorus
             self.fm = fm; self.grain = grain
