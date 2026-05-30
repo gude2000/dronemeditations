@@ -31,6 +31,10 @@ struct VoicePreset: Codable, Identifiable {
         var replayCount: Int?
         // Granular settings (T14). Optional for backward compat.
         var grain: GrainState?
+        /// v1.1 granular-sampling. Optional — old voice presets default to off.
+        var sampleGranular: Bool?
+        var grainSamplePosFrac: Double?
+        var grainSamplePosJitter: Double?
     }
 }
 

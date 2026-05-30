@@ -879,6 +879,23 @@ final class AudioEngine {
         guard voices.indices.contains(voiceIndex) else { return }
         voices[voiceIndex].sampleFadeOutSec = max(0, min(10, sec))
     }
+    // ── Granular sampling (v1.1) — only audible when waveform == .sample. ──
+    /// Toggle granular-sampling mode for a voice. When on, the loaded
+    /// sample is sliced into Hann-windowed grains driven by the same
+    /// GRAIN row (size/density/jitter/spread) as pink-noise granular,
+    /// plus the position controls below.
+    func setSampleGranular(_ on: Bool, for voiceIndex: Int) {
+        guard voices.indices.contains(voiceIndex) else { return }
+        voices[voiceIndex].sampleGranular = on
+    }
+    func setGrainSamplePos(_ frac: Double, for voiceIndex: Int) {
+        guard voices.indices.contains(voiceIndex) else { return }
+        voices[voiceIndex].grainSamplePosFrac = max(0, min(1, frac))
+    }
+    func setGrainSamplePosJitter(_ frac: Double, for voiceIndex: Int) {
+        guard voices.indices.contains(voiceIndex) else { return }
+        voices[voiceIndex].grainSamplePosJitter = max(0, min(1, frac))
+    }
 
     func setReverbDecay(_ sec: Double, for voiceIndex: Int) {
         guard voices.indices.contains(voiceIndex) else { return }

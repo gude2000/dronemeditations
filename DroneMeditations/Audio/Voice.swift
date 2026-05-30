@@ -133,6 +133,25 @@ final class Voice {
     var grainDensityHz: Double   = 8
     var grainJitter: Double      = 0.6
     var grainPanSpread: Double   = 0.5
+    /// When `true` AND the active waveform is `.sample`, the grain
+    /// scheduler reads slices of the loaded sample (instead of from the
+    /// running pink-noise stream) and windows them with a Hann envelope.
+    /// Combined with the existing size / density / jitter / pan-spread
+    /// controls plus a position scrubber, this is full granular sampling:
+    /// frozen-Tibetan-bowl shimmer, Basinski tape-decay clouds, vocal
+    /// vowel sustains held forever. No effect unless waveform == .sample.
+    var sampleGranular: Bool = false
+    /// Position (0..1) within the loaded sample to centre grains on.
+    /// Each grain is read from this position ± grainSamplePosJitter × halfWindow.
+    /// 0 = start of file, 1 = end. Honored only when `sampleGranular` and
+    /// `waveform == .sample`.
+    var grainSamplePosFrac: Double = 0.5
+    /// Per-grain position-jitter (0..1) — fraction of the sample length
+    /// that the read offset can wander from `grainSamplePosFrac` per
+    /// grain. 0 = freeze on exact position. 1 = read from anywhere in
+    /// the sample. Honored only when `sampleGranular` and
+    /// `waveform == .sample`.
+    var grainSamplePosJitter: Double = 0.1
     // Scheduler state — samples until the next grain fires; the currently
     // active grain's length + position; per-grain pan offset added to the
     // smoothed `p` only for the equal-power pan calc (slew untouched).
@@ -140,6 +159,11 @@ final class Voice {
     private var grainCurrentLength: Int    = 0
     private var grainCurrentPos: Int       = 0
     private var grainCurrentPanOffset: Float = 0
+    /// First sample-frame index that the currently-active sample grain
+    /// reads from. Set when a new grain starts (granular-sample mode);
+    /// `grainCurrentPos` advances within `[0, grainCurrentLength)` and
+    /// the per-sample read is `sampleData[grainSampleStartFrame + pos]`.
+    private var grainSampleStartFrame: Int = 0
 
     private var bqB0: Double = 1.0
     private var bqB1: Double = 0.0
@@ -577,7 +601,63 @@ final class Voice {
             }
 
             var raw: Double
-            if isSampleMode, sampleCount > 0 {
+            if isSampleMode, sampleCount > 0, sampleGranular {
+                // ── Granular sampling ─────────────────────────────────
+                // Sample data is the grain source. Each grain is read
+                // from a random position around grainSamplePosFrac,
+                // jittered by ± grainSamplePosJitter × sampleCount, then
+                // Hann-windowed. Effect: frozen-Tibetan-bowl shimmer,
+                // Basinski tape-decay clouds, vowel sustains held
+                // forever. Size/density/pan-spread share the existing
+                // GRAIN row sliders with pink-noise granular.
+                if grainSamplesUntilNext <= 0 {
+                    // Start a new grain. Pick a sample read offset
+                    // around the user's target position, jittered
+                    // bipolarly (±) by grainSamplePosJitter.
+                    let lenSamples = max(8, Int(grainSizeMs * 0.001 * sampleRate))
+                    grainCurrentLength = lenSamples
+                    grainCurrentPos = 0
+                    grainCurrentPanOffset = Float(nextRandomBipolar() * grainPanSpread)
+                    let posCenter = max(0.0, min(1.0, grainSamplePosFrac))
+                    let posJit = max(0.0, min(1.0, grainSamplePosJitter))
+                    let posFrac = max(0.0, min(1.0,
+                        posCenter + nextRandomBipolar() * posJit * 0.5))
+                    // Clamp the start frame so the grain doesn't run
+                    // past the end of the sample. If the picked position
+                    // is too late, slide it back; never go negative.
+                    let maxStart = max(0, sampleCount - lenSamples - 1)
+                    grainSampleStartFrame = max(0, min(maxStart,
+                        Int(Double(sampleCount) * posFrac)))
+                    // Inter-grain gap (same math as pink-noise granular).
+                    let meanGap = sampleRate / max(0.5, grainDensityHz)
+                    let lo = max(0.05, 1.0 - grainJitter * 0.7)
+                    let hi = 1.0 + grainJitter * 1.5
+                    let r01 = nextRandomBipolar() * 0.5 + 0.5
+                    let gap = meanGap * (lo + (hi - lo) * r01)
+                    grainSamplesUntilNext = max(lenSamples + 8, Int(gap))
+                }
+                if grainCurrentPos < grainCurrentLength {
+                    // Hann window via shared 1024-entry LUT.
+                    let lutSize = Voice.hannLUT.count
+                    let idx = (grainCurrentPos * lutSize) / max(1, grainCurrentLength)
+                    let window = Double(Voice.hannLUT[min(lutSize - 1, idx)])
+                    // Read the sample at the grain's read offset.
+                    // Bounds-safe: clamp to sampleCount - 1 in case
+                    // grainCurrentLength + grainSampleStartFrame
+                    // overshoots due to a parameter change mid-grain.
+                    let readIdx = min(sampleCount - 1, grainSampleStartFrame + grainCurrentPos)
+                    let s = Double(sampleData![readIdx])
+                    // 1.6× boost — Hann's average power is ~0.5 and
+                    // sample-grain duty cycle is ~0.5 at default density,
+                    // so without a boost the sampled material sounds
+                    // softer than expected versus continuous playback.
+                    raw = s * window * 1.6
+                    grainCurrentPos += 1
+                } else {
+                    raw = 0
+                }
+                grainSamplesUntilNext -= 1
+            } else if isSampleMode, sampleCount > 0 {
                 // Bring samplePosition into [windowStart, windowEnd) on
                 // first frame and on every wrap. Per-sample loop logic
                 // wraps cheaply when we reach windowEnd.

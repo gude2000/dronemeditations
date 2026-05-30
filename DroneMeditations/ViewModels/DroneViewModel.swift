@@ -419,6 +419,25 @@ final class DroneViewModel: ObservableObject {
         oscillators[index].sampleFadeOutSec = clamped
         audioEngine.setSampleFadeOut(clamped, for: index)
     }
+    /// Granular sampling toggle. When on AND waveform is Sample,
+    /// the loaded file is sliced into Hann-windowed grains. v1.1.
+    func setSampleGranular(_ on: Bool, for index: Int) {
+        guard oscillators.indices.contains(index) else { return }
+        oscillators[index].sampleGranular = on
+        audioEngine.setSampleGranular(on, for: index)
+    }
+    func setGrainSamplePos(_ frac: Double, for index: Int) {
+        guard oscillators.indices.contains(index) else { return }
+        let clamped = max(0, min(1, frac))
+        oscillators[index].grainSamplePosFrac = clamped
+        audioEngine.setGrainSamplePos(clamped, for: index)
+    }
+    func setGrainSamplePosJitter(_ frac: Double, for index: Int) {
+        guard oscillators.indices.contains(index) else { return }
+        let clamped = max(0, min(1, frac))
+        oscillators[index].grainSamplePosJitter = clamped
+        audioEngine.setGrainSamplePosJitter(clamped, for: index)
+    }
 
     // Per-voice timing envelope. 0 = play immediately / forever.
     func setStartDelay(_ sec: Double, for index: Int) {

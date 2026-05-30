@@ -348,6 +348,21 @@ struct OscillatorState: Identifiable, Equatable {
     /// for seamless ambient loops.
     var sampleFadeInSec: Double = 0.0
     var sampleFadeOutSec: Double = 0.0
+    /// When true AND waveform == .sample, replace continuous playback
+    /// with a grain scheduler that reads slices from the sample around
+    /// `grainSamplePosFrac`. The GRAIN row (size / density / jitter /
+    /// spread) drives the same scheduler used by the granular-noise
+    /// waveform; two extra fields (`grainSamplePosFrac`,
+    /// `grainSamplePosJitter`) below control the read position. v1.1.
+    var sampleGranular: Bool = false
+    /// Centre position (0..1) for granular-sample reads. 0 = start,
+    /// 1 = end. Only audible when `sampleGranular == true` AND
+    /// `waveform == .sample`.
+    var grainSamplePosFrac: Double = 0.5
+    /// Per-grain position jitter (0..1). 0 = freeze on exact position
+    /// (the most cymatic, static result), 1 = read from anywhere in
+    /// the sample (most chaotic). Only audible when `sampleGranular`.
+    var grainSamplePosJitter: Double = 0.1
 
     static let minFrequency: Double = 20.0
     static let maxFrequency: Double = 2000.0

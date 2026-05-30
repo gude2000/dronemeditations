@@ -295,6 +295,18 @@ struct OscillatorStrip: View {
         // fade-in/fade-out at the loop boundary for seamless ambient loops.
         if osc.sampleName != nil {
             sampleWindowRow
+            // v1.1 granular-sampling row — toggle + position + jitter.
+            // Tucks under the WINDOW row so users discover it naturally
+            // when working with a sample. The toggle is the gate; when
+            // off, the position/jitter sliders dim out but stay visible
+            // for discoverability.
+            sampleGranularRow
+            // When granular sampling is on, also surface the existing
+            // GRAIN sliders (size / density / jitter / pan spread) since
+            // they drive the same grain scheduler.
+            if osc.sampleGranular {
+                granularSection
+            }
         }
     }
 
@@ -361,6 +373,62 @@ struct OscillatorStrip: View {
                     set: { vm.setSampleFadeOut($0, for: index) }
                 ), in: 0...10)
                 .tint(Color(red: 0.97, green: 0.79, blue: 0.28))
+            }
+        }
+    }
+
+    // MARK: - Granular-sampling toggle row (shown when a sample is loaded, v1.1)
+
+    /// One-row UI: "GRAINY" toggle button + position slider + jitter
+    /// slider. Toggle controls whether continuous sample playback or
+    /// the grain scheduler runs. When off, position/jitter still render
+    /// (slightly dimmed) so users can discover the feature.
+    @ViewBuilder
+    private var sampleGranularRow: some View {
+        let active = osc.sampleGranular
+        let accent = Color(red: 0.78, green: 0.59, blue: 0.97)   // soft purple
+        HStack(spacing: 10) {
+            Button {
+                vm.setSampleGranular(!active, for: index)
+            } label: {
+                Text("GRAINY")
+                    .font(.system(size: isPad ? 12 : 9, weight: .heavy))
+                    .foregroundStyle(active ? Color.black : accent)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule().fill(active ? accent : Color.white.opacity(0.06))
+                    )
+            }
+            .buttonStyle(.plain)
+            .frame(width: 70, alignment: .leading)
+
+            // Position (centre of grain reads within the sample, 0..1).
+            VStack(alignment: .leading, spacing: 2) {
+                Text("pos · \(Int(osc.grainSamplePosFrac * 100))%")
+                    .font(.system(size: isPad ? 13 : 10, weight: .semibold))
+                    .foregroundStyle(active ? .secondary : .tertiary)
+                    .monospacedDigit()
+                Slider(value: Binding(
+                    get: { osc.grainSamplePosFrac },
+                    set: { vm.setGrainSamplePos($0, for: index) }
+                ), in: 0...1)
+                .tint(accent.opacity(active ? 1.0 : 0.4))
+                .disabled(!active)
+            }
+
+            // Jitter (random position offset per grain, 0..1).
+            VStack(alignment: .leading, spacing: 2) {
+                Text("scan · \(Int(osc.grainSamplePosJitter * 100))%")
+                    .font(.system(size: isPad ? 13 : 10, weight: .semibold))
+                    .foregroundStyle(active ? .secondary : .tertiary)
+                    .monospacedDigit()
+                Slider(value: Binding(
+                    get: { osc.grainSamplePosJitter },
+                    set: { vm.setGrainSamplePosJitter($0, for: index) }
+                ), in: 0...1)
+                .tint(accent.opacity(active ? 1.0 : 0.4))
+                .disabled(!active)
             }
         }
     }

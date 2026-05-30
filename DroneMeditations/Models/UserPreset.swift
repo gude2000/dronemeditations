@@ -45,6 +45,10 @@ struct UserPreset: Identifiable, Codable, Equatable {
         /// Granular settings (T14). Optional for backward compat with presets
         /// saved before the granular waveform existed.
         var grain: GrainState?
+        /// v1.1 granular-sampling. Optional — old saves default to off.
+        var sampleGranular: Bool?
+        var grainSamplePosFrac: Double?
+        var grainSamplePosJitter: Double?
     }
 
     static func newId() -> String {
