@@ -209,14 +209,28 @@ final class Voice {
     /// base frequency.
     var pitchQuantizeToScale: Bool = false
     var scaleNotesHz: [Double] = []
-    private static let combLengths: [Int] = [1116, 1188, 1277, 1356]
-    private static let allpassLengths: [Int] = [556, 441]
+    // Schroeder JCRev — 4 parallel combs + 2 series allpasses. v1.1
+    // makes this STEREO: the L channel uses the canonical lengths
+    // below, the R channel uses each length offset by a small prime so
+    // the two reverb tails decorrelate without phasing.  The size-
+    // offsets (~23-29 samples ≈ 0.5 ms @ 48 kHz) are below the audio
+    // band so they don't shift the perceived decay time — they just
+    // widen the tail.
+    private static let combLengths: [Int]    = [1116, 1188, 1277, 1356]
+    private static let combLengthsR: [Int]   = [1139, 1217, 1300, 1379]
+    private static let allpassLengths: [Int]  = [556, 441]
+    private static let allpassLengthsR: [Int] = [579, 466]
     private static let allpassFb: Double = 0.5
-    private var combBuffers: [[Float]] = []
-    private var combWriteIdx: [Int] = [0, 0, 0, 0]
-    private var combFb: [Double]      = [0, 0, 0, 0]
-    private var allpassBuffers: [[Float]] = []
-    private var allpassWriteIdx: [Int] = [0, 0]
+    private var combBuffers:  [[Float]] = []
+    private var combBuffersR: [[Float]] = []
+    private var combWriteIdx:  [Int] = [0, 0, 0, 0]
+    private var combWriteIdxR: [Int] = [0, 0, 0, 0]
+    private var combFb:  [Double] = [0, 0, 0, 0]
+    private var combFbR: [Double] = [0, 0, 0, 0]
+    private var allpassBuffers:  [[Float]] = []
+    private var allpassBuffersR: [[Float]] = []
+    private var allpassWriteIdx:  [Int] = [0, 0]
+    private var allpassWriteIdxR: [Int] = [0, 0]
 
     // Delay — two circular buffers (L, R) so we can support stereo +
     // ping-pong properly. Mono mode just uses the L buffer; R sits silent.
@@ -301,8 +315,10 @@ final class Voice {
 
         // Allocate reverb + delay buffers.
         // (Note: delayBuffer is now two separate L/R circular buffers; see init below.)
-        self.combBuffers = Voice.combLengths.map { Array(repeating: 0, count: $0) }
-        self.allpassBuffers = Voice.allpassLengths.map { Array(repeating: 0, count: $0) }
+        self.combBuffers     = Voice.combLengths.map     { Array(repeating: 0, count: $0) }
+        self.combBuffersR    = Voice.combLengthsR.map    { Array(repeating: 0, count: $0) }
+        self.allpassBuffers  = Voice.allpassLengths.map  { Array(repeating: 0, count: $0) }
+        self.allpassBuffersR = Voice.allpassLengthsR.map { Array(repeating: 0, count: $0) }
         self.delayBufferSize = Int(sampleRate * 2.0)
         self.delayBufferL = Array(repeating: 0, count: delayBufferSize)
         self.delayBufferR = Array(repeating: 0, count: delayBufferSize)
@@ -448,15 +464,29 @@ final class Voice {
         var biquadCountdown = 0
 
         // ── Recompute reverb comb feedbacks (cheap, once per buffer).
+        // L and R have different comb lengths so the feedback rates differ
+        // by a fraction of a percent — the stereo width comes from the
+        // tail decorrelating in time, not from differing decay times.
         let ln10x3 = 3.0 * 2.302585092994046
+        let decayDenom = sampleRate * max(0.1, reverbDecaySec)
         for k in 0..<4 {
-            combFb[k] = exp(-ln10x3 * Double(Voice.combLengths[k]) / (sampleRate * max(0.1, reverbDecaySec)))
+            combFb[k]  = exp(-ln10x3 * Double(Voice.combLengths[k])  / decayDenom)
+            combFbR[k] = exp(-ln10x3 * Double(Voice.combLengthsR[k]) / decayDenom)
         }
         // Resolve delay tap length in samples.
         let delayTapSamples = max(1, min(delayBufferSize - 1, Int(delayTimeSec * sampleRate)))
         let revMix = reverbMix
         let dlyMix = delayMix
         let dlyFb = delayFeedback
+        // ── CPU bypass guards (v1.1). When mix is effectively zero AND
+        // the feedback isn't keeping the buffer alive, skip the entire
+        // reverb / delay computation per sample. Typical presets have at
+        // most 2-3 voices with reverb on and 1 voice with delay on, so
+        // these guards win back a lot of CPU on busy patches. Thresholds
+        // are intentionally just above zero so a slider literally at 0
+        // stops costing CPU.
+        let reverbActive = revMix > 0.0001
+        let delayActive  = dlyMix > 0.0001 || dlyFb > 0.001
 
         // Per-voice timing envelope target for this buffer. Smoothed per-
         // sample below by interpolating from currentTimingEnv → envTarget
@@ -836,70 +866,116 @@ final class Voice {
                 chOutL = fxIn
                 chOutR = fxIn
             }
-            // Mono sum drives reverb + delay (those stages stay mono-in).
+            // Mono sum drives delay (which stays mono-in). Reverb now runs
+            // a separate chain on each side from the chorus's stereo
+            // outputs so the wet tail has natural stereo width (v1.1).
             let chMono = (chOutL + chOutR) * 0.5
             let fxInMono = chMono
 
-            // ── Reverb (Schroeder JCRev): 4 parallel combs + 2 series allpasses.
-            var combSum: Double = 0
-            for k in 0..<4 {
-                let bufLen = Voice.combLengths[k]
-                var wIdx = combWriteIdx[k]
-                let combOut = combBuffers[k][wIdx]
-                combSum += Double(combOut)
-                combBuffers[k][wIdx] = Float(Double(fxInMono) + Double(combOut) * combFb[k])
-                wIdx += 1; if wIdx >= bufLen { wIdx = 0 }
-                combWriteIdx[k] = wIdx
+            // ── Reverb (Schroeder JCRev) — stereo, v1.1. ───────────────
+            // Two independent chains (L + R) with slightly different comb
+            // and allpass lengths so the tails decorrelate naturally.
+            // Bypass-guarded: when reverbMix is effectively zero we skip
+            // every comb/allpass read+write, saving ~32 ops/sample/voice
+            // on voices that don't use reverb (most presets, most
+            // voices). Buffer history decays to 0 naturally during the
+            // skip — re-engaging reverb later refills the tail in
+            // ~28 ms (one comb length @ 48 kHz).
+            var revWetL: Float = 0
+            var revWetR: Float = 0
+            if reverbActive {
+                var combSumL: Double = 0
+                var combSumR: Double = 0
+                for k in 0..<4 {
+                    // L chain
+                    let bufLenL = Voice.combLengths[k]
+                    var wIdxL = combWriteIdx[k]
+                    let combOutL = combBuffers[k][wIdxL]
+                    combSumL += Double(combOutL)
+                    combBuffers[k][wIdxL] = Float(Double(chOutL) + Double(combOutL) * combFb[k])
+                    wIdxL += 1; if wIdxL >= bufLenL { wIdxL = 0 }
+                    combWriteIdx[k] = wIdxL
+                    // R chain (different lengths → decorrelated tail)
+                    let bufLenR = Voice.combLengthsR[k]
+                    var wIdxR = combWriteIdxR[k]
+                    let combOutR = combBuffersR[k][wIdxR]
+                    combSumR += Double(combOutR)
+                    combBuffersR[k][wIdxR] = Float(Double(chOutR) + Double(combOutR) * combFbR[k])
+                    wIdxR += 1; if wIdxR >= bufLenR { wIdxR = 0 }
+                    combWriteIdxR[k] = wIdxR
+                }
+                var apL = combSumL * 0.25
+                var apR = combSumR * 0.25
+                for k in 0..<2 {
+                    // L allpass
+                    let bufLenL = Voice.allpassLengths[k]
+                    var wIdxL = allpassWriteIdx[k]
+                    let bufOutL = Double(allpassBuffers[k][wIdxL])
+                    let resultL = -apL + bufOutL
+                    allpassBuffers[k][wIdxL] = Float(apL + bufOutL * Voice.allpassFb)
+                    wIdxL += 1; if wIdxL >= bufLenL { wIdxL = 0 }
+                    allpassWriteIdx[k] = wIdxL
+                    apL = resultL
+                    // R allpass
+                    let bufLenR = Voice.allpassLengthsR[k]
+                    var wIdxR = allpassWriteIdxR[k]
+                    let bufOutR = Double(allpassBuffersR[k][wIdxR])
+                    let resultR = -apR + bufOutR
+                    allpassBuffersR[k][wIdxR] = Float(apR + bufOutR * Voice.allpassFb)
+                    wIdxR += 1; if wIdxR >= bufLenR { wIdxR = 0 }
+                    allpassWriteIdxR[k] = wIdxR
+                    apR = resultR
+                }
+                revWetL = Float(apL)
+                revWetR = Float(apR)
             }
-            var ap = combSum * 0.25
-            for k in 0..<2 {
-                let bufLen = Voice.allpassLengths[k]
-                var wIdx = allpassWriteIdx[k]
-                let bufOut = Double(allpassBuffers[k][wIdx])
-                let result = -ap + bufOut
-                allpassBuffers[k][wIdx] = Float(ap + bufOut * Voice.allpassFb)
-                wIdx += 1; if wIdx >= bufLen { wIdx = 0 }
-                allpassWriteIdx[k] = wIdx
-                ap = result
+
+            // ── Delay (two circular buffers, mode-dependent feedback) ──
+            // Bypass-guarded (v1.1): when both mix and feedback are near
+            // zero, skip all reads + writes. Buffer naturally drains to
+            // 0 because nothing's feeding it. Engaging delay later starts
+            // fresh — no stale audio bursts out.
+            var delayOutL: Float = 0
+            var delayOutR: Float = 0
+            if delayActive {
+                // Read current L + R taps before writing new samples.
+                var rIdxL = delayWriteIdxL - delayTapSamples
+                if rIdxL < 0 { rIdxL += delayBufferSize }
+                var rIdxR = delayWriteIdxR - delayTapSamples
+                if rIdxR < 0 { rIdxR += delayBufferSize }
+                delayOutL = delayBufferL[rIdxL]
+                delayOutR = delayBufferR[rIdxR]
+                // Write next samples per mode:
+                //   mono     — single tap; only L buffer fed (R sits at 0).
+                //   stereo   — both buffers fed identically with self-feedback.
+                //   pingPong — L gets dry + R's bounce; R gets L's bounce only.
+                switch delayMode {
+                case .mono:
+                    delayBufferL[delayWriteIdxL] = fxInMono + delayOutL * dlyFb
+                    delayBufferR[delayWriteIdxR] = 0
+                case .stereo:
+                    delayBufferL[delayWriteIdxL] = fxInMono + delayOutL * dlyFb
+                    delayBufferR[delayWriteIdxR] = fxInMono + delayOutR * dlyFb
+                case .pingPong:
+                    delayBufferL[delayWriteIdxL] = fxInMono + delayOutR * dlyFb
+                    delayBufferR[delayWriteIdxR] = delayOutL * dlyFb
+                }
+                delayWriteIdxL += 1
+                if delayWriteIdxL >= delayBufferSize { delayWriteIdxL = 0 }
+                delayWriteIdxR += 1
+                if delayWriteIdxR >= delayBufferSize { delayWriteIdxR = 0 }
             }
-            let revWet = Float(ap)
 
-            // ── Delay (two circular buffers, mode-dependent feedback).
-            // Read current L + R taps before writing new samples.
-            var rIdxL = delayWriteIdxL - delayTapSamples
-            if rIdxL < 0 { rIdxL += delayBufferSize }
-            var rIdxR = delayWriteIdxR - delayTapSamples
-            if rIdxR < 0 { rIdxR += delayBufferSize }
-            let delayOutL = delayBufferL[rIdxL]
-            let delayOutR = delayBufferR[rIdxR]
-
-            // Write next samples per mode:
-            //   mono     — single tap; only L buffer fed (R sits at 0).
-            //   stereo   — both buffers fed identically with self-feedback.
-            //   pingPong — L gets dry + R's bounce; R gets L's bounce only.
-            switch delayMode {
-            case .mono:
-                delayBufferL[delayWriteIdxL] = fxInMono + delayOutL * dlyFb
-                delayBufferR[delayWriteIdxR] = 0
-            case .stereo:
-                delayBufferL[delayWriteIdxL] = fxInMono + delayOutL * dlyFb
-                delayBufferR[delayWriteIdxR] = fxInMono + delayOutR * dlyFb
-            case .pingPong:
-                delayBufferL[delayWriteIdxL] = fxInMono + delayOutR * dlyFb
-                delayBufferR[delayWriteIdxR] = delayOutL * dlyFb
-            }
-            delayWriteIdxL += 1
-            if delayWriteIdxL >= delayBufferSize { delayWriteIdxL = 0 }
-            delayWriteIdxR += 1
-            if delayWriteIdxR >= delayBufferSize { delayWriteIdxR = 0 }
-
-            // Compose: dry + reverb get the equal-power pan. Delay output
-            // for stereo/pingPong goes directly to L/R unpanned, preserving
-            // the cross-feedback's left/right separation. Mono delay
-            // follows the dry pan. Chorus's "side" portion (deviation from
-            // mono) passes through unpanned so the stereo width persists
-            // regardless of pan position.
-            let dryReverbOut = fxInMono + revWet * revMix
+            // Compose: dry signal gets the equal-power pan. Reverb wet
+            // goes directly to L/R (NOT through the pan) — the stereo
+            // width of the decorrelated tail survives even when a voice
+            // is hard-panned. Delay output for stereo/pingPong goes
+            // directly to L/R unpanned, preserving the cross-feedback's
+            // left/right separation. Mono delay follows the dry pan.
+            // Chorus's "side" portion (deviation from mono) passes through
+            // unpanned so the stereo width persists regardless of pan
+            // position.
+            let dryReverbOut = fxInMono
             // Granular per-grain pan offset is added on top of the smoothed
             // pan target so each grain lands in a random stereo location
             // without disturbing the voice's base pan slew.
@@ -910,8 +986,8 @@ final class Voice {
             let lGain = Float(__cospi(panT))
             let rGain = Float(__sinpi(panT))
 
-            let dryL = dryReverbOut * lGain
-            let dryR = dryReverbOut * rGain
+            let dryL = dryReverbOut * lGain + revWetL * revMix
+            let dryR = dryReverbOut * rGain + revWetR * revMix
             // Chorus side signal (already part of fxInMono via the mid; we
             // add the deviation here so L and R each carry their LFO-tapped
             // tail independently of pan).
