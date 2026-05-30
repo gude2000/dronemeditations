@@ -579,13 +579,15 @@ final class Voice {
         } else {
             let fadeInFirst: Double = 8.0   // first cycle — slow meditative onset
             let fadeInLoop:  Double = 4.0   // v1.1 — snappier rebloom on cycles 2+
-            let fadeOut:     Double = 10.0  // v1.1 — smoothstep + reverb bloom
+            let fadeOut:     Double = 10.0  // v1.1 — linear + soft reverb bloom
             // One full cycle = startDelay (silence) + playDuration
-            // (audible window, including the fade-in/fade-out lobes
-            // taken from inside the play duration). Use cycle-modular
-            // time when replayCount != 1; otherwise use absolute time
-            // (legacy one-shot behavior).
-            let cycleLen = startDelaySec + max(0, playDurationSec)
+            // (full-volume audible window after fade-in) + fadeOut
+            // (the gain envelope tapers from playDuration onwards).
+            // v1.1 fix: the fadeOut term was missing — the cycle was
+            // wrapping at the start of the fade-out window, so replays
+            // produced no fade-out at all. Now each cycle includes the
+            // fade-out lobe before wrapping to the next.
+            let cycleLen = startDelaySec + max(0, playDurationSec) + fadeOut
             let infiniteReplay = (replayCount == 0)
             let useCycles = (replayCount != 1) && playDurationSec > 0 && cycleLen > 0
             let t: Double         // time within the active cycle

@@ -277,12 +277,16 @@ final class DroneViewModel: ObservableObject {
         // it, every mutation would fire every box's objectWillChange and
         // we'd lose the per-voice isolation that's the whole point.
         //
-        // v1.1 perf: synchronous sink (no `.receive(on:)`) — slider
-        // drags fire the @Published 60+ times per second; queuing a
-        // run-loop hop per tick measurably backed up the main thread.
-        // The sink work is cheap (4 state diffs) and runs on the same
-        // main-actor that publishes, so synchronous is safe.
+        // v1.1 BACK to `.receive(on: RunLoop.main)` after a brief mis-
+        // adventure of removing it: slider drags fire the @Published 60+
+        // times per second, and sustained synchronous publishing
+        // measurably overloaded the main thread (every fire = every
+        // VM-observing view re-evaluates body, every fire of the sink
+        // does its diff). The run-loop scheduler coalesces multiple
+        // fires within one runloop pass into a single sink invocation,
+        // which is what we want during a continuous drag.
         $oscillators
+            .receive(on: RunLoop.main)
             .sink { [weak self] newArray in
                 guard let self else { return }
                 for (i, s) in newArray.enumerated() where i < self.voiceBoxes.count {
