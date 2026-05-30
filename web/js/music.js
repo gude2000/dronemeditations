@@ -140,6 +140,7 @@ const PHI_STEP = PHI_OCTAVE_CENTS / 13;
 export const CHORD_CATEGORIES = [
   "Triads & 7ths",
   "Extensions",
+  "Modal",
   "Symmetric",
   "Quartal & Open",
   "Microtonal"
@@ -168,6 +169,21 @@ export const CHORDS = [
   { id: "min6",    name: "Minor 6",          category: "Extensions",    cents: [semis(0), semis(3),  semis(7),  semis(9)]  },
   { id: "maj9no5", name: "Major 9 (no 5)",   category: "Extensions",    cents: [semis(0), semis(4),  semis(11), semis(14)] },
   { id: "7sus4",   name: "7 sus4",           category: "Extensions",    cents: [semis(0), semis(5),  semis(7),  semis(10)] },
+
+  // Modal — characteristic 4-note slices of each diatonic / harmonic /
+  // melodic mode. Picking one sets the four voice pitches to the mode's
+  // most identifying degrees AND, with Quantize-to-scale on, fills the
+  // quantize cache with these same notes so pitch-LFO modulation
+  // arpeggiates *inside the mode* instead of wandering chromatically.
+  { id: "ionian",     name: "Ionian",         category: "Modal", cents: [semis(0), semis(4),  semis(7),  semis(11)] }, // 1 3 5 7
+  { id: "dorian",     name: "Dorian",         category: "Modal", cents: [semis(0), semis(3),  semis(9),  semis(10)] }, // 1 ♭3 6 ♭7
+  { id: "phrygian",   name: "Phrygian",       category: "Modal", cents: [semis(0), semis(1),  semis(3),  semis(10)] }, // 1 ♭2 ♭3 ♭7
+  { id: "lydian",     name: "Lydian",         category: "Modal", cents: [semis(0), semis(4),  semis(6),  semis(11)] }, // 1 3 ♯4 7
+  { id: "mixolydian", name: "Mixolydian",     category: "Modal", cents: [semis(0), semis(4),  semis(7),  semis(10)] }, // 1 3 5 ♭7
+  { id: "aeolian",    name: "Aeolian",        category: "Modal", cents: [semis(0), semis(3),  semis(8),  semis(10)] }, // 1 ♭3 ♭6 ♭7
+  { id: "locrian",    name: "Locrian",        category: "Modal", cents: [semis(0), semis(1),  semis(6),  semis(10)] }, // 1 ♭2 ♭5 ♭7
+  { id: "harmMin",    name: "Harmonic Minor", category: "Modal", cents: [semis(0), semis(3),  semis(8),  semis(11)] }, // 1 ♭3 ♭6 7
+  { id: "melMin",     name: "Melodic Minor",  category: "Modal", cents: [semis(0), semis(3),  semis(9),  semis(11)] }, // 1 ♭3 6 7
 
   // Symmetric
   { id: "wt",      name: "Whole-Tone",       category: "Symmetric",     cents: [semis(0), semis(2),  semis(4),  semis(6)]  },

@@ -12,6 +12,7 @@ struct ChordType: Identifiable, Hashable, Codable {
     enum Category: String, CaseIterable, Codable {
         case triadic = "Triads & 7ths"
         case extended = "Extensions"
+        case modal = "Modal"
         case symmetric = "Symmetric"
         case quartal = "Quartal & Open"
         case microtonal = "Microtonal"
@@ -55,6 +56,24 @@ extension ChordType {
         ChordType("Minor 6",        .extended, [semis(0), semis(3),  semis(7),  semis(9)]),
         ChordType("Major 9 (no 5)", .extended, [semis(0), semis(4),  semis(11), semis(14)]),
         ChordType("7 sus4",         .extended, [semis(0), semis(5),  semis(7),  semis(10)]),
+
+        // MARK: Modal — characteristic 4-note slices of each diatonic /
+        // harmonic / melodic mode. Picking one of these does two
+        // things at once: (1) it sets the four voice pitches to the
+        // mode's most identifying degrees, and (2) when Quantize-to-scale
+        // is on, the quantize cache fills with these same notes so
+        // pitch-LFO modulation arpeggiates *inside the mode* instead of
+        // wandering chromatically. Ionian shows up as "Major (mode)"
+        // since the maj7 chord already covers the same notes.
+        ChordType("Ionian",         .modal, [semis(0),  semis(4),  semis(7),  semis(11)]), // 1 3 5 7
+        ChordType("Dorian",         .modal, [semis(0),  semis(3),  semis(9),  semis(10)]), // 1 ♭3 6 ♭7
+        ChordType("Phrygian",       .modal, [semis(0),  semis(1),  semis(3),  semis(10)]), // 1 ♭2 ♭3 ♭7
+        ChordType("Lydian",         .modal, [semis(0),  semis(4),  semis(6),  semis(11)]), // 1 3 ♯4 7
+        ChordType("Mixolydian",     .modal, [semis(0),  semis(4),  semis(7),  semis(10)]), // 1 3 5 ♭7
+        ChordType("Aeolian",        .modal, [semis(0),  semis(3),  semis(8),  semis(10)]), // 1 ♭3 ♭6 ♭7
+        ChordType("Locrian",        .modal, [semis(0),  semis(1),  semis(6),  semis(10)]), // 1 ♭2 ♭5 ♭7
+        ChordType("Harmonic Minor", .modal, [semis(0),  semis(3),  semis(8),  semis(11)]), // 1 ♭3 ♭6 7
+        ChordType("Melodic Minor",  .modal, [semis(0),  semis(3),  semis(9),  semis(11)]), // 1 ♭3 6 7
 
         // MARK: Symmetric (each step is the same interval — drone-friendly)
         ChordType("Whole-Tone",     .symmetric, [semis(0), semis(2),  semis(4),  semis(6)]),
