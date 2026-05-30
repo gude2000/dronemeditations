@@ -20,6 +20,10 @@ Features built after the v1.0 App Store submission was sent for review. This lis
 
 - **Global BPM with delay sync** — a tempo field drives every voice's delay-time when that voice's timing is set to a musical division (½, ¼, ⅛, etc.). Default 80 BPM (resting-heart-rate territory, meditative without being sluggish). Changing the tempo recomputes every sync'd delay; Free-mode delays are left alone. iOS picker lives in the master row; web exposes it via tap-the-subtitle. (commits `2f690ae`, `ed09ca9`)
 
+- **Stereo reverb** — the Schroeder JCRev now runs two independent chains (L + R) with slightly different comb and allpass lengths so the wet tail decorrelates naturally. The chorus's already-stereo output feeds the L/R chains directly. Wet output bypasses the dry-signal equal-power pan and goes straight to L/R — a hard-panned voice still spreads its reverb tail across both channels, the standard "the room you're in is always stereo" routing. (commit `5e0468f`)
+
+- **Audio-thread CPU optimization** — per-sample reverb math is now skipped entirely when reverb mix is at 0, and per-sample delay math is skipped when both delay mix and feedback are negligible. Crackling on parameter drags during busy presets was largely caused by reverb running at full cost on voices that had it muted. On a typical preset with reverb active on 1-2 voices and muted on the rest, this saves ~9M ops/sec net — easily covering the extra cost of stereo reverb, plus some. (commit `5e0468f`)
+
 ### Web app parity
 
 - v1.0 features now run on the web app too: Replay × N in the ⏱ Timing menu, Randomize-all dice + Undo at the end of the OSC nav row, modal chord templates in the chord picker, global BPM with delay sync. (commits `67e5e6d`, `346aa9d`, `ed09ca9`)
