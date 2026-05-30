@@ -405,6 +405,28 @@
 
 <main>
 
+<!-- ───────────────── What's new in v1.1 ───────────────── -->
+<section id="whats-new" style="margin-bottom: 40px;">
+  <div style="background: linear-gradient(135deg, rgba(143,185,217,0.10), rgba(207,182,234,0.08));
+              border: 1px solid rgba(143,185,217,0.30);
+              border-radius: 14px;
+              padding: 22px 24px;">
+    <div style="color: var(--accent-2, #cfb6ea);
+                text-transform: uppercase;
+                letter-spacing: 0.16em;
+                font-size: 12px;
+                margin-bottom: 10px;">What's new in v1.1</div>
+    <p style="margin: 8px 0; color: var(--ink);">Five additions since the v1.0 launch — each documented in detail below in its own section, linked here for jump-to-feature:</p>
+    <ul style="margin: 12px 0 4px 0;">
+      <li><strong>Replay × N timing envelope</strong> — voice cycles repeat 2/3/5/10/∞ times. See <a href="#pills">§11 → ⏱ Timing</a>.</li>
+      <li><strong>Modal chord templates</strong> — Ionian, Dorian, Phrygian, Lydian, Mixolydian, Aeolian, Locrian, Harmonic Minor, Melodic Minor in a new <em>Modal</em> chord category. See <a href="#chord">§4</a>.</li>
+      <li><strong>Granular sampling (iOS)</strong> — apply the grain scheduler to any loaded sample. See <a href="#samples">§10 → Granular sampling</a>.</li>
+      <li><strong>Haptics intensity (iOS)</strong> — Off / Light / Heavy cycle, persisted across launches. See <a href="#ios">§17</a>.</li>
+      <li><strong>Global BPM + delay sync</strong> — drives every voice's delay-time when its timing is set to a musical division. See <a href="#fx">§8 → Delay</a>.</li>
+    </ul>
+  </div>
+</section>
+
 <!-- ───────────────── Quick start ───────────────── -->
 <section id="start">
   <h2><span class="num">1</span>Quick start</h2>
@@ -477,7 +499,7 @@
     <tr><td>🎲 Randomize all (top OSC bar)</td><td>The dice button at the end of the OSC 1·2·3·4 pill row rolls <em>all four voices at once</em>, then picks a fresh chord — without disturbing your master volumes. The faint <strong>↶ undo</strong> button next to it restores the exact state you had before the last randomize, so you can A/B between "the patch you had" and "the patch the dice gave you."</td></tr>
     <tr><td>⭐ Voice presets</td><td>Save / load / delete <em>just this oscillator</em>'s settings. Great for keeping a favorite bass + cycling through pads above.</td></tr>
     <tr><td>🌀 Drift</td><td>Per-voice pitch &amp; pan drift (off, glacial up/down, octave up/down, slow pan, deep vibrato, etc.).</td></tr>
-    <tr><td>⏱ Timing</td><td>Stagger when this voice enters the mix: <em>Start after</em> (Now / 15 s / 30 s / 1 / 2 / 5 / 10 min — silent then 8 s fade-in) and <em>Play duration</em> (Forever / 1 / 3 / 5 / 10 / 15 / 20 min — 8 s fade-out at the end). Lets you introduce drones gradually during long meditations, then let them recede. Several Drone Artists presets use this — Stars of the Lid blooms its chord at 0 / 30 / 90 / 180 s; Basinski's pink-noise hiss enters at 90 s; Riley's cascade enters at 0 / 15 / 45 / 90 s.</td></tr>
+    <tr><td>⏱ Timing</td><td>Stagger when this voice enters the mix: <em>Start after</em> (Now / 15 s / 30 s / 1 / 2 / 5 / 10 min — silent then 8 s fade-in) and <em>Play duration</em> (Forever / 1 / 3 / 5 / 10 / 15 / 20 min — 8 s fade-out at the end). Lets you introduce drones gradually during long meditations, then let them recede. Several Drone Artists presets use this — Stars of the Lid blooms its chord at 0 / 30 / 90 / 180 s; Basinski's pink-noise hiss enters at 90 s; Riley's cascade enters at 0 / 15 / 45 / 90 s. <strong>v1.1:</strong> a third chip row sets <em>Replay</em> to Once / × 2 / × 3 / × 5 / × 10 / ∞ — the [silent <em>Start after</em> → fade-in → <em>Play duration</em> → fade-out] cycle repeats N times before going silent forever.</td></tr>
     <tr><td>Pan</td><td>−1 (full left) to +1 (full right). 0 = center.</td></tr>
   </table>
 
@@ -494,7 +516,7 @@
   <ul>
     <li><strong>Common</strong> — Major, Minor, Sus2, Sus4, dim, aug, Maj7, m7, 7, 9, …</li>
     <li><strong>Extended</strong> — 11, 13, add6, m9, maj9, mMaj7, 7♭9, 7♯11, …</li>
-    <li><strong>Modal</strong> — Lydian stack, Phrygian, Dorian 7th, …</li>
+    <li><strong>Modal</strong> (v1.1) — characteristic 4-note slices of each diatonic / harmonic / melodic mode: Ionian, Dorian, Phrygian, Lydian, Mixolydian, Aeolian, Locrian, Harmonic Minor, Melodic Minor. Each entry captures the mode's most identifying degrees (e.g. Phrygian = 1 / ♭2 / ♭3 / ♭7). When <strong>Quantize to scale</strong> is on, the snap cache fills with those notes so a pitch-LFO arpeggiates <em>inside the mode</em> instead of wandering chromatically.</li>
     <li><strong>Cymatic</strong> — Tetrachord 4:5:6:7, 3:4:5:7, harmonic 6:8:10:13, etc. Chosen to give visually striking nodal patterns.</li>
     <li><strong>Spectral</strong> — Sable's chord (Vingt Regards), Scriabin Mystic, Ligeti Lontano, …</li>
   </ul>
@@ -618,7 +640,7 @@
     </div>
     <div class="card">
       <h4>Delay — timing</h4>
-      <p>Either a manual <strong>time</strong> (20 ms – 2 s) <em>or</em> a musical division: 1/2, 1/3, 1/3t, 1/4, 1/4t, 1/8, 1/8t, 1/16, 1/16t. Musical timings sync to the global BPM (default 90 BPM).</p>
+      <p>Either a manual <strong>time</strong> (20 ms – 2 s) <em>or</em> a musical division: 1/2, 1/3, 1/3t, 1/4, 1/4t, 1/8, 1/8t, 1/16, 1/16t. Musical timings sync to the <strong>global BPM</strong>. <strong>v1.1:</strong> the BPM is now user-editable (default 80, range 30–240). Tap the monospaced "80" pill in the master row (iOS) or the BPM segment of the header subtitle (web) to pick a new tempo — every sync'd delay across all four voices recomputes instantly. <em>Free</em>-timing delays are unaffected by BPM changes; they keep whatever absolute ms value you dialed.</p>
     </div>
   </div>
   <p>The <strong>feedback</strong> slider controls how many echoes you get. Above ~0.85 it starts feeding into itself — use sparingly.</p>
@@ -693,6 +715,16 @@
   <div class="callout warn">
     <strong>Storage.</strong> Browsers cap IndexedDB at a few hundred MB per origin. iOS shares the app's container with everything else you've saved. Long uncompressed WAVs add up fast — convert to OGG/MP3/M4A for archival.
   </div>
+
+  <h3>Granular sampling (iOS, v1.1)</h3>
+  <p>A <strong>GRAINY</strong> toggle button appears under the WINDOW row whenever a sample is loaded. When on, continuous playback is replaced by a Hann-windowed grain scheduler that reads slices around a user-set position. Combined with the existing <a href="#waveforms">GRAIN row</a> (size / density / jitter / spread) plus two new sliders, this is full granular sampling:</p>
+  <ul>
+    <li><strong>pos</strong> (0–100%) — centre position in the sample. Grains are pulled from around this offset. 0 = start of file, 100 = end. A slow drift on <em>pos</em> via a pitch-LFO target gives you scanning-over-time textures.</li>
+    <li><strong>scan</strong> (0–100%) — per-grain position jitter. 0 = freeze on the exact offset (the most static, cymatic result). 100 = pull grains from anywhere in the sample (most chaotic). Mid-range gives a softly-rumbling cloud.</li>
+  </ul>
+  <p>The grain scheduler is the same one used by the granular pink-noise waveform, so size / density / jitter / pan-spread behave identically. Only the source changes: a recognizable sample instead of pink noise.</p>
+  <p>What you can build with this: a Tibetan bowl strike frozen on its sustain forever, shimmering. The first second of a vocal vowel held indefinitely. A long ambient field recording chopped into rain-like fragments. A piano sustain decaying into a glittering cloud. Basinski-style tape-decay drones from any source.</p>
+  <p class="note"><strong>iOS only in v1.1.</strong> Web granular sampling needs an audio-engine rework and ships in v1.2.</p>
 </section>
 
 <!-- ───────────────── Pills ───────────────── -->
@@ -959,7 +991,7 @@
   <p>While playing, iOS shows Drone Meditations on the Lock Screen and Control Center with play / pause controls. Plays through silent mode (the audio session uses the <code>.playback</code> category) and supports background audio so you can lock the screen mid-session.</p>
 
   <h3>Haptics</h3>
-  <p>Optional. When enabled (haptic button in the controls panel), the device taps in sync with the slowest active LFO. Most noticeable with a 0.5–1 Hz amplitude LFO.</p>
+  <p>Optional. The haptic button in the master row cycles through three states on tap: <strong>Off → Light → Heavy → Off</strong>. The device taps in sync with the slowest active LFO across all voices; depth determines per-tap intensity, and the mode scales it: <em>Light</em> halves the intensity for a barely-there pulse, <em>Heavy</em> uses the full computed scale. Most noticeable with a 0.5–1 Hz amplitude LFO. <strong>v1.1:</strong> the choice persists across launches (UserDefaults).</p>
 
   <h3>Photos library snapshot</h3>
   <p>The 📷 camera button renders a 1500×1500 frame of the current Chladni state and saves it directly to your Photos library (add-only permission — the app never reads your existing photos). First save prompts for permission; subsequent saves are silent. A "Saved to Photos" toast confirms.</p>

@@ -16,14 +16,18 @@ Features built after the v1.0 App Store submission was sent for review. This lis
 
 - **Granular sampling** — Sample-waveform voices gain a **GRAINY** toggle. When on, continuous playback is replaced by a Hann-windowed grain scheduler that reads slices around a user-set position. Combined with the existing GRAIN row (size / density / jitter / pan spread) plus the new `pos` + `scan` sliders, this is full granular sampling: frozen Tibetan bowls shimmering forever, Basinski-style tape-decay clouds from any source, vowel sustains held without rhythm, geiger-counter ticks from a field recording. (commit `1d743fa`)
 
+- **Haptics intensity** — the haptic-feedback toggle becomes a three-state cycle: **Off → Light → Heavy → Off**. Light halves the per-tap intensity for a barely-there pulse; Heavy is the original v1.0 scale. Persisted across launches. iOS only — Light = `0.5×`, Heavy = `1.0×` on the computed LFO-depth-derived intensity. (commit `2f690ae`)
+
+- **Global BPM with delay sync** — a tempo field drives every voice's delay-time when that voice's timing is set to a musical division (½, ¼, ⅛, etc.). Default 80 BPM (resting-heart-rate territory, meditative without being sluggish). Changing the tempo recomputes every sync'd delay; Free-mode delays are left alone. iOS picker lives in the master row; web exposes it via tap-the-subtitle. (commits `2f690ae`, `ed09ca9`)
+
 ### Web app parity
 
-- All v1.0 features now run on the web app too: Replay × N in the ⏱ Timing menu, Randomize-all dice + Undo at the end of the OSC nav row, modal chord templates in the chord picker. (commits `67e5e6d`, `346aa9d`)
+- v1.0 features now run on the web app too: Replay × N in the ⏱ Timing menu, Randomize-all dice + Undo at the end of the OSC nav row, modal chord templates in the chord picker, global BPM with delay sync. (commits `67e5e6d`, `346aa9d`, `ed09ca9`)
 
-### Known queue (not yet implemented)
+### Deferred to v1.2
 
-- Haptics on/off + Light/Heavy intensity
-- Preset BPM (with optional delay-time sync)
+- **Granular sampling on web** — the iOS feature reads grains from a loaded sample. The web grain scheduler uses native WebAudio AudioParam ramps on a pre-recorded pink-noise buffer; switching it to read from a user-loaded sample requires an architecture rework that doesn't fit a quick parity port.
+- **LFO rate sync** — per-LFO `Sync` toggle that locks rate to a BPM division (½, ¼, ⅛…). Useful but unproven need for a drone synth; revisit if users ask.
 
 ---
 
