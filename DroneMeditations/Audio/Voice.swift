@@ -201,6 +201,20 @@ final class Voice {
     private var currentDelayMix:  Float = 0
     private var currentDelayFb:   Float = 0
     private var currentChorusMix: Float = 0
+    /// Slewed delay tap length in samples (Double so fractional reads
+    /// can interpolate). Previously a per-buffer Int — dragging the
+    /// delay-time slider caused the read index to jump by N samples
+    /// between buffers, which clicked. Slewed slower than the gain
+    /// stages (~200 ms time constant) because slewing tap position is
+    /// effectively a small Doppler shift; faster slew = more audible
+    /// pitch glide during a drag. 200 ms keeps the glide subtle.
+    private var currentDelayTapSamples: Double = -1   // -1 = uninitialized
+    /// Slewed chorus depth so chSwing (depth × maxSwing) varies smoothly
+    /// per sample instead of stepping per buffer when the user drags the
+    /// chorus DEPTH slider. Uses the same ~15 ms modSlew as the gain
+    /// stages — the swing range change is small enough that fast slew
+    /// doesn't introduce audible artefacts.
+    private var currentChorusDepth: Double = 0.0
 
     // Loaded sample buffer (mono float, -1..1) + native sample rate.
     var sampleData: [Float]? = nil
@@ -492,8 +506,19 @@ final class Voice {
             combFb[k]  = exp(-ln10x3 * Double(Voice.combLengths[k])  / decayDenom)
             combFbR[k] = exp(-ln10x3 * Double(Voice.combLengthsR[k]) / decayDenom)
         }
-        // Resolve delay tap length in samples.
-        let delayTapSamples = max(1, min(delayBufferSize - 1, Int(delayTimeSec * sampleRate)))
+        // Resolve delay tap length in samples (Double target). Per-sample
+        // slew + fractional read below — see currentDelayTapSamples comment.
+        let delayTapSamplesTarget = max(1.0,
+            min(Double(delayBufferSize - 1), delayTimeSec * sampleRate))
+        if currentDelayTapSamples < 0 {
+            // First buffer after init / reset — snap to target so the
+            // very first sample doesn't think we slewed from 0 ms.
+            currentDelayTapSamples = delayTapSamplesTarget
+        }
+        // Slower slew on delay tap than on the gain stages (~200 ms)
+        // because moving the tap is a small Doppler shift; faster slew
+        // = louder pitch glide during a drag.
+        let delayTapSlew: Double = 1.0 / (0.200 * sampleRate)
         let revMix = reverbMix
         let dlyMix = delayMix
         let dlyFb = delayFeedback
@@ -635,7 +660,9 @@ final class Voice {
             lastChorusWidth = chorusWidth
         }
         let chMix = chorusMix
-        let chSwing = chorusDepth * ChorusState.maxSwing
+        // chSwing is now derived from currentChorusDepth per sample (see
+        // the tapSecL/R calc in the chorus block below) so depth-slider
+        // drags don't step the swing range at buffer boundaries.
         let chBaseSec = ChorusState.baseSec
         let chRatePerSample = chorusRateHz
 
@@ -716,6 +743,12 @@ final class Voice {
             currentDelayMix  += (dlyMix     - currentDelayMix)  * modSlewF
             currentDelayFb   += (dlyFb      - currentDelayFb)   * modSlewF
             currentChorusMix += (chMix      - currentChorusMix) * modSlewF
+            // v1.1: delay-time + chorus-depth slew. Delay tap moves on a
+            // slower 200 ms time constant (a small Doppler shift); chorus
+            // depth shares the gain-stage 15 ms constant since the swing
+            // range change is small.
+            currentDelayTapSamples += (delayTapSamplesTarget - currentDelayTapSamples) * delayTapSlew
+            currentChorusDepth     += (chorusDepth          - currentChorusDepth)     * modSlew
 
             var raw: Double
             if isSampleMode, sampleCount > 0, sampleGranular {
@@ -929,8 +962,11 @@ final class Voice {
                 if chorusLfoPhaseR >= 1.0 { chorusLfoPhaseR -= floor(chorusLfoPhaseR) }
                 let lfoL = sin(chorusLfoPhaseL * 2.0 * .pi)
                 let lfoR = sin(chorusLfoPhaseR * 2.0 * .pi)
-                let tapSecL = chBaseSec + lfoL * chSwing
-                let tapSecR = chBaseSec + lfoR * chSwing
+                // v1.1: chSwing derived per sample from currentChorusDepth
+                // so depth-slider drags don't step at buffer boundaries.
+                let chSwingNow = currentChorusDepth * ChorusState.maxSwing
+                let tapSecL = chBaseSec + lfoL * chSwingNow
+                let tapSecR = chBaseSec + lfoR * chSwingNow
                 let chWetL = chorusReadFractional(buffer: chorusBufferL,
                                                   size: chorusBufferSize,
                                                   writeIdx: chorusWriteIdx,
@@ -1029,13 +1065,25 @@ final class Voice {
             var delayOutL: Float = 0
             var delayOutR: Float = 0
             if delayActive {
-                // Read current L + R taps before writing new samples.
-                var rIdxL = delayWriteIdxL - delayTapSamples
-                if rIdxL < 0 { rIdxL += delayBufferSize }
-                var rIdxR = delayWriteIdxR - delayTapSamples
-                if rIdxR < 0 { rIdxR += delayBufferSize }
-                delayOutL = delayBufferL[rIdxL]
-                delayOutR = delayBufferR[rIdxR]
+                // v1.1: fractional read using slewed Double tap length.
+                // Linear interpolation between adjacent samples → no
+                // click when delay-time slider moves; the slewing tap
+                // gives a small Doppler glide instead.
+                let tap = currentDelayTapSamples
+                let readPosL = Double(delayWriteIdxL) - tap
+                let readPosR = Double(delayWriteIdxR) - tap
+                var basePosL = readPosL
+                while basePosL < 0 { basePosL += Double(delayBufferSize) }
+                var basePosR = readPosR
+                while basePosR < 0 { basePosR += Double(delayBufferSize) }
+                let i0L = Int(basePosL) % delayBufferSize
+                let i1L = (i0L + 1) % delayBufferSize
+                let fracL = Float(basePosL - floor(basePosL))
+                let i0R = Int(basePosR) % delayBufferSize
+                let i1R = (i0R + 1) % delayBufferSize
+                let fracR = Float(basePosR - floor(basePosR))
+                delayOutL = delayBufferL[i0L] * (1.0 - fracL) + delayBufferL[i1L] * fracL
+                delayOutR = delayBufferR[i0R] * (1.0 - fracR) + delayBufferR[i1R] * fracR
                 // Write next samples per mode:
                 //   mono     — single tap; only L buffer fed (R sits at 0).
                 //   stereo   — both buffers fed identically with self-feedback.
