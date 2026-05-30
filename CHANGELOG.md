@@ -42,6 +42,8 @@ Features built after the v1.0 App Store submission was sent for review. This lis
 
 - **Faster fade-in on replay cycles** — the **first** cycle keeps the 8-second slow build (the meditative onset that sets the session mood); cycles **2+** use a 4-second fade-in so the rhythmic feel of Replay × N is preserved without the slow re-introduction repeating every time after a bloom-and-return. (commit `2de7c23`)
 
+- **Gain-stage slider crackle fix** — reverb mix, delay mix, delay feedback, and chorus mix were read once per buffer (every 5 ms on iOS) and used as constants in the per-sample signal math. Dragging any of those sliders meant the gain stage stepped by whatever the slider moved in those 5 ms, which buzzed audibly. All four are now slewed per sample at the same ~15 ms time constant the LFO→filter mod uses; the bypass guards now check both target and slewed values so a drag back to 0 doesn't pop. (commit `e75134a`)
+
 ### Web app parity
 
 - v1.0 features now run on the web app too: Replay × N in the ⏱ Timing menu, Randomize-all dice + Undo at the end of the OSC nav row, modal chord templates in the chord picker, global BPM with delay sync. (commits `67e5e6d`, `346aa9d`, `ed09ca9`)
