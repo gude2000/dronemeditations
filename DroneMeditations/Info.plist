@@ -60,5 +60,47 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<!-- v1.1: register the custom `.dronepreset` file type so tapping a
+	     shared preset in Files / Mail / AirDrop opens it directly in
+	     this app. Conforms to public.json so generic JSON readers
+	     still recognize the bytes if the UTI is stripped in transit. -->
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.gude2000.dronemeditations.preset</string>
+			<key>UTTypeDescription</key>
+			<string>Drone Meditations Preset</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.json</string>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>dronepreset</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>application/x-dronepreset</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Drone Meditations Preset</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.gude2000.dronemeditations.preset</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

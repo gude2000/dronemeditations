@@ -12,6 +12,21 @@ struct PresetPickerView: View {
     // SavePresetSheet (its own @State) and is emitted only when the
     // user taps Save.
 
+    // v1.1 cross-device preset sharing.
+    @State private var showingImporter = false
+    @State private var importBanner: String? = nil
+    @State private var importBannerIsError = false
+    /// Currently-presented share-sheet payload. Identifiable wrapper
+    /// around a temp URL so .sheet(item:) can fire — and so we pack the
+    /// preset file lazily (only when the user actually taps Share),
+    /// instead of on every PresetPickerView body re-eval.
+    @State private var shareItem: ShareItem? = nil
+
+    private struct ShareItem: Identifiable {
+        let id: String         // preset id
+        let url: URL
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -41,6 +56,22 @@ struct PresetPickerView: View {
                                 }
                                 .buttonStyle(.plain)
                                 Spacer()
+                                // v1.1: Share the preset as a
+                                // `.dronepreset` file — AirDrop / Save
+                                // to Files / Mail it to your other
+                                // device. We pack the file LAZILY on
+                                // tap, not on every body re-eval, to
+                                // avoid hundreds of JSON encodes per
+                                // render of a long preset list.
+                                Button {
+                                    if let url = vm.exportUserPresetURL(id: p.id) {
+                                        shareItem = ShareItem(id: p.id, url: url)
+                                    }
+                                } label: {
+                                    Image(systemName: "square.and.arrow.up")
+                                        .foregroundStyle(.white.opacity(0.85))
+                                }
+                                .buttonStyle(.plain)
                                 Button {
                                     vm.deleteUserPreset(id: p.id)
                                 } label: {
@@ -48,6 +79,7 @@ struct PresetPickerView: View {
                                         .foregroundStyle(.red.opacity(0.85))
                                 }
                                 .buttonStyle(.plain)
+                                .padding(.leading, 14)
                             }
                             .listRowBackground(
                                 vm.activePresetName == p.name
@@ -111,6 +143,16 @@ struct PresetPickerView: View {
                         showingSaveAlert = true
                     }
                 }
+                // v1.1: Import a `.dronepreset` file the user received
+                // (AirDrop / Files / iCloud Drive / Mail). Files-app
+                // picker handles security-scoped URL bracketing for us.
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showingImporter = true
+                    } label: {
+                        Image(systemName: "square.and.arrow.down")
+                    }
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
                 }
@@ -132,8 +174,89 @@ struct PresetPickerView: View {
                 }
                 .presentationDetents([.height(260)])
             }
+            // v1.1: Share sheet for `.dronepreset` export. Wrapped via
+            // .sheet(item:) so the URL is captured at tap time, not
+            // re-built on every body re-eval.
+            .sheet(item: $shareItem) { item in
+                ShareActivityView(items: [item.url])
+            }
+            // v1.1: Files-app picker for `.dronepreset` import.
+            // allowedContentTypes accepts both our custom UTI (when the
+            // file was authored by us) and generic JSON (fallback for
+            // files whose UTI wasn't preserved across sharing apps —
+            // e.g. some email clients strip type metadata).
+            .fileImporter(
+                isPresented: $showingImporter,
+                allowedContentTypes: [.dronePreset, .json],
+                allowsMultipleSelection: false
+            ) { result in
+                switch result {
+                case .success(let urls):
+                    guard let url = urls.first else { return }
+                    if let name = vm.importUserPreset(from: url) {
+                        importBanner = "Imported \u{201C}\(name)\u{201D}"
+                        importBannerIsError = false
+                    } else {
+                        importBanner = "Couldn't import that file."
+                        importBannerIsError = true
+                    }
+                case .failure:
+                    importBanner = "File picker cancelled."
+                    importBannerIsError = true
+                }
+            }
+            // Transient banner for import success / failure (auto-fades
+            // after 2.5 s). Overlays on top of the list so the user
+            // gets confirmation without an alert interrupting flow.
+            .overlay(alignment: .top) {
+                if let msg = importBanner {
+                    Text(msg)
+                        .font(.system(.footnote, design: .rounded).weight(.medium))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(
+                            Capsule().fill(importBannerIsError
+                                           ? Color.red.opacity(0.75)
+                                           : Color.green.opacity(0.75))
+                        )
+                        .padding(.top, 8)
+                        .transition(.opacity)
+                        .task(id: msg) {
+                            try? await Task.sleep(nanoseconds: 2_500_000_000)
+                            importBanner = nil
+                        }
+                }
+            }
         }
         .preferredColorScheme(.dark)
+    }
+}
+
+// MARK: - Share & UTI helpers
+
+/// Tiny UIActivityViewController wrapper so we can present a share
+/// sheet from SwiftUI. The standard `ShareLink` API would have
+/// captured the URL eagerly at body-evaluation time; this lets us
+/// pack the file lazily on tap.
+private struct ShareActivityView: UIViewControllerRepresentable {
+    let items: [Any]
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+    func updateUIViewController(_ vc: UIActivityViewController, context: Context) {}
+}
+
+import UniformTypeIdentifiers
+
+extension UTType {
+    /// Custom UTI for `.dronepreset` files. Wired up in Info.plist via
+    /// UTExportedTypeDeclarations so the system associates incoming
+    /// files with this app. Conforms to `public.json` so generic JSON
+    /// pickers also accept it as a fallback.
+    static var dronePreset: UTType {
+        UTType(exportedAs: "com.gude2000.dronemeditations.preset",
+               conformingTo: .json)
     }
 }
 

@@ -772,6 +772,40 @@ final class DroneViewModel: ObservableObject {
         if activePresetName == preset.name { activePresetName = nil }
     }
 
+    // MARK: - .dronepreset file sharing (v1.1)
+
+    /// Pack a saved user preset into a `.dronepreset` file in the temp
+    /// directory and return its URL — ready to hand to ShareLink for
+    /// AirDrop / Save to Files / Mail. Returns nil if the preset id
+    /// isn't found or packing fails. The file contains the preset JSON
+    /// plus any embedded sample audio, so the receiving device
+    /// reconstructs everything end-to-end.
+    func exportUserPresetURL(id: String) -> URL? {
+        guard let preset = userPresets.first(where: { $0.id == id }) else { return nil }
+        return try? UserPresetSharing.export(preset)
+    }
+
+    /// Import a `.dronepreset` file the user received (via Files
+    /// picker, AirDrop, or tap-to-open). Materializes any embedded
+    /// sample audio, gives the preset a fresh id, and prepends it to
+    /// the user-presets list. Returns the imported preset's display
+    /// name on success, nil on failure. Caller is responsible for any
+    /// user-facing error UI (an alert with the localized description).
+    @discardableResult
+    func importUserPreset(from url: URL) -> String? {
+        do {
+            let preset = try UserPresetSharing.importPreset(from: url)
+            userPresets.insert(preset, at: 0)
+            UserPresetStore.save(userPresets)
+            return preset.name
+        } catch {
+            #if DEBUG
+            print("[preset import] \(error.localizedDescription)")
+            #endif
+            return nil
+        }
+    }
+
     private func restoreLfoBase(for index: Int, target: LfoState.Target) {
         let o = oscillators[index]
         switch target {

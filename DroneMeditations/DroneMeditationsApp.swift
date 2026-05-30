@@ -35,6 +35,19 @@ struct DroneMeditationsApp: App {
                 .onReceive(NotificationCenter.default.publisher(for: .showOnboarding)) { _ in
                     showingOnboarding = true
                 }
+                // v1.1: tap-to-open `.dronepreset` files from Files /
+                // Mail / AirDrop / Messages. Only `.dronepreset`
+                // extensions are recognized as preset files so we
+                // don't grab unrelated documents the user opens.
+                .onOpenURL { url in
+                    guard url.pathExtension.lowercased()
+                        == UserPresetSharing.fileExtension else { return }
+                    if let name = viewModel.importUserPreset(from: url) {
+                        #if DEBUG
+                        print("[preset import via onOpenURL] \(name)")
+                        #endif
+                    }
+                }
         }
     }
 }
