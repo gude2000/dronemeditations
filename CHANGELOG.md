@@ -52,6 +52,8 @@ Features built after the v1.0 App Store submission was sent for review. This lis
 
 - **Removed run-loop hop from per-voice sync** — the Combine sink that mirrors `$oscillators` into the per-voice `OscillatorVoice` boxes was scheduled `.receive(on: RunLoop.main)`. Slider drags fire @Published 60+ times per second, queuing a run-loop hop per tick measurably backed up the main thread. The sink work is cheap and runs on the same main-actor that publishes, so it's now synchronous — faster and correct. (commit `f437717`)
 
+- **User-preset save now captures drift** — saving a user preset (a full-session ⭐ save) was dropping the per-voice drift config: pitch mode, pan mode, amount, period, and the **Quantize to scale** toggle. (Voice presets — the per-strip ⭐ saves — were already saving drift correctly.) Fixed: `UserPreset.Voice` gains an optional `drift` field, the save site passes `o.drift`, the load site restores both drift state AND pushes `pitchQuantizeToScale` into the audio engine + recomputes the quantize cache so the snap takes effect immediately. Old saves load fine — they get the per-voice default (no drift, quantize off) which is what they had at save time. Morph apply path also forwards drift now, so morphing between a preset with quantize-on and one with it off behaves correctly. (commit `2e5bb46`)
+
 ### Web app parity
 
 - v1.0 features now run on the web app too: Replay × N in the ⏱ Timing menu, Randomize-all dice + Undo at the end of the OSC nav row, modal chord templates in the chord picker, global BPM with delay sync. (commits `67e5e6d`, `346aa9d`, `ed09ca9`)
