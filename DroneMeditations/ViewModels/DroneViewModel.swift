@@ -276,8 +276,13 @@ final class DroneViewModel: ObservableObject {
         // OscillatorVoice box. The equality check is essential — without
         // it, every mutation would fire every box's objectWillChange and
         // we'd lose the per-voice isolation that's the whole point.
+        //
+        // v1.1 perf: synchronous sink (no `.receive(on:)`) — slider
+        // drags fire the @Published 60+ times per second; queuing a
+        // run-loop hop per tick measurably backed up the main thread.
+        // The sink work is cheap (4 state diffs) and runs on the same
+        // main-actor that publishes, so synchronous is safe.
         $oscillators
-            .receive(on: RunLoop.main)
             .sink { [weak self] newArray in
                 guard let self else { return }
                 for (i, s) in newArray.enumerated() where i < self.voiceBoxes.count {

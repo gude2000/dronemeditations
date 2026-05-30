@@ -215,6 +215,14 @@ final class Voice {
     /// stages — the swing range change is small enough that fast slew
     /// doesn't introduce audible artefacts.
     private var currentChorusDepth: Double = 0.0
+    /// Slewed drive (tanh saturation amount). Dragging the DRIVE slider
+    /// was crackling because tanh(raw * drive) / tanh(drive) flipped
+    /// curves at every buffer boundary. Now slewed per sample.
+    private var currentDrive: Double = 1.0
+    /// Slewed FM index. Dragging the FM INDEX slider was stepping the
+    /// per-sample phase increment by hundreds of Hz at buffer
+    /// boundaries — biggest possible click. Now slewed.
+    private var currentFmIndex: Double = 0.0
 
     // Loaded sample buffer (mono float, -1..1) + native sample rate.
     var sampleData: [Float]? = nil
@@ -622,17 +630,22 @@ final class Voice {
                     wetBloomTarget = 1.0
                 } else {
                     let foeT = foe / fadeOut   // 0 at start of fade, 1 at end
-                    // Smoothstep gain envelope (3t² − 2t³ on 1−foeT)
-                    let inv = 1.0 - foeT
-                    envTarget = inv * inv * (3.0 - 2.0 * inv)
-                    // Trapezoidal wet bloom (mirrors stop-bloom shape):
-                    //   0..0.30   ramp up   1.0 → 1.5
-                    //   0.30..0.45 plateau at 1.5
-                    //   0.45..1.0  ramp down 1.5 → 0.3
-                    let peakMul: Double = 1.5
-                    let tailMul: Double = 0.3
+                    // Linear gain envelope (v1.0 behavior). Smoothstep
+                    // was too gentle at the start — felt like nothing
+                    // was happening for the first 3 seconds, then a
+                    // sudden drop. Linear gives a continuous perceived
+                    // taper.
+                    envTarget = 1.0 - foeT
+                    // Lighter trapezoidal wet bloom — softer than the
+                    // original 1.5×/0.3× shape so the bloom feels like
+                    // a tail extension rather than a swell.
+                    //   0..0.30   ramp up   1.0 → 1.3
+                    //   0.30..0.40 plateau at 1.3
+                    //   0.40..1.0  ramp down 1.3 → 0.5
+                    let peakMul: Double = 1.3
+                    let tailMul: Double = 0.5
                     let peakStart: Double = 0.30
-                    let plateauWidth: Double = 0.15
+                    let plateauWidth: Double = 0.10
                     let peakEnd = peakStart + plateauWidth
                     if foeT < peakStart {
                         wetBloomTarget = 1.0 + (peakMul - 1.0) * (foeT / peakStart)
@@ -749,6 +762,13 @@ final class Voice {
             // range change is small.
             currentDelayTapSamples += (delayTapSamplesTarget - currentDelayTapSamples) * delayTapSlew
             currentChorusDepth     += (chorusDepth          - currentChorusDepth)     * modSlew
+            // v1.1: drive + FM index slew. Both were per-buffer
+            // constants — dragging the DRIVE slider stepped the tanh
+            // waveshaper at buffer boundaries; dragging FM INDEX
+            // stepped the carrier phase increment by hundreds of Hz.
+            // 15 ms slew matches the rest of the gain stages.
+            currentDrive    += (drive  - currentDrive)    * modSlew
+            currentFmIndex  += (fmIdx  - currentFmIndex)  * modSlew
 
             var raw: Double
             if isSampleMode, sampleCount > 0, sampleGranular {
@@ -922,8 +942,11 @@ final class Voice {
                 // increment. Uses raw modulator output → instantaneous freq
                 // excursion of ±|fmIndex|·|modulator| Hz.
                 var freqInst = f
-                if fmIdx > 0.001, let src = fmSrcPtr, i < fmSrcCount {
-                    freqInst += Double(src[i]) * fmIdx
+                // v1.1: use slewed currentFmIndex so dragging the FM
+                // INDEX slider doesn't step the carrier phase increment
+                // by hundreds of Hz at buffer boundaries.
+                if currentFmIndex > 0.001, let src = fmSrcPtr, i < fmSrcCount {
+                    freqInst += Double(src[i]) * currentFmIndex
                 }
                 ph += freqInst * invSR
                 if ph >= 1.0 { ph -= floor(ph) }
@@ -934,8 +957,12 @@ final class Voice {
             // tanh waveshaper, normalized so output peak ≈ 1.0 regardless
             // of drive amount, producing warm harmonic content without
             // brutally clipping.
-            if drive > 1.001 {
-                raw = tanh(raw * drive) / tanh(drive)
+            // v1.1: use slewed currentDrive so dragging the DRIVE slider
+            // doesn't step the tanh waveshaper curve at buffer
+            // boundaries. Both numerator and denominator use the same
+            // slewed value so the normalization stays consistent.
+            if currentDrive > 1.001 {
+                raw = tanh(raw * currentDrive) / tanh(currentDrive)
             }
             // Capture pre-filter raw for other voices' FM lookups next render.
             lastRawBuffer[i] = Float(raw)
