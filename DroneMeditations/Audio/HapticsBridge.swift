@@ -3,15 +3,73 @@ import CoreHaptics
 import UIKit
 
 /// Optional subtle haptic feedback synced to the slowest active LFO across
-/// all voices. When enabled, fires a transient tap on each LFO cycle with
-/// intensity proportional to the LFO's depth. Off by default — the user
-/// toggles it from the controls overlay.
+/// all voices. Three-state intensity selector: Off / Light / Heavy. Light
+/// halves the computed per-tap intensity for a barely-there pulse; Heavy
+/// is the original (v1.0) behavior. The user cycles modes by tapping the
+/// haptics icon in the master row. State persists in UserDefaults.
 @MainActor
 final class HapticsBridge: ObservableObject {
-    @Published var isEnabled: Bool = false {
-        didSet {
-            if isEnabled { startEngineAndTimer() } else { stop() }
+
+    /// Intensity tiers. `off` = no taps at all. `light` = 0.5× scale on
+    /// the computed per-tap intensity. `heavy` = 1.0× scale (original
+    /// v1.0 behavior).
+    enum Mode: String, CaseIterable {
+        case off, light, heavy
+
+        /// Multiplier applied to the per-tap intensity computed from the
+        /// slowest active LFO's depth.
+        var intensityScale: Float {
+            switch self {
+            case .off:   return 0
+            case .light: return 0.5
+            case .heavy: return 1.0
+            }
         }
+
+        /// SF Symbol used by the toolbar button. Distinct glyphs make the
+        /// current mode legible at a glance.
+        var symbolName: String {
+            switch self {
+            case .off:   return "waveform.path"
+            case .light: return "waveform.path.badge.minus"
+            case .heavy: return "waveform.path.ecg"
+            }
+        }
+
+        /// Cycle order shown in the toolbar: Off → Light → Heavy → Off.
+        var next: Mode {
+            switch self {
+            case .off:   return .light
+            case .light: return .heavy
+            case .heavy: return .off
+            }
+        }
+    }
+
+    private static let defaultsKey = "DroneMeditations.HapticsMode"
+
+    /// The currently active mode. Setting this restarts (or stops) the
+    /// pulse timer and persists the choice to UserDefaults so it survives
+    /// app relaunches.
+    @Published var mode: Mode = {
+        let raw = UserDefaults.standard.string(forKey: HapticsBridge.defaultsKey) ?? Mode.off.rawValue
+        return Mode(rawValue: raw) ?? .off
+    }() {
+        didSet {
+            UserDefaults.standard.set(mode.rawValue, forKey: HapticsBridge.defaultsKey)
+            if mode == .off { stop() }
+            else if oldValue == .off { startEngineAndTimer() }
+            // light↔heavy with engine already running: scheduleNextTick()
+            // will pick up the new scale on the next tap, no restart needed.
+        }
+    }
+
+    /// Backwards-compat shim. Some legacy call sites still flip a Bool;
+    /// keep the binding alive but map it through Mode. Setting `true`
+    /// from the legacy path means "heavy" (the v1.0 default behavior).
+    var isEnabled: Bool {
+        get { mode != .off }
+        set { mode = newValue ? .heavy : .off }
     }
 
     private var engine: CHHapticEngine?
@@ -20,13 +78,15 @@ final class HapticsBridge: ObservableObject {
 
     init(vm: DroneViewModel) {
         self.vm = vm
+        // Restore engine if mode was persisted as light/heavy.
+        if mode != .off { startEngineAndTimer() }
     }
 
     private func startEngineAndTimer() {
         // CoreHaptics requires the device to support haptic feedback —
         // every iPhone since 7 does, but iPad doesn't.
         guard CHHapticEngine.capabilitiesForHardware().supportsHaptics else {
-            isEnabled = false
+            mode = .off
             return
         }
         if engine == nil {
@@ -38,7 +98,7 @@ final class HapticsBridge: ObservableObject {
                 }
                 engine?.stoppedHandler = { _ in /* no-op */ }
             } catch {
-                isEnabled = false
+                mode = .off
                 return
             }
         }
@@ -54,7 +114,9 @@ final class HapticsBridge: ObservableObject {
 
     /// Compute the period between haptic pulses. Walks every voice's LFOs,
     /// finds the slowest non-silent one, and uses 1/rateHz. Falls back to
-    /// a gentle 2-second pulse when no LFO is active.
+    /// a gentle 2-second pulse when no LFO is active. The intensity
+    /// returned is the *unscaled* LFO depth; the per-tap call multiplies
+    /// it by `mode.intensityScale` before firing.
     private func currentPulsePeriod() -> (period: TimeInterval, intensity: Float) {
         guard let vm = vm else { return (2.0, 0.4) }
         var slowestRate: Double = .infinity
@@ -84,11 +146,17 @@ final class HapticsBridge: ObservableObject {
     }
 
     private func tap(intensity: Float) {
-        guard let engine = engine else { return }
+        // Apply the mode's intensity scale BEFORE handing the value to
+        // CoreHaptics. Light = 0.5× = a quiet brush; Heavy = 1.0× = the
+        // original v1.0 pulse.
+        let scaled = intensity * mode.intensityScale
+        // Avoid firing barely-there events that the OS would clamp to 0
+        // anyway — saves a CoreHaptics player allocation per tick.
+        guard scaled > 0.02, let engine = engine else { return }
         let event = CHHapticEvent(
             eventType: .hapticTransient,
             parameters: [
-                CHHapticEventParameter(parameterID: .hapticIntensity, value: intensity),
+                CHHapticEventParameter(parameterID: .hapticIntensity, value: scaled),
                 CHHapticEventParameter(parameterID: .hapticSharpness, value: 0.35)
             ],
             relativeTime: 0

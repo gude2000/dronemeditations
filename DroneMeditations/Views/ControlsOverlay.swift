@@ -642,25 +642,59 @@ struct ControlsOverlay: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 32, alignment: .trailing)
 
-            // Subtle haptics toggle — taps the device in time with the
-            // slowest active LFO. Off by default.
-            Button {
-                vm.haptics.isEnabled.toggle()
+            // Global BPM picker (v1.1). Drives every voice's delay-time
+            // when its timing is set to a musical division (½, ¼, etc.).
+            // Free-mode delays are unaffected. Hidden behind a Menu to
+            // keep the master row uncluttered for users who never sync.
+            Menu {
+                Section("Tempo") {
+                    ForEach(DroneViewModel.bpmChoices, id: \.self) { val in
+                        Button {
+                            vm.setBPM(val)
+                        } label: {
+                            if abs(vm.bpm - val) < 0.5 {
+                                Label("\(Int(val)) BPM", systemImage: "checkmark")
+                            } else {
+                                Text("\(Int(val)) BPM")
+                            }
+                        }
+                    }
+                }
             } label: {
-                Image(systemName: vm.haptics.isEnabled ? "waveform.path" : "waveform.path")
+                Text("\(Int(vm.bpm))")
+                    .font(.system(size: 11, weight: .heavy, design: .monospaced))
+                    .frame(width: 32, height: 28)
+                    .background(
+                        Capsule().fill(Color.white.opacity(0.10))
+                    )
+                    .foregroundStyle(.white)
+            }
+            .menuStyle(.borderlessButton)
+            .accessibilityLabel("Tempo: \(Int(vm.bpm)) BPM")
+
+            // Haptics intensity cycle — Off → Light → Heavy → Off. Each
+            // tap rotates to the next mode. Taps fire in time with the
+            // slowest active LFO across all voices; Light halves the
+            // intensity, Heavy is the original (v1.0) pulse. Persisted
+            // to UserDefaults so the choice survives relaunches.
+            Button {
+                vm.haptics.mode = vm.haptics.mode.next
+            } label: {
+                Image(systemName: vm.haptics.mode.symbolName)
                     .font(.system(size: 14, weight: .semibold))
                     .frame(width: 28, height: 28)
                     .background(
                         Circle().fill(
-                            vm.haptics.isEnabled
-                                ? Color(red: 0.55, green: 0.76, blue: 1.0).opacity(0.30)
+                            vm.haptics.mode != .off
+                                ? Color(red: 0.55, green: 0.76, blue: 1.0)
+                                    .opacity(vm.haptics.mode == .heavy ? 0.40 : 0.22)
                                 : Color.white.opacity(0.10)
                         )
                     )
                     .foregroundStyle(.white)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Toggle haptic feedback")
+            .accessibilityLabel("Haptic feedback: \(vm.haptics.mode.rawValue.capitalized)")
         }
         .padding(.horizontal, isCompact ? 12 : 14)
         .padding(.vertical, isCompact ? 5 : 10)

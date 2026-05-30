@@ -206,6 +206,15 @@ final class DroneViewModel: ObservableObject {
     /// Off by default; user toggles from controls.
     private(set) var haptics: HapticsBridge!
 
+    /// Global tempo (v1.1). Drives every voice's delay-time when its
+    /// timing is sync'd to a musical division (½, ¼, etc.). 80 BPM is
+    /// roughly resting-heart-rate territory — meditative without being
+    /// sluggish. Range clamped to 30 .. 240 by `setBPM`.
+    @Published var bpm: Double = 80
+    /// Common BPM presets shown in the master-row picker. Covers the
+    /// meditative range (40-100) plus standard music tempos.
+    static let bpmChoices: [Double] = [40, 60, 72, 80, 90, 100, 120, 140]
+
     /// FFT spectrum analyzer source. Off until `showSpectrum` flips true.
     private(set) var spectrumTap: SpectrumTap!
 
@@ -499,8 +508,25 @@ final class DroneViewModel: ObservableObject {
     func setDelayTiming(_ timing: DelayState.Timing, for index: Int) {
         guard oscillators.indices.contains(index) else { return }
         oscillators[index].delay.timing = timing
-        if let sec = timing.seconds() {
+        if let sec = timing.seconds(bpm: bpm) {
             setDelayTime(sec, for: index)
+        }
+    }
+
+    /// Update the global tempo. Recomputes every voice's delay-time
+    /// for voices whose delay timing is sync'd to a musical division
+    /// (anything other than `.free`). Voices on `.free` timing are
+    /// left alone — they keep whatever absolute ms value the user
+    /// dialed. v1.1.
+    func setBPM(_ newBPM: Double) {
+        let clamped = max(30, min(240, newBPM))
+        guard clamped != bpm else { return }
+        bpm = clamped
+        for i in oscillators.indices {
+            let timing = oscillators[i].delay.timing
+            if let sec = timing.seconds(bpm: clamped) {
+                setDelayTime(sec, for: i)
+            }
         }
     }
 
