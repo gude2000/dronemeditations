@@ -145,7 +145,15 @@ struct ControlsOverlay: View {
                         ScrollView {
                             VStack(spacing: isCompact ? 6 : 10) {
                                 ForEach(0..<4, id: \.self) { i in
-                                    OscillatorStrip(index: i)
+                                    // v1.1: pass the per-voice
+                                    // OscillatorVoice box directly so
+                                    // the strip subscribes only to its
+                                    // own voice's state changes.
+                                    OscillatorStrip(
+                                        voice: vm.voiceBoxes[i],
+                                        vm: vm,
+                                        index: i
+                                    )
                                         .id("osc-\(i)")
                                 }
                                 masterRow

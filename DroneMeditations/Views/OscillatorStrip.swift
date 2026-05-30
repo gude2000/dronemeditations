@@ -2,7 +2,15 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct OscillatorStrip: View {
-    @EnvironmentObject var vm: DroneViewModel
+    // v1.1 per-voice observation. The strip subscribes ONLY to its own
+    // voice's state via @ObservedObject — slider drags on other voices
+    // no longer trigger this strip's body to re-evaluate. `vm` is a
+    // plain reference for action dispatch (vm.setX calls) and
+    // cross-voice reads (like the global solo check); SwiftUI does NOT
+    // auto-subscribe to plain stored properties, so vm.objectWillChange
+    // notifications don't invalidate this view.
+    @ObservedObject var voice: OscillatorVoice
+    let vm: DroneViewModel
     let index: Int
 
     @State private var showingFreqEditor = false
@@ -28,7 +36,9 @@ struct OscillatorStrip: View {
         horizontalSizeClass == .compact && verticalSizeClass == .regular
     }
 
-    private var osc: OscillatorState { vm.oscillators[index] }
+    /// Read voice state through the box so SwiftUI knows to invalidate
+    /// THIS strip only when THIS voice's state changes.
+    private var osc: OscillatorState { voice.state }
 
     var body: some View {
         VStack(alignment: .leading, spacing: isPad ? 14 : 8) {

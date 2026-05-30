@@ -2,12 +2,31 @@ import Foundation
 import Combine
 import SwiftUI
 
+/// Per-voice ObservableObject wrapper (v1.1). Each OscillatorStrip
+/// subscribes to its own instance via @ObservedObject so a slider drag
+/// on OSC 1 doesn't trigger SwiftUI body recomputation on OSC 2/3/4.
+/// Declared here instead of in its own file to avoid editing the
+/// Xcode project tree.
+@MainActor
+final class OscillatorVoice: ObservableObject {
+    @Published var state: OscillatorState
+    init(_ state: OscillatorState) { self.state = state }
+}
+
 /// The single source of truth for the UI.
 /// Owns the audio engine and pushes parameter changes through to it.
 @MainActor
 final class DroneViewModel: ObservableObject {
     // MARK: - Per-oscillator state (mirrors the audio voices)
     @Published var oscillators: [OscillatorState] = OscillatorState.defaults()
+    /// Per-voice ObservableObject boxes (v1.1). One instance per
+    /// oscillator, mirroring `oscillators[i]`. OscillatorStrip views
+    /// observe these directly via @ObservedObject so a slider drag on
+    /// OSC 1 only recomputes OSC 1's body — the other three strips
+    /// don't re-render. Kept in sync with `oscillators` via a Combine
+    /// sink set up in init. Always exactly 4 elements; the sink uses
+    /// equality checks to avoid re-publishing identical state.
+    let voiceBoxes: [OscillatorVoice] = OscillatorState.defaults().map { OscillatorVoice($0) }
 
     // MARK: - Chord generator state
     @Published var currentKey: PitchClass = .a
@@ -250,6 +269,24 @@ final class DroneViewModel: ObservableObject {
         $activePresetName.sink { [weak self] _ in
             Task { @MainActor in self?.nowPlaying.refresh() }
         }.store(in: &cancellables)
+
+        // Per-voice sync (v1.1). Every mutation to `oscillators[i]`
+        // republishes the whole array; this sink takes that one
+        // notification and routes each voice's new state into its own
+        // OscillatorVoice box. The equality check is essential — without
+        // it, every mutation would fire every box's objectWillChange and
+        // we'd lose the per-voice isolation that's the whole point.
+        $oscillators
+            .receive(on: RunLoop.main)
+            .sink { [weak self] newArray in
+                guard let self else { return }
+                for (i, s) in newArray.enumerated() where i < self.voiceBoxes.count {
+                    if self.voiceBoxes[i].state != s {
+                        self.voiceBoxes[i].state = s
+                    }
+                }
+            }
+            .store(in: &cancellables)
     }
 
     // MARK: - Per-oscillator mutators
