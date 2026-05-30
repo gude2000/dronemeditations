@@ -189,6 +189,19 @@ final class Voice {
     private var currentCutoffOct: Double = 0
     private var currentQOct: Double = 0
 
+    // v1.1 slewed gain-stage knobs. Reverb mix, delay mix, delay
+    // feedback, and chorus mix were previously read once per buffer
+    // and applied as a constant multiplier — that meant dragging
+    // those sliders during play caused per-buffer gain steps which
+    // sounded like crackling at fast drag rates. Slewing them per
+    // sample (matching the same ~20 ms time constant the LFO→filter
+    // mod uses) gives smooth gain transitions all the way down to a
+    // single-sample slider movement.
+    private var currentReverbMix: Float = 0
+    private var currentDelayMix:  Float = 0
+    private var currentDelayFb:   Float = 0
+    private var currentChorusMix: Float = 0
+
     // Loaded sample buffer (mono float, -1..1) + native sample rate.
     var sampleData: [Float]? = nil
     var sampleNativeRate: Double = 44100
@@ -491,8 +504,13 @@ final class Voice {
         // these guards win back a lot of CPU on busy patches. Thresholds
         // are intentionally just above zero so a slider literally at 0
         // stops costing CPU.
-        let reverbActive = revMix > 0.0001
+        // v1.1: bypass when BOTH the user-set target and the slewed
+        // current value are at 0. That way a user dragging the slider
+        // away from 0 doesn't get a hard pop (current is still slewing
+        // toward 0), but a slider sitting at 0 still skips the math.
+        let reverbActive = revMix > 0.0001 || currentReverbMix > 0.0001
         let delayActive  = dlyMix > 0.0001 || dlyFb > 0.001
+                        || currentDelayMix > 0.0001 || currentDelayFb > 0.001
 
         // Per-voice timing envelope target for this buffer. Smoothed per-
         // sample below by interpolating from currentTimingEnv → envTarget
@@ -688,6 +706,16 @@ final class Voice {
                                min(FilterState.qMax, filterQ * pow(2.0, currentQOct)))
                 updateBiquadCoefficients(cutoff: effC, q: effQ)
             }
+            // v1.1 gain-stage slew. revMix / dlyMix / dlyFb / chMix
+            // were per-buffer constants — dragging those sliders
+            // during play stepped the gain stage at buffer boundaries,
+            // which crackles. modSlew (~15 ms) is the same time
+            // constant used by the LFO→filter mod slew above.
+            let modSlewF = Float(modSlew)
+            currentReverbMix += (revMix     - currentReverbMix) * modSlewF
+            currentDelayMix  += (dlyMix     - currentDelayMix)  * modSlewF
+            currentDelayFb   += (dlyFb      - currentDelayFb)   * modSlewF
+            currentChorusMix += (chMix      - currentChorusMix) * modSlewF
 
             var raw: Double
             if isSampleMode, sampleCount > 0, sampleGranular {
@@ -892,7 +920,9 @@ final class Voice {
             // offset, producing counter-phase L/R wet signals.
             let chOutL: Float
             let chOutR: Float
-            if chMix > 0.0001 {
+            // v1.1: bypass uses both target and slewed value so a drag
+            // back to 0 doesn't pop — the slew completes naturally.
+            if chMix > 0.0001 || currentChorusMix > 0.0001 {
                 chorusLfoPhaseL += chRatePerSample * invSR
                 if chorusLfoPhaseL >= 1.0 { chorusLfoPhaseL -= floor(chorusLfoPhaseL) }
                 chorusLfoPhaseR += chRatePerSample * invSR
@@ -913,8 +943,10 @@ final class Voice {
                 chorusBufferR[chorusWriteIdx] = fxIn
                 chorusWriteIdx += 1
                 if chorusWriteIdx >= chorusBufferSize { chorusWriteIdx = 0 }
-                chOutL = fxIn * (1.0 - chMix) + chWetL * chMix
-                chOutR = fxIn * (1.0 - chMix) + chWetR * chMix
+                // Use the slewed currentChorusMix so per-sample gain
+                // doesn't step at buffer boundaries during slider drags.
+                chOutL = fxIn * (1.0 - currentChorusMix) + chWetL * currentChorusMix
+                chOutR = fxIn * (1.0 - currentChorusMix) + chWetR * currentChorusMix
             } else {
                 // Bypass: still write into the buffer so taking the slider up
                 // mid-play doesn't expose zeros, but skip the LFO math + read.
@@ -1010,14 +1042,14 @@ final class Voice {
                 //   pingPong — L gets dry + R's bounce; R gets L's bounce only.
                 switch delayMode {
                 case .mono:
-                    delayBufferL[delayWriteIdxL] = fxInMono + delayOutL * dlyFb
+                    delayBufferL[delayWriteIdxL] = fxInMono + delayOutL * currentDelayFb
                     delayBufferR[delayWriteIdxR] = 0
                 case .stereo:
-                    delayBufferL[delayWriteIdxL] = fxInMono + delayOutL * dlyFb
-                    delayBufferR[delayWriteIdxR] = fxInMono + delayOutR * dlyFb
+                    delayBufferL[delayWriteIdxL] = fxInMono + delayOutL * currentDelayFb
+                    delayBufferR[delayWriteIdxR] = fxInMono + delayOutR * currentDelayFb
                 case .pingPong:
-                    delayBufferL[delayWriteIdxL] = fxInMono + delayOutR * dlyFb
-                    delayBufferR[delayWriteIdxR] = delayOutL * dlyFb
+                    delayBufferL[delayWriteIdxL] = fxInMono + delayOutR * currentDelayFb
+                    delayBufferR[delayWriteIdxR] = delayOutL * currentDelayFb
                 }
                 delayWriteIdxL += 1
                 if delayWriteIdxL >= delayBufferSize { delayWriteIdxL = 0 }
@@ -1050,7 +1082,10 @@ final class Voice {
             // plateau → 0.3 during the 10-second cycle fade-out so
             // each cycle ends with the same atmospheric bloom the
             // global transport stop produces).
-            let wetMul = revMix * Float(currentWetBloom)
+            // v1.1: slewed reverb mix (was per-buffer constant → caused
+            // crackle when dragging the slider). Multiplied by the
+            // cycle-end bloom factor; both move smoothly.
+            let wetMul = currentReverbMix * Float(currentWetBloom)
             let dryL = dryReverbOut * lGain + revWetL * wetMul
             let dryR = dryReverbOut * rGain + revWetR * wetMul
             // Chorus side signal (already part of fxInMono via the mid; we
@@ -1061,13 +1096,16 @@ final class Voice {
             let dlyL: Float
             let dlyR: Float
             switch delayMode {
+            // v1.1: slewed delay mix (was per-buffer constant → caused
+            // crackle when dragging the slider). currentDelayMix moves
+            // smoothly toward the user-set dlyMix every sample.
             case .mono:
-                let m = delayOutL * dlyMix
+                let m = delayOutL * currentDelayMix
                 dlyL = m * lGain
                 dlyR = m * rGain
             case .stereo, .pingPong:
-                dlyL = delayOutL * dlyMix
-                dlyR = delayOutR * dlyMix
+                dlyL = delayOutL * currentDelayMix
+                dlyR = delayOutR * currentDelayMix
             }
 
             // Slew the per-buffer timing-envelope target across the buffer
