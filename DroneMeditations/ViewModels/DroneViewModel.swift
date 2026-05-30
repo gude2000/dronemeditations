@@ -886,6 +886,23 @@ final class DroneViewModel: ObservableObject {
                 audioEngine.setGrainJitter(gr.jitter, for: i)
                 audioEngine.setGrainPanSpread(gr.panSpread, for: i)
             }
+            // v1.1: bundled-sample auto-load + granular-sample config.
+            // When the preset names a bundled sample (matched by the
+            // BundledSampleStore entry name), load it before pushing
+            // granular state so the audio engine has the source ready.
+            if let bn = voice.bundledSampleName,
+               let entry = BundledSampleStore.all.first(where: { $0.name == bn }) {
+                loadBundledSample(entry, for: i)
+            }
+            if let sg = voice.sampleGranular {
+                setSampleGranular(sg, for: i)
+            }
+            if let posF = voice.grainSamplePosFrac {
+                setGrainSamplePos(posF, for: i)
+            }
+            if let posJ = voice.grainSamplePosJitter {
+                setGrainSamplePosJitter(posJ, for: i)
+            }
             if let lfos = voice.lfos {
                 // nil entries leave that LFO alone; non-nil overwrite.
                 for k in 0..<min(lfos.count, 4) {

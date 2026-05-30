@@ -45,6 +45,21 @@ struct Preset: Identifiable, Hashable {
         /// corresponding LFO alone; non-nil entries replace it.
         let lfos: [LfoState?]?
         let drift: DriftVoiceConfig?
+        /// Display name of a bundled sample (matches BundledSampleStore
+        /// entry name — no extension). When non-nil AND wave == .sample,
+        /// applyPreset auto-loads the bundled file so users get the full
+        /// preset on tap with no extra steps. v1.1.
+        let bundledSampleName: String?
+        /// When non-nil AND wave == .sample, toggles granular sampling
+        /// on the loaded file. Pairs with the four GRAIN sliders to chop
+        /// the sample into Hann-windowed grains. v1.1.
+        let sampleGranular: Bool?
+        /// Centre position (0..1) for granular-sample reads. Only used
+        /// when sampleGranular == true. v1.1.
+        let grainSamplePosFrac: Double?
+        /// Per-grain position jitter (0..1). Only used when
+        /// sampleGranular == true. v1.1.
+        let grainSamplePosJitter: Double?
 
         init(hz: Double, pan: Double = 0,
              wave: Waveform? = nil, amp: Double? = nil,
@@ -59,7 +74,11 @@ struct Preset: Identifiable, Hashable {
              fm: FMState? = nil,
              grain: GrainState? = nil,
              lfos: [LfoState?]? = nil,
-             drift: DriftVoiceConfig? = nil) {
+             drift: DriftVoiceConfig? = nil,
+             bundledSampleName: String? = nil,
+             sampleGranular: Bool? = nil,
+             grainSamplePosFrac: Double? = nil,
+             grainSamplePosJitter: Double? = nil) {
             self.hz = hz; self.pan = pan
             self.wave = wave; self.amp = amp
             self.drive = drive
@@ -70,6 +89,10 @@ struct Preset: Identifiable, Hashable {
             self.delay = delay; self.chorus = chorus
             self.fm = fm; self.grain = grain
             self.lfos = lfos; self.drift = drift
+            self.bundledSampleName = bundledSampleName
+            self.sampleGranular = sampleGranular
+            self.grainSamplePosFrac = grainSamplePosFrac
+            self.grainSamplePosJitter = grainSamplePosJitter
         }
     }
 
@@ -1222,6 +1245,262 @@ extension Preset {
                     Voice(hz: 440.00, pan:  0.7, wave: .sine, amp: 0.28,
                           filter: f, reverb: rev,
                           lfos: bellLFO(rate: 7.0), drift: drift)
+                   ]
+               }()),
+
+        // ───────────── v1.1 showcase presets ─────────────
+        //
+        // Eight new presets paired in two flights of four. The first
+        // flight loads a bundled sample and engages granular sampling
+        // (sampleGranular: true + a GRAIN row, plus pos/scan settings)
+        // so each one auto-arrives as a working granular instrument
+        // with no user setup. The second flight pushes the v1.1 stereo
+        // reverb hard — long decays, hard-panned voices, wide tails —
+        // showing what the new decorrelated-chain Schroeder produces
+        // versus the mono v1.0 reverb. Both flights live in the Drone
+        // Artists category since that's the home of the curated /
+        // character-driven presets.
+
+        // ── Tibetan Bowl — Frozen Shimmer (granular sampling) ──
+        // A real Bansuri sustain (Bansuri C4) chopped into Hann
+        // grains. Position frozen at 35 % into the file with low jitter
+        // so the same harmonic moment of the sustain is held forever,
+        // shimmering as the grains barely overlap. Adds a sine pad
+        // underneath at 220 Hz and 110 Hz for body. Wet reverb 60 % so
+        // the stereo tail glows around the bowl. The v1.1 stereo reverb
+        // is what makes this preset *feel* like a room rather than a
+        // mono recording.
+        Preset("Bansuri — Frozen Shimmer", .droneArtists,
+               subtitle: "Bansuri sustain granular-frozen at 35 % · stereo reverb glow",
+               {
+                   let rev = ReverbState(decaySec: 7.0, mix: 0.60)
+                   let revPad = ReverbState(decaySec: 5.0, mix: 0.40)
+                   let f   = FilterState(type: .lowpass, cutoffHz: 4500, q: 0.5)
+                   let granGrain = GrainState(sizeMs: 220, densityHz: 18, jitter: 0.25, panSpread: 0.85)
+                   return [
+                    Voice(hz: 261.63, pan: 0.0, wave: .sample, amp: 0.55,
+                          filter: f, reverb: rev,
+                          grain: granGrain,
+                          bundledSampleName: "Bansuri C4",
+                          sampleGranular: true,
+                          grainSamplePosFrac: 0.35,
+                          grainSamplePosJitter: 0.06),
+                    Voice(hz: 220.00, pan: -0.5, wave: .sine, amp: 0.22,
+                          filter: f, reverb: revPad),
+                    Voice(hz: 110.00, pan: 0.5,  wave: .sine, amp: 0.20,
+                          filter: f, reverb: revPad),
+                    silent
+                   ]
+               }()),
+
+        // ── Scriabin Mystic — Tape Decay (granular sampling) ──
+        // Loaded Scriabin Mystic piano chord (sample) is sliced into
+        // medium grains with high scan jitter so the read position
+        // wanders the whole file every grain — the harmonic content
+        // smears into a Basinski tape-decay cloud. Position centred at
+        // 0.50 with 60 % jitter = sample read could come from anywhere
+        // mid-file. Pairs with one sine pad at the chord root for
+        // ground. Long stereo reverb (8 s) makes the tail spread.
+        Preset("Scriabin — Tape Decay", .droneArtists,
+               subtitle: "Mystic piano sample · granular cloud · 8 s stereo decay",
+               {
+                   let rev = ReverbState(decaySec: 8.0, mix: 0.55)
+                   let revPad = ReverbState(decaySec: 6.0, mix: 0.35)
+                   let f   = FilterState(type: .lowpass, cutoffHz: 3800, q: 0.6)
+                   let granGrain = GrainState(sizeMs: 160, densityHz: 9, jitter: 0.85, panSpread: 0.95)
+                   return [
+                    Voice(hz: 261.63, pan: -0.4, wave: .sample, amp: 0.50,
+                          filter: f, reverb: rev,
+                          grain: granGrain,
+                          bundledSampleName: "scriabin-mystic-piano",
+                          sampleGranular: true,
+                          grainSamplePosFrac: 0.50,
+                          grainSamplePosJitter: 0.60),
+                    Voice(hz: 130.81, pan: 0.4, wave: .sine, amp: 0.25,
+                          filter: f, reverb: revPad),
+                    silent, silent
+                   ]
+               }()),
+
+        // ── Vowel Cloud (JG Vox, granular sampling) ──
+        // Vocal sustain "nothing-at-all" is chopped into LONG grains
+        // (300 ms = roughly one syllable's worth of air) at low
+        // density. Position scans the whole file slowly via an LFO on
+        // pan (lets the cloud drift across the stereo field). Result:
+        // disembodied vowel cloud, the kind Stockhausen used in
+        // Stimmung. Stereo reverb at 7 s mix 0.65 wraps it in a room.
+        Preset("Vowel Cloud", .droneArtists,
+               subtitle: "Vox sample · long granular vowels · stereo cathedral",
+               {
+                   let rev = ReverbState(decaySec: 7.0, mix: 0.65)
+                   let f   = FilterState(type: .highpass, cutoffHz: 220, q: 0.6)
+                   let granGrain = GrainState(sizeMs: 300, densityHz: 5, jitter: 0.45, panSpread: 1.0)
+                   let drift = DriftVoiceConfig(
+                       pitchMode: .ocean, pitchAmount: 1.0, pitchPhase: 0,
+                       panMode: .pendulum, panAmount: 0.8, panPhase: 0,
+                       pitchSemitones: 0.5, pitchPeriodSec: 60)
+                   return [
+                    Voice(hz: 220.00, pan: 0.0, wave: .sample, amp: 0.55,
+                          filter: f, reverb: rev,
+                          grain: granGrain,
+                          drift: drift,
+                          bundledSampleName: "jg-vox-nothing-at-all",
+                          sampleGranular: true,
+                          grainSamplePosFrac: 0.40,
+                          grainSamplePosJitter: 0.50),
+                    silent, silent, silent
+                   ]
+               }()),
+
+        // ── Galactic Dust (Cosmic sample, granular sampling) ──
+        // Cosmic synth sample chopped into TINY (40 ms) grains at
+        // high density (28/s) with maximum scan — the file becomes
+        // glittering particles scattered across the stereo field. The
+        // 7-second stereo reverb tail of v1.1 is what gives this its
+        // depth — in v1.0 mono reverb the same patch felt flat.
+        // Two voices play the sample at different octaves (1× and ½×
+        // pitch ratio) for harmonic layering.
+        Preset("Galactic Dust", .droneArtists,
+               subtitle: "Cosmic synth · ultra-fine grains · stereo reverb depth",
+               {
+                   let rev = ReverbState(decaySec: 7.0, mix: 0.50)
+                   let f   = FilterState(type: .bandpass, cutoffHz: 2400, q: 1.5)
+                   let granGrain = GrainState(sizeMs: 40, densityHz: 28, jitter: 0.65, panSpread: 1.0)
+                   return [
+                    Voice(hz: 261.63, pan: -0.7, wave: .sample, amp: 0.45,
+                          filter: f, reverb: rev,
+                          grain: granGrain,
+                          bundledSampleName: "Galactic-C2",
+                          sampleGranular: true,
+                          grainSamplePosFrac: 0.50,
+                          grainSamplePosJitter: 0.95),
+                    Voice(hz: 130.81, pan: 0.7, wave: .sample, amp: 0.40,
+                          filter: f, reverb: rev,
+                          grain: granGrain,
+                          bundledSampleName: "Galactic-C2",
+                          sampleGranular: true,
+                          grainSamplePosFrac: 0.70,
+                          grainSamplePosJitter: 0.95),
+                    silent, silent
+                   ]
+               }()),
+
+        // ── Wide Cathedral (stereo-reverb showcase) ──
+        // No samples, just four pure sine voices held wide and bathed
+        // in 9-second stereo reverb at 70 % mix. This is the most
+        // obvious "what does v1.1 stereo reverb actually sound like"
+        // demo: hard-panned voices each carry their own reverb tail
+        // that spreads across the entire stereo image. On v1.0 the
+        // panned voices' wet signal collapsed to the same side as the
+        // dry; on v1.1 the reverb chains decorrelate and the tail
+        // fills the room. Open Fifth chord for the perfect-fifth
+        // resonance.
+        Preset("Wide Cathedral", .droneArtists,
+               subtitle: "Four sines · hard-panned · 9 s stereo reverb",
+               {
+                   let rev = ReverbState(decaySec: 9.0, mix: 0.70)
+                   let f   = FilterState(type: .lowpass, cutoffHz: 5500, q: 0.5)
+                   return [
+                    Voice(hz: 110.00, pan: -0.95, wave: .sine, amp: 0.40,
+                          filter: f, reverb: rev),
+                    Voice(hz: 164.81, pan: -0.55, wave: .sine, amp: 0.35,
+                          filter: f, reverb: rev),
+                    Voice(hz: 220.00, pan:  0.55, wave: .sine, amp: 0.35,
+                          filter: f, reverb: rev),
+                    Voice(hz: 329.63, pan:  0.95, wave: .sine, amp: 0.30,
+                          filter: f, reverb: rev)
+                   ]
+               }()),
+
+        // ── Lydian Bloom (stereo reverb + modal chord) ──
+        // Showcases two v1.1 features together: the stereo reverb
+        // tail and the new Lydian modal chord template (1 / 3 / ♯4 /
+        // 7). Triangle voices for clean harmonics, no LFO motion,
+        // long reverb. The Lydian ♯4 against the dom 7 gives the
+        // characteristic "floating" Lydian colour, with the stereo
+        // tail blooming around each note's pan position.
+        Preset("Lydian Bloom", .droneArtists,
+               subtitle: "Lydian intervals · triangle voices · v1.1 stereo glow",
+               {
+                   let rev = ReverbState(decaySec: 7.5, mix: 0.55)
+                   let f   = FilterState(type: .lowpass, cutoffHz: 4800, q: 0.55)
+                   return [
+                    Voice(hz: 130.81, pan: -0.8, wave: .triangle, amp: 0.40,
+                          filter: f, reverb: rev),    // C  (1)
+                    Voice(hz: 164.81, pan: -0.3, wave: .triangle, amp: 0.35,
+                          filter: f, reverb: rev),    // E  (3)
+                    Voice(hz: 185.00, pan:  0.3, wave: .triangle, amp: 0.30,
+                          filter: f, reverb: rev),    // F♯ (♯4 — the Lydian note)
+                    Voice(hz: 246.94, pan:  0.8, wave: .triangle, amp: 0.30,
+                          filter: f, reverb: rev)     // B  (7)
+                   ]
+               }()),
+
+        // ── Pendulum Reverberation (stereo reverb + drift) ──
+        // Three voices on Wave-mode pan drift slowly sweep L↔R while
+        // the new stereo reverb keeps the tail in the room across
+        // every pan position. Without v1.1 stereo reverb the wet
+        // signal would track the dry pan and the room would seem to
+        // tilt; v1.1 keeps the room in place while the source moves.
+        Preset("Pendulum Reverberation", .droneArtists,
+               subtitle: "Drifting pans · stationary stereo room",
+               {
+                   let rev = ReverbState(decaySec: 8.5, mix: 0.60)
+                   let f   = FilterState(type: .lowpass, cutoffHz: 4200, q: 0.5)
+                   let driftA = DriftVoiceConfig(
+                       pitchMode: .static,
+                       panMode: .sweepLR, panAmount: 1.0, panPhase: 0.0)
+                   let driftB = DriftVoiceConfig(
+                       pitchMode: .static,
+                       panMode: .sweepRL, panAmount: 1.0, panPhase: 0.33)
+                   let driftC = DriftVoiceConfig(
+                       pitchMode: .static,
+                       panMode: .pendulum, panAmount: 0.9, panPhase: 0.66)
+                   return [
+                    Voice(hz: 146.83, pan: 0.0, wave: .triangle, amp: 0.35,
+                          filter: f, reverb: rev, drift: driftA),
+                    Voice(hz: 220.00, pan: 0.0, wave: .sine, amp: 0.32,
+                          filter: f, reverb: rev, drift: driftB),
+                    Voice(hz: 293.66, pan: 0.0, wave: .triangle, amp: 0.30,
+                          filter: f, reverb: rev, drift: driftC),
+                    silent
+                   ]
+               }()),
+
+        // ── Phrygian Stillness (modal + replay × N) ──
+        // Combines THREE v1.1 features: the new Phrygian modal chord
+        // template (1 / ♭2 / ♭3 / ♭7 — the most haunting mode),
+        // Replay × N timing envelope (each voice blooms in, holds,
+        // fades, waits, repeats × 3), and the stereo reverb tail.
+        // Designed for an 18-minute meditation: each voice cycles
+        // [silent 60 s → audible 4 min → silent 60 s], replaying ×3.
+        // After 18 minutes everything fades. The Phrygian ♭2 gives
+        // the dark colour; the stereo reverb gives the spaciousness.
+        Preset("Phrygian Stillness", .droneArtists,
+               subtitle: "Phrygian intervals · 60 s breath cycle × 3 · wide reverb",
+               {
+                   let rev = ReverbState(decaySec: 8.0, mix: 0.55)
+                   let f   = FilterState(type: .lowpass, cutoffHz: 3500, q: 0.5)
+                   // Each voice gets [60 s silent → 4 min audible] × 3 cycles.
+                   // Voices stagger by 20 s on the first cycle so they don't
+                   // all bloom in simultaneously.
+                   return [
+                    Voice(hz: 130.81, pan: -0.7, wave: .sine, amp: 0.35,
+                          startDelaySec: 60, playDurationSec: 240,
+                          replayCount: 3,
+                          filter: f, reverb: rev),     // C  (1)
+                    Voice(hz: 138.59, pan: -0.25, wave: .triangle, amp: 0.32,
+                          startDelaySec: 80, playDurationSec: 240,
+                          replayCount: 3,
+                          filter: f, reverb: rev),     // D♭ (♭2)
+                    Voice(hz: 155.56, pan: 0.25, wave: .sine, amp: 0.30,
+                          startDelaySec: 100, playDurationSec: 240,
+                          replayCount: 3,
+                          filter: f, reverb: rev),     // E♭ (♭3)
+                    Voice(hz: 233.08, pan: 0.7, wave: .triangle, amp: 0.28,
+                          startDelaySec: 120, playDurationSec: 240,
+                          replayCount: 3,
+                          filter: f, reverb: rev)      // B♭ (♭7)
                    ]
                }())
     ]

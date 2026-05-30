@@ -24,6 +24,18 @@ Features built after the v1.0 App Store submission was sent for review. This lis
 
 - **Audio-thread CPU optimization** — per-sample reverb math is now skipped entirely when reverb mix is at 0, and per-sample delay math is skipped when both delay mix and feedback are negligible. Crackling on parameter drags during busy presets was largely caused by reverb running at full cost on voices that had it muted. On a typical preset with reverb active on 1-2 voices and muted on the rest, this saves ~9M ops/sec net — easily covering the extra cost of stereo reverb, plus some. (commit `5e0468f`)
 
+- **Eight new showcase presets** in the Drone Artists category:
+  - *Bansuri — Frozen Shimmer* — granular sampling on a Bansuri C4 sustain, position frozen at 35 % with low jitter
+  - *Scriabin — Tape Decay* — granular sampling on the bundled mystic-piano sample, high scan jitter for Basinski-style cloud
+  - *Vowel Cloud* — JG vocal sample held into a 300-ms-grain vowel cloud with ocean drift
+  - *Galactic Dust* — tiny 40-ms grains of a cosmic synth sample at 28/s density, hard-panned
+  - *Wide Cathedral* — four pure sines hard-panned with 9 s stereo reverb; the most obvious v1.1 stereo-reverb demo
+  - *Lydian Bloom* — Lydian modal intervals + stereo reverb
+  - *Pendulum Reverberation* — three voices on Wave/Sweep pan drift; stereo reverb keeps the room stationary while sources move
+  - *Phrygian Stillness* — Phrygian modal + Replay × 3 × 4 voices × 60-s breath cycle = 18-min meditation built from the chord pill
+
+  Presets gain four new optional voice fields — `bundledSampleName`, `sampleGranular`, `grainSamplePosFrac`, `grainSamplePosJitter` — so built-in presets can auto-load samples and configure granular settings. Old presets work unchanged. (commit `<next>`)
+
 ### Web app parity
 
 - v1.0 features now run on the web app too: Replay × N in the ⏱ Timing menu, Randomize-all dice + Undo at the end of the OSC nav row, modal chord templates in the chord picker, global BPM with delay sync. (commits `67e5e6d`, `346aa9d`, `ed09ca9`)
