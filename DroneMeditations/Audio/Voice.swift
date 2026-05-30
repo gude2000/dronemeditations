@@ -74,6 +74,12 @@ final class Voice {
     /// interpolation from this to the per-buffer target avoids clicks
     /// when the user taps a Now/Forever chip mid-session.
     private var currentTimingEnv: Double = 1.0
+    /// Per-voice wet-reverb bloom multiplier (v1.1). Normally 1.0; ramps
+    /// up to ~1.5 during the 10-second cycle-end fade-out and back down,
+    /// giving each replay cycle the same "atmospheric stop bloom" feel
+    /// as the global transport stop. Slewed per-sample like
+    /// currentTimingEnv to avoid clicks at buffer boundaries.
+    private var currentWetBloom: Double = 1.0
 
     // Pink-noise filter state — Paul Kellet's economy variant of the
     // Voss-McCartney algorithm. Six leaky integrators of white noise plus
@@ -493,24 +499,35 @@ final class Voice {
         // across the buffer so toggles don't click.
         //
         // Single-cycle math: silent before startDelay; 8-second fade-in;
-        // full; optional 8-second fade-out after playDuration; then silent.
+        // full; optional 10-second smoothstep fade-out + reverb bloom
+        // after playDuration; then silent.
         //
         // With replayCount > 1 (or 0 for ∞), the cycle [startDelay → play
-        // → fade] repeats. We compute the cycle index from transportElapsed
-        // and apply the single-cycle envelope to the within-cycle position.
-        // After all repeats finish (cycleIdx >= replayCount), envelope is
-        // silent forever. The transport's master fade-out at session end
-        // handles the ∞ case gracefully.
+        // → bloom-fade] repeats. We compute the cycle index from
+        // transportElapsed and apply the single-cycle envelope to the
+        // within-cycle position. After all repeats finish (cycleIdx >=
+        // replayCount), envelope is silent forever. The transport's
+        // master fade-out at session end handles the ∞ case gracefully.
+        //
+        // v1.1 cycle-end bloom: the fade-out follows a smoothstep curve
+        // (gentler than linear), and a wet-reverb bloom multiplier ramps
+        // up to 1.5× → plateau → decays back so the tail feels like the
+        // global transport stop. wetBloomTarget is set alongside
+        // envTarget here and slewed per-sample below.
         //
         // transportElapsed = NaN means transport stopped — leave the
         // multiplier alone (master fadeOut handles real silence).
         let envTarget: Double
+        let wetBloomTarget: Double
         if !transportElapsed.isFinite {
             envTarget = currentTimingEnv
+            wetBloomTarget = currentWetBloom
         } else if startDelaySec <= 0 && playDurationSec <= 0 {
             envTarget = 1.0
+            wetBloomTarget = 1.0
         } else {
-            let fade = 8.0
+            let fadeIn:  Double = 8.0     // unchanged — linear fade-in feels right
+            let fadeOut: Double = 10.0    // v1.1 — slightly longer than v1.0 + smoothstep
             // One full cycle = startDelay (silence) + playDuration
             // (audible window, including the fade-in/fade-out lobes
             // taken from inside the play duration). Use cycle-modular
@@ -536,18 +553,53 @@ final class Voice {
             }
             if beyondAll {
                 envTarget = 0
+                wetBloomTarget = 1.0
             } else if t < startDelaySec {
                 envTarget = 0
-            } else if t < startDelaySec + fade {
-                envTarget = (t - startDelaySec) / fade
+                wetBloomTarget = 1.0
+            } else if t < startDelaySec + fadeIn {
+                envTarget = (t - startDelaySec) / fadeIn
+                wetBloomTarget = 1.0
             } else if playDurationSec > 0 && t >= startDelaySec + playDurationSec {
+                // Fade-out portion of the cycle (or one-shot ending).
+                // Smoothstep curve on the gain envelope + trapezoidal
+                // bloom on the reverb wet multiplier, matching the
+                // shape of the global transport stop bloom but per
+                // cycle and per voice.
                 let foe = t - (startDelaySec + playDurationSec)
-                envTarget = foe >= fade ? 0 : 1 - (foe / fade)
+                if foe >= fadeOut {
+                    envTarget = 0
+                    wetBloomTarget = 1.0
+                } else {
+                    let foeT = foe / fadeOut   // 0 at start of fade, 1 at end
+                    // Smoothstep gain envelope (3t² − 2t³ on 1−foeT)
+                    let inv = 1.0 - foeT
+                    envTarget = inv * inv * (3.0 - 2.0 * inv)
+                    // Trapezoidal wet bloom (mirrors stop-bloom shape):
+                    //   0..0.30   ramp up   1.0 → 1.5
+                    //   0.30..0.45 plateau at 1.5
+                    //   0.45..1.0  ramp down 1.5 → 0.3
+                    let peakMul: Double = 1.5
+                    let tailMul: Double = 0.3
+                    let peakStart: Double = 0.30
+                    let plateauWidth: Double = 0.15
+                    let peakEnd = peakStart + plateauWidth
+                    if foeT < peakStart {
+                        wetBloomTarget = 1.0 + (peakMul - 1.0) * (foeT / peakStart)
+                    } else if foeT < peakEnd {
+                        wetBloomTarget = peakMul
+                    } else {
+                        let down = (foeT - peakEnd) / (1.0 - peakEnd)
+                        wetBloomTarget = peakMul - (peakMul - tailMul) * down
+                    }
+                }
             } else {
                 envTarget = 1
+                wetBloomTarget = 1.0
             }
         }
         let envStep: Double = frameCount > 0 ? (envTarget - currentTimingEnv) / Double(frameCount) : 0
+        let wetBloomStep: Double = frameCount > 0 ? (wetBloomTarget - currentWetBloom) / Double(frameCount) : 0
 
         // Width changes can't apply mid-render without clicks; we snap the
         // R-channel phase to the requested offset whenever width changes
@@ -986,8 +1038,14 @@ final class Voice {
             let lGain = Float(__cospi(panT))
             let rGain = Float(__sinpi(panT))
 
-            let dryL = dryReverbOut * lGain + revWetL * revMix
-            let dryR = dryReverbOut * rGain + revWetR * revMix
+            // v1.1 per-cycle wet bloom: revMix is multiplied by the
+            // slewed currentWetBloom (normally 1.0, ramps to ~1.5 →
+            // plateau → 0.3 during the 10-second cycle fade-out so
+            // each cycle ends with the same atmospheric bloom the
+            // global transport stop produces).
+            let wetMul = revMix * Float(currentWetBloom)
+            let dryL = dryReverbOut * lGain + revWetL * wetMul
+            let dryR = dryReverbOut * rGain + revWetR * wetMul
             // Chorus side signal (already part of fxInMono via the mid; we
             // add the deviation here so L and R each carry their LFO-tapped
             // tail independently of pan).
@@ -1007,8 +1065,11 @@ final class Voice {
 
             // Slew the per-buffer timing-envelope target across the buffer
             // so chip toggles don't click. After the loop, currentTimingEnv
-            // == envTarget within rounding.
+            // == envTarget within rounding. Same per-sample slew for the
+            // v1.1 wet-bloom multiplier so the bloom shape itself doesn't
+            // step at buffer boundaries.
             currentTimingEnv += envStep
+            currentWetBloom += wetBloomStep
             let envMul = Float(currentTimingEnv)
             left[i]  += (dryL + sideL + dlyL) * envMul
             right[i] += (dryR + sideR + dlyR) * envMul
