@@ -46,6 +46,12 @@ Features built after the v1.0 App Store submission was sent for review. This lis
 
 - **Delay-time + chorus-depth slider crackle fix** — `delayTapSamples` (Int) and `chSwing` (depth × maxSwing) were also per-buffer constants. Dragging the delay TIME slider jumped the read index by N samples per buffer; dragging the chorus DEPTH slider stepped the LFO swing range. Now both slew per sample: delay tap on a slower 200 ms time constant (slewing tap position IS a small Doppler shift, faster slew = louder pitch glide during drag), with linear-interpolation fractional reads from the buffer; chorus depth on the same 15 ms gain-stage constant. (commit `6956c47`)
 
+- **Drive + FM index slider crackle fix** — both were per-buffer constants too. Dragging DRIVE stepped the tanh saturation curve; dragging FM INDEX stepped the per-sample carrier phase increment by hundreds of Hz (the loudest possible audio click). Now slewed per sample at the gain-stage 15 ms constant. (commit `f437717`)
+
+- **Fade-out gain envelope back to linear** — the 10-second smoothstep fade introduced with the cycle-bloom landed felt abrupt because smoothstep stays at almost full gain for the first 30 % of the fade. Linear fade brings back the v1.0 perceived-continuous taper. Bloom shape softened too: peak 1.3 instead of 1.5, tail 0.5 instead of 0.3 — feels like a tail extension rather than a swell now. (commit `f437717`)
+
+- **Removed run-loop hop from per-voice sync** — the Combine sink that mirrors `$oscillators` into the per-voice `OscillatorVoice` boxes was scheduled `.receive(on: RunLoop.main)`. Slider drags fire @Published 60+ times per second, queuing a run-loop hop per tick measurably backed up the main thread. The sink work is cheap and runs on the same main-actor that publishes, so it's now synchronous — faster and correct. (commit `f437717`)
+
 ### Web app parity
 
 - v1.0 features now run on the web app too: Replay × N in the ⏱ Timing menu, Randomize-all dice + Undo at the end of the OSC nav row, modal chord templates in the chord picker, global BPM with delay sync. (commits `67e5e6d`, `346aa9d`, `ed09ca9`)
