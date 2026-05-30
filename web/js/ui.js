@@ -84,6 +84,24 @@ export function initUI(state, actions) {
     if (name) dispatch.saveCurrentAsUserPreset(name);
   });
 
+  // v1.1: tap the header subtitle (showing "Tuning · Octave · BPM") to
+  // open a quick BPM prompt. Only the BPM segment is meaningful as a
+  // tap target right now; the other parts have their own pills. Made
+  // the whole subtitle clickable for the larger hit area.
+  const subtitle = document.getElementById("header-subtitle");
+  if (subtitle) {
+    subtitle.style.cursor = "pointer";
+    subtitle.title = "Tap to change tempo (BPM)";
+    subtitle.addEventListener("click", () => {
+      const current = Math.round(getState().bpm);
+      const input = window.prompt(
+        "Tempo in BPM (range 30–240, default 80):", String(current));
+      if (input == null) return;
+      const v = parseFloat(input);
+      if (Number.isFinite(v)) dispatch.setBPM(v);
+    });
+  }
+
   // Wire static event handlers.
   document.getElementById("chord-pill").addEventListener("click", () => openSheet("chord-sheet"));
   document.getElementById("preset-pill").addEventListener("click", () => openSheet("preset-sheet"));
@@ -175,7 +193,10 @@ export function initUI(state, actions) {
 export function renderAll() {
   const s = getState();
   // Header subtitle, pills
-  document.getElementById("header-subtitle").textContent = `${TUNING_SYSTEMS.find((t) => t.id === s.tuningId).name} · Oct ${s.octave}`;
+  // v1.1: include BPM in the subtitle so the global tempo is always
+  // visible (drives delay sync when timings aren't Free).
+  document.getElementById("header-subtitle").textContent =
+    `${TUNING_SYSTEMS.find((t) => t.id === s.tuningId).name} · Oct ${s.octave} · ${Math.round(s.bpm)} BPM`;
   document.getElementById("chord-pill-value").textContent =
     `${PITCH_CLASSES[s.keyId].name} ${CHORDS.find((c) => c.id === s.chordId).name}`;
   document.getElementById("preset-pill-value").textContent = s.activePresetName || "—";

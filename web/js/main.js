@@ -76,8 +76,12 @@ const defaultDelay  = () => ({
   timing: "free"      // "free" | "1/2" | "1/3" | "1/3t" | "1/4" | "1/4t" | "1/8" | "1/8t" | "1/16" | "1/16t"
 });
 
-// Default tempo for musical-division delay timings. Future: expose to UI.
-const DEFAULT_BPM = 120;
+// Default tempo for musical-division delay timings. Now exposed to UI
+// via the state.bpm field below. v1.1.
+const DEFAULT_BPM = 80;
+// Common BPM presets shown in the master-row picker. Covers the
+// meditative range (40-100) plus standard music tempos.
+export const BPM_CHOICES = [40, 60, 72, 80, 90, 100, 120, 140];
 
 // Beats-per-bar fractions per timing label. Triplets are 2/3 of the
 // corresponding regular value.
@@ -141,6 +145,11 @@ const state = {
   // actions.undoRandomize and then cleared.
   preRandomizeSnapshot: null,
   canUndoRandomize: false,
+
+  // Global tempo (v1.1). Drives every voice's delay-time when its
+  // timing is sync'd to a musical division. 80 BPM = resting-heart-
+  // rate territory, meditative without being sluggish.
+  bpm: DEFAULT_BPM,
 
   // Transport
   transportState: "stopped",  // "stopped" | "playing" | "paused"
@@ -879,11 +888,29 @@ const actions = {
     engine.setDelayMode(oscIndex, mode);
     renderAll();
   },
+  /// Update the global tempo (v1.1). Recomputes every voice's delay
+  /// time for voices whose timing is sync'd to a musical division.
+  /// Free-mode delays are left alone — they keep their absolute ms
+  /// value.
+  setBPM(newBPM) {
+    const clamped = Math.max(30, Math.min(240, newBPM));
+    if (Math.abs(clamped - state.bpm) < 0.5) return;
+    state.bpm = clamped;
+    for (let i = 0; i < state.oscillators.length; i++) {
+      const timing = state.oscillators[i].delay.timing;
+      const sec = delayTimeForTiming(timing, clamped);
+      if (sec != null) {
+        state.oscillators[i].delay.timeSec = sec;
+        engine.setDelayTime(i, sec);
+      }
+    }
+    renderAll();
+  },
   setDelayTiming(oscIndex, timingId) {
     state.oscillators[oscIndex].delay.timing = timingId;
     // If a musical division was picked, compute and apply the time. "free"
     // leaves the time slider as the source of truth.
-    const sec = delayTimeForTiming(timingId);
+    const sec = delayTimeForTiming(timingId, state.bpm);
     if (sec != null) {
       state.oscillators[oscIndex].delay.timeSec = sec;
       engine.setDelayTime(oscIndex, sec);
