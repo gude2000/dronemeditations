@@ -17,16 +17,42 @@ final class OscillatorVoice: ObservableObject {
 /// Owns the audio engine and pushes parameter changes through to it.
 @MainActor
 final class DroneViewModel: ObservableObject {
-    // MARK: - Per-oscillator state (mirrors the audio voices)
-    @Published var oscillators: [OscillatorState] = OscillatorState.defaults()
-    /// Per-voice ObservableObject boxes (v1.1). One instance per
-    /// oscillator, mirroring `oscillators[i]`. OscillatorStrip views
-    /// observe these directly via @ObservedObject so a slider drag on
-    /// OSC 1 only recomputes OSC 1's body — the other three strips
-    /// don't re-render. Kept in sync with `oscillators` via a Combine
-    /// sink set up in init. Always exactly 4 elements; the sink uses
-    /// equality checks to avoid re-publishing identical state.
+    // MARK: - Per-oscillator state (single source of truth: the boxes)
+    //
+    // v1.1 critical perf fix. `oscillators` used to be `@Published var
+    // [OscillatorState]`. Every slider tick fires the @Published, which
+    // invalidates ALL 14+ VM-observing views (ControlsOverlay,
+    // ChladniView, BlobBackground, SpectrumView, TransportView, the
+    // open sheets, etc.). The runloop coalescer mitigates this — but
+    // body re-evaluation for a complex tree on every tick still
+    // saturated the main thread and starved CoreAudio's render
+    // callback, producing the universal "all sliders crackle" symptom.
+    //
+    // Now the source of truth is `voiceBoxes` (an array of
+    // per-voice ObservableObject instances, each publishing its own
+    // state). `oscillators` is kept as a computed property that
+    // reads and writes through those boxes — so legacy mutations like
+    // `oscillators[i].frequencyHz = x` still compile, but they route
+    // into ONE box's @Published. The VM's own `objectWillChange` is
+    // NOT fired by slider drags; only the affected strip re-renders.
     let voiceBoxes: [OscillatorVoice] = OscillatorState.defaults().map { OscillatorVoice($0) }
+
+    /// Per-oscillator state mirror. Reads materialize a 4-element
+    /// struct array; writes update only the changed boxes (per-element
+    /// equality check). A single-field mutation like
+    /// `oscillators[i].frequencyHz = x` reads all 4 box states,
+    /// mutates the temp, then writes back — the set accessor's
+    /// equality check ensures only box[i]'s @Published fires.
+    var oscillators: [OscillatorState] {
+        get { voiceBoxes.map { $0.state } }
+        set {
+            for (i, s) in newValue.enumerated() where i < voiceBoxes.count {
+                if voiceBoxes[i].state != s {
+                    voiceBoxes[i].state = s
+                }
+            }
+        }
+    }
 
     // MARK: - Chord generator state
     @Published var currentKey: PitchClass = .a
@@ -270,32 +296,11 @@ final class DroneViewModel: ObservableObject {
             Task { @MainActor in self?.nowPlaying.refresh() }
         }.store(in: &cancellables)
 
-        // Per-voice sync (v1.1). Every mutation to `oscillators[i]`
-        // republishes the whole array; this sink takes that one
-        // notification and routes each voice's new state into its own
-        // OscillatorVoice box. The equality check is essential — without
-        // it, every mutation would fire every box's objectWillChange and
-        // we'd lose the per-voice isolation that's the whole point.
-        //
-        // v1.1 BACK to `.receive(on: RunLoop.main)` after a brief mis-
-        // adventure of removing it: slider drags fire the @Published 60+
-        // times per second, and sustained synchronous publishing
-        // measurably overloaded the main thread (every fire = every
-        // VM-observing view re-evaluates body, every fire of the sink
-        // does its diff). The run-loop scheduler coalesces multiple
-        // fires within one runloop pass into a single sink invocation,
-        // which is what we want during a continuous drag.
-        $oscillators
-            .receive(on: RunLoop.main)
-            .sink { [weak self] newArray in
-                guard let self else { return }
-                for (i, s) in newArray.enumerated() where i < self.voiceBoxes.count {
-                    if self.voiceBoxes[i].state != s {
-                        self.voiceBoxes[i].state = s
-                    }
-                }
-            }
-            .store(in: &cancellables)
+        // v1.1: Combine sink between $oscillators and voiceBoxes is
+        // GONE. voiceBoxes is now the source of truth; `oscillators` is
+        // a computed property that routes writes through the boxes
+        // directly. No publisher to subscribe to, no per-mutation
+        // diffing, no main-thread storm during slider drags.
     }
 
     // MARK: - Per-oscillator mutators
