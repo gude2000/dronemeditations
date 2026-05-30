@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- v1.1: iCloud Key-Value Store. Lets the app mirror its user-preset
+	     metadata list (NSUbiquitousKeyValueStore) so iPhone and iPad signed
+	     into the same Apple ID stay in sync invisibly.
+
+	     The identifier expands at build time to
+	     "<TeamID>.com.gude2000.dronemeditations" — Apple's convention for
+	     KVS containers keyed on the bundle id.
+
+	     Before this lights up in a release build, the App ID
+	     `com.gude2000.dronemeditations` needs iCloud → Key-Value storage
+	     enabled in Apple Developer portal (Identifiers → DroneMeditations
+	     → Capabilities → iCloud → Key-Value storage). The Xcode project's
+	     CODE_SIGN_ENTITLEMENTS build setting must point at this file. -->
+	<key>com.apple.developer.ubiquity-kvstore-identifier</key>
+	<string>$(TeamIdentifierPrefix)$(CFBundleIdentifier)</string>
+</dict>
+</plist>

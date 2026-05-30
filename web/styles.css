@@ -986,11 +986,22 @@ body.performance:hover { cursor: default; }
 
 .user-preset-row {
   display: grid;
-  grid-template-columns: 1fr auto;
+  /* v1.1: name | share | delete (Share added for .dronepreset export). */
+  grid-template-columns: 1fr auto auto;
   gap: 6px;
   align-items: stretch;
 }
 .user-preset-row.selected .preset-item { background: rgba(255,255,255,0.15); }
+.user-preset-share {
+  align-self: stretch;
+  padding: 0 12px;
+  background: rgba(255,255,255,0.08);
+  color: #f0f0f0;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 700;
+}
+.user-preset-share:hover { background: rgba(255,255,255,0.18); }
 .user-preset-delete {
   align-self: stretch;
   padding: 0 12px;

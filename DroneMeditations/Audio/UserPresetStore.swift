@@ -202,3 +202,120 @@ enum UserPresetSharing {
         return s
     }
 }
+
+// MARK: - iCloud preset sync (v1.1)
+//
+// Mirrors the user-preset metadata list to NSUbiquitousKeyValueStore
+// (KVS) so iPhone and iPad signed into the same Apple ID stay in sync
+// without any user action. Sample audio stays device-local — KVS has
+// a 1 MB total budget which a single high-quality WAV would blow
+// instantly. For samples, the user falls back to manual .dronepreset
+// sharing (AirDrop / Files / Mail) which is now first-class.
+//
+// SYNC SHAPE
+//   KVS key "userPresets" → JSON [UserPreset]
+//   Up to 50 most-recent presets, additive union of (local ∪ cloud).
+//
+// SEMANTICS
+//   • On local save / delete: push(local ∪ cloud, dedup by id, top 50).
+//   • On didChangeExternallyNotification: pull cloud and add any
+//     presets we don't already have locally. Deletions DO NOT
+//     propagate across devices — if the user wants a preset gone
+//     everywhere, they delete on each device. This protects against
+//     accidental cross-device wipes.
+//   • Conflict by id (same id, different content): cloud wins on the
+//     local merge path; local wins on the next push. In practice ids
+//     are random per save, so collisions are vanishingly unlikely
+//     unless the same .dronepreset file was imported twice — which
+//     is fine, the importer always re-ids.
+//
+// ENTITLEMENT
+//   Reads / writes silently no-op without the
+//   `com.apple.developer.ubiquity-kvstore-identifier` entitlement.
+//   The app builds and runs fine — sync just doesn't activate. Add
+//   the entitlement (see DroneMeditations.entitlements + enable
+//   iCloud capability on the App ID in Apple Developer portal) to
+//   light it up.
+
+import Combine
+
+@MainActor
+final class UserPresetCloudSync {
+    static let shared = UserPresetCloudSync()
+    private init() {}
+
+    private static let kvsKey = "userPresets"
+    /// Cap on entries we mirror. KVS limit is 1 MB total per app and
+    /// presets aren't tiny (LFO arrays, drift config, all FX state).
+    /// 50 keeps us well inside the budget and still covers active
+    /// users — heavy users routinely sit at 20-30 saved presets.
+    private static let maxPresets = 50
+
+    private var onIncoming: (([UserPreset]) -> Void)?
+    private var observer: NSObjectProtocol?
+
+    /// Begin sync. Call once at app start with a closure that knows
+    /// how to merge incoming cloud presets into the local list.
+    func start(onIncoming: @escaping ([UserPreset]) -> Void) {
+        guard observer == nil else { return }   // idempotent
+        self.onIncoming = onIncoming
+
+        let store = NSUbiquitousKeyValueStore.default
+        observer = NotificationCenter.default.addObserver(
+            forName: NSUbiquitousKeyValueStore.didChangeExternallyNotification,
+            object: store,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            Task { @MainActor in self.onIncoming?(self.loadFromCloud()) }
+        }
+        // Kick a synchronize + initial pull so newly-installed devices
+        // catch up with whatever's already in the cloud.
+        store.synchronize()
+        onIncoming(loadFromCloud())
+    }
+
+    /// Push the current local preset list to iCloud. Caller passes the
+    /// FULL local list; we compute the union with whatever's already
+    /// in the cloud (so deletes from device A don't wipe out presets
+    /// device B added) and trim to maxPresets.
+    func push(_ local: [UserPreset]) {
+        let cloud = loadFromCloud()
+        let cloudById = Dictionary(uniqueKeysWithValues: cloud.map { ($0.id, $0) })
+        // Local wins on collision (user just edited / saved that id).
+        var merged = local
+        let localIds = Set(local.map(\.id))
+        for cp in cloud where !localIds.contains(cp.id) {
+            merged.append(cp)
+        }
+        _ = cloudById   // silence unused — kept in case we add LWW later
+        // Sort newest-first so the top-N we keep are the most recent.
+        merged.sort { $0.createdAt > $1.createdAt }
+        let trimmed = Array(merged.prefix(Self.maxPresets))
+        guard let data = try? JSONEncoder().encode(trimmed) else { return }
+        // Hard cap — KVS rejects writes over 1 MB. If our payload's
+        // too big (unlikely at 50 entries but possible with elaborate
+        // LFO target sets), bisect down until it fits.
+        var payload = data
+        var count = trimmed.count
+        while payload.count > 900_000 && count > 1 {
+            count /= 2
+            let smaller = Array(trimmed.prefix(count))
+            if let smallerData = try? JSONEncoder().encode(smaller) {
+                payload = smallerData
+            } else { return }
+        }
+        let store = NSUbiquitousKeyValueStore.default
+        store.set(payload, forKey: Self.kvsKey)
+        store.synchronize()
+    }
+
+    /// Synchronously read the cloud preset list. Returns [] when KVS
+    /// is unavailable (no entitlement, no signed-in account, no
+    /// network on first launch).
+    func loadFromCloud() -> [UserPreset] {
+        guard let data = NSUbiquitousKeyValueStore.default.data(forKey: Self.kvsKey)
+        else { return [] }
+        return (try? JSONDecoder().decode([UserPreset].self, from: data)) ?? []
+    }
+}

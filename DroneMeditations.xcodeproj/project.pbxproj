@@ -26,6 +26,10 @@
 		B00000000000000000000011 /* TransportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000011 /* TransportView.swift */; };
 		B00000000000000000000012 /* BlobBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000012 /* BlobBackground.swift */; };
 		B00000000000000000000013 /* ChladniView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000013 /* ChladniView.swift */; };
+		B00000000000000000000014 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000014 /* Assets.xcassets */; };
+		B00000000000000000000016 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000016 /* Preview Assets.xcassets */; };
+		B00000000000000000000017 /* UserPreset.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000017 /* UserPreset.swift */; };
+		B00000000000000000000018 /* UserPresetStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000018 /* UserPresetStore.swift */; };
 		B00000000000000000000019 /* ChladniMiniControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000019 /* ChladniMiniControls.swift */; };
 		B00000000000000000000020 /* ShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000020 /* ShareSheet.swift */; };
 		B00000000000000000000021 /* NowPlayingBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000021 /* NowPlayingBridge.swift */; };
@@ -42,18 +46,15 @@
 		B0000000000000000000002C /* UserJourney.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0000000000000000000002C /* UserJourney.swift */; };
 		B0000000000000000000002D /* MorphSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0000000000000000000002D /* MorphSheetView.swift */; };
 		B0000000000000000000002E /* BundledSampleStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0000000000000000000002E /* BundledSampleStore.swift */; };
+		B0000000000000000000002F /* Samples in Resources */ = {isa = PBXBuildFile; fileRef = F0000000000000000000002F /* Samples */; };
 		B00000000000000000000030 /* AudioMastering.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000030 /* AudioMastering.swift */; };
 		B00000000000000000000031 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000031 /* OnboardingView.swift */; };
 		B00000000000000000000032 /* CopyrightStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000032 /* CopyrightStrip.swift */; };
 		B00000000000000000000033 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000033 /* PrivacyInfo.xcprivacy */; };
-		B00000000000000000000014 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000014 /* Assets.xcassets */; };
-		B0000000000000000000002F /* Samples in Resources */ = {isa = PBXBuildFile; fileRef = F0000000000000000000002F /* Samples */; };
-		B00000000000000000000016 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000016 /* Preview Assets.xcassets */; };
-		B00000000000000000000017 /* UserPreset.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000017 /* UserPreset.swift */; };
-		B00000000000000000000018 /* UserPresetStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000018 /* UserPresetStore.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		A5A4A6502FCB1B3800798D9F /* DroneMeditations.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = DroneMeditations.xcodeproj; sourceTree = SOURCE_ROOT; };
 		AAA00000000000000PRODUCT /* DroneMeditations.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DroneMeditations.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F00000000000000000000001 /* DroneMeditationsApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DroneMeditationsApp.swift; sourceTree = "<group>"; };
 		F00000000000000000000002 /* Waveform.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Waveform.swift; sourceTree = "<group>"; };
@@ -74,6 +75,11 @@
 		F00000000000000000000011 /* TransportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransportView.swift; sourceTree = "<group>"; };
 		F00000000000000000000012 /* BlobBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlobBackground.swift; sourceTree = "<group>"; };
 		F00000000000000000000013 /* ChladniView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChladniView.swift; sourceTree = "<group>"; };
+		F00000000000000000000014 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		F00000000000000000000015 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		F00000000000000000000016 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		F00000000000000000000017 /* UserPreset.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserPreset.swift; sourceTree = "<group>"; };
+		F00000000000000000000018 /* UserPresetStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserPresetStore.swift; sourceTree = "<group>"; };
 		F00000000000000000000019 /* ChladniMiniControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChladniMiniControls.swift; sourceTree = "<group>"; };
 		F00000000000000000000020 /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheet.swift; sourceTree = "<group>"; };
 		F00000000000000000000021 /* NowPlayingBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingBridge.swift; sourceTree = "<group>"; };
@@ -90,16 +96,11 @@
 		F0000000000000000000002C /* UserJourney.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserJourney.swift; sourceTree = "<group>"; };
 		F0000000000000000000002D /* MorphSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorphSheetView.swift; sourceTree = "<group>"; };
 		F0000000000000000000002E /* BundledSampleStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundledSampleStore.swift; sourceTree = "<group>"; };
+		F0000000000000000000002F /* Samples */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Samples; sourceTree = "<group>"; };
 		F00000000000000000000030 /* AudioMastering.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioMastering.swift; sourceTree = "<group>"; };
 		F00000000000000000000031 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		F00000000000000000000032 /* CopyrightStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CopyrightStrip.swift; sourceTree = "<group>"; };
 		F00000000000000000000033 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		F00000000000000000000014 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		F0000000000000000000002F /* Samples */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Samples; sourceTree = "<group>"; };
-		F00000000000000000000015 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		F00000000000000000000016 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
-		F00000000000000000000017 /* UserPreset.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserPreset.swift; sourceTree = "<group>"; };
-		F00000000000000000000018 /* UserPresetStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserPresetStore.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -113,9 +114,15 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		A5A4A6532FCB359A00798D9F /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
 		G00000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
+				A5A4A6502FCB1B3800798D9F /* DroneMeditations.xcodeproj */,
 				G00000000000000000000002 /* DroneMeditations */,
 				G00000000000000000000008 /* Products */,
 			);
@@ -267,6 +274,12 @@
 			mainGroup = G00000000000000000000001;
 			productRefGroup = G00000000000000000000008 /* Products */;
 			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = A5A4A6532FCB359A00798D9F /* Products */;
+					ProjectRef = A5A4A6502FCB1B3800798D9F /* DroneMeditations.xcodeproj */;
+				},
+			);
 			projectRoot = "";
 			targets = (
 				11000000000000000TGT0001 /* DroneMeditations */,
@@ -465,6 +478,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = DroneMeditations/DroneMeditations.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 8;
 				DEVELOPMENT_ASSET_PATHS = "\"DroneMeditations/Preview Content\"";
@@ -490,6 +504,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = DroneMeditations/DroneMeditations.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 8;
 				DEVELOPMENT_ASSET_PATHS = "\"DroneMeditations/Preview Content\"";

@@ -301,6 +301,17 @@ final class DroneViewModel: ObservableObject {
         // a computed property that routes writes through the boxes
         // directly. No publisher to subscribe to, no per-mutation
         // diffing, no main-thread storm during slider drags.
+
+        // v1.1 iCloud preset sync. Mirrors the user-preset metadata
+        // list to NSUbiquitousKeyValueStore so iPhone and iPad signed
+        // into the same Apple ID stay in sync invisibly. No-op if the
+        // iCloud KVS entitlement isn't enabled — the app still works
+        // offline. Samples remain device-local; cross-device sample
+        // transport goes through .dronepreset file sharing.
+        UserPresetCloudSync.shared.start { [weak self] cloudPresets in
+            guard let self else { return }
+            self.mergeCloudPresets(cloudPresets)
+        }
     }
 
     // MARK: - Per-oscillator mutators
@@ -684,6 +695,9 @@ final class DroneViewModel: ObservableObject {
         )
         userPresets.insert(preset, at: 0)
         UserPresetStore.save(userPresets)
+        // v1.1: mirror to iCloud KVS so the paired iPad sees it on its
+        // next foreground (no-op without the iCloud entitlement).
+        UserPresetCloudSync.shared.push(userPresets)
         activePresetName = preset.name
     }
 
@@ -768,11 +782,36 @@ final class DroneViewModel: ObservableObject {
         let storedNames = preset.oscillators.compactMap { $0.sampleStoredFilename }
         userPresets.removeAll { $0.id == id }
         UserPresetStore.save(userPresets)
+        // v1.1: mirror the new shorter list to iCloud. Note: cloud
+        // sync's merge logic is additive, so this delete WON'T wipe
+        // the preset off a paired device — by design. User deletes
+        // per device. The push exists so OTHER local changes
+        // (recently-saved presets) flow up alongside the deletion.
+        UserPresetCloudSync.shared.push(userPresets)
         for n in storedNames { UserPresetStore.deleteSampleIfUnused(n, presets: userPresets) }
         if activePresetName == preset.name { activePresetName = nil }
     }
 
     // MARK: - .dronepreset file sharing (v1.1)
+
+    /// v1.1 iCloud-sync merge handler. Additive: cloud presets we
+    /// don't already have locally are inserted at the top; presets
+    /// that exist locally but not in cloud are left alone (deletions
+    /// don't propagate across devices — user must delete on each).
+    /// Local-only presets present in the merge result also get pushed
+    /// to cloud on the next save anyway, via the union logic in
+    /// UserPresetCloudSync.push.
+    private func mergeCloudPresets(_ cloud: [UserPreset]) {
+        let localIds = Set(userPresets.map(\.id))
+        let toAdd = cloud.filter { !localIds.contains($0.id) }
+        guard !toAdd.isEmpty else { return }
+        // Insert at the head (newest-first) sorted by createdAt so the
+        // most recently authored cloud preset appears at the top.
+        let sorted = toAdd.sorted { $0.createdAt > $1.createdAt }
+        userPresets.insert(contentsOf: sorted, at: 0)
+        // Persist locally — do NOT push back to cloud (would loop).
+        UserPresetStore.save(userPresets)
+    }
 
     /// Pack a saved user preset into a `.dronepreset` file in the temp
     /// directory and return its URL — ready to hand to ShareLink for
@@ -797,6 +836,11 @@ final class DroneViewModel: ObservableObject {
             let preset = try UserPresetSharing.importPreset(from: url)
             userPresets.insert(preset, at: 0)
             UserPresetStore.save(userPresets)
+            // v1.1: also push to iCloud so the imported preset flows
+            // to the user's other devices. Samples don't sync (still
+            // requires .dronepreset for the audio bytes), but the
+            // metadata is now visible everywhere.
+            UserPresetCloudSync.shared.push(userPresets)
             return preset.name
         } catch {
             #if DEBUG

@@ -571,6 +571,18 @@
 
   <h3>Voice presets</h3>
   <p>The <strong>⭐</strong> button on each oscillator strip opens a menu to <em>Save current</em>, <em>Load…</em>, or <em>Delete…</em> a single-voice snapshot — waveform, freq, level, pan, filter, all 4 LFOs, FX, drift. Useful for keeping a perfect bass and quickly swapping the pad above.</p>
+
+  <h3>Sharing presets between devices <span class="lede" style="font-size:14px;font-weight:500;">— iPhone ↔ iPad ↔ browser ↔ a friend</span></h3>
+  <p>Every saved user preset can be packed into a <strong>.dronepreset</strong> file — a single JSON envelope containing the full per-voice state plus any loaded sample audio inline. The receiving device reconstructs everything end-to-end, no extra copy of the audio needed.</p>
+  <ul>
+    <li><strong>Share (iOS):</strong> in the Presets sheet, tap the <strong>↑</strong> icon next to a preset. The iOS share sheet opens — pick <em>AirDrop</em>, <em>Save to Files</em>, <em>iCloud Drive</em>, <em>Mail</em>, or <em>Messages</em>. Typical preset is ~5–15 KB without a sample, ~7 MB with a 5 MB WAV.</li>
+    <li><strong>Import (iOS):</strong> top-right <strong>↓</strong> icon in the Presets sheet opens the Files picker filtered to <code>.dronepreset</code>. Or — even simpler — just tap the file in Files / Mail / AirDrop and iOS hands it directly to Drone Meditations.</li>
+    <li><strong>Share (web):</strong> the <strong>⇪</strong> button on each row downloads the file. Drag it to a Files window or iCloud Drive folder and it appears on every device signed in.</li>
+    <li><strong>Import (web):</strong> top-right <em>Import…</em> button in the Presets sheet opens a file picker; pick a <code>.dronepreset</code> and it's added to <em>Your Presets</em>.</li>
+    <li><strong>Same format on iOS and web</strong> — a preset shared from the iPhone app loads in the browser app and vice versa.</li>
+    <li><strong>Re-imports never overwrite</strong> — every import gets a fresh id, so importing the same file twice gives you two distinct entries. The original creation date is preserved so you can see when the author saved it.</li>
+  </ul>
+  <p>For automatic iPhone ↔ iPad sync without manual sharing, see the <em>iCloud preset sync</em> note in the iOS app's Presets sheet (presets you save on one device appear on the other within a few seconds; samples still travel via <code>.dronepreset</code> files).</p>
 </section>
 
 <!-- ───────────────── Waveforms ───────────────── -->

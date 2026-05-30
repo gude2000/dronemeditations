@@ -6,6 +6,9 @@ import {
 } from "./music.js";
 import { AudioEngine } from "./audio.js";
 import { initUI, renderAll } from "./ui.js";
+import {
+  exportUserPresetDownload, importUserPresetFromFile
+} from "./preset-sharing.js";
 import { initVisualizations, setChladniVisible, setSpectrumVisible } from "./visualizations.js";
 import {
   loadUserPresets, saveUserPresets, newPresetId, newSampleId,
@@ -1094,6 +1097,26 @@ const actions = {
     }
     if (state.activePresetName === preset.name) state.activePresetName = null;
     renderAll();
+  },
+
+  // v1.1: cross-device preset sharing.
+
+  /// Pack a saved preset (+ any embedded sample audio) and trigger a
+  /// browser download of the .dronepreset file. Returns true on
+  /// success — the UI uses the return value to surface a toast.
+  async exportUserPreset(id) {
+    return await exportUserPresetDownload(id);
+  },
+
+  /// Decode a .dronepreset file the user picked, materialize embedded
+  /// samples into IndexedDB, and append the preset to userPresets.
+  /// Refreshes the state mirror + re-renders. Throws on a malformed
+  /// file (the UI catches and toasts the localized message).
+  async importUserPresetFile(file) {
+    const name = await importUserPresetFromFile(file);
+    state.userPresets = loadUserPresets();
+    renderAll();
+    return name;
   },
 
   setDriftScene(sceneId) {

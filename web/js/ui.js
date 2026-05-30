@@ -84,6 +84,29 @@ export function initUI(state, actions) {
     if (name) dispatch.saveCurrentAsUserPreset(name);
   });
 
+  // v1.1: cross-device preset sharing. Import button opens a hidden
+  // file input (the standard Files / iCloud Drive / Drag-drop picker),
+  // then routes the picked file through importUserPresetFile.
+  // Per-row Share buttons are added inside syncUserPresetList below.
+  const importBtn = document.getElementById("import-preset-button");
+  const importInput = document.getElementById("import-preset-input");
+  if (importBtn && importInput) {
+    importBtn.addEventListener("click", () => importInput.click());
+    importInput.addEventListener("change", async () => {
+      const file = importInput.files && importInput.files[0];
+      // Always clear the input so the same file can be picked again
+      // later (Chrome doesn't fire change if the value is unchanged).
+      importInput.value = "";
+      if (!file) return;
+      try {
+        const name = await dispatch.importUserPresetFile(file);
+        toast(`Imported “${name}”`, false);
+      } catch (e) {
+        toast(e.message || "Couldn't import that file.", true);
+      }
+    });
+  }
+
   // v1.1: tap the header subtitle (showing "Tuning · Octave · BPM") to
   // open a quick BPM prompt. Only the BPM segment is meaningful as a
   // tap target right now; the other parts have their own pills. Made
@@ -1990,6 +2013,7 @@ function syncUserPresetList() {
               <span class="name">${escapeHtml(p.name)}</span>
               <span class="sub">${new Date(p.createdAt).toLocaleString()}</span>
             </button>
+            <button class="user-preset-share" type="button" data-share-preset="${p.id}" title="Download as .dronepreset (share to iOS or another browser)">⇪</button>
             <button class="user-preset-delete" type="button" data-delete-preset="${p.id}" title="Delete preset">✕</button>
           </div>
         `).join("")}
@@ -2002,6 +2026,20 @@ function syncUserPresetList() {
       document.getElementById("preset-sheet").hidden = true;
     });
   });
+  list.querySelectorAll("[data-share-preset]").forEach((b) => {
+    b.addEventListener("click", async (e) => {
+      // v1.1: Pack and download the preset as a .dronepreset file.
+      // Stopping propagation so the row's load-on-click doesn't also
+      // fire. Async so we can surface a failure toast if packing dies.
+      e.stopPropagation();
+      try {
+        const ok = await dispatch.exportUserPreset(b.dataset.sharePreset);
+        if (!ok) toast("Couldn't export that preset.", true);
+      } catch {
+        toast("Couldn't export that preset.", true);
+      }
+    });
+  });
   list.querySelectorAll("[data-delete-preset]").forEach((b) => {
     b.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -2010,6 +2048,30 @@ function syncUserPresetList() {
       }
     });
   });
+}
+
+// v1.1: tiny one-shot toast for preset import / export feedback. Uses
+// a single shared DOM node we create on first call. Auto-fades after
+// 2.5 s. Not a queue — a second call within the window replaces the
+// message.
+function toast(msg, isError) {
+  let el = document.getElementById("preset-share-toast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "preset-share-toast";
+    el.style.cssText =
+      "position:fixed;top:max(14px,env(safe-area-inset-top));left:50%;" +
+      "transform:translateX(-50%);padding:8px 14px;border-radius:999px;" +
+      "color:white;font:600 12px/1.2 system-ui,sans-serif;letter-spacing:.02em;" +
+      "z-index:9999;opacity:0;transition:opacity .2s ease;pointer-events:none;" +
+      "box-shadow:0 4px 16px rgba(0,0,0,.4);";
+    document.body.appendChild(el);
+  }
+  el.style.background = isError ? "rgba(200,60,60,.92)" : "rgba(50,140,80,.92)";
+  el.textContent = msg;
+  el.style.opacity = "1";
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => { el.style.opacity = "0"; }, 2500);
 }
 
 function escapeHtml(s) {
