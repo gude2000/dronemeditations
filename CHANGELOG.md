@@ -34,7 +34,7 @@ Features built after the v1.0 App Store submission was sent for review. This lis
   - *Pendulum Reverberation* — three voices on Wave/Sweep pan drift; stereo reverb keeps the room stationary while sources move
   - *Phrygian Stillness* — Phrygian modal + Replay × 3 × 4 voices × 60-s breath cycle = 18-min meditation built from the chord pill
 
-  Presets gain four new optional voice fields — `bundledSampleName`, `sampleGranular`, `grainSamplePosFrac`, `grainSamplePosJitter` — so built-in presets can auto-load samples and configure granular settings. Old presets work unchanged. (commit `<next>`)
+  Presets gain four new optional voice fields — `bundledSampleName`, `sampleGranular`, `grainSamplePosFrac`, `grainSamplePosJitter` — so built-in presets can auto-load samples and configure granular settings. Old presets work unchanged. (commit `b83ce79`)
 
 ### Web app parity
 
