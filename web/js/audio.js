@@ -555,7 +555,18 @@ export class AudioEngine {
           if (buf && buf.duration > 0) {
             const grainSrc = this.ctx.createBufferSource();
             grainSrc.buffer = buf;
-            grainSrc.playbackRate.value = Math.max(0.05, Math.min(20, v.params.freq / Math.max(20, v.params.sampleBaseFreqHz || 220)));
+            // v1 fix: use v._effectiveFreq (set every tick by the
+            // LFO pass with pitch LFO + scale quantize + drift folded
+            // in) instead of v.params.freq (just the base value).
+            // Without this, recordings in granular mode ignored the
+            // freq slider, pitch LFO, drift, and quantize-to-scale —
+            // every grain spawned at its base captured pitch
+            // regardless of what the modulation chain was doing.
+            // Falls back to v.params.freq for safety.
+            const liveFreq = (v._effectiveFreq && isFinite(v._effectiveFreq))
+              ? v._effectiveFreq
+              : v.params.freq;
+            grainSrc.playbackRate.value = Math.max(0.05, Math.min(20, liveFreq / Math.max(20, v.params.sampleBaseFreqHz || 220)));
             const grainGain = this.ctx.createGain();
             grainGain.gain.value = 0;
             // Per-grain pan, sampled at grain start, held for the
@@ -876,6 +887,13 @@ export class AudioEngine {
           if (d < bestDiff) { bestDiff = d; bestNote = n; }
         }
         freqEff = bestNote;
+        // v1 fix: write the snapped value back to _effectiveFreq so
+        // downstream readers (grain spawn, sand sim, Chladni) see
+        // the quantized pitch. Previously the snap only landed on
+        // osc.frequency and the continuous sample's playbackRate;
+        // sample-granular grains kept reading v._effectiveFreq with
+        // the pre-snap pitch and ignored quantize-to-scale.
+        v._effectiveFreq = freqEff;
       }
       v.osc.frequency.cancelScheduledValues(now);
       v.osc.frequency.setValueAtTime(v.osc.frequency.value, now);
