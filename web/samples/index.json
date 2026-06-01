@@ -12,6 +12,9 @@
 
     { "file": "sable-almost.mp3",           "name": "Sable — Almost",            "category": "Themes" },
     { "file": "alex-and-jose-theme.mp3",    "name": "Alex & Jose Theme",         "category": "Themes" },
-    { "file": "alex-alma-theme-440hz.mp3",  "name": "Alex-Alma Theme (440 Hz)",  "category": "Themes" }
+    { "file": "alex-alma-theme-440hz.mp3",  "name": "Alex-Alma Theme (440 Hz)",  "category": "Themes" },
+
+    { "file": "Developer/JG Dub Wave.wav",   "name": "JG Dub Wave",   "category": "Developer" },
+    { "file": "Developer/JG Dub Wave-2.wav", "name": "JG Dub Wave 2", "category": "Developer" }
   ]
 }
