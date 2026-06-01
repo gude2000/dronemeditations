@@ -52,13 +52,14 @@ struct DroneMeditationsApp: App {
                 .onOpenURL { url in
                     if let name = viewModel.importUserPreset(from: url) {
                         // Surface a transient confirmation so the user
-                        // SEES the import landed. Previously this was
-                        // print-only; users opening from AirDrop /
-                        // iMessage couldn't tell the import had
-                        // succeeded without scrolling to the preset
-                        // list.
+                        // SEES the import landed. v1 fix: inlined the
+                        // Notification.Name literal because the
+                        // extension-based `.presetImportLanded` lookup
+                        // didn't resolve cleanly through Swift's
+                        // Notification.Name ↔ NSNotification.Name
+                        // typealias bridge on the post API.
                         NotificationCenter.default.post(
-                            name: .presetImportLanded,
+                            name: Notification.Name("dronemeditations.presetImportLanded"),
                             object: nil,
                             userInfo: ["name": name]
                         )
