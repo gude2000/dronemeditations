@@ -95,6 +95,11 @@ final class DroneController: ObservableObject {
             //    onset — the first 100-200 ms are barely audible. 0.4 s
             //    feels immediate without being a hard cut-in.
             let fadeDuration: Double = (fromStopped && !engineAlreadyRunning) ? 3.0 : 0.4
+            // Flip audible-flag BEFORE fadeInMaster so any concurrent
+            // setMasterVolume (e.g. user dragging the master slider
+            // exactly as Play is tapped) goes through to live output
+            // instead of being staged.
+            engine.isAudible = true
             engine.fadeInMaster(seconds: fadeDuration)
             engine.transportElapsed = elapsed
             lastTickDate = Date()
@@ -123,6 +128,13 @@ final class DroneController: ObservableObject {
         guard state == .playing else { return }
         stopTicker()
         state = .paused
+        // Flag transport as non-audible. setMasterVolume calls that
+        // arrive while paused (preset load, slider drag) will now stage
+        // the value into masterTarget instead of nudging the live output
+        // out through the silenced engine. The fade-out below still
+        // pushes the live output to 0 — flag flip just blocks further
+        // nudges from bypassing it.
+        engine.isAudible = false
         #if DEBUG
         let pauseStart = Date()
         let preVol = engine.engine.mainMixerNode.outputVolume
@@ -167,6 +179,14 @@ final class DroneController: ObservableObject {
         // Mark transport stopped so the per-voice timing envelopes don't
         // keep advancing while the master fade-out plays.
         engine.transportElapsed = .nan
+        // Flag transport as non-audible. setMasterVolume calls arriving
+        // during / after this point (preset load tap, slider drag) will
+        // stage the value into masterTarget only, instead of nudging
+        // live output back up through a "stopped" transport — which
+        // used to make the Stop button look broken (Stop UI is
+        // .disabled(state == .stopped); the audio bled out anyway and
+        // user had to tap pause first to break the deadlock).
+        engine.isAudible = false
         // If recording is active, finalize the file first so the captured
         // fade-out is part of the export. finalizeRecording() runs the
         // mastering pipeline async; the finished .m4a URL appears in

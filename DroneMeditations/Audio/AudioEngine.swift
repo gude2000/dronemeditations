@@ -16,18 +16,40 @@ final class AudioEngine {
     let sampleRate: Double
 
     /// Master output level (0..1). Setting cancels any in-progress fade and
-    /// snaps to the new value; also remembers it as the target for the next
-    /// fade-in (so play after volume change resumes to the right level).
+    /// updates the live output ONLY when transport says we should be
+    /// audible (`isAudible == true`). When stopped/paused, the new value
+    /// is only staged into `masterTarget` so the next play()'s
+    /// fadeInMaster picks it up — without nudging audio out through the
+    /// silent transport. Setting from a preset load while stopped used
+    /// to make audio bleed out (because the engine keeps running
+    /// silently per the click-free strategy in DroneController.stop/pause —
+    /// outputVolume=0 was the only thing keeping us silent, and this
+    /// setter snapped it nonzero).
     var masterVolume: Float {
         get { engine.mainMixerNode.outputVolume }
         set {
             let clamped = max(0, min(1, newValue))
             masterTarget = clamped
             cancelFade()
-            engine.mainMixerNode.outputVolume = clamped
+            if isAudible {
+                engine.mainMixerNode.outputVolume = clamped
+            }
+            // When NOT audible we leave outputVolume at whatever the
+            // transport set (typically 0 after stop/pause). The next
+            // play() / fadeInMaster ramps from current → masterTarget.
         }
     }
     private var masterTarget: Float = 0.30
+    /// Whether transport is in an audible state. Flipped by DroneController
+    /// at play / pause / stop boundaries. When false, the masterVolume
+    /// setter — used by preset load + the master-slider drag in
+    /// DroneViewModel.setMasterVolume — only stages the value into
+    /// masterTarget instead of nudging the live output. Keeps a freshly-
+    /// loaded preset silent until the user actually hits Play. Also keeps
+    /// DroneController.state and live audio in sync so the Stop button
+    /// (UI-disabled when state == .stopped) doesn't get stranded with
+    /// audio bleeding out through a "stopped" transport.
+    var isAudible: Bool = false
     private var fadeTimer: Timer?
     /// Bumped on every new rampMaster call so any in-flight async ramp
     /// loop bails out on its next tick rather than fighting the newer
