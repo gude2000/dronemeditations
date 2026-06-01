@@ -11,6 +11,13 @@ struct DroneMeditationsApp: App {
     @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding: Bool = false
     @State private var showingOnboarding: Bool = false
 
+    /// v1 import diagnostic. Set from .onOpenURL — surfaces a system
+    /// alert showing what the URL looked like, whether the importer
+    /// was reached, and the success/error result. Lets us diagnose
+    /// AirDrop / iMessage / Files / Mail tap-to-open flows on
+    /// physical devices without attaching a debugger.
+    @State private var importDiagnostic: String? = nil
+
     init() {
         // Make sure Documents/User samples/ exists with a README so the
         // user has somewhere to drop runtime audio files via the Files
@@ -50,23 +57,59 @@ struct DroneMeditationsApp: App {
                 // and bounces out without side effects. Same safety,
                 // works for every transport.
                 .onOpenURL { url in
+                    // v1 diagnostic: surface EVERYTHING about the
+                    // incoming URL so we can see on a physical device
+                    // whether onOpenURL fires, what the URL looks
+                    // like, whether the importer ran, and what it
+                    // returned. Set into importDiagnostic — alert
+                    // below presents.
+                    let basics = """
+                    URL fired:
+                    • lastPath: \(url.lastPathComponent)
+                    • ext: \(url.pathExtension.isEmpty ? "(none)" : url.pathExtension)
+                    • scheme: \(url.scheme ?? "(none)")
+                    • isFileURL: \(url.isFileURL)
+                    """
+                    let scoped = url.startAccessingSecurityScopedResource()
+                    defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+                    let sizeLine: String
+                    if let data = try? Data(contentsOf: url) {
+                        sizeLine = "• readable: yes (\(data.count) bytes)"
+                    } else {
+                        sizeLine = "• readable: NO (Data(contentsOf:) failed)"
+                    }
                     if let name = viewModel.importUserPreset(from: url) {
-                        // Surface a transient confirmation so the user
-                        // SEES the import landed. v1 fix: inlined the
-                        // Notification.Name literal because the
-                        // extension-based `.presetImportLanded` lookup
-                        // didn't resolve cleanly through Swift's
-                        // Notification.Name ↔ NSNotification.Name
-                        // typealias bridge on the post API.
+                        importDiagnostic = "\(basics)\n\(sizeLine)\n\nIMPORT OK → \(name)"
                         NotificationCenter.default.post(
                             name: Notification.Name("dronemeditations.presetImportLanded"),
                             object: nil,
                             userInfo: ["name": name]
                         )
-                        #if DEBUG
-                        print("[preset import via onOpenURL] \(name)")
-                        #endif
+                    } else {
+                        // Re-try at this layer to capture the specific
+                        // ImportError (importUserPreset swallows it).
+                        var errLine = "IMPORT FAILED (unknown — importer returned nil)"
+                        do {
+                            _ = try UserPresetSharing.importPreset(from: url)
+                        } catch let e as UserPresetSharing.ImportError {
+                            errLine = "IMPORT FAILED: \(e.errorDescription ?? "ImportError")"
+                        } catch {
+                            errLine = "IMPORT FAILED: \(error.localizedDescription)"
+                        }
+                        importDiagnostic = "\(basics)\n\(sizeLine)\n\n\(errLine)"
                     }
+                }
+                .alert(
+                    "Preset Import",
+                    isPresented: Binding(
+                        get: { importDiagnostic != nil },
+                        set: { if !$0 { importDiagnostic = nil } }
+                    ),
+                    presenting: importDiagnostic
+                ) { _ in
+                    Button("OK", role: .cancel) { importDiagnostic = nil }
+                } message: { msg in
+                    Text(msg)
                 }
         }
     }
