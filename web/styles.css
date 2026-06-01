@@ -1310,6 +1310,27 @@ body.performance:hover { cursor: default; }
   font-variant-numeric: tabular-nums;
 }
 .mini-control input[type="range"] { height: 18px; }
+/* v1 defensive: re-state the runnable-track gradient at higher
+   specificity. Some browsers occasionally drop the global
+   `input[type="range"]::-webkit-slider-runnable-track` rule when
+   another property on the input element is set (e.g. the height
+   override above), leaving the track with the UA-default 0-height
+   invisible look. This restates the same gradient explicitly on
+   `.mini-control input[type="range"]::-webkit-slider-runnable-track`
+   so the fill bar always renders on POS / SCAN / START / END /
+   FADE IN / FADE OUT / SIZE / DENSITY / JITTER / SPREAD. */
+.mini-control input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px; border-radius: 2px;
+  background: linear-gradient(to right,
+    var(--slider-fill) var(--fill, 50%),
+    var(--slider-track) var(--fill, 50%));
+}
+.mini-control input[type="range"]::-moz-range-track {
+  height: 4px; border-radius: 2px; background: var(--slider-track);
+}
+.mini-control input[type="range"]::-moz-range-progress {
+  height: 4px; border-radius: 2px; background: var(--slider-fill);
+}
 .mini-control input[type="range"]::-webkit-slider-thumb {
   width: 12px; height: 12px; margin-top: -4px;
 }

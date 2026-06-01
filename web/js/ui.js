@@ -1056,9 +1056,10 @@ function syncStrip(index, root) {
   }
 
   // Sample window row visible only when sample mode AND a sample is loaded.
+  // v1 cache-resilient null guard — see note on sample-grain-row above.
   const sampleWindowRow = root.querySelector('[data-role="sample-window-row"]');
-  const sampleWindowVisible = osc.waveform === "sample" && !!osc.sampleName;
-  sampleWindowRow.hidden = !sampleWindowVisible;
+  const sampleWindowVisible = !!sampleWindowRow && osc.waveform === "sample" && !!osc.sampleName;
+  if (sampleWindowRow) sampleWindowRow.hidden = !sampleWindowVisible;
   if (sampleWindowVisible) {
     const startFrac = osc.sampleStartFrac ?? 0;
     const endFrac = osc.sampleEndFrac ?? 1;
