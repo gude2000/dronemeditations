@@ -73,13 +73,34 @@ struct DroneMeditationsApp: App {
                     let scoped = url.startAccessingSecurityScopedResource()
                     defer { if scoped { url.stopAccessingSecurityScopedResource() } }
                     let sizeLine: String
+                    var jsonHead: String = ""
                     if let data = try? Data(contentsOf: url) {
                         sizeLine = "• readable: yes (\(data.count) bytes)"
+                        // Peek at the top-level keys — tells us if the
+                        // envelope looks like { version, preset, samples }
+                        // or something else entirely (bare UserPreset, a
+                        // different schema from web, etc.)
+                        if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                            let keys = obj.keys.sorted().joined(separator: ", ")
+                            jsonHead = "\n• top-level keys: [\(keys)]"
+                            if let v = obj["version"] {
+                                jsonHead += "\n• version: \(v)"
+                            }
+                            if let p = obj["preset"] as? [String: Any] {
+                                let pk = p.keys.sorted().prefix(8).joined(separator: ", ")
+                                jsonHead += "\n• preset keys (first 8): [\(pk)…]"
+                            }
+                            if let s = obj["samples"] as? [Any] {
+                                jsonHead += "\n• samples count: \(s.count)"
+                            }
+                        } else {
+                            jsonHead = "\n• JSON parse: NOT a top-level object"
+                        }
                     } else {
                         sizeLine = "• readable: NO (Data(contentsOf:) failed)"
                     }
                     if let name = viewModel.importUserPreset(from: url) {
-                        importDiagnostic = "\(basics)\n\(sizeLine)\n\nIMPORT OK → \(name)"
+                        importDiagnostic = "\(basics)\n\(sizeLine)\(jsonHead)\n\nIMPORT OK → \(name)"
                         NotificationCenter.default.post(
                             name: Notification.Name("dronemeditations.presetImportLanded"),
                             object: nil,
@@ -96,7 +117,7 @@ struct DroneMeditationsApp: App {
                         } catch {
                             errLine = "IMPORT FAILED: \(error.localizedDescription)"
                         }
-                        importDiagnostic = "\(basics)\n\(sizeLine)\n\n\(errLine)"
+                        importDiagnostic = "\(basics)\n\(sizeLine)\(jsonHead)\n\n\(errLine)"
                     }
                 }
                 .alert(

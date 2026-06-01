@@ -98,12 +98,17 @@ enum UserPresetSharing {
     enum ImportError: LocalizedError {
         case readFailed
         case decodeFailed
+        /// v1 diagnostic: carries the underlying DecodingError so the import
+        /// alert can show what field / type mismatch actually broke the
+        /// decode. Keeps `.decodeFailed` for non-diagnostic call sites.
+        case decodeFailedDetail(String)
         case unsupportedVersion(Int)
 
         var errorDescription: String? {
             switch self {
             case .readFailed:            return "Couldn't read the preset file."
             case .decodeFailed:          return "Preset file is malformed or not a Drone Meditations preset."
+            case .decodeFailedDetail(let d): return "Decode failed: \(d)"
             case .unsupportedVersion(let v):
                 return "This preset uses a newer format (v\(v)) than this version of Drone Meditations understands. Please update."
             }
@@ -155,8 +160,20 @@ enum UserPresetSharing {
         let env: Envelope
         do {
             env = try JSONDecoder().decode(Envelope.self, from: raw)
+        } catch let DecodingError.keyNotFound(key, ctx) {
+            let path = ctx.codingPath.map { $0.stringValue }.joined(separator: ".")
+            throw ImportError.decodeFailedDetail("missing key '\(key.stringValue)' at \(path.isEmpty ? "<root>" : path)")
+        } catch let DecodingError.typeMismatch(type, ctx) {
+            let path = ctx.codingPath.map { $0.stringValue }.joined(separator: ".")
+            throw ImportError.decodeFailedDetail("type mismatch \(type) at \(path.isEmpty ? "<root>" : path)")
+        } catch let DecodingError.valueNotFound(type, ctx) {
+            let path = ctx.codingPath.map { $0.stringValue }.joined(separator: ".")
+            throw ImportError.decodeFailedDetail("value not found \(type) at \(path.isEmpty ? "<root>" : path)")
+        } catch let DecodingError.dataCorrupted(ctx) {
+            let path = ctx.codingPath.map { $0.stringValue }.joined(separator: ".")
+            throw ImportError.decodeFailedDetail("data corrupted at \(path.isEmpty ? "<root>" : path): \(ctx.debugDescription)")
         } catch {
-            throw ImportError.decodeFailed
+            throw ImportError.decodeFailedDetail(error.localizedDescription)
         }
         guard env.version <= currentVersion else {
             throw ImportError.unsupportedVersion(env.version)
