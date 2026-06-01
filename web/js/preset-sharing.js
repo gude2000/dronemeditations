@@ -130,12 +130,18 @@ export async function importUserPresetFromFile(file) {
     if (s && s.filename) sampleByFilename.set(s.filename, s);
   }
   const translatedOscs = (orig.oscillators || []).map((v) => {
+    let out = v;
     if (v && !v.sampleRef && v.sampleStoredFilename) {
       const meta = sampleByFilename.get(v.sampleStoredFilename);
       const name = (meta && meta.name) || v.sampleName || v.sampleStoredFilename;
-      return { ...v, sampleRef: { id: v.sampleStoredFilename, name } };
+      out = { ...out, sampleRef: { id: v.sampleStoredFilename, name } };
     }
-    return v;
+    // v1: accept either web's sampleBaseFreqHz or iOS's sampleNativeBaseFreq,
+    // mirror so subsequent load code sees both.
+    if (out && out.sampleNativeBaseFreq != null && out.sampleBaseFreqHz == null) {
+      out = { ...out, sampleBaseFreqHz: out.sampleNativeBaseFreq };
+    }
+    return out;
   });
   const p = {
     id: newPresetId(),

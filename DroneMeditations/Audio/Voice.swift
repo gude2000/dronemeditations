@@ -227,6 +227,14 @@ final class Voice {
     // Loaded sample buffer (mono float, -1..1) + native sample rate.
     var sampleData: [Float]? = nil
     var sampleNativeRate: Double = 44100
+    // v1: pitch baseline for the loaded sample. Playback rate = freq /
+    // sampleNativeBaseFreq, so when the voice's freq equals this base
+    // the sample plays at native rate (1:1). For bundled samples
+    // calibrated to 220 Hz this stays 220; for recordings we set it
+    // to the freq the user was at when they hit Record, so the
+    // recording plays at the captured pitch on next Play and the
+    // freq slider then acts as a pitch shift from there.
+    var sampleNativeBaseFreq: Double = 220.0
     private var samplePosition: Double = 0
     // Sample play-window — fractions of the loaded sample length (0..1).
     // Playback loops between sampleStartFrac and sampleEndFrac. Defaults
@@ -709,8 +717,12 @@ final class Voice {
         // 220 Hz = unity playback; chord intervals translate to pitch shifts of the sample.
         // Uses the effective (pitch-LFO-modulated) freq so vibrato applies to samples too.
         let isSampleMode = (wave == .sample) && (sampleData?.isEmpty == false)
+        // v1: sampleNativeBaseFreq replaces the hardcoded 220 — defaults
+        // to 220 for bundled / file uploads (back-compat) and is
+        // overridden to the record-time freq for recordings.
+        let baseFreq = max(20.0, sampleNativeBaseFreq)
         let sampleIncrement: Double = isSampleMode
-            ? max(0.05, min(20.0, effectiveFreqTarget / 220.0)) * (sampleNativeRate / sampleRate)
+            ? max(0.05, min(20.0, effectiveFreqTarget / baseFreq)) * (sampleNativeRate / sampleRate)
             : 0
         // Snapshot the array's storage pointer outside the loop to avoid per-sample ARC.
         let sampleCount = sampleData?.count ?? 0

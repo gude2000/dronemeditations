@@ -887,14 +887,15 @@ const actions = {
     // to hear themselves. We re-bake the normalized PCM into a fresh
     // AudioBuffer so the engine reads it directly.
     const normalizedBuffer = peakNormalize(engine.ctx, decoded, 0.89);
-    // v1 unity-pitch on recording load. Playback rate is freq/220, so
-    // unless we reset freq to 220 the recording plays at the OSC's
-    // current pitch (e.g. OSC at 313 Hz → recording at 1.42× speed).
-    // Resetting freq makes the recording play 1:1 as captured, and
-    // the freq slider then acts as a pitch-shift FROM the original.
-    const SAMPLE_UNITY_HZ = 220;
-    state.oscillators[oscIndex].frequencyHz = SAMPLE_UNITY_HZ;
-    engine.setFrequency(oscIndex, SAMPLE_UNITY_HZ);
+    // v1 unity-pitch on recording load. Pin sampleBaseFreqHz to the
+    // OSC's CURRENT freq so playback at the same freq plays at native
+    // rate. The freq slider then acts as a pitch shift from the
+    // recorded pitch (move it up = pitch up, down = pitch down).
+    // Previously we'd reset freq to 220 — felt wrong because the
+    // user's chord pitch jumped to 220 every time they recorded.
+    const baseFreq = state.oscillators[oscIndex].frequencyHz;
+    state.oscillators[oscIndex].sampleBaseFreqHz = baseFreq;
+    engine.setSampleBaseFreqHz(oscIndex, baseFreq);
     engine.loadSample(oscIndex, normalizedBuffer);
     const label = `Recording (OSC ${oscIndex + 1})`;
     state.oscillators[oscIndex].sampleName = label;
@@ -1174,6 +1175,8 @@ const actions = {
         sampleEndFrac: o.sampleEndFrac,
         sampleFadeInSec: o.sampleFadeInSec,
         sampleFadeOutSec: o.sampleFadeOutSec,
+        sampleBaseFreqHz: o.sampleBaseFreqHz,        // v1: record-time pitch baseline
+        sampleNativeBaseFreq: o.sampleBaseFreqHz,    // alias for iOS-shaped reads
         sampleRef
       };
     }));
@@ -1275,6 +1278,17 @@ const actions = {
       if (o.sampleEndFrac != null)   actions.setSampleEnd(i, o.sampleEndFrac);
       if (o.sampleFadeInSec != null) actions.setSampleFadeIn(i, o.sampleFadeInSec);
       if (o.sampleFadeOutSec != null) actions.setSampleFadeOut(i, o.sampleFadeOutSec);
+      // v1 restore: sample unity-pitch baseline. Accept either the
+      // web key or the iOS alias so a .dronepreset round-trips
+      // either direction. Old saves without either field default to
+      // 220 (the historical baseline for bundled / uploaded samples).
+      const base = (o.sampleBaseFreqHz != null) ? o.sampleBaseFreqHz
+                 : (o.sampleNativeBaseFreq != null) ? o.sampleNativeBaseFreq
+                 : null;
+      if (base != null) {
+        state.oscillators[i].sampleBaseFreqHz = base;
+        engine.setSampleBaseFreqHz(i, base);
+      }
     }
     state.activePresetName = preset.name;
     renderAll();

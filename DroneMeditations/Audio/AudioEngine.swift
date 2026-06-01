@@ -879,6 +879,14 @@ final class AudioEngine {
         guard voices.indices.contains(voiceIndex) else { return }
         voices[voiceIndex].sampleFadeOutSec = max(0, min(10, sec))
     }
+    /// v1: set the unity-rate baseline for the loaded sample. Bundled
+    /// + file-uploaded samples default to 220 (back-compat). Recordings
+    /// override to whatever freq the OSC was at when the user hit
+    /// Record, so the recording plays at its captured pitch.
+    func setSampleNativeBaseFreq(_ hz: Double, for voiceIndex: Int) {
+        guard voices.indices.contains(voiceIndex) else { return }
+        voices[voiceIndex].sampleNativeBaseFreq = max(20.0, min(8000.0, hz))
+    }
     // ── Granular sampling (v1.1) — only audible when waveform == .sample. ──
     /// Toggle granular-sampling mode for a voice. When on, the loaded
     /// sample is sliced into Hann-windowed grains driven by the same

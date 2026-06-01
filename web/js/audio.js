@@ -366,6 +366,13 @@ export class AudioEngine {
           sampleGranular: !!v.sampleGranular,
           grainSamplePosFrac: (v.grainSamplePosFrac != null) ? v.grainSamplePosFrac : 0.5,
           grainSamplePosJitter: (v.grainSamplePosJitter != null) ? v.grainSamplePosJitter : 0.2,
+          // v1: unity-pitch baseline for the loaded sample. Playback
+          // rate is freq / sampleBaseFreqHz; when the voice's freq
+          // equals this value, the sample plays at native rate.
+          // Bundled samples and file uploads default to 220 Hz (their
+          // historical baseline); recordings override to whatever
+          // freq the OSC was at when the user hit Record.
+          sampleBaseFreqHz: (v.sampleBaseFreqHz != null) ? v.sampleBaseFreqHz : 220,
           lfos: (v.lfos || [
             // v1.1 multi-target: targets is a SET (array) of
             // destinations. v1.0 wrote `target: "x"` — read/dispatch
@@ -548,7 +555,7 @@ export class AudioEngine {
           if (buf && buf.duration > 0) {
             const grainSrc = this.ctx.createBufferSource();
             grainSrc.buffer = buf;
-            grainSrc.playbackRate.value = Math.max(0.05, Math.min(20, v.params.freq / 220));
+            grainSrc.playbackRate.value = Math.max(0.05, Math.min(20, v.params.freq / Math.max(20, v.params.sampleBaseFreqHz || 220)));
             const grainGain = this.ctx.createGain();
             grainGain.gain.value = 0;
             // Per-grain pan, sampled at grain start, held for the
@@ -648,6 +655,23 @@ export class AudioEngine {
   setGrainSamplePosJitter(index, frac) {
     const v = this.voices[index]; if (!v) return;
     v.params.grainSamplePosJitter = Math.max(0, Math.min(1, frac));
+  }
+  /// v1: set the unity-pitch baseline for the loaded sample.
+  /// Bundled / file uploads default to 220 (back-compat); recordings
+  /// override to the freq the OSC was at when the user hit Record.
+  /// Re-applies the live playbackRate so the change takes effect
+  /// immediately on the running continuous source.
+  setSampleBaseFreqHz(index, hz) {
+    const v = this.voices[index]; if (!v) return;
+    v.params.sampleBaseFreqHz = Math.max(20, Math.min(8000, hz));
+    if (this.ctx && v.sampleSrc && !v.params.sampleGranular) {
+      try {
+        const rate = Math.max(0.05, Math.min(20, v.params.freq / v.params.sampleBaseFreqHz));
+        const t = this.ctx.currentTime;
+        v.sampleSrc.playbackRate.cancelScheduledValues(t);
+        v.sampleSrc.playbackRate.setValueAtTime(rate, t);
+      } catch {}
+    }
   }
 
   /// Per-voice timing envelope, driven by transportElapsed:
@@ -858,7 +882,7 @@ export class AudioEngine {
       v.osc.frequency.linearRampToValueAtTime(freqEff, now + LFO_SMOOTH);
       // Apply to sample playback rate too, so loaded samples vibrato along.
       if (v.sampleSrc) {
-        const rateBase = Math.max(0.05, Math.min(20, v.params.freq / 220));
+        const rateBase = Math.max(0.05, Math.min(20, v.params.freq / Math.max(20, v.params.sampleBaseFreqHz || 220)));
         const rateEff = Math.max(0.05, Math.min(20, freqEff / 220));
         v.sampleSrc.playbackRate.cancelScheduledValues(now);
         v.sampleSrc.playbackRate.setValueAtTime(v.sampleSrc.playbackRate.value, now);
@@ -1132,7 +1156,7 @@ export class AudioEngine {
     const endFrac = (v.params.sampleEndFrac != null) ? v.params.sampleEndFrac : 1;
     src.loopStart = audioBuffer.duration * Math.max(0, Math.min(0.999, startFrac));
     src.loopEnd = audioBuffer.duration * Math.max(0.001, Math.min(1, endFrac));
-    src.playbackRate.value = Math.max(0.05, Math.min(20, v.params.freq / 220));
+    src.playbackRate.value = Math.max(0.05, Math.min(20, v.params.freq / Math.max(20, v.params.sampleBaseFreqHz || 220)));
     // Continuous source routes through sampleContGain (split bus, see
     // the constructor) so setSampleGranular can mute it without
     // silencing concurrent grain bursts that go straight to sampleGain.

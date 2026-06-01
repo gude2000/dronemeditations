@@ -335,6 +335,14 @@ struct OscillatorState: Identifiable, Equatable {
     var drift: DriftVoiceConfig = .off      // per-voice drift; tick reads this directly
     var sampleName: String? = nil           // user-visible filename
     var sampleStoredFilename: String? = nil // relative path under DroneSamples/ (for preset persistence)
+    /// v1: pitch baseline for the loaded sample. Playback rate is
+    /// `freq / sampleNativeBaseFreq` — when the voice's freq equals
+    /// this value, the sample plays at native rate. Bundled + file
+    /// uploads default to 220 (their historical baseline). Recordings
+    /// override to the freq the OSC was at when the user hit Record,
+    /// so the recording plays at the captured pitch when freq matches
+    /// the baseline and pitches up/down from there with the slider.
+    var sampleNativeBaseFreq: Double = 220.0
     /// Sample playback window — fractions of the loaded sample's length
     /// (0..1). Playback loops between `sampleStartFrac` and `sampleEndFrac`.
     /// Defaults to (0, 1) = play the whole sample. Useful for trimming a

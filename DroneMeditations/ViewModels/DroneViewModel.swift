@@ -691,7 +691,8 @@ final class DroneViewModel: ObservableObject {
                 sampleGranular: o.sampleGranular,
                 grainSamplePosFrac: o.grainSamplePosFrac,
                 grainSamplePosJitter: o.grainSamplePosJitter,
-                drift: o.drift   // v1.1 fix: include drift (was being dropped)
+                drift: o.drift,   // v1.1 fix: include drift (was being dropped)
+                sampleNativeBaseFreq: o.sampleNativeBaseFreq
             )
         }
         let preset = UserPreset(
@@ -777,6 +778,14 @@ final class DroneViewModel: ObservableObject {
                 oscillators[i].drift = dr
                 audioEngine.voices[i].pitchQuantizeToScale = dr.quantizeToScale
             }
+            // v1 restore: the sample's unity-pitch baseline. Old saves
+            // without this field fall through to the 220 default (which
+            // is also the file-upload / bundled baseline, so no
+            // surprise).
+            if let base = v.sampleNativeBaseFreq {
+                oscillators[i].sampleNativeBaseFreq = base
+                audioEngine.setSampleNativeBaseFreq(base, for: i)
+            }
         }
         // Refresh the snap cache so any voice with quantizeToScale on
         // starts hearing the snap immediately, without waiting for the
@@ -854,6 +863,16 @@ final class DroneViewModel: ObservableObject {
         guard let permURL = UserPresetStore.url(forStoredSample: stored) else { return nil }
         do {
             try audioEngine.loadSample(from: permURL, for: index)
+            // v1: pin the recording's unity-rate baseline to the freq
+            // the OSC was at when the user hit Record. Without this,
+            // playback rate = freq/220 — so a 313 Hz OSC plays the
+            // recording at 1.42× speed (chipmunked). With this, the
+            // recording plays at the captured pitch when freq matches
+            // baseFreq, and the freq slider acts as a pitch-shift
+            // from there.
+            let baseFreq = oscillators[index].frequencyHz
+            audioEngine.setSampleNativeBaseFreq(baseFreq, for: index)
+            oscillators[index].sampleNativeBaseFreq = baseFreq
             oscillators[index].sampleName = "Recording"
             oscillators[index].sampleStoredFilename = stored
             oscillators[index].waveform = .sample

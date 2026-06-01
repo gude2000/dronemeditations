@@ -55,6 +55,11 @@ struct UserPreset: Identifiable, Codable, Equatable {
         /// round-tripped through Save / Load. Optional for backward
         /// compatibility — old saves get the per-voice default on load.
         var drift: DriftVoiceConfig?
+        /// v1: pitch baseline for the loaded sample (Hz). Recordings
+        /// pin this to the freq the OSC was at when the user hit
+        /// Record so playback honors the captured pitch on re-load.
+        /// Optional — old saves missing this field get the 220 default.
+        var sampleNativeBaseFreq: Double?
     }
 
     static func newId() -> String {
