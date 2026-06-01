@@ -880,10 +880,18 @@ export class AudioEngine {
       v.osc.frequency.cancelScheduledValues(now);
       v.osc.frequency.setValueAtTime(v.osc.frequency.value, now);
       v.osc.frequency.linearRampToValueAtTime(freqEff, now + LFO_SMOOTH);
-      // Apply to sample playback rate too, so loaded samples vibrato along.
-      if (v.sampleSrc) {
-        const rateBase = Math.max(0.05, Math.min(20, v.params.freq / Math.max(20, v.params.sampleBaseFreqHz || 220)));
-        const rateEff = Math.max(0.05, Math.min(20, freqEff / 220));
+      // Apply to sample playback rate too, so loaded samples vibrato
+      // along. v1 BUGFIX: skip when sample-granular is on — the
+      // continuous sampleSrc is gain-muted via sampleContGain in that
+      // mode, but touching its playbackRate appears to cause some
+      // browsers to route the continuous loop's PCM through anyway
+      // (user reported the continuous sample becoming audible on top
+      // of grains when an LFO with pitch target was enabled). Also
+      // fix the hardcoded 220 → sampleBaseFreqHz so the LFO honors
+      // the recording's unity-pitch baseline.
+      if (v.sampleSrc && !v.params.sampleGranular) {
+        const baseFreq = Math.max(20, v.params.sampleBaseFreqHz || 220);
+        const rateEff = Math.max(0.05, Math.min(20, freqEff / baseFreq));
         v.sampleSrc.playbackRate.cancelScheduledValues(now);
         v.sampleSrc.playbackRate.setValueAtTime(v.sampleSrc.playbackRate.value, now);
         v.sampleSrc.playbackRate.linearRampToValueAtTime(rateEff, now + LFO_SMOOTH);
@@ -955,9 +963,15 @@ export class AudioEngine {
     v.osc.frequency.cancelScheduledValues(t);
     v.osc.frequency.setValueAtTime(v.osc.frequency.value, t);
     v.osc.frequency.exponentialRampToValueAtTime(Math.max(0.01, hz), t + RAMP_TIME);
-    // When a sample is loaded, freq acts as the pitch shifter (220 Hz = unity).
-    if (v.sampleSrc) {
-      const rate = Math.max(0.05, Math.min(20, hz / 220));
+    // When a sample is loaded, freq acts as the pitch shifter from
+    // sampleBaseFreqHz (default 220 for bundled / file uploads;
+    // record-time freq for recordings). v1 BUGFIX: skip when
+    // sample-granular is on — the continuous source is gain-muted but
+    // updating its playbackRate causes some browsers to route the
+    // continuous loop audibly on top of the grains.
+    if (v.sampleSrc && !v.params.sampleGranular) {
+      const baseFreq = Math.max(20, v.params.sampleBaseFreqHz || 220);
+      const rate = Math.max(0.05, Math.min(20, hz / baseFreq));
       v.sampleSrc.playbackRate.cancelScheduledValues(t);
       v.sampleSrc.playbackRate.setValueAtTime(v.sampleSrc.playbackRate.value, t);
       v.sampleSrc.playbackRate.linearRampToValueAtTime(rate, t + RAMP_TIME);
