@@ -1028,9 +1028,15 @@ function syncStrip(index, root) {
     const scanFrac = osc.grainSamplePosJitter ?? 0.2;
     const posSlider = root.querySelector('[data-role="grain-pos"]');
     if (document.activeElement !== posSlider) posSlider.value = posFrac.toFixed(3);
+    // v1 BUGFIX: update the --fill CSS var so the colored bar grows /
+    // shrinks with the value. Without this the bar stays where it
+    // was last rendered while the thumb moves, looking visually
+    // out-of-sync. Same pattern as the WINDOW row sliders below.
+    posSlider.style.setProperty("--fill", `${Math.round(posFrac * 100)}%`);
     root.querySelector('[data-role="grain-pos-label"]').textContent = `POS ${Math.round(posFrac * 100)}%`;
     const scanSlider = root.querySelector('[data-role="grain-scan"]');
     if (document.activeElement !== scanSlider) scanSlider.value = scanFrac.toFixed(3);
+    scanSlider.style.setProperty("--fill", `${Math.round(scanFrac * 100)}%`);
     root.querySelector('[data-role="grain-scan-label"]').textContent = `SCAN ${Math.round(scanFrac * 100)}%`;
   }
 
