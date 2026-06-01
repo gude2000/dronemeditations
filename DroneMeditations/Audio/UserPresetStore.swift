@@ -279,7 +279,20 @@ final class UserPresetCloudSync {
     /// FULL local list; we compute the union with whatever's already
     /// in the cloud (so deletes from device A don't wipe out presets
     /// device B added) and trim to maxPresets.
+    ///
+    /// v1 perf: deferred off the calling actor so the JSON-encode +
+    /// UserDefaults.set + NSUbiquitousKeyValueStore.synchronize chain
+    /// (which can spike 100–300 ms on iPhone with many presets) doesn't
+    /// block the main thread right as the user taps Save. The user sees
+    /// the sheet dismiss instantly; the cloud mirror catches up in the
+    /// background a beat later.
     func push(_ local: [UserPreset]) {
+        Task.detached(priority: .utility) {
+            await self.pushSync(local)
+        }
+    }
+
+    private func pushSync(_ local: [UserPreset]) async {
         let cloud = loadFromCloud()
         let cloudById = Dictionary(uniqueKeysWithValues: cloud.map { ($0.id, $0) })
         // Local wins on collision (user just edited / saved that id).

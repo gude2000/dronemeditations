@@ -683,6 +683,14 @@ final class DroneViewModel: ObservableObject {
                 startDelaySec: o.startDelaySec, playDurationSec: o.playDurationSec,
                 replayCount: o.replayCount,
                 grain: o.grain,
+                // v1 fix: previously the Voice struct had these three
+                // fields but the save site never populated them — so
+                // toggling Grainy + dragging POS/SCAN, then saving the
+                // preset, lost the granular state on reload. Now
+                // round-trips cleanly.
+                sampleGranular: o.sampleGranular,
+                grainSamplePosFrac: o.grainSamplePosFrac,
+                grainSamplePosJitter: o.grainSamplePosJitter,
                 drift: o.drift   // v1.1 fix: include drift (was being dropped)
             )
         }

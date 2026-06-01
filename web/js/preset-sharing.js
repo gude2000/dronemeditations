@@ -116,7 +116,27 @@ export async function importUserPresetFromFile(file) {
 
   // Re-id the preset so duplicates never overwrite. Preserve
   // createdAt so the receiver sees the author's save time.
+  // v1 iOS interop: iOS UserPreset.Voice references samples by
+  // `sampleStoredFilename` (the file inside Documents/DroneSamples/).
+  // Web preset voices reference samples by `sampleRef: { id, name }`
+  // where id is the IndexedDB key. Translate: when an imported voice
+  // has sampleStoredFilename, look it up in the (just-written)
+  // samples store and synthesize a sampleRef pointing at the same
+  // IndexedDB row. Otherwise the imported preset would have the
+  // sample bytes sitting in IndexedDB but no link from the voice.
   const orig = env.preset;
+  const sampleByFilename = new Map();
+  for (const s of env.samples || []) {
+    if (s && s.filename) sampleByFilename.set(s.filename, s);
+  }
+  const translatedOscs = (orig.oscillators || []).map((v) => {
+    if (v && !v.sampleRef && v.sampleStoredFilename) {
+      const meta = sampleByFilename.get(v.sampleStoredFilename);
+      const name = (meta && meta.name) || v.sampleName || v.sampleStoredFilename;
+      return { ...v, sampleRef: { id: v.sampleStoredFilename, name } };
+    }
+    return v;
+  });
   const p = {
     id: newPresetId(),
     name: orig.name || "Imported Preset",
@@ -126,7 +146,7 @@ export async function importUserPresetFromFile(file) {
     chordId: orig.chordId,
     tuningId: orig.tuningId,
     masterVolume: orig.masterVolume,
-    oscillators: orig.oscillators || []
+    oscillators: translatedOscs
   };
 
   const list = loadUserPresets();

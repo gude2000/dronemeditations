@@ -537,10 +537,12 @@ export class AudioEngine {
         } catch {}
       } else {
         // SAMPLE-granular path: spawn one AudioBufferSource per grain,
-        // gated by its own triangular envelope. Each grain is its own
-        // node — Web Audio kills the source after stop(), so we don't
-        // need to recycle. Connected to sampleGain so the voice's
-        // existing routing (drive → filter → FX → master) applies.
+        // gated by its own triangular envelope + its own StereoPanner.
+        // The shared grainPan node (used by noise-granular) sits only
+        // on the noise bus — so for sample-granular each grain needs
+        // its OWN per-grain panner to honor the spread slider. Web
+        // Audio kills these nodes after stop() so we don't need to
+        // recycle.
         try {
           const buf = v.sampleBuffer;
           if (buf && buf.duration > 0) {
@@ -549,7 +551,12 @@ export class AudioEngine {
             grainSrc.playbackRate.value = Math.max(0.05, Math.min(20, v.params.freq / 220));
             const grainGain = this.ctx.createGain();
             grainGain.gain.value = 0;
-            grainSrc.connect(grainGain).connect(v.sampleGain);
+            // Per-grain pan, sampled at grain start, held for the
+            // grain's life — matches the noise-granular semantics.
+            const grainPanner = this.ctx.createStereoPanner();
+            const spread = Math.max(0, Math.min(1, g.panSpread || 0));
+            grainPanner.pan.value = (Math.random() * 2 - 1) * spread;
+            grainSrc.connect(grainGain).connect(grainPanner).connect(v.sampleGain);
             // Pick an offset around the user's center pos, jittered.
             const posCenter = Math.max(0, Math.min(1, v.params.grainSamplePosFrac || 0.5));
             const posJit    = Math.max(0, Math.min(1, v.params.grainSamplePosJitter || 0));
@@ -570,16 +577,17 @@ export class AudioEngine {
         } catch {}
       }
 
-      // Per-grain pan: jump to a new random offset at grain start, hold
-      // for the grain's life. Adds to the voice's main pan downstream.
-      // (For sample-granular the grainPan is off the sample bus, but
-      // it still applies to the noise bus which we keep silent.)
-      const spread = Math.max(0, Math.min(1, g.panSpread || 0));
-      const panOffset = (Math.random() * 2 - 1) * spread;
-      try {
-        v.grainPan.pan.cancelScheduledValues(startT);
-        v.grainPan.pan.setValueAtTime(panOffset, startT);
-      } catch {}
+      // Per-grain pan for the noise-granular path. SAMPLE-granular
+      // handles its own per-grain pan inline above, since the shared
+      // grainPan node only sits on the noise bus.
+      if (isNoiseGran) {
+        const spread = Math.max(0, Math.min(1, g.panSpread || 0));
+        const panOffset = (Math.random() * 2 - 1) * spread;
+        try {
+          v.grainPan.pan.cancelScheduledValues(startT);
+          v.grainPan.pan.setValueAtTime(panOffset, startT);
+        } catch {}
+      }
 
       // Schedule the next grain. Mean gap from density; jitter randomizes
       // multiplicatively so high-jitter sounds Poisson-y.

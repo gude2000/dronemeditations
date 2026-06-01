@@ -1160,6 +1160,20 @@ const actions = {
         lfos: o.lfos.map((l) => ({ ...l })),
         startDelaySec: o.startDelaySec || 0,
         playDurationSec: o.playDurationSec || 0,
+        replayCount: (o.replayCount != null) ? o.replayCount : 1,
+        // v1 fix: round-trip granular state + grain row + drift + sample
+        // window. Previously these were dropped on save, so toggling
+        // Grainy + dragging POS/SCAN + saving lost the settings on
+        // reload. Now matches iOS UserPreset schema.
+        grain: o.grain ? { ...o.grain } : undefined,
+        sampleGranular: !!o.sampleGranular,
+        grainSamplePosFrac: o.grainSamplePosFrac,
+        grainSamplePosJitter: o.grainSamplePosJitter,
+        drift: o.drift ? { ...o.drift } : undefined,
+        sampleStartFrac: o.sampleStartFrac,
+        sampleEndFrac: o.sampleEndFrac,
+        sampleFadeInSec: o.sampleFadeInSec,
+        sampleFadeOutSec: o.sampleFadeOutSec,
         sampleRef
       };
     }));
@@ -1239,6 +1253,28 @@ const actions = {
       } else if (o.waveform !== "sample") {
         actions.setWaveform(i, o.waveform);
       }
+      // v1 fix: restore granular state + grain row + drift + sample
+      // window. These were saved but never re-applied on load, so
+      // toggling Grainy on then saving lost the state.
+      if (o.grain) {
+        actions.setGrainSize(i, o.grain.sizeMs);
+        actions.setGrainDensity(i, o.grain.densityHz);
+        actions.setGrainJitter(i, o.grain.jitter);
+        actions.setGrainPanSpread(i, o.grain.panSpread);
+      }
+      if (o.sampleGranular != null) {
+        actions.setSampleGranular(i, !!o.sampleGranular);
+      }
+      if (o.grainSamplePosFrac != null) {
+        actions.setGrainSamplePos(i, o.grainSamplePosFrac);
+      }
+      if (o.grainSamplePosJitter != null) {
+        actions.setGrainSamplePosJitter(i, o.grainSamplePosJitter);
+      }
+      if (o.sampleStartFrac != null) actions.setSampleStart(i, o.sampleStartFrac);
+      if (o.sampleEndFrac != null)   actions.setSampleEnd(i, o.sampleEndFrac);
+      if (o.sampleFadeInSec != null) actions.setSampleFadeIn(i, o.sampleFadeInSec);
+      if (o.sampleFadeOutSec != null) actions.setSampleFadeOut(i, o.sampleFadeOutSec);
     }
     state.activePresetName = preset.name;
     renderAll();
