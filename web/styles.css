@@ -1155,6 +1155,16 @@ body.performance:hover { cursor: default; }
   transition: background 100ms ease;
 }
 .sample-button:hover, .sample-clear:hover { background: rgba(255, 255, 255, 0.18); }
+/* v1 Grainy / sample-button engaged state. ui.js toggles `.selected` on
+   the button when the underlying flag is on; previously there was no
+   visual change so the user couldn't tell whether granular sampling was
+   engaged. Tinted to match the app's accent so it reads as "active". */
+.sample-button.selected {
+  background: rgba(143, 185, 217, 0.30);   /* accent at 30% */
+  color: #d8e8f4;
+  box-shadow: inset 0 0 0 1px rgba(143, 185, 217, 0.60);
+}
+.sample-button.selected:hover { background: rgba(143, 185, 217, 0.42); }
 .sample-clear {
   background: rgba(224, 82, 74, 0.15);
   color: #f3a8a3;
