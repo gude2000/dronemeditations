@@ -101,6 +101,29 @@
 				<string>com.gude2000.dronemeditations.preset</string>
 			</array>
 		</dict>
+		<!-- v1 iMessage / AirDrop interop. The .dronepreset envelope is
+		     JSON, and Macs that don't have Drone Meditations installed
+		     content-sniff the file as `public.json` when sharing it via
+		     iMessage / AirDrop / Mail. iOS then shows handlers for
+		     public.json, not our specific UTI, so Drone Meditations
+		     was missing from the "Open in…" sheet on the receiving
+		     iPhone. We register as an Alternate (not Owner) handler
+		     for public.json so we appear as an option without
+		     claiming default ownership of every JSON file on the
+		     device. The .onOpenURL handler in DroneMeditationsApp.swift
+		     filters by the .dronepreset extension before importing, so
+		     non-preset JSON files dropped on the app silently bounce
+		     out instead of being treated as a preset. -->
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>JSON document</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.json</string>
+			</array>
+		</dict>
 	</array>
 </dict>
 </plist>
