@@ -25,6 +25,20 @@ import {
 const CURRENT_VERSION = 1;
 const FILE_EXTENSION = "dronepreset";
 
+// Lazy standalone AudioContext used to decode embedded sample blobs
+// (WebM/Opus, MP4/AAC, MP3, OGG, etc.) into raw PCM at export time so
+// we can re-encode as WAV. Kept separate from the main engine context
+// so we don't perturb live playback state. Created on first use.
+let _decoderCtx = null;
+function ensureDecoderCtx() {
+  if (!_decoderCtx) {
+    const Ctor = window.AudioContext || window.webkitAudioContext;
+    if (!Ctor) throw new Error("Web Audio API unavailable.");
+    _decoderCtx = new Ctor();
+  }
+  return _decoderCtx;
+}
+
 // MARK: - Export
 //
 // Pack a saved preset + every IndexedDB sample blob it references into
@@ -38,27 +52,74 @@ export async function exportUserPresetDownload(presetId) {
   // Collect referenced samples once each (multiple voices may share
   // the same sample id; we embed it once and let both voices point at
   // the same filename on the receiving side).
+  //
+  // v1 cross-platform: transcode every embedded sample to 16-bit PCM
+  // WAV at export time. The IndexedDB store can hold WebM/Opus,
+  // MP4/AAC, MP3, OGG, etc. depending on the browser + how the sample
+  // arrived (recording vs. file upload). iOS's AVAudioFile accepts
+  // WAV / AAC / MP3 / AIFF but not WebM/Opus, so shipping the raw
+  // bytes makes the preset platform-dependent. Decode → WAV makes
+  // the .dronepreset universal. We also append a real file extension
+  // to the sample filename because AVAudioFile sniffs by extension.
+  //
+  // Renaming the filename means the IndexedDB id the original voice
+  // points at no longer matches what we wrote in samples[i].filename,
+  // so we also rewrite the exported voice's sampleRef.id (and add
+  // sampleStoredFilename for iOS interop). Track old→new in a map.
   const samples = [];
-  const seen = new Set();
+  const idRename = new Map();   // oldRef.id → newFilename (= IndexedDB key on re-import)
   for (const v of p.oscillators || []) {
     const ref = v.sampleRef;
-    if (!ref || !ref.id || seen.has(ref.id)) continue;
-    seen.add(ref.id);
+    if (!ref || !ref.id || idRename.has(ref.id)) continue;
     try {
       const rec = await getSample(ref.id);
-      if (rec && rec.blob) {
-        const data = await blobToBase64(rec.blob);
-        samples.push({
-          filename: ref.id,                          // doubles as IndexedDB id on re-import
-          name: ref.name || rec.name || "sample",
-          mime: rec.type || rec.blob.type || "audio/wav",
-          data
-        });
+      if (!rec || !rec.blob) continue;
+      let wavBlob = null;
+      try {
+        wavBlob = await blobToWavBlob(rec.blob);
+      } catch (e) {
+        // Some browsers can't decode every format their MediaRecorder
+        // emits (rare, but possible with Opus on older Safari).
+        // Fall back to raw blob so the export still produces a file
+        // — receiver gets the same portability problem we had before,
+        // but at least the path doesn't break for cases where the
+        // transcode would succeed.
+        console.warn("Sample → WAV transcode failed; embedding raw blob.", e);
       }
+      const outBlob = wavBlob || rec.blob;
+      const outMime = wavBlob ? "audio/wav" : (rec.type || rec.blob.type || "audio/wav");
+      const ext = wavBlob ? "wav" : extensionForMime(outMime);
+      const filename = ref.id.endsWith(`.${ext}`) ? ref.id : `${ref.id}.${ext}`;
+      const data = await blobToBase64(outBlob);
+      samples.push({
+        filename,
+        name: ref.name || rec.name || "sample",
+        mime: outMime,
+        data
+      });
+      idRename.set(ref.id, filename);
     } catch { /* sample missing — skip */ }
   }
 
-  const envelope = { version: CURRENT_VERSION, preset: p, samples };
+  // Build a shallow-cloned preset whose voices reference the renamed
+  // filenames. Original presets on this device are untouched. The
+  // sampleStoredFilename mirror lets iOS pick up the reference
+  // without needing translateWebEnumStrings to fall back to sampleRef.
+  const exportedPreset = {
+    ...p,
+    oscillators: (p.oscillators || []).map((v) => {
+      if (!v) return v;
+      const newName = v.sampleRef && idRename.get(v.sampleRef.id);
+      if (!newName) return v;
+      return {
+        ...v,
+        sampleRef: { ...v.sampleRef, id: newName },
+        sampleStoredFilename: newName
+      };
+    })
+  };
+
+  const envelope = { version: CURRENT_VERSION, preset: exportedPreset, samples };
   const json = JSON.stringify(envelope, null, 2);
   const blob = new Blob([json], { type: "application/x-dronepreset" });
   const url = URL.createObjectURL(blob);
@@ -194,4 +255,105 @@ function base64ToBytes(b64) {
   const out = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
   return out;
+}
+
+/**
+ * Map a recognized audio MIME type to a sensible file extension. Used
+ * as the FALLBACK path when transcoding to WAV fails — the original
+ * blob still gets a filename that AVAudioFile / generic decoders can
+ * sniff. Unknown MIMEs default to `wav` so the file at least gets a
+ * recognizable extension and AVAudioFile will reject it cleanly
+ * rather than silently failing.
+ */
+function extensionForMime(mime) {
+  const m = String(mime || "").toLowerCase();
+  if (m.includes("wav"))   return "wav";
+  if (m.includes("mp3") || m.includes("mpeg")) return "mp3";
+  if (m.includes("m4a") || m.includes("aac")  || m.includes("mp4")) return "m4a";
+  if (m.includes("ogg") || m.includes("opus") || m.includes("webm")) return "ogg";
+  if (m.includes("flac"))  return "flac";
+  return "wav";
+}
+
+/**
+ * Decode any browser-supported audio blob (WebM/Opus, MP4/AAC, MP3,
+ * OGG, WAV, etc.) → 16-bit PCM WAV Blob. Used at preset-export time
+ * so the resulting `.dronepreset` is universally playable on iOS,
+ * which can't decode WebM/Opus.
+ *
+ * The standalone decoder context is created lazily and reused — we
+ * don't want to perturb the main engine's playback state, but we
+ * also don't want to spin up an AudioContext per sample for a multi-
+ * voice preset.
+ */
+async function blobToWavBlob(blob) {
+  const ctx = ensureDecoderCtx();
+  const arrayBuffer = await blob.arrayBuffer();
+  // decodeAudioData mutates the buffer on some old WebKits — slice
+  // first so the caller's original bytes stay intact in case we ever
+  // need to fall back.
+  const audioBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0));
+  return audioBufferToWavBlob(audioBuffer);
+}
+
+/**
+ * Encode an AudioBuffer to a 16-bit PCM WAV Blob (RIFF/WAVE, format 1
+ * PCM). Multi-channel is interleaved per the WAV spec. Compact enough
+ * that we can keep it inline rather than pulling in a library — the
+ * format hasn't changed since 1991.
+ *
+ * Returns a Blob with `audio/wav` type, ready for FileReader → base64
+ * embedding in the .dronepreset envelope.
+ */
+function audioBufferToWavBlob(audioBuffer) {
+  const numChannels = audioBuffer.numberOfChannels;
+  const sampleRate  = audioBuffer.sampleRate;
+  const numFrames   = audioBuffer.length;
+  const bytesPerSample = 2;
+  const blockAlign  = numChannels * bytesPerSample;
+  const byteRate    = sampleRate * blockAlign;
+  const dataSize    = numFrames * blockAlign;
+  const headerSize  = 44;
+  const buffer = new ArrayBuffer(headerSize + dataSize);
+  const view   = new DataView(buffer);
+
+  // RIFF / WAVE header.
+  writeString(view, 0, "RIFF");
+  view.setUint32(4, 36 + dataSize, true);
+  writeString(view, 8, "WAVE");
+  // fmt subchunk.
+  writeString(view, 12, "fmt ");
+  view.setUint32(16, 16, true);            // subchunk1Size (PCM)
+  view.setUint16(20, 1, true);             // audioFormat (1 = PCM)
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, byteRate, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, bytesPerSample * 8, true); // bitsPerSample
+  // data subchunk.
+  writeString(view, 36, "data");
+  view.setUint32(40, dataSize, true);
+
+  // Interleaved PCM samples. Read each channel into its own Float32Array
+  // once, then walk frames writing channel-by-channel.
+  const channelData = [];
+  for (let c = 0; c < numChannels; c++) channelData.push(audioBuffer.getChannelData(c));
+  let offset = headerSize;
+  for (let i = 0; i < numFrames; i++) {
+    for (let c = 0; c < numChannels; c++) {
+      // Clamp to [-1, 1] then scale to int16. Float32 from
+      // decodeAudioData is typically already in range, but a normalized
+      // recording can clip at the boundary — clamp keeps us safe.
+      let s = channelData[c][i];
+      if (s > 1)  s = 1;
+      if (s < -1) s = -1;
+      view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+      offset += 2;
+    }
+  }
+  return new Blob([buffer], { type: "audio/wav" });
+}
+
+function writeString(view, offset, s) {
+  for (let i = 0; i < s.length; i++) view.setUint8(offset + i, s.charCodeAt(i));
 }
