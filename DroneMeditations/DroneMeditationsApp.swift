@@ -35,14 +35,33 @@ struct DroneMeditationsApp: App {
                 .onReceive(NotificationCenter.default.publisher(for: .showOnboarding)) { _ in
                     showingOnboarding = true
                 }
-                // v1.1: tap-to-open `.dronepreset` files from Files /
-                // Mail / AirDrop / Messages. Only `.dronepreset`
-                // extensions are recognized as preset files so we
-                // don't grab unrelated documents the user opens.
+                // v1.1: tap-to-open .dronepreset files from Files /
+                // Mail / AirDrop / Messages.
+                //
+                // v1 fix: dropped the strict `.dronepreset` extension
+                // check. When iOS matches the file via our Alternate
+                // public.json UTI handler (AirDrop / iMessage from
+                // Macs that don't know our custom UTI), the URL it
+                // hands us can have a `.json` extension or no
+                // extension at all — and the strict guard silently
+                // rejected those. Instead we let
+                // UserPresetSharing.importPreset try to decode any
+                // URL: valid envelopes succeed, anything else throws
+                // and bounces out without side effects. Same safety,
+                // works for every transport.
                 .onOpenURL { url in
-                    guard url.pathExtension.lowercased()
-                        == UserPresetSharing.fileExtension else { return }
                     if let name = viewModel.importUserPreset(from: url) {
+                        // Surface a transient confirmation so the user
+                        // SEES the import landed. Previously this was
+                        // print-only; users opening from AirDrop /
+                        // iMessage couldn't tell the import had
+                        // succeeded without scrolling to the preset
+                        // list.
+                        NotificationCenter.default.post(
+                            name: .presetImportLanded,
+                            object: nil,
+                            userInfo: ["name": name]
+                        )
                         #if DEBUG
                         print("[preset import via onOpenURL] \(name)")
                         #endif
@@ -56,4 +75,9 @@ extension Notification.Name {
     /// Posted by the "?" help button in the header to re-show the tour on
     /// demand for returning users.
     static let showOnboarding = Notification.Name("dronemeditations.showOnboarding")
+    /// v1: posted from .onOpenURL when an incoming .dronepreset (or
+    /// public.json that decoded as a preset envelope) was imported.
+    /// userInfo carries "name" = the preset's display name. Any view
+    /// can observe this to surface a confirmation banner.
+    static let presetImportLanded = Notification.Name("dronemeditations.presetImportLanded")
 }
