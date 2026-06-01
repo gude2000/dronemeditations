@@ -1028,6 +1028,19 @@ body.performance:hover { cursor: default; }
 }
 .user-preset-delete:hover { background: rgba(224, 82, 74, 0.25); }
 .sheet-scroll {
+  /* v1 fix-2: explicit flex sizing so this element actually GETS a
+     constrained height inside the .sheet-panel (which is max-height:
+     88vh + flex column). Without flex:1+min-height:0, .sheet-scroll
+     just sized to its content — when content exceeded 88 vh,
+     overflow-y: auto never triggered because the element's own
+     content fit its (unbounded) height; the overflow happened at the
+     panel boundary instead and bled out invisibly. Morph happened to
+     fit so it worked; Journey with 30+ curated cards didn't. flex:
+     1 with min-height: 0 lets .sheet-scroll claim the remaining
+     vertical space inside the panel, at which point overflow-y: auto
+     starts giving the scrollbar we wanted all along. */
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   /* v1 fix: prevent wheel/touch events from bubbling to the page at
      the scroll edge — felt like "the sheet won't scroll" on the
