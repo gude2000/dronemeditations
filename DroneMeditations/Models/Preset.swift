@@ -1517,11 +1517,261 @@ extension Preset {
         // Each preset auto-arrives with a working granular voice on a
         // bundled sample so users get the full character on tap.
         //
-        // Slot reserved at the top of this block for the four named
-        // JG presets (Ondulations, Dub Wave, Freedom Did Not Lose,
-        // Piano Repetition) — see JGPresets/README.md for the drop-in
-        // workflow. Author retains the right to add more later.
+        // Author retains the right to add more later. See
+        // JGPresets/README.md for the drop-in workflow.
         // ─────────────────────────────────────────────────────────────
+
+        // ── JG named presets (author-curated, auto-generated from
+        //    .dronepreset files in JGPresets/ via gen_swift.py) ──
+
+        Preset("JG Dub Wave", .developerPatches,
+               subtitle: "Author recording · dubwise low end · Replay × 5 motion", [
+                Voice(
+                    hz: 329.66,
+                    pan: -0.84,
+                    wave: .sample,
+                    amp: 0.04,
+                    drive: 2.10,
+                    startDelaySec: 15,
+                    playDurationSec: 180,
+                    replayCount: 2,
+                    filter: FilterState(type: .lowpass, cutoffHz: 959, q: 1.84),
+                    reverb: ReverbState(decaySec: 1.10, mix: 0.26),
+                    delay: DelayState(timeSec: 0.52, feedback: 0.24, mix: 0.41),
+                    chorus: ChorusState(rateHz: 0.46, depth: 0.37, width: 0.82, mix: 0.54),
+                    grain: GrainState(sizeMs: 63, densityHz: 9.90, jitter: 0.54, panSpread: 0.77),
+                    bundledSampleName: "JG Dub Wave",
+                    grainSamplePosFrac: 0.69,
+                    grainSamplePosJitter: 0.15
+                ),
+                Voice(
+                    hz: 61.27, pan: 0.10, wave: .sine, amp: 0.59, drive: 1.38,
+                    reverb: ReverbState(decaySec: 4.71, mix: 0.30),
+                    delay: DelayState(timeSec: 0.30, feedback: 0.40, mix: 0.14),
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.21)
+                ),
+                Voice(
+                    hz: 123.47, pan: -0.10, wave: .sample, amp: 0.99, drive: 3.77,
+                    startDelaySec: 30, playDurationSec: 180, replayCount: 3,
+                    reverb: ReverbState(decaySec: 4.75, mix: 0.49),
+                    delay: DelayState(timeSec: 0.70, feedback: 0.67, mix: 0.66),
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.19),
+                    bundledSampleName: "JG Dub Wave-2"
+                ),
+                Voice(
+                    hz: 138.59, pan: 0.30, wave: .sine,
+                    startDelaySec: 120, playDurationSec: 60, replayCount: 5,
+                    reverb: ReverbState(decaySec: 2.0, mix: 0.66),
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0)
+                )
+               ]),
+
+        Preset("JG Interrupted", .developerPatches,
+               subtitle: "Vocal granular · high pos jitter · pulsing delay", [
+                Voice(
+                    hz: 440, pan: -0.30, wave: .sample, amp: 0.44, drive: 1.76,
+                    startDelaySec: 15, playDurationSec: 60, replayCount: 2,
+                    filter: FilterState(type: .lowpass, cutoffHz: 4060, q: 2.09),
+                    reverb: ReverbState(decaySec: 3.58, mix: 0.12),
+                    delay: DelayState(timeSec: 0.09, feedback: 0.87, mix: 0.96),
+                    chorus: ChorusState(rateHz: 0.21, depth: 0.21, width: 0.68, mix: 0.18),
+                    grain: GrainState(sizeMs: 487, densityHz: 6.38, jitter: 0.44, panSpread: 0.78),
+                    bundledSampleName: "JG Dub Wave",
+                    sampleGranular: true,
+                    grainSamplePosFrac: 0.70
+                ),
+                Voice(
+                    hz: 105.84, pan: 0.10, wave: .sine, amp: 0.13, drive: 1.58,
+                    playDurationSec: 180, replayCount: 2,
+                    delay: DelayState(timeSec: 0.30, feedback: 0.64, mix: 0.60),
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.07)
+                ),
+                Voice(
+                    hz: 113.22, pan: -0.10, wave: .sine, amp: 0.14, drive: 1.18,
+                    startDelaySec: 30, playDurationSec: 180, replayCount: 2,
+                    reverb: ReverbState(decaySec: 7.26, mix: 0.52),
+                    delay: DelayState(timeSec: 0.97, feedback: 0.72, mix: 0.80),
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.20)
+                ),
+                Voice(
+                    hz: 122.25, pan: 0.30, wave: .triangle, amp: 0.29, drive: 1.98,
+                    startDelaySec: 60, playDurationSec: 60, replayCount: 2,
+                    filter: FilterState(type: .highpass, cutoffHz: 284, q: 4.71),
+                    delay: DelayState(timeSec: 0.72, feedback: 0.65, mix: 0.29),
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0)
+                )
+               ]),
+
+        Preset("JG Ondulations", .developerPatches,
+               subtitle: "Author recording · undulating sample-granular cloud", [
+                Voice(
+                    hz: 251.49, pan: -0.27, wave: .sample, amp: 0.32, drive: 1.76,
+                    startDelaySec: 15, playDurationSec: 180, replayCount: 2,
+                    filter: FilterState(type: .lowpass, cutoffHz: 644, q: 0.88),
+                    reverb: ReverbState(decaySec: 2.04, mix: 0.24),
+                    delay: DelayState(timeSec: 0.12, feedback: 0.02, mix: 0.38),
+                    chorus: ChorusState(rateHz: 0.21, depth: 0.21, width: 0.68, mix: 0),
+                    grain: GrainState(sizeMs: 213, densityHz: 21.52, jitter: 0.54, panSpread: 0.64),
+                    bundledSampleName: "JG Dub Wave",
+                    sampleGranular: true,
+                    grainSamplePosFrac: 0.69,
+                    grainSamplePosJitter: 0.15
+                ),
+                Voice(
+                    hz: 61.27, pan: 0.10, wave: .sine, amp: 0.59, drive: 1.38,
+                    reverb: ReverbState(decaySec: 4.71, mix: 0.30),
+                    delay: DelayState(timeSec: 0.30, feedback: 0.40, mix: 0.14),
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.21)
+                ),
+                Voice(
+                    hz: 123.47, pan: -0.10, wave: .sample, amp: 0.96, drive: 2.73,
+                    startDelaySec: 30, playDurationSec: 180, replayCount: 3,
+                    reverb: ReverbState(decaySec: 4.75, mix: 0.37),
+                    delay: DelayState(timeSec: 0.70, feedback: 0.67, mix: 0.57),
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.19),
+                    bundledSampleName: "JG Dub Wave-2"
+                ),
+                Voice(
+                    hz: 138.59, pan: 0.30, wave: .sine,
+                    startDelaySec: 120, playDurationSec: 60, replayCount: 5,
+                    reverb: ReverbState(decaySec: 2.0, mix: 0.66),
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0)
+                )
+               ]),
+
+        Preset("JG Whole Tone Wind", .developerPatches,
+               subtitle: "Whole-tone stack · sample granular wind · Replay × 5", [
+                Voice(
+                    hz: 340.92, pan: -0.33, wave: .sample, amp: 0.37, drive: 1.76,
+                    startDelaySec: 15, playDurationSec: 180, replayCount: 2,
+                    filter: FilterState(type: .lowpass, cutoffHz: 644, q: 0.88),
+                    reverb: ReverbState(decaySec: 2.04, mix: 0.24),
+                    delay: DelayState(timeSec: 0.12, feedback: 0.02, mix: 0.38),
+                    chorus: ChorusState(rateHz: 0.21, depth: 0.21, width: 0.68, mix: 0),
+                    grain: GrainState(sizeMs: 213, densityHz: 21.52, jitter: 0.54, panSpread: 0.64),
+                    bundledSampleName: "JG Dub Wave",
+                    sampleGranular: true,
+                    grainSamplePosFrac: 0.69,
+                    grainSamplePosJitter: 0.15
+                ),
+                Voice(
+                    hz: 110.00, pan: 0.10, wave: .sine, amp: 0.49, drive: 1.38,
+                    reverb: ReverbState(decaySec: 4.71, mix: 0.30),
+                    delay: DelayState(timeSec: 0.30, feedback: 0.40, mix: 0.14),
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.21)
+                ),
+                Voice(
+                    hz: 123.47, pan: -0.10, wave: .sample, amp: 0.75, drive: 2.73,
+                    startDelaySec: 30, playDurationSec: 180, replayCount: 3,
+                    reverb: ReverbState(decaySec: 4.75, mix: 0.37),
+                    delay: DelayState(timeSec: 0.70, feedback: 0.67, mix: 0.57),
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.19),
+                    bundledSampleName: "JG Dub Wave-2"
+                ),
+                Voice(
+                    hz: 138.59, pan: 0.30, wave: .sine,
+                    startDelaySec: 120, playDurationSec: 60, replayCount: 5,
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0)
+                )
+               ]),
+
+        // ── JG BPM-quantized + FX Mix showcase presets ──
+        // Two patches that exercise the new v1 features specifically.
+
+        // ── JG Pulse Lock ──
+        // BPM-locked granular at 1/8 on JG Dub Wave-2 (the vocal loop) +
+        // FX Mix LFO at 0.25 Hz swells the entire wet bus through every
+        // 8 grain hits = ~4 s. Default BPM 80 ⇒ 1/8 = 4 grains/sec. Pair
+        // a slow sine sub for ground. Replay × 0 = ∞.
+        Preset("JG Pulse Lock", .developerPatches,
+               subtitle: "BPM-quantized grain (1/8) + FX Mix swell · vocal loop",
+               {
+                   let rev = ReverbState(decaySec: 6.0, mix: 0.45)
+                   let dly = DelayState(timeSec: 0.30, feedback: 0.55, mix: 0.35,
+                                        mode: .stereo, timing: .eighth)
+                   let cho = ChorusState(rateHz: 0.4, depth: 0.55, width: 0.85, mix: 0.30)
+                   let f   = FilterState(type: .lowpass, cutoffHz: 3800, q: 0.7)
+                   // BPM-quantized granular at 1/8.
+                   let grainBPM = GrainState(
+                       sizeMs: 220, densityHz: 8, jitter: 0.20, panSpread: 0.90,
+                       densitySyncEnabled: true,
+                       densityDenomination: .eighth
+                   )
+                   // Slow FX Mix LFO (~3.3 s period) on voice 0.
+                   let lfoFxSwell = LfoState(
+                       shape: .sine, targets: [.fxMix],
+                       rateHz: 0.30, depth: 0.85
+                   )
+                   return [
+                    Voice(
+                        hz: 220.00, pan: 0.0, wave: .sample, amp: 0.55,
+                        startDelaySec: 0, playDurationSec: 240, replayCount: 0,
+                        filter: f, reverb: rev, delay: dly, chorus: cho,
+                        grain: grainBPM,
+                        lfos: [lfoFxSwell, nil, nil, nil],
+                        bundledSampleName: "JG Dub Wave-2",
+                        sampleGranular: true,
+                        grainSamplePosFrac: 0.40, grainSamplePosJitter: 0.55
+                    ),
+                    Voice(
+                        hz: 110.00, pan: -0.4, wave: .sine, amp: 0.32,
+                        reverb: rev, chorus: cho
+                    ),
+                    Voice(
+                        hz: 164.81, pan: 0.4, wave: .triangle, amp: 0.24,
+                        startDelaySec: 30, playDurationSec: 180, replayCount: 0,
+                        reverb: rev, chorus: cho
+                    ),
+                    silent
+                   ]
+               }()),
+
+        // ── JG Bloom Swell ──
+        // 1/2 (very slow) granular density on the Dub Wave vocal = sparse
+        // hits at ~1/3.7 s. Slow FX Mix LFO at 0.08 Hz (~12 s period)
+        // pulls the wet bus from quiet → soaked → quiet. Designed for
+        // 4-min-plus sessions where the swell breathes the whole room.
+        Preset("JG Bloom Swell", .developerPatches,
+               subtitle: "Sparse 1/2 granular · 12 s FX Mix breath · vocal",
+               {
+                   let rev = ReverbState(decaySec: 10.0, mix: 0.55)
+                   let dly = DelayState(timeSec: 1.5, feedback: 0.65, mix: 0.40,
+                                        mode: .pingPong, timing: .half)
+                   let cho = ChorusState(rateHz: 0.30, depth: 0.45, width: 0.95, mix: 0.30)
+                   let f   = FilterState(type: .lowpass, cutoffHz: 2600, q: 0.5)
+                   let grainBPM = GrainState(
+                       sizeMs: 350, densityHz: 8, jitter: 0.45, panSpread: 1.0,
+                       densitySyncEnabled: true,
+                       densityDenomination: .half
+                   )
+                   // Slower FX Mix LFO — long breath.
+                   let lfoFxBreath = LfoState(
+                       shape: .sine, targets: [.fxMix],
+                       rateHz: 0.08, depth: 0.95
+                   )
+                   return [
+                    Voice(
+                        hz: 220.00, pan: -0.5, wave: .sample, amp: 0.50,
+                        startDelaySec: 0, playDurationSec: 240, replayCount: 0,
+                        filter: f, reverb: rev, delay: dly, chorus: cho,
+                        grain: grainBPM,
+                        lfos: [lfoFxBreath, nil, nil, nil],
+                        bundledSampleName: "JG Dub Wave",
+                        sampleGranular: true,
+                        grainSamplePosFrac: 0.50, grainSamplePosJitter: 0.75
+                    ),
+                    Voice(
+                        hz: 110.00, pan: 0.0, wave: .sine, amp: 0.40,
+                        reverb: rev
+                    ),
+                    Voice(
+                        hz: 329.63, pan: 0.5, wave: .triangle, amp: 0.26,
+                        startDelaySec: 45, playDurationSec: 180, replayCount: 0,
+                        reverb: rev, chorus: cho
+                    ),
+                    silent
+                   ]
+               }()),
 
         // ── JG Tessellation ──
         // Bansuri B2 chopped fine with high pos jitter so the sustain

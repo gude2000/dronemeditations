@@ -299,12 +299,32 @@ async function openBundledSamplePicker(anchor, oscIndex) {
   const rect = anchor.getBoundingClientRect();
   const popup = document.createElement("div");
   popup.className = "bundled-sample-popup";
+  // v1: anchor top is now positioned so the popup never overflows
+  // the bottom of the viewport. With the new Developer/ samples the
+  // list gets long enough that a popup anchored on a bottom-row strip
+  // pushed its scrollable area off-screen, and scrolling inside felt
+  // broken (the off-screen area swallowed scroll events).
+  //
+  // We measure availability above vs below the anchor; whichever side
+  // has more room hosts the popup, and we cap its max-height to that
+  // side's free space minus a small gutter so it always fits on screen.
+  const gutter = 12;
+  const spaceBelow = window.innerHeight - rect.bottom - gutter;
+  const spaceAbove = rect.top - gutter;
+  const placeAbove = spaceBelow < 240 && spaceAbove > spaceBelow;
+  const maxH = Math.max(180, Math.min(window.innerHeight * 0.7,
+                                      placeAbove ? spaceAbove : spaceBelow));
+  const top = placeAbove
+    ? Math.round(rect.top - 4 - maxH)
+    : Math.round(rect.bottom + 4);
   popup.style.cssText = `
     position: fixed;
-    top: ${Math.round(rect.bottom + 4)}px;
+    top: ${top}px;
     left: ${Math.round(rect.left)}px;
-    max-height: 60vh;
+    max-height: ${Math.round(maxH)}px;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
     min-width: 240px;
     z-index: 9999;
     background: #14141a;
