@@ -1026,112 +1026,142 @@ function syncStrip(index, root) {
   // which aborted the rest of renderStrip — including the --fill
   // updates for every slider below. Result: thumbs moved but the
   // colored bars stayed frozen. Cache-resilient version:
+  // Sample-granular position row. Same decoupling as window/grain
+  // below — labels + --fill always update from state, only `hidden`
+  // depends on visibility.
   const sampleGrainRow = root.querySelector('[data-role="sample-grain-row"]');
   if (sampleGrainRow) {
     const sampleGrainVisible = osc.waveform === "sample" && !!osc.sampleName && !!osc.sampleGranular;
     sampleGrainRow.hidden = !sampleGrainVisible;
-    if (sampleGrainVisible) {
-      const posFrac = osc.grainSamplePosFrac ?? 0.5;
-      const scanFrac = osc.grainSamplePosJitter ?? 0.2;
-      const posSlider = root.querySelector('[data-role="grain-pos"]');
-      if (posSlider) {
-        if (document.activeElement !== posSlider) posSlider.value = posFrac.toFixed(3);
-        // v1 BUGFIX: update the --fill CSS var so the colored bar
-        // grows / shrinks with the value. Without this the bar
-        // stays where it was last rendered while the thumb moves,
-        // looking visually out-of-sync. Same pattern as the WINDOW
-        // row sliders below.
-        posSlider.style.setProperty("--fill", `${Math.round(posFrac * 100)}%`);
-      }
-      const posLabel = root.querySelector('[data-role="grain-pos-label"]');
-      if (posLabel) posLabel.textContent = `POS ${Math.round(posFrac * 100)}%`;
-      const scanSlider = root.querySelector('[data-role="grain-scan"]');
-      if (scanSlider) {
-        if (document.activeElement !== scanSlider) scanSlider.value = scanFrac.toFixed(3);
-        scanSlider.style.setProperty("--fill", `${Math.round(scanFrac * 100)}%`);
-      }
-      const scanLabel = root.querySelector('[data-role="grain-scan-label"]');
-      if (scanLabel) scanLabel.textContent = `SCAN ${Math.round(scanFrac * 100)}%`;
+  }
+  {
+    const posFrac = osc.grainSamplePosFrac ?? 0.5;
+    const scanFrac = osc.grainSamplePosJitter ?? 0.2;
+    const posSlider = root.querySelector('[data-role="grain-pos"]');
+    if (posSlider) {
+      if (document.activeElement !== posSlider) posSlider.value = posFrac.toFixed(3);
+      posSlider.style.setProperty("--fill", `${Math.round(posFrac * 100)}%`);
     }
+    const posLabel = root.querySelector('[data-role="grain-pos-label"]');
+    if (posLabel) posLabel.textContent = `POS ${Math.round(posFrac * 100)}%`;
+    const scanSlider = root.querySelector('[data-role="grain-scan"]');
+    if (scanSlider) {
+      if (document.activeElement !== scanSlider) scanSlider.value = scanFrac.toFixed(3);
+      scanSlider.style.setProperty("--fill", `${Math.round(scanFrac * 100)}%`);
+    }
+    const scanLabel = root.querySelector('[data-role="grain-scan-label"]');
+    if (scanLabel) scanLabel.textContent = `SCAN ${Math.round(scanFrac * 100)}%`;
   }
 
-  // Sample window row visible only when sample mode AND a sample is loaded.
-  // v1 cache-resilient null guard — see note on sample-grain-row above.
+  // Sample window row. v1 fix: always update the slider values, --fill,
+  // and labels REGARDLESS of visibility. Previously the value/label
+  // updates were gated behind `if (sampleWindowVisible)`, so when the
+  // row was shown (e.g. via a different code path or a stale state)
+  // but the visibility check was momentarily false, the row would
+  // appear with HTML-default thumb positions and no value text.
+  // User saw "WINDOW START / END / FADE IN / FADE OUT" with no values
+  // and balls at arbitrary positions. Decoupling fixes that — the
+  // labels and bars track state at all times; only `hidden` depends
+  // on visibility.
   const sampleWindowRow = root.querySelector('[data-role="sample-window-row"]');
-  const sampleWindowVisible = !!sampleWindowRow && osc.waveform === "sample" && !!osc.sampleName;
-  if (sampleWindowRow) sampleWindowRow.hidden = !sampleWindowVisible;
-  if (sampleWindowVisible) {
+  if (sampleWindowRow) {
+    const sampleWindowVisible = osc.waveform === "sample" && !!osc.sampleName;
+    sampleWindowRow.hidden = !sampleWindowVisible;
+  }
+  {
     const startFrac = osc.sampleStartFrac ?? 0;
     const endFrac = osc.sampleEndFrac ?? 1;
     const fadeInSec = osc.sampleFadeInSec ?? 0;
     const fadeOutSec = osc.sampleFadeOutSec ?? 0;
 
     const startSlider = root.querySelector('[data-role="sample-start"]');
-    if (document.activeElement !== startSlider) startSlider.value = startFrac.toFixed(3);
-    startSlider.style.setProperty("--fill", `${Math.round(startFrac * 100)}%`);
-    root.querySelector('[data-role="sample-start-label"]').textContent =
-      `START ${Math.round(startFrac * 100)}%`;
+    if (startSlider) {
+      if (document.activeElement !== startSlider) startSlider.value = startFrac.toFixed(3);
+      startSlider.style.setProperty("--fill", `${Math.round(startFrac * 100)}%`);
+    }
+    const startLabel = root.querySelector('[data-role="sample-start-label"]');
+    if (startLabel) startLabel.textContent = `START ${Math.round(startFrac * 100)}%`;
 
     const endSlider = root.querySelector('[data-role="sample-end"]');
-    if (document.activeElement !== endSlider) endSlider.value = endFrac.toFixed(3);
-    endSlider.style.setProperty("--fill", `${Math.round(endFrac * 100)}%`);
-    root.querySelector('[data-role="sample-end-label"]').textContent =
-      `END ${Math.round(endFrac * 100)}%`;
+    if (endSlider) {
+      if (document.activeElement !== endSlider) endSlider.value = endFrac.toFixed(3);
+      endSlider.style.setProperty("--fill", `${Math.round(endFrac * 100)}%`);
+    }
+    const endLabel = root.querySelector('[data-role="sample-end-label"]');
+    if (endLabel) endLabel.textContent = `END ${Math.round(endFrac * 100)}%`;
 
     const fadeInSlider = root.querySelector('[data-role="sample-fadein"]');
     const fadeInT = Math.min(1, fadeInSec / 10);
-    if (document.activeElement !== fadeInSlider) fadeInSlider.value = fadeInT.toFixed(3);
-    fadeInSlider.style.setProperty("--fill", `${Math.round(fadeInT * 100)}%`);
-    root.querySelector('[data-role="sample-fadein-label"]').textContent =
+    if (fadeInSlider) {
+      if (document.activeElement !== fadeInSlider) fadeInSlider.value = fadeInT.toFixed(3);
+      fadeInSlider.style.setProperty("--fill", `${Math.round(fadeInT * 100)}%`);
+    }
+    const fadeInLabel = root.querySelector('[data-role="sample-fadein-label"]');
+    if (fadeInLabel) fadeInLabel.textContent =
       fadeInSec < 0.05 ? "FADE IN off" : `FADE IN ${fadeInSec.toFixed(1)}s`;
 
     const fadeOutSlider = root.querySelector('[data-role="sample-fadeout"]');
     const fadeOutT = Math.min(1, fadeOutSec / 10);
-    if (document.activeElement !== fadeOutSlider) fadeOutSlider.value = fadeOutT.toFixed(3);
-    fadeOutSlider.style.setProperty("--fill", `${Math.round(fadeOutT * 100)}%`);
-    root.querySelector('[data-role="sample-fadeout-label"]').textContent =
+    if (fadeOutSlider) {
+      if (document.activeElement !== fadeOutSlider) fadeOutSlider.value = fadeOutT.toFixed(3);
+      fadeOutSlider.style.setProperty("--fill", `${Math.round(fadeOutT * 100)}%`);
+    }
+    const fadeOutLabel = root.querySelector('[data-role="sample-fadeout-label"]');
+    if (fadeOutLabel) fadeOutLabel.textContent =
       fadeOutSec < 0.05 ? "FADE OUT off" : `FADE OUT ${fadeOutSec.toFixed(1)}s`;
   }
 
-  // Granular row visible only when waveform === "granular".
+  // Granular row. Same decoupling fix as sample-window-row above:
+  // labels + --fill always update from state; only `hidden` depends
+  // on visibility. So even if grainVisible flips false momentarily,
+  // the sliders + labels still track state and don't get stuck on
+  // HTML-default values.
   const grainRow = root.querySelector('[data-role="grain-row"]');
-  // v1: also show GRAIN sliders when sample-granular is on so the
-  // user can tune size/density/jitter/spread for their recording.
-  const grainVisible = osc.waveform === "granular"
-    || (osc.waveform === "sample" && !!osc.sampleGranular);
-  grainRow.hidden = !grainVisible;
-  if (grainVisible) {
+  if (grainRow) {
+    const grainVisible = osc.waveform === "granular"
+      || (osc.waveform === "sample" && !!osc.sampleGranular);
+    grainRow.hidden = !grainVisible;
+  }
+  {
     const g = osc.grain || { sizeMs: 80, densityHz: 8, jitter: 0.6, panSpread: 0.5 };
     // Size (log)
     const sizeT = Math.log(Math.max(GRAIN_SIZE_MIN, g.sizeMs) / GRAIN_SIZE_MIN) /
                   Math.log(GRAIN_SIZE_MAX / GRAIN_SIZE_MIN);
     const sizeSlider = root.querySelector('[data-role="grain-size"]');
-    if (document.activeElement !== sizeSlider) sizeSlider.value = sizeT.toFixed(4);
-    sizeSlider.style.setProperty("--fill", `${Math.round(sizeT * 100)}%`);
-    root.querySelector('[data-role="grain-size-label"]').textContent =
-      `SIZE ${Math.round(g.sizeMs)}ms`;
+    if (sizeSlider) {
+      if (document.activeElement !== sizeSlider) sizeSlider.value = sizeT.toFixed(4);
+      sizeSlider.style.setProperty("--fill", `${Math.round(sizeT * 100)}%`);
+    }
+    const sizeLabel = root.querySelector('[data-role="grain-size-label"]');
+    if (sizeLabel) sizeLabel.textContent = `SIZE ${Math.round(g.sizeMs)}ms`;
     // Density (log) — show as /s for ≥1, /min otherwise (sparse geiger feel)
     const densT = Math.log(Math.max(GRAIN_DENS_MIN, g.densityHz) / GRAIN_DENS_MIN) /
                   Math.log(GRAIN_DENS_MAX / GRAIN_DENS_MIN);
     const densSlider = root.querySelector('[data-role="grain-density"]');
-    if (document.activeElement !== densSlider) densSlider.value = densT.toFixed(4);
-    densSlider.style.setProperty("--fill", `${Math.round(densT * 100)}%`);
-    root.querySelector('[data-role="grain-density-label"]').textContent =
-      g.densityHz >= 1
-        ? `DENSITY ${Math.round(g.densityHz)}/s`
-        : `DENSITY ${Math.round(g.densityHz * 60)}/min`;
+    if (densSlider) {
+      if (document.activeElement !== densSlider) densSlider.value = densT.toFixed(4);
+      densSlider.style.setProperty("--fill", `${Math.round(densT * 100)}%`);
+    }
+    const densLabel = root.querySelector('[data-role="grain-density-label"]');
+    if (densLabel) densLabel.textContent = g.densityHz >= 1
+      ? `DENSITY ${Math.round(g.densityHz)}/s`
+      : `DENSITY ${Math.round(g.densityHz * 60)}/min`;
     // Jitter (linear)
     const jitSlider = root.querySelector('[data-role="grain-jitter"]');
-    if (document.activeElement !== jitSlider) jitSlider.value = g.jitter.toFixed(3);
-    jitSlider.style.setProperty("--fill", `${Math.round(g.jitter * 100)}%`);
-    root.querySelector('[data-role="grain-jitter-label"]').textContent =
-      `JITTER ${Math.round(g.jitter * 100)}`;
+    if (jitSlider) {
+      if (document.activeElement !== jitSlider) jitSlider.value = g.jitter.toFixed(3);
+      jitSlider.style.setProperty("--fill", `${Math.round(g.jitter * 100)}%`);
+    }
+    const jitLabel = root.querySelector('[data-role="grain-jitter-label"]');
+    if (jitLabel) jitLabel.textContent = `JITTER ${Math.round(g.jitter * 100)}`;
     // Spread (linear)
     const sprSlider = root.querySelector('[data-role="grain-spread"]');
-    if (document.activeElement !== sprSlider) sprSlider.value = g.panSpread.toFixed(3);
-    sprSlider.style.setProperty("--fill", `${Math.round(g.panSpread * 100)}%`);
-    root.querySelector('[data-role="grain-spread-label"]').textContent =
-      `SPREAD ${Math.round(g.panSpread * 100)}`;
+    if (sprSlider) {
+      if (document.activeElement !== sprSlider) sprSlider.value = g.panSpread.toFixed(3);
+      sprSlider.style.setProperty("--fill", `${Math.round(g.panSpread * 100)}%`);
+    }
+    const sprLabel = root.querySelector('[data-role="grain-spread-label"]');
+    if (sprLabel) sprLabel.textContent = `SPREAD ${Math.round(g.panSpread * 100)}`;
   }
 
   // Filter row
