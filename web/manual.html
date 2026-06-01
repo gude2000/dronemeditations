@@ -689,10 +689,41 @@
 
   <figure class="shot">
     <img src="manual-images/08-samples.jpg" alt="The bundled samples picker showing categories Atmospheric, Cosmic, Field, Instruments, Urban with named audio files underneath each" loading="lazy" />
-    <figcaption>The bundled samples picker groups all 41 shipped files into categories (Atmospheric, Cosmic, Field, Instruments, Urban).</figcaption>
+    <figcaption>The bundled samples picker groups 50+ shipped files into categories (Acoustic, Atmospheric, Cosmic, Developer, Field, Instruments, Urban).</figcaption>
   </figure>
 
-  <p>The <strong>Bundled ▾</strong> button on each oscillator strip opens a small picker of audio files shipped with the app. Tap one and it loads instantly — no upload dialog, no Files-app round-trip. Web sources files from <code>web/samples/</code> via a manifest (<code>web/samples/index.json</code>); iOS sources from a <code>Samples</code> folder inside the app bundle. Both folders have a README explaining how to drop in your own audio. The picker groups entries by an optional category (e.g. "Bowls", "Field", "Keys").</p>
+  <p>The <strong>Bundled ▾</strong> button on each oscillator strip opens a small picker of audio files shipped with the app. Tap one and it loads instantly — no upload dialog, no Files-app round-trip. Web sources files from <code>web/samples/</code> via a manifest (<code>web/samples/index.json</code>); iOS sources from a <code>Samples</code> folder inside the app bundle. Both folders have a README explaining how to drop in your own audio. The picker groups entries by an optional category (e.g. "Acoustic", "Cosmic", "Field", "Instruments").</p>
+
+  <h3>Adding to the bundled list <span class="lede" style="font-size:14px;font-weight:500;">— for maintainers + contributors</span></h3>
+  <p>iOS and web are kept in sync by a small Python script. New samples land on iOS first (where they auto-include in the next Xcode build), then a one-line command mirrors them to web and regenerates the picker manifest.</p>
+
+  <ol>
+    <li>
+      <strong>Drop the file in iOS first.</strong> Put it in
+      <code>DroneMeditations/Samples/&lt;Category&gt;/</code>. Pick an existing category folder (<code>Acoustic</code>, <code>Atmospheric</code>, <code>Cosmic</code>, <code>Developer</code>, <code>Field</code>, <code>Instruments</code>, <code>Urban</code>) or make a new one. Supported formats: WAV, MP3, M4A, AAC, OGG, FLAC, AIF/AIFF. Filename without the extension becomes the default display name.
+    </li>
+    <li>
+      <strong>Run the mirror script.</strong>
+      <pre><code>python3 web/samples/mirror_from_ios.py</code></pre>
+      <p style="margin-top:6px">It copies every audio file from <code>DroneMeditations/Samples/</code> into <code>web/samples/&lt;Category&gt;/</code>, deletes web entries that no longer exist on iOS, and regenerates <code>web/samples/index.json</code> fresh. Pass <code>--exclude-larger-than 10</code> to skip files over 10 MB (or whatever cap you want) if a particular sample would inflate the static site too much.</p>
+    </li>
+    <li>
+      <strong>(Optional) pretty up the display name.</strong> The script auto-titles obvious kebab-case stems (<code>phi-drone</code> → <code>Phi Drone</code>) and passes through already-pretty names (<code>Bansuri B2</code>). For everything else — em-dashes, ampersands, branded casing — add a row to <code>web/samples/display_names.json</code>:
+      <pre><code>{
+  "overrides": {
+    "your-file-stem": "Your Pretty Display Name"
+  }
+}</code></pre>
+      <p style="margin-top:6px">Re-run the script after editing.</p>
+    </li>
+    <li>
+      <strong>Commit + push.</strong> The script makes the iOS folder, the web folder, the manifest, and (optionally) the display names file all change together — one commit covers it.
+    </li>
+  </ol>
+
+  <div class="callout">
+    <strong>Categories naming.</strong> The category folder name is the picker section header verbatim. Title Case singular nouns work best ("Drones" not "drone-loops"). New categories show up automatically next time the script runs.
+  </div>
 
   <h3>Upload your own</h3>
   <ul>
