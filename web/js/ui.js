@@ -9,12 +9,12 @@ import {
   CHORDS, CHORD_CATEGORIES, PRESETS, PRESET_CATEGORIES,
   JOURNEYS, journeyTotalSeconds,
   FREQ_MIN, FREQ_MAX, frequencyHue
-} from "./music.js?v=19";
-import { startListening, stopListening, freqToNote, listInputDevices, switchInputDevice } from "./pitch-detect.js?v=19";
-import { initMIDI, midiToKeyOctave } from "./midi.js?v=19";
+} from "./music.js?v=20";
+import { startListening, stopListening, freqToNote, listInputDevices, switchInputDevice } from "./pitch-detect.js?v=20";
+import { initMIDI, midiToKeyOctave } from "./midi.js?v=20";
 import {
   loadSnapshotMeta, saveSnapshotMeta, getSnapshotBlob, deleteSnapshotBlob
-} from "./storage.js?v=19";
+} from "./storage.js?v=20";
 
 const WAVEFORM_SVG = {
   sine:     '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12c3-7 7-7 10 0s7 7 10 0"/></svg>',
@@ -328,46 +328,54 @@ async function openBundledSamplePicker(anchor, oscIndex) {
   // contain-related layout and the padding box. Two-element pattern
   // separates concerns cleanly and is the bulletproof shape every
   // dropdown library uses.
+  // v1 fix-4: drop the flex chain entirely. After three layout
+  // attempts and a stale-cache bust, the popup STILL didn't scroll on
+  // Comet — strong signal the flex chain wasn't being honored the way
+  // I expected. Switched to the most boring possible pattern:
+  //   - outer: explicit pixel `height` (not max-height), overflow:
+  //            hidden, position: fixed
+  //   - inner: width 100%, height 100%, overflow-y: auto
+  // No flex, no min-height tricks, no shrink/grow gymnastics. Every
+  // browser handles "child is 100%/100% of fixed-size parent with
+  // overflow on the child" the same way. If this doesn't scroll, the
+  // browser is broken.
+  //
+  // Small lists pay a cosmetic cost: the popup is always exactly
+  // `maxH` px tall, even with 3 items. Trade we make for reliability.
+  // Could revisit later with a measured-content auto-size pass that
+  // SHRINKS the popup if its scrollHeight < maxH.
   popup.style.cssText = `
     position: fixed;
     top: ${top}px;
     left: ${Math.round(rect.left)}px;
-    max-height: ${Math.round(maxH)}px;
-    min-width: 240px;
+    width: 280px;
+    height: ${Math.round(maxH)}px;
     z-index: 9999;
     background: #14141a;
     border: 1px solid rgba(255,255,255,0.18);
     border-radius: 10px;
     box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-    display: flex;
-    flex-direction: column;
     box-sizing: border-box;
-    /* v1 fix-3: without overflow:hidden the popup's max-height
-       doesn't bind as a binding constraint — content overflows
-       past the popup boundary into the viewport below it, and the
-       inner scrollBody's flex-shrink doesn't engage. User reported
-       wheel events working but "the lower presets don't reveal" —
-       they were rendering off-screen below the popup's visible
-       area. overflow:hidden on the FRAME forces the visual height
-       to equal max-height, which propagates to the child scrollBody
-       (flex: 1 1 auto + min-height: 0) so its own overflow-y: auto
-       finally scrolls within the visible viewport. */
     overflow: hidden;
   `;
-  // Inner scroll container — this is what actually scrolls. Holds all
-  // children (sections + rows) so they all participate in the same
-  // scroll viewport.
   const scrollBody = document.createElement("div");
   scrollBody.style.cssText = `
+    width: 100%;
+    height: 100%;
     overflow-y: auto;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
-    flex: 1 1 auto;
-    min-height: 0;
     padding: 6px;
+    box-sizing: border-box;
   `;
   popup.appendChild(scrollBody);
+  // Debug aid: if the user reports this STILL doesn't scroll, ask
+  // them to run `document.querySelector('.bundled-sample-popup
+  // > div').scrollHeight` in DevTools. If it's > the popup height,
+  // the layout is right and something is intercepting the wheel. If
+  // it equals the popup height, content is squashing and we need a
+  // different fix.
   // Rewrite each `popup.appendChild(...)` below to target `scrollBody`
   // instead. A local alias keeps the rest of the function readable
   // without diff churn — assigning `popup = scrollBody` would break
