@@ -89,7 +89,16 @@ export class AudioEngine {
       const osc = this.ctx.createOscillator();
       const oscGain = this.ctx.createGain();
       // Sample bus — node created when a sample is loaded for this voice.
+      // v1: sampleContGain is an extra gain stage that ONLY the continuous
+      // sampleSrc routes through; grain bursts skip it and feed sampleGain
+      // directly. setSampleGranular(true) zeroes sampleContGain so the
+      // continuous loop is silenced while the grain scheduler is running.
+      // (Setting AudioBufferSourceNode.playbackRate to 0 does NOT silence
+      // it — output freezes on the last frame instead.)
       const sampleGain = this.ctx.createGain();
+      const sampleContGain = this.ctx.createGain();
+      sampleContGain.gain.value = 1;
+      sampleContGain.connect(sampleGain);
       // Noise bus — a looping AudioBufferSourceNode fed by either the
       // engine's shared white-noise or pink-noise buffer. We swap which
       // buffer it points to when the waveform changes between the two,
@@ -301,7 +310,7 @@ export class AudioEngine {
       // Apply the saved mode and the saved mix to the routing gains.
       // Default mode is "mono" when nothing was saved.
       const voiceObj = {
-        osc, oscGain, sampleGain, noiseSrc, noiseGain, grainPan, drive, fmInput, filter, pan, gain, envelopeGain,
+        osc, oscGain, sampleGain, sampleContGain, noiseSrc, noiseGain, grainPan, drive, fmInput, filter, pan, gain, envelopeGain,
         chorusDry, chorusDelayL, chorusDelayR,
         chorusWetL, chorusWetR, chorusOutMerger, chorusOut,
         chLfoL, chLfoR, chLfoLGain, chLfoRGain, chCenterL, chCenterR,
@@ -612,12 +621,15 @@ export class AudioEngine {
   setSampleGranular(index, on) {
     const v = this.voices[index]; if (!v) return;
     v.params.sampleGranular = !!on;
-    // Mute the continuous sampleSrc when granular is on — the grain
-    // scheduler will drive sampleGain via short BufferSource bursts.
-    // When granular toggles off, restore the continuous source.
-    if (this.ctx && v.sampleSrc) {
+    // Mute the continuous source bus (sampleContGain) when granular is
+    // on. Grain bursts go directly to sampleGain so they're audible
+    // independently. Quick 30 ms ramp so the toggle doesn't click.
+    if (this.ctx && v.sampleContGain) {
       try {
-        v.sampleSrc.playbackRate.value = on ? 0 : Math.max(0.05, Math.min(20, v.params.freq / 220));
+        const t = this.ctx.currentTime;
+        v.sampleContGain.gain.cancelScheduledValues(t);
+        v.sampleContGain.gain.setValueAtTime(v.sampleContGain.gain.value, t);
+        v.sampleContGain.gain.linearRampToValueAtTime(on ? 0 : 1, t + 0.030);
       } catch {}
     }
   }
@@ -1112,13 +1124,15 @@ export class AudioEngine {
     const endFrac = (v.params.sampleEndFrac != null) ? v.params.sampleEndFrac : 1;
     src.loopStart = audioBuffer.duration * Math.max(0, Math.min(0.999, startFrac));
     src.loopEnd = audioBuffer.duration * Math.max(0.001, Math.min(1, endFrac));
-    // v1: if sampleGranular is already on (e.g. coming back from a
-    // stop/play cycle, or after applying a preset that uses granular
-    // sampling), start the continuous source muted — the grain
-    // scheduler will drive sampleGain via short BufferSource bursts.
-    const rate = Math.max(0.05, Math.min(20, v.params.freq / 220));
-    src.playbackRate.value = v.params.sampleGranular ? 0 : rate;
-    src.connect(v.sampleGain);
+    src.playbackRate.value = Math.max(0.05, Math.min(20, v.params.freq / 220));
+    // Continuous source routes through sampleContGain (split bus, see
+    // the constructor) so setSampleGranular can mute it without
+    // silencing concurrent grain bursts that go straight to sampleGain.
+    src.connect(v.sampleContGain);
+    // If the voice was already in granular mode (e.g. coming back from
+    // a stop/play cycle, or applying a preset that uses granular
+    // sampling), keep the continuous bus muted.
+    v.sampleContGain.gain.value = v.params.sampleGranular ? 0 : 1;
     // Start playback from the window start so the first cycle plays the
     // user's selected region too (not just subsequent loops).
     src.start(0, src.loopStart);

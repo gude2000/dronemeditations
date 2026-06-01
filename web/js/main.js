@@ -887,6 +887,14 @@ const actions = {
     // to hear themselves. We re-bake the normalized PCM into a fresh
     // AudioBuffer so the engine reads it directly.
     const normalizedBuffer = peakNormalize(engine.ctx, decoded, 0.89);
+    // v1 unity-pitch on recording load. Playback rate is freq/220, so
+    // unless we reset freq to 220 the recording plays at the OSC's
+    // current pitch (e.g. OSC at 313 Hz → recording at 1.42× speed).
+    // Resetting freq makes the recording play 1:1 as captured, and
+    // the freq slider then acts as a pitch-shift FROM the original.
+    const SAMPLE_UNITY_HZ = 220;
+    state.oscillators[oscIndex].frequencyHz = SAMPLE_UNITY_HZ;
+    engine.setFrequency(oscIndex, SAMPLE_UNITY_HZ);
     engine.loadSample(oscIndex, normalizedBuffer);
     const label = `Recording (OSC ${oscIndex + 1})`;
     state.oscillators[oscIndex].sampleName = label;
