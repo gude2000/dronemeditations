@@ -230,23 +230,38 @@ enum UserPresetSharing {
     /// exported filename works on iOS / macOS / iCloud Drive without
     /// surprise mangling. Trims to 80 chars.
 
-    /// Walk a `.dronepreset` JSON dictionary and rewrite web-shorthand
-    /// LFO enum strings to the canonical Swift case names iOS expects.
-    /// Only touches the two known short forms; everything else stays
-    /// byte-identical so iOS-saved envelopes pass through unchanged.
+    /// Walk a `.dronepreset` JSON dictionary and rewrite the parts of
+    /// the web schema that need shape-translation before the strongly
+    /// typed iOS decoder will accept it. Two passes:
     ///
-    /// Web → iOS mapping (kept in lockstep with web's enum strings —
-    /// see web/js/audio.js LFO shape switch + targets in main.js):
-    ///   • shape  "sh"  → "sampleAndHold"
-    ///   • target "amp" → "amplitude"
-    ///   • target "q"   → "filterQ"
-    ///   • target "fm"  → "fmIndex"
-    ///   (sine / triangle / square / sawtooth / ramp, pan / cutoff /
-    ///    pitch are byte-identical already.)
+    /// 1. LFO enum string shorthand
+    ///      • shape  "sh"  → "sampleAndHold"
+    ///      • target "amp" → "amplitude"
+    ///      • target "q"   → "filterQ"
+    ///      • target "fm"  → "fmIndex"
+    ///    (sine / triangle / square / sawtooth / ramp + pan / cutoff /
+    ///     pitch are byte-identical already.)
     ///
-    /// Returns the rewritten Data, or nil if the input doesn't look
-    /// like a JSON object (importPreset will then try to decode the
-    /// original bytes and surface the resulting error to the user).
+    /// 2. Sample reference shape
+    ///    Web voices store samples as `sampleRef: { id, name }` where
+    ///    id is an IndexedDB key like "sample-mb8x9d-a3f4k2" — no file
+    ///    extension. iOS voices store `sampleStoredFilename: String?`
+    ///    pointing at a real file in Documents/DroneSamples/, and
+    ///    AVAudioFile relies on a recognizable extension. So we:
+    ///      • Append `.wav` (or the right ext for the mime type) to
+    ///        every samples[i].filename that doesn't already carry an
+    ///        extension. AVAudioFile then sniffs correctly when the
+    ///        bytes hit disk during import.
+    ///      • For each voice that has sampleRef.id but no
+    ///        sampleStoredFilename, write the translated filename into
+    ///        sampleStoredFilename so the decoded UserPreset.Voice
+    ///        ends up pointing at the same file we just wrote.
+    ///
+    /// Iceberg-safe: any field that doesn't match the patterns above
+    /// passes through verbatim, so iOS-saved envelopes stay
+    /// byte-identical. Returns nil if the JSON isn't a top-level
+    /// object; the caller will then try to decode the original bytes
+    /// and let the user see the resulting error.
     fileprivate static func translateWebEnumStrings(in data: Data) -> Data? {
         guard var root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
             return nil
@@ -254,22 +269,69 @@ enum UserPresetSharing {
         let shapeMap: [String: String] = ["sh": "sampleAndHold"]
         let targetMap: [String: String] = ["amp": "amplitude", "q": "filterQ", "fm": "fmIndex"]
 
+        // Pass 1 — rename embedded sample files so they carry a real
+        // extension. Map oldId → newFilename so step 2 below can patch
+        // each voice that referenced this sample.
+        var sampleIdRename: [String: String] = [:]
+        if var samples = root["samples"] as? [[String: Any]] {
+            for i in 0..<samples.count {
+                guard let oldName = samples[i]["filename"] as? String else { continue }
+                if !(oldName as NSString).pathExtension.isEmpty {
+                    // Already has an extension — assume it works.
+                    sampleIdRename[oldName] = oldName
+                    continue
+                }
+                let mime = (samples[i]["mime"] as? String)?.lowercased() ?? "audio/wav"
+                let ext: String
+                switch mime {
+                case "audio/wav", "audio/wave", "audio/x-wav":           ext = "wav"
+                case "audio/mpeg", "audio/mp3":                          ext = "mp3"
+                case "audio/mp4", "audio/aac", "audio/x-m4a", "audio/m4a": ext = "m4a"
+                case "audio/ogg", "audio/webm":                          ext = "ogg"
+                case "audio/flac":                                       ext = "flac"
+                default:                                                 ext = "wav"
+                }
+                let newName = "\(oldName).\(ext)"
+                samples[i]["filename"] = newName
+                sampleIdRename[oldName] = newName
+            }
+            root["samples"] = samples
+        }
+
+        // Pass 2 — walk voices: LFO enum strings + sampleRef → sampleStoredFilename.
         if var preset = root["preset"] as? [String: Any],
            var oscs = preset["oscillators"] as? [[String: Any]] {
             for i in 0..<oscs.count {
-                guard var lfos = oscs[i]["lfos"] as? [[String: Any]] else { continue }
-                for j in 0..<lfos.count {
-                    if let shape = lfos[j]["shape"] as? String, let mapped = shapeMap[shape] {
-                        lfos[j]["shape"] = mapped
+                var voice = oscs[i]
+
+                // 2a — LFO enum strings.
+                if var lfos = voice["lfos"] as? [[String: Any]] {
+                    for j in 0..<lfos.count {
+                        if let shape = lfos[j]["shape"] as? String, let mapped = shapeMap[shape] {
+                            lfos[j]["shape"] = mapped
+                        }
+                        if let target = lfos[j]["target"] as? String, let mapped = targetMap[target] {
+                            lfos[j]["target"] = mapped
+                        }
+                        if let targets = lfos[j]["targets"] as? [String] {
+                            lfos[j]["targets"] = targets.map { targetMap[$0] ?? $0 }
+                        }
                     }
-                    if let target = lfos[j]["target"] as? String, let mapped = targetMap[target] {
-                        lfos[j]["target"] = mapped
-                    }
-                    if let targets = lfos[j]["targets"] as? [String] {
-                        lfos[j]["targets"] = targets.map { targetMap[$0] ?? $0 }
+                    voice["lfos"] = lfos
+                }
+
+                // 2b — sampleRef → sampleStoredFilename.
+                // Only set if the iOS-style field is missing so an iOS
+                // export that happens to also carry sampleRef (defensive
+                // future-compat) doesn't get double-translated.
+                if voice["sampleStoredFilename"] is NSNull || voice["sampleStoredFilename"] == nil {
+                    if let ref = voice["sampleRef"] as? [String: Any],
+                       let id = ref["id"] as? String {
+                        voice["sampleStoredFilename"] = sampleIdRename[id] ?? id
                     }
                 }
-                oscs[i]["lfos"] = lfos
+
+                oscs[i] = voice
             }
             preset["oscillators"] = oscs
             root["preset"] = preset
