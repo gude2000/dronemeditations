@@ -285,18 +285,20 @@ export const PRESETS = [
         panMode: "static",   panAmount: 0,   panPhase: 0,
         quantizeToScale: false
       };
-      const mk = (hz, pan) => V({
-        hz, pan, wave: "sine", amp: 0.50, drive: 1.0,
+      const mk = (hz, pan, amp) => V({
+        hz, pan, wave: "sine", amp, drive: 1.0,
         startDelaySec: 0, playDurationSec: 0, replayCount: 1,
         filter: neutralFilter, reverb: neutralReverb,
         delay: neutralDelay, chorus: neutralChorus, fm: neutralFM,
         grain: neutralGrain, lfos: armedLfos, drift: staticDrift
       });
+      // Match main.js's first-launch state.oscillators exactly — same
+      // pans + amps the user sees on app open. iOS uses identical values.
       return [
-        mk(110.00, -0.3),
-        mk(165.00,  0.1),
-        mk(220.00, -0.1),
-        mk(277.18,  0.3)
+        mk(110.00, -0.3, 0.60),
+        mk(165.00,  0.1, 0.60),
+        mk(220.00, -0.1, 0.55),
+        mk(277.18,  0.3, 0.50)
       ];
     })()
   },

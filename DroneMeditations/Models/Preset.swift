@@ -164,11 +164,11 @@ extension Preset {
                        pitchMode: .static, pitchAmount: 0, pitchPhase: 0,
                        panMode: .static, panAmount: 0, panPhase: 0
                    )
-                   func makeVoice(hz: Double, pan: Double) -> Voice {
+                   func makeVoice(hz: Double, pan: Double, amp: Double) -> Voice {
                        Voice(
                            hz: hz, pan: pan,
                            wave: .sine,
-                           amp: 0.50,
+                           amp: amp,
                            drive: 1.0,
                            startDelaySec: 0,
                            playDurationSec: 0,
@@ -187,11 +187,13 @@ extension Preset {
                            grainSamplePosJitter: 0.2
                        )
                    }
+                   // Match OscillatorState.defaults() exactly — same
+                   // pans + amps the user sees on first app launch.
                    return [
-                    makeVoice(hz: 110.00,  pan: -0.3),
-                    makeVoice(hz: 165.00,  pan:  0.1),
-                    makeVoice(hz: 220.00,  pan: -0.1),
-                    makeVoice(hz: 277.18,  pan:  0.3)
+                    makeVoice(hz: 110.00,  pan: -0.3, amp: 0.60),
+                    makeVoice(hz: 165.00,  pan:  0.1, amp: 0.60),
+                    makeVoice(hz: 220.00,  pan: -0.1, amp: 0.55),
+                    makeVoice(hz: 277.18,  pan:  0.3, amp: 0.50)
                    ]
                }()),
 
