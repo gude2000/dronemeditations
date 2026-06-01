@@ -68,12 +68,15 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* Canvas layers — full bleed, behind UI. */
-#bg-canvas, #chladni-canvas {
+#bg-canvas, #chladni-canvas, #sand-canvas {
   position: fixed; inset: 0;
   width: 100%; height: 100%;
   pointer-events: none;
 }
 #chladni-canvas { mix-blend-mode: plus-lighter; opacity: 0.55; }
+/* v1 sand grains — rendered with additive blend over Chladni so
+   they read as warm-white dust against the cool nodal pattern. */
+#sand-canvas { mix-blend-mode: plus-lighter; opacity: 0.85; }
 #spectrum-canvas { mix-blend-mode: screen; opacity: 0.75; }
 
 /* Zoom slider — vertical, tucked into the bottom-left corner just above

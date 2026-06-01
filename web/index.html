@@ -10,6 +10,11 @@
 <body>
   <canvas id="bg-canvas" aria-hidden="true"></canvas>
   <canvas id="chladni-canvas" aria-hidden="true"></canvas>
+  <!-- v1 sand-grain particle simulation. Layered on top of the
+       Chladni canvas at all zoom levels, including Performance
+       fullscreen (the pop-out has carried the grains since
+       inception; the main app + Performance view now do too). -->
+  <canvas id="sand-canvas" aria-hidden="true"></canvas>
   <canvas id="spectrum-canvas" aria-hidden="true" style="display:none"></canvas>
 
   <!-- Tap-to-toggle layer (controls show/hide). Sits beneath the controls. -->

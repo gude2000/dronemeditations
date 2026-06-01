@@ -8,9 +8,9 @@
 // snapping or sliding along arbitrary continuous-m curves.
 
 import { frequencyHue } from "./music.js";
-import { modePairForFreq } from "./chladni-modes.js";
+import { modePairForFreq, chladniField } from "./chladni-modes.js";
 
-let bgCanvas, chladniCanvas, spectrumCanvas, bgCtx, spectrumCtx;
+let bgCanvas, chladniCanvas, sandCanvas, sandCtx, spectrumCanvas, bgCtx, spectrumCtx;
 let gl;                  // WebGL context for chladniCanvas (no 2D fallback used)
 let glProgram, glAttribs = {}, glUniforms = {};
 let getState;
@@ -100,6 +100,13 @@ export function initVisualizations(state, engineGetter) {
   bgCtx = bgCanvas.getContext("2d");
   if (spectrumCanvas) spectrumCtx = spectrumCanvas.getContext("2d");
   initWebGL();
+  // v1 sand grains. Look up the new canvas; if it isn't present (older
+  // HTML cached in the user's browser), the grains just don't render.
+  sandCanvas = document.getElementById("sand-canvas");
+  if (sandCanvas) {
+    sandCtx = sandCanvas.getContext("2d");
+    initSand();
+  }
   initZoomControls();
   resize();
   window.addEventListener("resize", resize);
@@ -109,6 +116,9 @@ export function initVisualizations(state, engineGetter) {
 export function setChladniVisible(visible) {
   isShowingChladni = visible;
   chladniCanvas.style.display = visible ? "" : "none";
+  // v1 sand grains follow the Chladni overlay's visibility — when
+  // the user switches to Spectrum, the grains hide too.
+  if (sandCanvas) sandCanvas.style.display = visible ? "" : "none";
 }
 
 export function setSpectrumVisible(visible) {
@@ -173,6 +183,7 @@ function resize() {
   const w = window.innerWidth;
   const h = window.innerHeight;
   const canvases = [bgCanvas, chladniCanvas];
+  if (sandCanvas) canvases.push(sandCanvas);
   if (spectrumCanvas) canvases.push(spectrumCanvas);
   for (const c of canvases) {
     c.width = Math.round(w * dpr);
@@ -187,8 +198,96 @@ function resize() {
 function loop(t) {
   drawBlobs(t / 1000);
   if (isShowingChladni && gl) drawChladniGL();
+  // v1 sand grains. Mirrors the pop-out's particle sim — 3000 grains
+  // pulled toward the Chladni nodal lines, with damping + Brownian
+  // jitter so they jitter visibly even on a stable note. Runs only
+  // when the Chladni overlay is showing (always the case in
+  // Performance fullscreen mode) and after drawChladniGL has filled
+  // _activeModes for this frame.
+  if (isShowingChladni && sandCtx) drawSand();
   if (isShowingSpectrum) drawSpectrum();
   requestAnimationFrame(loop);
+}
+
+// ──────────────────────────────────────────────────
+// Sand particle simulation (v1)
+// ──────────────────────────────────────────────────
+const SAND_COUNT = 3000;
+const sandParticles = new Float32Array(SAND_COUNT * 4);    // x, y, vx, vy
+
+function initSand() {
+  for (let i = 0; i < SAND_COUNT; i++) {
+    sandParticles[i * 4 + 0] = Math.random();
+    sandParticles[i * 4 + 1] = Math.random();
+    sandParticles[i * 4 + 2] = 0;
+    sandParticles[i * 4 + 3] = 0;
+  }
+}
+
+function drawSand() {
+  const w = sandCanvas.width;
+  const h = sandCanvas.height;
+
+  // Soft trail fade — grains leave a faint shimmer as they move.
+  sandCtx.globalCompositeOperation = "destination-out";
+  sandCtx.fillStyle = "rgba(0,0,0,0.12)";
+  sandCtx.fillRect(0, 0, w, h);
+  sandCtx.globalCompositeOperation = "source-over";
+
+  // No modes → nothing to attract toward. Particles just drift on
+  // their existing velocity until damped to zero.
+  if (_activeModes.length === 0) return;
+
+  // Same physics constants as the pop-out's sim so the two reads
+  // identical when both windows show the same patch.
+  const eps = 0.004;          // finite-diff step
+  const attraction = 0.0010;
+  const damping = 0.87;
+  const jitter = 0.0006;
+
+  for (let i = 0; i < SAND_COUNT; i++) {
+    const ix = i * 4;
+    let x = sandParticles[ix + 0];
+    let y = sandParticles[ix + 1];
+    let vx = sandParticles[ix + 2];
+    let vy = sandParticles[ix + 3];
+
+    // Move opposite the gradient of |field| → toward nodal lines.
+    const f = chladniField(x, y, _activeModes);
+    const fdx = (chladniField(x + eps, y, _activeModes) - f) / eps;
+    const fdy = (chladniField(x, y + eps, _activeModes) - f) / eps;
+    const s = f > 0 ? 1 : -1;
+    vx -= fdx * s * attraction;
+    vy -= fdy * s * attraction;
+    vx *= damping;
+    vy *= damping;
+    vx += (Math.random() - 0.5) * jitter;
+    vy += (Math.random() - 0.5) * jitter;
+    x += vx;
+    y += vy;
+    if (x < 0) x += 1; else if (x > 1) x -= 1;
+    if (y < 0) y += 1; else if (y > 1) y -= 1;
+
+    sandParticles[ix + 0] = x;
+    sandParticles[ix + 1] = y;
+    sandParticles[ix + 2] = vx;
+    sandParticles[ix + 3] = vy;
+  }
+
+  // Draw all grains in one fillStyle change — warm pale sand.
+  // Particles live in plate coords [0, 1]; project to screen via the
+  // zoom transform so they ride the same scaling as the WebGL field
+  // underneath, including at every zoom level.
+  sandCtx.fillStyle = "rgba(255, 240, 215, 0.9)";
+  const z = zoomLevel;
+  const sizePx = Math.max(0.7, 1.4 * Math.sqrt(z));
+  for (let i = 0; i < SAND_COUNT; i++) {
+    const ix = i * 4;
+    const sx = (sandParticles[ix + 0] - 0.5) * z + 0.5;
+    const sy = (sandParticles[ix + 1] - 0.5) * z + 0.5;
+    if (sx < 0 || sx > 1 || sy < 0 || sy > 1) continue;
+    sandCtx.fillRect(sx * w - sizePx * 0.5, sy * h - sizePx * 0.5, sizePx, sizePx);
+  }
 }
 
 // Spectrum analyzer — log-frequency bars sourced from the engine's
@@ -290,6 +389,10 @@ function drawBlobs(t) {
 // Reusable buffers — up to 4 voices × 2 crossfading modes per voice = 8.
 const _modesBuf  = new Float32Array(24);
 const _colorsBuf = new Float32Array(24);
+// v1 sand: mode objects parsed back out for the sand-sim's CPU field
+// evaluation. Same shape as the pop-out's _activeModes — each entry
+// is { m, n, weight }. Reused across frames to avoid allocation.
+const _activeModes = [];
 
 function drawChladniGL() {
   const oscs = getState().oscillators;
@@ -298,6 +401,11 @@ function drawChladniGL() {
   // Always clear, even when no voices are audible.
   gl.clearColor(0, 0, 0, 0);
   gl.clear(gl.COLOR_BUFFER_BIT);
+
+  // Mirror the WebGL mode list into CPU-readable form for sand. We
+  // build it for every frame so the sand updates as the voices' live
+  // frequencies modulate.
+  _activeModes.length = 0;
 
   if (audible.length === 0) return;
 
@@ -324,12 +432,16 @@ function drawChladniGL() {
     // Skip near-zero weights so we don't burn a uniform slot on nothing.
     for (const mode of [a, b]) {
       if (mode.weight < 0.001 || modeCount >= 8) continue;
+      const eff = mode.weight * osc.amplitude;
       _modesBuf[modeCount * 3 + 0] = mode.m;
       _modesBuf[modeCount * 3 + 1] = mode.n;
-      _modesBuf[modeCount * 3 + 2] = mode.weight * osc.amplitude;
+      _modesBuf[modeCount * 3 + 2] = eff;
       _colorsBuf[modeCount * 3 + 0] = r;
       _colorsBuf[modeCount * 3 + 1] = g;
       _colorsBuf[modeCount * 3 + 2] = bcol;
+      // Mirror to CPU mode list for sand sim. Same struct the
+      // pop-out expects so chladniField() works identically.
+      _activeModes.push({ m: mode.m, n: mode.n, weight: eff });
       modeCount++;
     }
   }

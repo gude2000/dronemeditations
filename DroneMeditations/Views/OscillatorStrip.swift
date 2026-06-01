@@ -17,6 +17,9 @@ struct OscillatorStrip: View {
     @State private var freqInput = ""
     @State private var showingFilePicker = false
     @State private var loadError: String? = nil
+    // v1 per-osc mic actions — ear (Tune) and mic (Record) sheets.
+    @State private var showingTuneSheet = false
+    @State private var showingRecordSheet = false
 
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -60,6 +63,32 @@ struct OscillatorStrip: View {
                 .buttonStyle(.plain)
 
                 Spacer()
+
+                // v1 per-osc mic actions. Tune (ear) snaps this voice's
+                // frequency to a captured pitch. Record (mic) captures
+                // up to 30 s of audio and auto-loads it as this voice's
+                // sample. Two separate icons rather than a combined
+                // long-press so the affordances are visible.
+                Button {
+                    showingTuneSheet = true
+                } label: {
+                    Image(systemName: "ear")
+                        .font(.system(.caption, design: .rounded).weight(.heavy))
+                        .frame(width: 26, height: 26)
+                        .background(Circle().fill(Color.white.opacity(0.10)))
+                        .foregroundStyle(.white)
+                }
+                .buttonStyle(.plain)
+                Button {
+                    showingRecordSheet = true
+                } label: {
+                    Image(systemName: "mic.fill")
+                        .font(.system(.caption, design: .rounded).weight(.heavy))
+                        .frame(width: 26, height: 26)
+                        .background(Circle().fill(Color.white.opacity(0.10)))
+                        .foregroundStyle(.white)
+                }
+                .buttonStyle(.plain)
 
                 soloMuteCluster
             }
@@ -168,6 +197,15 @@ struct OscillatorStrip: View {
                 .stroke(Color(hue: osc.hue, saturation: 0.4, brightness: 0.9, opacity: 0.35), lineWidth: 1)
         )
         .opacity(opacityForMuteState)
+        // v1 per-osc mic action sheets.
+        .sheet(isPresented: $showingTuneSheet) {
+            OscTuneSheet(voiceIndex: index)
+                .presentationDetents([.height(440)])
+        }
+        .sheet(isPresented: $showingRecordSheet) {
+            OscRecordSheet(voiceIndex: index)
+                .presentationDetents([.height(400)])
+        }
         .fileImporter(
             isPresented: $showingFilePicker,
             allowedContentTypes: [.audio, .mp3, .mpeg4Audio, .wav, .aiff],
@@ -1493,5 +1531,263 @@ private struct SaveVoicePresetSheet: View {
         guard !trimmed.isEmpty else { return }
         onSave(trimmed)
         dismiss()
+    }
+}
+
+// MARK: - Per-osc Tune sheet (v1)
+
+/// Per-oscillator Tune to Room. Captures a pitch via the mic and
+/// applies it directly to ONE voice's frequency (instead of the
+/// chord root, like the global Tune to Room does). Reuses the
+/// shared MicPitchDetector — opening this while the global sheet
+/// is also open is fine, both just observe the same readout.
+private struct OscTuneSheet: View {
+    @EnvironmentObject var vm: DroneViewModel
+    @Environment(\.dismiss) private var dismiss
+    let voiceIndex: Int
+
+    @State private var didStart = false
+    @State private var redrawTick: Int = 0
+
+    private var detectedNote: DetectedNote? {
+        if let hz = vm.micPitch.detectedHz { return freqToNote(hz) }
+        return nil
+    }
+
+    var body: some View {
+        let _ = redrawTick   // dependency on tick so onReceive forces re-render
+        return NavigationStack {
+            VStack(spacing: 14) {
+                Text(statusLine)
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .multilineTextAlignment(.center)
+
+                VStack(spacing: 4) {
+                    Text(detectedNote.map { "\($0.name)\($0.octave)" } ?? "—")
+                        .font(.system(size: 64, weight: .bold))
+                        .foregroundStyle(.primary)
+                        .frame(minHeight: 64)
+                        .monospacedDigit()
+                        .opacity(vm.micPitch.isHolding ? 0.6 : 1.0)
+                    Text(vm.micPitch.detectedHz.map { String(format: "%.2f Hz", $0) } ?? "— Hz")
+                        .font(.system(.headline, design: .monospaced))
+                        .foregroundStyle(.primary.opacity(0.85))
+                }
+                .padding(.vertical, 6)
+
+                HStack(spacing: 8) {
+                    Button {
+                        applyDetectedFrequency()
+                    } label: {
+                        Text("Set OSC \(voiceIndex + 1) Frequency")
+                            .font(.system(.headline, design: .rounded).weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(detectedNote == nil ? Color.gray.opacity(0.30) : Color.accentColor)
+                            .foregroundStyle(.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(vm.micPitch.detectedHz == nil)
+
+                    Button {
+                        vm.micPitch.clearHeldPitch()
+                    } label: {
+                        Text("Reset")
+                            .font(.system(.subheadline, design: .rounded).weight(.medium))
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 14)
+                            .background(Color.white.opacity(0.10))
+                            .foregroundStyle(.white.opacity(0.85))
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(vm.micPitch.detectedHz == nil)
+                }
+
+                Text("Hum a tone, play a note, sustain a tuning fork — the detected pitch will set OSC \(voiceIndex + 1)'s frequency. Useful for building unusual clusters or chords one voice at a time.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.top, 2)
+
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+            .navigationTitle("Tune OSC \(voiceIndex + 1)")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .task {
+                if !didStart {
+                    didStart = true
+                    vm.controller.prepareForListen()
+                    await vm.micPitch.start()
+                }
+            }
+        }
+        .onReceive(vm.micPitch.objectWillChange) { _ in
+            redrawTick &+= 1
+        }
+    }
+
+    private var statusLine: String {
+        if let err = vm.micPitch.lastError { return err }
+        if !vm.micPitch.isListening { return "Requesting microphone…" }
+        if vm.micPitch.detectedHz == nil { return "Listening — hold a steady tone" }
+        if vm.micPitch.isHolding { return "Held — tap Set Frequency, or sing a new note" }
+        return "Listening"
+    }
+
+    private func applyDetectedFrequency() {
+        guard let hz = vm.micPitch.detectedHz else { return }
+        vm.setFrequencyFromMic(hz, for: voiceIndex)
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) { dismiss() }
+    }
+}
+
+// MARK: - Per-osc Record sheet (v1)
+
+/// Per-oscillator Record. Captures up to 30 s of mic audio into a
+/// CAF file in Documents/DroneSamples/, auto-loads it into the
+/// voice's sample slot, and flips the waveform to .sample so the
+/// recording is immediately playable (and modulatable with LFOs +
+/// FX + granular sampling). Auto-stops at 30 s.
+private struct OscRecordSheet: View {
+    @EnvironmentObject var vm: DroneViewModel
+    @Environment(\.dismiss) private var dismiss
+    let voiceIndex: Int
+
+    @State private var didStart = false
+    @State private var redrawTick: Int = 0
+
+    var body: some View {
+        let _ = redrawTick
+        return NavigationStack {
+            VStack(spacing: 18) {
+                Text(statusLine)
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .multilineTextAlignment(.center)
+
+                VStack(spacing: 4) {
+                    Text(String(format: "%.1f", vm.micPitch.recordedSeconds))
+                        .font(.system(size: 64, weight: .bold, design: .monospaced))
+                        .foregroundStyle(vm.micPitch.isRecording ? .red : .primary)
+                        .monospacedDigit()
+                    Text("seconds / 30.0 s cap")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 4)
+
+                // Live level meter — uses the same RMS the pitch
+                // detector publishes, so the user can confirm the mic
+                // is actually being heard before they hit Record.
+                levelMeter
+
+                Button {
+                    if vm.micPitch.isRecording {
+                        // Stop, persist, load, dismiss.
+                        _ = vm.stopVoiceRecording(loadingInto: voiceIndex)
+                        var transaction = Transaction()
+                        transaction.disablesAnimations = true
+                        withTransaction(transaction) { dismiss() }
+                    } else {
+                        _ = vm.startVoiceRecording(for: voiceIndex)
+                    }
+                } label: {
+                    Text(vm.micPitch.isRecording ? "Stop & Load into OSC \(voiceIndex + 1)" : "Start Recording")
+                        .font(.system(.headline, design: .rounded).weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(vm.micPitch.isRecording ? Color.red : Color.accentColor)
+                        .foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .disabled(!vm.micPitch.isListening)
+
+                Text("Up to 30 seconds. Auto-stops at the cap. The recording loads as OSC \(voiceIndex + 1)'s sample and the waveform flips to Sample, so you can shape it with the filter, FX, LFOs, granular controls, etc.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.top, 2)
+
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+            .navigationTitle("Record OSC \(voiceIndex + 1)")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") {
+                        // Discard any in-flight recording on cancel.
+                        if vm.micPitch.isRecording {
+                            _ = vm.micPitch.stopRecording()
+                        }
+                        dismiss()
+                    }
+                }
+            }
+            .task {
+                if !didStart {
+                    didStart = true
+                    vm.controller.prepareForListen()
+                    await vm.micPitch.start()
+                }
+            }
+        }
+        .onReceive(vm.micPitch.objectWillChange) { _ in
+            redrawTick &+= 1
+        }
+    }
+
+    private var statusLine: String {
+        if let err = vm.micPitch.lastError { return err }
+        if !vm.micPitch.isListening { return "Requesting microphone…" }
+        if vm.micPitch.isRecording { return "Recording…" }
+        return "Ready — tap Start Recording"
+    }
+
+    private var levelMeter: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(Color.white.opacity(0.10))
+                let pct = levelPercent
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: vm.micPitch.isRecording
+                                ? [Color.red.opacity(0.7), Color.orange]
+                                : [Color(red: 0.55, green: 0.76, blue: 1.0),
+                                   Color(red: 0.78, green: 0.55, blue: 1.0)],
+                            startPoint: .leading, endPoint: .trailing
+                        )
+                    )
+                    .frame(width: max(0, geo.size.width * CGFloat(pct)))
+                    .animation(.linear(duration: 0.07), value: pct)
+            }
+        }
+        .frame(height: 8)
+        .padding(.vertical, 4)
+    }
+
+    private var levelPercent: Double {
+        let l = Double(vm.micPitch.inputLevel)
+        if l <= 0 { return 0 }
+        let dB = 20.0 * log10(l)
+        return min(1, max(0, (dB + 60.0) / 60.0))
     }
 }

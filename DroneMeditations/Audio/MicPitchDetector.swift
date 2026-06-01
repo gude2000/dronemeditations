@@ -27,6 +27,19 @@ final class MicPitchDetector: ObservableObject {
     /// Last error message from session/tap setup, surfaced in the UI.
     @Published var lastError: String?
 
+    // v1 per-osc Record. The same tap callback writes to an AVAudioFile
+    // when recording is enabled, so Tune and Record share the mic
+    // infrastructure without dueling for the inputNode's single tap.
+    /// True while the tap is actively writing samples to disk.
+    @Published private(set) var isRecording: Bool = false
+    /// Seconds of audio recorded so far — drives the record-sheet timer
+    /// and the auto-stop check when the user hits the cap.
+    @Published private(set) var recordedSeconds: Double = 0
+    /// User-set cap. Tap callback auto-stops when this is hit.
+    private var maxRecordingSeconds: Double = 30
+    private var recordingFile: AVAudioFile?
+    private var recordedFrames: AVAudioFrameCount = 0
+
     private let engine: AudioEngine
     private var smoothHz: Double = 0
 
@@ -345,6 +358,33 @@ final class MicPitchDetector: ObservableObject {
             #if DEBUG
             if shouldLog { print("🎤 tap#\(tapCallbackCount): detected hz=\(hz)") }
             #endif
+            // v1 per-osc Record. If recording is active, append this
+            // buffer to the file. AVAudioFile.write is documented to
+            // be safe to call from the audio thread; if the user is
+            // hearing crackle during record we can move this to a
+            // serial dispatch queue, but in practice CAF writes are
+            // fast enough at typical mic sample rates.
+            if let file = self.recordingFile {
+                do {
+                    try file.write(from: buffer)
+                    let newFrames = self.recordedFrames + buffer.frameLength
+                    self.recordedFrames = newFrames
+                    let sr = max(1.0, buffer.format.sampleRate)
+                    let secs = Double(newFrames) / sr
+                    Task { @MainActor in
+                        self.recordedSeconds = secs
+                        // Auto-stop at cap.
+                        if secs >= self.maxRecordingSeconds {
+                            _ = self.stopRecording()
+                        }
+                    }
+                } catch {
+                    #if DEBUG
+                    if shouldLog { print("🎤 record write failed: \(error)") }
+                    #endif
+                }
+            }
+
             Task { @MainActor in
                 self.inputLevel = rms
                 self.consumePitch(hz)
@@ -352,6 +392,62 @@ final class MicPitchDetector: ObservableObject {
         }
         log("tap installed, isListening=true")
         isListening = true
+    }
+
+    // MARK: - Recording (per-osc Record)
+    //
+    // Reuses the same input tap as pitch detection — both Tune and
+    // Record share the mic infrastructure, so the user can have the
+    // record sheet open while pitch detection happens to be running
+    // (and vice versa) without dueling for the inputNode's single
+    // allowed tap. Writes are CAF (uncompressed lossless) so the
+    // recorded sample reloads through AVAudioFile losslessly via the
+    // existing AudioEngine.loadSample path.
+
+    /// Open a CAF file at `url` and start mirroring the mic tap into
+    /// it. Caller is responsible for `start()`-ing the mic first if
+    /// the tap isn't already active. Returns true on success, false
+    /// if a recording is already in flight or the file can't open.
+    func startRecording(to url: URL, maxSeconds: Double = 30) -> Bool {
+        guard !isRecording else { return false }
+        let fmt = engine.engine.inputNode.inputFormat(forBus: 0)
+        // Skip if the input format is degenerate — happens momentarily
+        // right after a session swap, before iOS has reported real
+        // hardware properties to the AU.
+        guard fmt.sampleRate > 0, fmt.channelCount > 0 else {
+            lastError = "Microphone format not available — try again."
+            return false
+        }
+        do {
+            // AVAudioFile derives its on-disk encoding from the
+            // settings dictionary; we pass the input format's settings
+            // so the file matches the tap buffers exactly (no resample,
+            // no channel-count surprise).
+            let file = try AVAudioFile(forWriting: url, settings: fmt.settings)
+            recordingFile = file
+            recordedFrames = 0
+            recordedSeconds = 0
+            maxRecordingSeconds = maxSeconds
+            isRecording = true
+            return true
+        } catch {
+            lastError = "Couldn't open recording file: \(error.localizedDescription)"
+            return false
+        }
+    }
+
+    /// Close the recording file (if open) and return its URL so the
+    /// caller can load it into a voice. Returns nil when no recording
+    /// was in flight.
+    @discardableResult
+    func stopRecording() -> URL? {
+        guard isRecording else { return nil }
+        let url = recordingFile?.url
+        // Closing an AVAudioFile is just dropping the reference — its
+        // dealloc flushes & finalizes the on-disk header.
+        recordingFile = nil
+        isRecording = false
+        return url
     }
 
     func stop() {

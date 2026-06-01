@@ -792,6 +792,78 @@ final class DroneViewModel: ObservableObject {
         if activePresetName == preset.name { activePresetName = nil }
     }
 
+    // MARK: - Per-osc mic actions (v1.1)
+    //
+    // Two independent operations driven from each strip's mic icons:
+    // Tune (ear icon) snaps the voice's frequency to a captured pitch
+    // (separate from the global Tune-to-Room which sets the chord
+    // root); Record (mic icon) records up to 30 s of audio into the
+    // voice's sample slot. Both reuse vm.micPitch — the shared
+    // detector handles permission, session, engine, and the single
+    // allowed input-tap.
+
+    /// Snap a specific voice's frequency to a captured pitch from the
+    /// per-osc Tune sheet. Routes through setFrequency so the slider
+    /// + audio thread + clouds + activePresetName invalidation all
+    /// fire correctly. Clamped to the same range as the slider.
+    func setFrequencyFromMic(_ hz: Double, for index: Int) {
+        setFrequency(hz, for: index)
+    }
+
+    /// Start a per-osc recording into a fresh temp file. The caller's
+    /// sheet polls vm.micPitch.recordedSeconds for the timer + can
+    /// observe vm.micPitch.isRecording for the auto-stop transition.
+    /// Returns the temp URL the recording is being written to (nil on
+    /// failure). The mic itself must already be live — handled by the
+    /// sheet's .task block firing vm.micPitch.start() before this.
+    @discardableResult
+    func startVoiceRecording(for index: Int) -> URL? {
+        let tmpURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("rec-\(UUID().uuidString).caf")
+        let ok = audioEngineMicPitch.startRecording(to: tmpURL, maxSeconds: 30)
+        return ok ? tmpURL : nil
+    }
+
+    /// Stop the in-flight recording (if any). The caller should pass
+    /// the voice index to load the resulting file into.
+    func stopVoiceRecording(loadingInto index: Int) -> URL? {
+        guard let url = audioEngineMicPitch.stopRecording() else { return nil }
+        // Persist the recording into Documents/DroneSamples/ so it
+        // survives across launches (and so user presets can reference
+        // it by filename like any other loaded sample).
+        let stored: String
+        do {
+            stored = try UserPresetStore.persistSample(from: url)
+        } catch {
+            #if DEBUG
+            print("[mic record] couldn't persist sample: \(error)")
+            #endif
+            return nil
+        }
+        // Load into the voice + flip waveform to .sample so the user
+        // hears the recording on next Play. The granular sub-row + FX
+        // + LFOs all immediately apply to the recorded material.
+        guard let permURL = UserPresetStore.url(forStoredSample: stored) else { return nil }
+        do {
+            try audioEngine.loadSample(from: permURL, for: index)
+            oscillators[index].sampleName = "Recording"
+            oscillators[index].sampleStoredFilename = stored
+            oscillators[index].waveform = .sample
+            audioEngine.setWaveform(.sample, for: index)
+            activePresetName = nil
+            return permURL
+        } catch {
+            #if DEBUG
+            print("[mic record] couldn't load recorded sample: \(error)")
+            #endif
+            return nil
+        }
+    }
+
+    /// Convenience accessor — strips don't need to know we expose the
+    /// pitch detector by a slightly different name internally.
+    private var audioEngineMicPitch: MicPitchDetector { micPitch }
+
     // MARK: - .dronepreset file sharing (v1.1)
 
     /// v1.1 iCloud-sync merge handler. Additive: cloud presets we
