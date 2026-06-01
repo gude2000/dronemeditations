@@ -159,7 +159,17 @@ enum UserPresetSharing {
         guard let raw = try? Data(contentsOf: url) else { throw ImportError.readFailed }
         let env: Envelope
         do {
-            env = try JSONDecoder().decode(Envelope.self, from: raw)
+            // v1 cross-platform: the web app exports `createdAt` as an
+            // ISO 8601 string (new Date().toISOString()), but Swift's
+            // default Codable Date strategy expects a Double of
+            // timeIntervalSinceReferenceDate. Install a lenient decoder
+            // that accepts all three shapes we might see in the wild:
+            //   • ISO 8601 string  → web export
+            //   • Double < 1e10     → iOS native (seconds since 2001)
+            //   • Double ≥ 1e10     → JS Date.now() (ms since 1970)
+            // This lets a preset move between web and iOS in either
+            // direction without losing the original save timestamp.
+            env = try JSONDecoder.dronepresetLenient.decode(Envelope.self, from: raw)
         } catch let DecodingError.keyNotFound(key, ctx) {
             let path = ctx.codingPath.map { $0.stringValue }.joined(separator: ".")
             throw ImportError.decodeFailedDetail("missing key '\(key.stringValue)' at \(path.isEmpty ? "<root>" : path)")
@@ -210,6 +220,38 @@ enum UserPresetSharing {
     /// Strip filesystem-hostile characters from the preset name so the
     /// exported filename works on iOS / macOS / iCloud Drive without
     /// surprise mangling. Trims to 80 chars.
+
+    /// Lenient JSONDecoder used for `.dronepreset` imports. Tolerates
+    /// the three `createdAt` shapes we see in the wild:
+    ///   • ISO 8601 string  — web app (`new Date().toISOString()`)
+    ///   • Double < 1e10    — iOS native (`timeIntervalSinceReferenceDate`)
+    ///   • Double ≥ 1e10    — JS `Date.now()` (ms since 1970)
+    /// Used only on the import path — internal save/load on disk
+    /// stays on the default strategy.
+    fileprivate static let importDateStrategy: JSONDecoder.DateDecodingStrategy = {
+        let isoFractional = ISO8601DateFormatter()
+        isoFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let isoPlain = ISO8601DateFormatter()
+        isoPlain.formatOptions = [.withInternetDateTime]
+        return .custom { decoder in
+            let c = try decoder.singleValueContainer()
+            if let s = try? c.decode(String.self) {
+                if let d = isoFractional.date(from: s) { return d }
+                if let d = isoPlain.date(from: s) { return d }
+                throw DecodingError.dataCorruptedError(in: c,
+                    debugDescription: "Unrecognized date string: \(s)")
+            }
+            if let n = try? c.decode(Double.self) {
+                if n >= 1e10 {  // Date.now() ms since 1970
+                    return Date(timeIntervalSince1970: n / 1000.0)
+                }
+                return Date(timeIntervalSinceReferenceDate: n)  // Swift native
+            }
+            throw DecodingError.dataCorruptedError(in: c,
+                debugDescription: "Date is neither a string nor a number")
+        }
+    }()
+
     private static func sanitizeFilename(_ name: String) -> String {
         var s = name.trimmingCharacters(in: .whitespacesAndNewlines)
         if s.isEmpty { s = "Drone Preset" }
@@ -347,5 +389,18 @@ final class UserPresetCloudSync {
         guard let data = NSUbiquitousKeyValueStore.default.data(forKey: Self.kvsKey)
         else { return [] }
         return (try? JSONDecoder().decode([UserPreset].self, from: data)) ?? []
+    }
+}
+
+// v1: helper used by UserPresetSharing.importPreset for cross-platform
+// `.dronepreset` decode. Centralizes the lenient date strategy so the
+// import call site stays compact and any future cross-platform tweaks
+// (e.g. handling a Date.now()-ms field elsewhere in the schema) have
+// a single place to land.
+extension JSONDecoder {
+    static var dronepresetLenient: JSONDecoder {
+        let d = JSONDecoder()
+        d.dateDecodingStrategy = UserPresetSharing.importDateStrategy
+        return d
     }
 }
