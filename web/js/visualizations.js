@@ -482,8 +482,22 @@ function initZoomControls() {
   zoomSlider.addEventListener("input", (e) => setZoom(parseFloat(e.target.value)));
   // Scroll-wheel zoom, but skip if hovering over the controls panel so the
   // wheel still scrolls long control lists.
+  //
+  // v1 fix: also skip when the wheel happens inside ANY of the modal
+  // sheets (Preset / Journey / Morph) or the bundled-sample popup.
+  // Window-level preventDefault on wheel cancels the browser's default
+  // scroll action — without these exclusions, the Journey sheet's
+  // long list literally couldn't scroll because chladni was eating
+  // every wheel event before the browser scrolled the sheet. (Morph
+  // happened to fit in 88vh without needing scroll so it looked fine;
+  // user noticed Journey wasn't scrolling AND the background chladni
+  // was zooming on every wheel — both symptoms of the same root
+  // cause.) The exclusion list now matches every overlay / popup
+  // that contains a scrollable area.
   window.addEventListener("wheel", (e) => {
-    if (e.target.closest && e.target.closest("#controls, #zoom-wrap")) return;
+    if (e.target.closest && e.target.closest(
+      "#controls, #zoom-wrap, .sheet, .bundled-sample-popup"
+    )) return;
     e.preventDefault();
     const factor = Math.exp(-e.deltaY * 0.0015);
     setZoom(zoomLevel * factor);
