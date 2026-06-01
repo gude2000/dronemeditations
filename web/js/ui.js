@@ -317,22 +317,48 @@ async function openBundledSamplePicker(anchor, oscIndex) {
   const top = placeAbove
     ? Math.round(rect.top - 4 - maxH)
     : Math.round(rect.bottom + 4);
+  // v1 fix-2: split the popup into an outer FRAME (size + chrome) and
+  // an inner SCROLL container. Putting `overflow-y: auto` on the same
+  // element that owns the popup's border/shadow/padding works in most
+  // browsers but Comet (Perplexity, Chromium-based) was observed
+  // failing to scroll — possibly due to interaction between
+  // contain-related layout and the padding box. Two-element pattern
+  // separates concerns cleanly and is the bulletproof shape every
+  // dropdown library uses.
   popup.style.cssText = `
     position: fixed;
     top: ${top}px;
     left: ${Math.round(rect.left)}px;
     max-height: ${Math.round(maxH)}px;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
     min-width: 240px;
     z-index: 9999;
     background: #14141a;
     border: 1px solid rgba(255,255,255,0.18);
     border-radius: 10px;
     box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+  `;
+  // Inner scroll container — this is what actually scrolls. Holds all
+  // children (sections + rows) so they all participate in the same
+  // scroll viewport.
+  const scrollBody = document.createElement("div");
+  scrollBody.style.cssText = `
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    flex: 1 1 auto;
+    min-height: 0;
     padding: 6px;
   `;
+  popup.appendChild(scrollBody);
+  // Rewrite each `popup.appendChild(...)` below to target `scrollBody`
+  // instead. A local alias keeps the rest of the function readable
+  // without diff churn — assigning `popup = scrollBody` would break
+  // the `position: fixed` outer chrome.
+  const popupBody = scrollBody;
 
   // Pull the user's browser-library samples first so they appear at the
   // top of the picker — these are files the user explicitly chose to save
@@ -351,7 +377,7 @@ async function openBundledSamplePicker(anchor, oscIndex) {
       and list them in <code style="font-family:ui-monospace,monospace;background:rgba(255,255,255,0.10);padding:1px 4px;border-radius:4px">samples/index.json</code>,
       or load a file with <strong>Load file…</strong> and click 🔖 to save
       it to your browser library.`;
-    popup.appendChild(empty);
+    popupBody.appendChild(empty);
   } else {
     // Helper closure so the Recorded + My Library sections share row
     // markup (load button + × remove button + hover styling). Saves
@@ -389,13 +415,13 @@ async function openBundledSamplePicker(anchor, oscIndex) {
 
       row.appendChild(loadBtn);
       row.appendChild(delBtn);
-      popup.appendChild(row);
+      popupBody.appendChild(row);
     };
     const sectionHeader = (text, color) => {
       const hdr = document.createElement("div");
       hdr.style.cssText = `font-size:9px;letter-spacing:0.10em;text-transform:uppercase;color:${color};padding:8px 10px 4px`;
       hdr.textContent = text;
-      popup.appendChild(hdr);
+      popupBody.appendChild(hdr);
     };
 
     // ── Recorded section (v1, only renders if any recordings exist) ──
@@ -423,7 +449,7 @@ async function openBundledSamplePicker(anchor, oscIndex) {
       const hdr = document.createElement("div");
       hdr.style.cssText = "font-size:9px;letter-spacing:0.10em;text-transform:uppercase;color:rgba(255,255,255,0.45);padding:8px 10px 4px";
       hdr.textContent = cat;
-      popup.appendChild(hdr);
+      popupBody.appendChild(hdr);
       for (const entry of list) {
         const btn = document.createElement("button");
         btn.type = "button";
@@ -435,7 +461,7 @@ async function openBundledSamplePicker(anchor, oscIndex) {
           popup.remove();
           dispatch.loadBundledSample(oscIndex, entry);
         });
-        popup.appendChild(btn);
+        popupBody.appendChild(btn);
       }
     }
   }
