@@ -499,6 +499,18 @@ function buildStrip(index) {
       />
       <span class="strip-freq-unit">Hz</span>
       <div class="strip-buttons">
+        <!-- v1 per-osc Tune to Room: capture a pitch via the mic and snap
+             THIS oscillator's frequency to it. Independent of the
+             global Tune-to-Room pill (which sets the chord root). -->
+        <button class="sm-button" data-role="voice-tune" type="button"
+                title="Tune this oscillator from the mic — hum a note, snaps the voice's frequency to the detected pitch"
+                aria-label="Tune this oscillator from the mic">👂</button>
+        <!-- v1 per-osc Record: record up to 30 s of mic audio directly
+             into this voice's sample slot. Waveform auto-flips to
+             Sample so LFOs / FX / granular controls apply at once. -->
+        <button class="sm-button" data-role="voice-record" type="button"
+                title="Record up to 30 s from the mic directly into this oscillator's sample slot"
+                aria-label="Record into this oscillator">🎙</button>
         <button class="sm-button" data-role="voice-preset" type="button" title="Save / load presets for this single voice" aria-label="Voice presets">★</button>
         <button class="sm-button" data-role="voice-drift" type="button" title="Drift this voice independently — pitch + pan motion over the session" aria-label="Voice drift mode">∿</button>
         <button class="sm-button" data-role="voice-timing" type="button" title="Timing envelope — silence this voice for N seconds after play, then fade in; optionally fade out after N minutes" aria-label="Timing envelope">⏱</button>
@@ -711,6 +723,9 @@ function buildStrip(index) {
   root.querySelector('[data-role="voice-drift"]').addEventListener("click", (e) => openVoiceDriftMenu(e, index));
   root.querySelector('[data-role="voice-preset"]').addEventListener("click", (e) => openVoicePresetMenu(e, index));
   root.querySelector('[data-role="voice-timing"]').addEventListener("click", (e) => openTimingMenu(e, index));
+  // v1 per-osc mic actions.
+  root.querySelector('[data-role="voice-tune"]').addEventListener("click", () => openListenSheet({ target: "voice", voiceIndex: index }));
+  root.querySelector('[data-role="voice-record"]').addEventListener("click", () => openOscRecordSheet(index));
 
   // Editable freq display — commit on Enter / blur; revert on Escape.
   const freqInput = root.querySelector('[data-role="freq-input"]');
@@ -1185,6 +1200,10 @@ function closeSheet(id) {
   // Stopping mic when the listen sheet closes is critical — leaving the
   // audio stream open would keep the browser's mic indicator on.
   if (id === "listen-sheet") stopListeningCleanup();
+  // v1: same idea for the per-osc record sheet — if the user
+  // dismisses mid-recording, kill the stream + recorder so the
+  // browser's mic indicator drops and we don't keep buffering audio.
+  if (id === "osc-record-sheet") cancelOscRecord();
 }
 
 // ───────── tune to room (mic pitch detection) ─────────
@@ -1192,11 +1211,31 @@ function closeSheet(id) {
 let lastDetectedPitch = null;  // last stable Hz, or null if quiet/aperiodic
 // Smooth the displayed pitch a touch — autocorrelation jitters frame-to-frame.
 let displayHz = 0;
+/// v1 per-osc Tune. When `target` is "voice", the apply button sets a
+/// specific oscillator's frequency instead of the chord root. Stored at
+/// module scope so the apply handler picks up the latest choice
+/// regardless of which sheet open re-set it.
+let listenTarget = { target: "root", voiceIndex: -1 };
 
-async function openListenSheet() {
+async function openListenSheet(opts) {
+  // Default to global Tune-to-Room (root) for back-compat with the
+  // existing LISTEN pill which calls openListenSheet() with no args.
+  listenTarget = opts && opts.target === "voice"
+    ? { target: "voice", voiceIndex: opts.voiceIndex | 0 }
+    : { target: "root", voiceIndex: -1 };
+  // Retitle the sheet + apply button so it's obvious which kind of
+  // Tune is open.
+  const titleEl = document.getElementById("listen-sheet-title");
+  const applyBtn = document.getElementById("listen-apply");
+  if (listenTarget.target === "voice") {
+    if (titleEl) titleEl.textContent = `Tune OSC ${listenTarget.voiceIndex + 1}`;
+    if (applyBtn) applyBtn.textContent = `Set OSC ${listenTarget.voiceIndex + 1} Frequency`;
+  } else {
+    if (titleEl) titleEl.textContent = "Tune to Room";
+    if (applyBtn) applyBtn.textContent = "Set as Root";
+  }
   openSheet("listen-sheet");
   const status = document.getElementById("listen-status");
-  const applyBtn = document.getElementById("listen-apply");
   applyBtn.disabled = true;
   status.textContent = "Requesting microphone…";
   resetReadout();
@@ -1303,6 +1342,16 @@ function clearHeldPitch() {
 
 function applyDetectedRoot() {
   if (!lastDetectedPitch) return;
+  // v1: if a per-osc target is set, apply the captured pitch directly
+  // to that voice's frequency. Otherwise fall through to the original
+  // chord-root behavior. The sheet's title + apply-button label were
+  // set in openListenSheet to match.
+  if (listenTarget.target === "voice" && listenTarget.voiceIndex >= 0) {
+    const hz = Math.max(20, Math.min(2000, lastDetectedPitch));
+    dispatch.setFrequency(listenTarget.voiceIndex, hz);
+    closeSheet("listen-sheet");
+    return;
+  }
   const note = freqToNote(lastDetectedPitch);
   // Map detected MIDI note → key (0..11) + octave that the chord generator expects.
   dispatch.setKey(note.pitchClassId);
@@ -1323,6 +1372,215 @@ function stopListeningCleanup() {
   lastDetectedPitch = null;
   displayHz = 0;
   document.getElementById("listen-pill").classList.remove("listening");
+}
+
+// ───────── v1 per-osc Record ─────────
+//
+// Each strip's 🎙 button opens this sheet. We use MediaRecorder over
+// the same getUserMedia stream the Tune feature uses (no special
+// permission flow — second prompt only if the first denied), capture
+// up to 30 seconds, then hand the blob to dispatch.loadRecordedSample
+// which persists it to IndexedDB + loads it into the voice + flips
+// the waveform to Sample.
+
+let recState = {
+  stream: null,
+  recorder: null,
+  chunks: [],
+  voiceIndex: -1,
+  startedAt: 0,
+  timerId: 0,
+  meterCtx: null,
+  meterSource: null,
+  meterAnalyser: null,
+  meterRafId: 0,
+  autoStopId: 0,
+};
+
+const REC_CAP_SECONDS = 30;
+
+async function openOscRecordSheet(voiceIndex) {
+  recState.voiceIndex = voiceIndex;
+  document.getElementById("osc-record-sheet-title").textContent =
+    `Record OSC ${voiceIndex + 1}`;
+  const status = document.getElementById("osc-record-status");
+  const btn = document.getElementById("osc-record-button");
+  const timer = document.getElementById("osc-record-timer");
+  btn.disabled = true;
+  btn.classList.remove("recording");
+  btn.textContent = "Start Recording";
+  status.textContent = "Requesting microphone…";
+  timer.textContent = "0.0";
+  setMeterPct(0);
+  openSheet("osc-record-sheet");
+
+  try {
+    // Request mic with no explicit constraints — let the browser pick
+    // a sensible mono 48k input. iOS Safari requires touch-initiated
+    // promise to grant the permission, which is why this is gated on
+    // the strip button tap.
+    recState.stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+    });
+    status.textContent = "Ready — tap Start Recording";
+    btn.disabled = false;
+    btn.onclick = onRecToggle;
+    startMeter(recState.stream);
+  } catch (err) {
+    status.textContent = "Microphone unavailable — " + (err && err.message ? err.message : "permission denied");
+    btn.disabled = true;
+  }
+}
+
+async function onRecToggle() {
+  const btn = document.getElementById("osc-record-button");
+  if (recState.recorder && recState.recorder.state === "recording") {
+    // Stop path. MediaRecorder fires "dataavailable" + "stop" events
+    // asynchronously; we finish the import in onRecStop.
+    try { recState.recorder.stop(); } catch {}
+    if (recState.autoStopId) { clearTimeout(recState.autoStopId); recState.autoStopId = 0; }
+    if (recState.timerId) { clearInterval(recState.timerId); recState.timerId = 0; }
+    btn.disabled = true;
+    btn.textContent = "Saving…";
+    return;
+  }
+  // Start path. Pick the most-portable mime we can get; the engine
+  // decodes whatever decodeAudioData accepts (most browsers accept
+  // their own recorder format).
+  recState.chunks = [];
+  let mime = "audio/webm";
+  if (!MediaRecorder.isTypeSupported(mime)) {
+    // Safari prefers mp4/aac.
+    if (MediaRecorder.isTypeSupported("audio/mp4")) mime = "audio/mp4";
+    else mime = "";
+  }
+  try {
+    recState.recorder = mime
+      ? new MediaRecorder(recState.stream, { mimeType: mime })
+      : new MediaRecorder(recState.stream);
+  } catch (err) {
+    document.getElementById("osc-record-status").textContent =
+      "Recording unavailable — " + (err && err.message ? err.message : "unknown");
+    return;
+  }
+  recState.recorder.ondataavailable = (e) => {
+    if (e.data && e.data.size > 0) recState.chunks.push(e.data);
+  };
+  recState.recorder.onstop = onRecStop;
+  recState.recorder.start();
+  recState.startedAt = Date.now();
+  document.getElementById("osc-record-status").textContent = "Recording…";
+  btn.textContent = `Stop & Load into OSC ${recState.voiceIndex + 1}`;
+  btn.classList.add("recording");
+
+  // Live timer. requestAnimationFrame would be smoother but interval
+  // is plenty for a one-decimal seconds readout.
+  recState.timerId = setInterval(() => {
+    const secs = (Date.now() - recState.startedAt) / 1000;
+    document.getElementById("osc-record-timer").textContent = secs.toFixed(1);
+  }, 100);
+  // Hard auto-stop at the cap so a forgotten recording doesn't grow
+  // unbounded and blow the IndexedDB blob.
+  recState.autoStopId = setTimeout(() => {
+    if (recState.recorder && recState.recorder.state === "recording") {
+      onRecToggle();   // re-enter as stop path
+    }
+  }, REC_CAP_SECONDS * 1000);
+}
+
+async function onRecStop() {
+  const mime = (recState.chunks[0] && recState.chunks[0].type) || "audio/webm";
+  const blob = new Blob(recState.chunks, { type: mime });
+  recState.chunks = [];
+  const voiceIndex = recState.voiceIndex;
+  // Stop the meter + stream before doing the slow IndexedDB write so
+  // the browser's mic indicator turns off promptly.
+  stopMeter();
+  if (recState.stream) {
+    for (const t of recState.stream.getTracks()) t.stop();
+    recState.stream = null;
+  }
+  try {
+    await dispatch.loadRecordedSample(voiceIndex, blob, mime);
+    document.getElementById("osc-record-status").textContent = "Loaded.";
+    closeSheet("osc-record-sheet");
+  } catch (err) {
+    document.getElementById("osc-record-status").textContent =
+      "Couldn't load the recording — " + (err && err.message ? err.message : "decode error");
+    document.getElementById("osc-record-button").textContent = "Try again";
+    document.getElementById("osc-record-button").disabled = false;
+    document.getElementById("osc-record-button").classList.remove("recording");
+  }
+}
+
+function startMeter(stream) {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    recState.meterCtx = new Ctx();
+    recState.meterSource = recState.meterCtx.createMediaStreamSource(stream);
+    recState.meterAnalyser = recState.meterCtx.createAnalyser();
+    recState.meterAnalyser.fftSize = 1024;
+    recState.meterSource.connect(recState.meterAnalyser);
+    const data = new Uint8Array(recState.meterAnalyser.fftSize);
+    const tick = () => {
+      if (!recState.meterAnalyser) return;
+      recState.meterAnalyser.getByteTimeDomainData(data);
+      // RMS → percent. data is centered at 128 (silence).
+      let sumSq = 0;
+      for (let i = 0; i < data.length; i++) {
+        const v = (data[i] - 128) / 128;
+        sumSq += v * v;
+      }
+      const rms = Math.sqrt(sumSq / data.length);
+      const dB = rms > 0 ? 20 * Math.log10(rms) : -100;
+      setMeterPct(Math.max(0, Math.min(100, ((dB + 60) / 60) * 100)));
+      recState.meterRafId = requestAnimationFrame(tick);
+    };
+    recState.meterRafId = requestAnimationFrame(tick);
+  } catch (err) {
+    // Meter is decorative — failures here shouldn't block recording.
+    console.warn("[rec] meter init failed:", err);
+  }
+}
+
+function stopMeter() {
+  if (recState.meterRafId) {
+    cancelAnimationFrame(recState.meterRafId);
+    recState.meterRafId = 0;
+  }
+  if (recState.meterSource) {
+    try { recState.meterSource.disconnect(); } catch {}
+    recState.meterSource = null;
+  }
+  recState.meterAnalyser = null;
+  if (recState.meterCtx) {
+    try { recState.meterCtx.close(); } catch {}
+    recState.meterCtx = null;
+  }
+  setMeterPct(0);
+}
+
+function setMeterPct(pct) {
+  const el = document.getElementById("osc-record-meter-fill");
+  if (el) el.style.width = pct + "%";
+}
+
+/// Discard a recording in-flight when the user hits Cancel. Called
+/// from closeSheet's hook for the record sheet (added below) so we
+/// don't keep the mic permission held open after dismissal.
+function cancelOscRecord() {
+  if (recState.autoStopId) { clearTimeout(recState.autoStopId); recState.autoStopId = 0; }
+  if (recState.timerId)    { clearInterval(recState.timerId);   recState.timerId = 0; }
+  if (recState.recorder && recState.recorder.state === "recording") {
+    try { recState.recorder.stop(); } catch {}
+  }
+  recState.recorder = null;
+  recState.chunks = [];
+  stopMeter();
+  if (recState.stream) {
+    for (const t of recState.stream.getTracks()) t.stop();
+    recState.stream = null;
+  }
 }
 
 // ───────── Performance view (cymatics-only fullscreen) ─────────

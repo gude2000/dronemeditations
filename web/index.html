@@ -327,6 +327,41 @@
     </div>
   </div>
 
+  <!-- v1 Per-osc Record sheet — opens via the 🎙 button on each
+       strip. Records up to 30 s of mic audio into the voice's sample
+       slot via MediaRecorder, then auto-loads it as a sample and
+       flips the waveform to Sample so the user can manipulate it
+       with LFOs / FX / granular controls immediately. -->
+  <div id="osc-record-sheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="osc-record-sheet-title" hidden>
+    <div class="sheet-panel listen-panel">
+      <header class="sheet-header">
+        <h2 id="osc-record-sheet-title">Record</h2>
+        <button class="sheet-done" data-close="osc-record-sheet" type="button">Cancel</button>
+      </header>
+      <div class="sheet-scroll">
+        <div id="osc-record-status" class="listen-status">Requesting microphone…</div>
+        <div class="listen-readout">
+          <div id="osc-record-timer" class="listen-note">0.0</div>
+          <div class="listen-cents">seconds / 30.0 s cap</div>
+        </div>
+        <div class="listen-meter" aria-label="Live audio input level">
+          <div id="osc-record-meter-fill" class="listen-meter-fill"></div>
+        </div>
+        <div class="listen-actions">
+          <button id="osc-record-button" class="sheet-save listen-apply" type="button" disabled>
+            Start Recording
+          </button>
+        </div>
+        <p class="listen-hint">
+          Up to 30 seconds — auto-stops at the cap. After Stop, the recording
+          loads as this oscillator's sample and the waveform flips to
+          <strong>Sample</strong>, so you can shape it with the filter, FX,
+          LFOs, granular controls, sample-window trim, etc.
+        </p>
+      </div>
+    </div>
+  </div>
+
   <!-- Listen / tune-to-room sheet — opens via the LISTEN pill. -->
   <div id="listen-sheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="listen-sheet-title" hidden>
     <div class="sheet-panel listen-panel">

@@ -79,6 +79,14 @@ input[type="range"]::-moz-range-thumb {
 #sand-canvas { mix-blend-mode: plus-lighter; opacity: 0.85; }
 #spectrum-canvas { mix-blend-mode: screen; opacity: 0.75; }
 
+/* v1 per-osc Record sheet — active-recording state on the big start
+   button. Red background flips when the recorder is running so the
+   user can see at a glance which mode they're in. */
+#osc-record-button.recording {
+  background: rgba(224, 82, 74, 0.85);
+  color: #fff;
+}
+
 /* Zoom slider — vertical, tucked into the bottom-left corner just above
    the copyright notice so it doesn't sit on top of the main controls. */
 #zoom-wrap {

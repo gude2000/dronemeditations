@@ -780,6 +780,38 @@ const actions = {
     }
   },
 
+  /// v1 per-osc Record. Load a fresh mic-captured Blob into the voice
+  /// AS IF it had been file-imported. The UI side has already
+  /// recorded the audio via MediaRecorder; we own the decode + load +
+  /// state-update + cache step so saveCurrentAsUserPreset can persist
+  /// the recording in user presets and so the .dronepreset exporter
+  /// embeds it inline. The recording inherits a synthetic
+  /// "Recording N" filename so it shows up in the strip's sample
+  /// row label.
+  async loadRecordedSample(oscIndex, blob, mime) {
+    if (!(blob instanceof Blob) || blob.size === 0) {
+      throw new Error("Empty recording");
+    }
+    engine.ensureStarted(state.oscillators);
+    engine.resume();
+    const arrayBuffer = await blob.arrayBuffer();
+    const audioBuffer = await engine.ctx.decodeAudioData(arrayBuffer.slice(0));
+    engine.loadSample(oscIndex, audioBuffer);
+    const label = `Recording (OSC ${oscIndex + 1})`;
+    state.oscillators[oscIndex].sampleName = label;
+    state.oscillators[oscIndex].waveform = "sample";
+    engine.setWaveform(oscIndex, "sample");
+    sampleCache[oscIndex] = {
+      id: null,
+      name: label,
+      blob: new Blob([arrayBuffer], { type: mime || blob.type || "audio/webm" }),
+      type: mime || blob.type || "audio/webm",
+      source: "recording"
+    };
+    state.activePresetName = null;
+    renderAll();
+  },
+
   /// Save the currently-loaded sample on the given oscillator to the user's
   /// browser library so the Bundled ▾ picker can list it on subsequent
   /// visits. No-op if no upload is loaded or if it's already saved.
