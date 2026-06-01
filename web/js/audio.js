@@ -347,6 +347,16 @@ export class AudioEngine {
           // The tick scheduler reads these on every tick to queue future
           // grain envelopes via setValueAtTime / linearRampToValueAtTime.
           grain: v.grain || { sizeMs: 80, densityHz: 8, jitter: 0.6, panSpread: 0.5 },
+          // v1: granular SAMPLING. When sampleGranular is true and
+          // waveform === "sample", the continuous sample loop is
+          // muted and the grain scheduler spawns short AudioBufferSource
+          // slices from the sample buffer at jittered positions —
+          // same idea as iOS's sample-granular path. pos = center
+          // read position [0..1], jitter randomizes ±jitter*0.5 around
+          // pos for each grain.
+          sampleGranular: !!v.sampleGranular,
+          grainSamplePosFrac: (v.grainSamplePosFrac != null) ? v.grainSamplePosFrac : 0.5,
+          grainSamplePosJitter: (v.grainSamplePosJitter != null) ? v.grainSamplePosJitter : 0.2,
           lfos: (v.lfos || [
             // v1.1 multi-target: targets is a SET (array) of
             // destinations. v1.0 wrote `target: "x"` — read/dispatch
@@ -481,7 +491,18 @@ export class AudioEngine {
   /// the voice's main pan, so the result is base_pan ± grainPanSpread).
   _scheduleGrains(i, now) {
     const v = this.voices[i];
-    if (!v || v.params.waveform !== "granular") return;
+    if (!v) return;
+    // v1: now handles BOTH noise-granular (waveform === "granular") and
+    // sample-granular (waveform === "sample" && sampleGranular === true).
+    // The noise path triangle-envelopes the always-running noise source;
+    // the sample path spawns short BufferSource slices from the sample
+    // buffer at jittered positions.
+    const isNoiseGran  = v.params.waveform === "granular";
+    const isSampleGran = v.params.waveform === "sample"
+                      && v.params.sampleGranular
+                      && v.sampleBuffer;
+    if (!isNoiseGran && !isSampleGran) return;
+
     const g = v.params.grain || { sizeMs: 80, densityHz: 8, jitter: 0.6, panSpread: 0.5 };
     const LOOKAHEAD = 0.20;  // schedule grains starting within next 200 ms
     // Don't start grain trains until just before now if we've fallen behind
@@ -494,18 +515,56 @@ export class AudioEngine {
       const halfLen = lenSec * 0.5;
       const endT    = startT + lenSec;
 
-      // Triangular envelope on noiseGain. Boost peak to 3.0 to compensate
-      // for the duty-cycle silence so loudness sits in the same neighborhood
-      // as continuous pink at the same amp setting.
-      try {
-        v.noiseGain.gain.cancelScheduledValues(startT);
-        v.noiseGain.gain.setValueAtTime(0, startT);
-        v.noiseGain.gain.linearRampToValueAtTime(3.0, startT + halfLen);
-        v.noiseGain.gain.linearRampToValueAtTime(0, endT);
-      } catch {}
+      if (isNoiseGran) {
+        // Triangular envelope on noiseGain. Boost peak to 3.0 to
+        // compensate for the duty-cycle silence so loudness sits in
+        // the same neighborhood as continuous pink at the same amp
+        // setting.
+        try {
+          v.noiseGain.gain.cancelScheduledValues(startT);
+          v.noiseGain.gain.setValueAtTime(0, startT);
+          v.noiseGain.gain.linearRampToValueAtTime(3.0, startT + halfLen);
+          v.noiseGain.gain.linearRampToValueAtTime(0, endT);
+        } catch {}
+      } else {
+        // SAMPLE-granular path: spawn one AudioBufferSource per grain,
+        // gated by its own triangular envelope. Each grain is its own
+        // node — Web Audio kills the source after stop(), so we don't
+        // need to recycle. Connected to sampleGain so the voice's
+        // existing routing (drive → filter → FX → master) applies.
+        try {
+          const buf = v.sampleBuffer;
+          if (buf && buf.duration > 0) {
+            const grainSrc = this.ctx.createBufferSource();
+            grainSrc.buffer = buf;
+            grainSrc.playbackRate.value = Math.max(0.05, Math.min(20, v.params.freq / 220));
+            const grainGain = this.ctx.createGain();
+            grainGain.gain.value = 0;
+            grainSrc.connect(grainGain).connect(v.sampleGain);
+            // Pick an offset around the user's center pos, jittered.
+            const posCenter = Math.max(0, Math.min(1, v.params.grainSamplePosFrac || 0.5));
+            const posJit    = Math.max(0, Math.min(1, v.params.grainSamplePosJitter || 0));
+            const off = Math.max(0, Math.min(0.9999,
+              posCenter + (Math.random() * 2 - 1) * posJit * 0.5));
+            const startSec = off * buf.duration;
+            // Triangular envelope on grainGain. 1.6× boost — Hann's
+            // average power is ~0.5 and sample-grain duty cycle is
+            // ~0.5 at default density, so without a boost the
+            // sampled material sounds softer than expected vs
+            // continuous playback.
+            grainGain.gain.setValueAtTime(0, startT);
+            grainGain.gain.linearRampToValueAtTime(1.6, startT + halfLen);
+            grainGain.gain.linearRampToValueAtTime(0, endT);
+            grainSrc.start(startT, startSec);
+            grainSrc.stop(endT + 0.02);
+          }
+        } catch {}
+      }
 
       // Per-grain pan: jump to a new random offset at grain start, hold
       // for the grain's life. Adds to the voice's main pan downstream.
+      // (For sample-granular the grainPan is off the sample bus, but
+      // it still applies to the noise bus which we keep silent.)
       const spread = Math.max(0, Math.min(1, g.panSpread || 0));
       const panOffset = (Math.random() * 2 - 1) * spread;
       try {
@@ -545,6 +604,30 @@ export class AudioEngine {
     const v = this.voices[index]; if (!v) return;
     if (!v.params.grain) v.params.grain = { sizeMs: 80, densityHz: 8, jitter: 0.6, panSpread: 0.5 };
     v.params.grain.panSpread = Math.max(0, Math.min(1, s));
+  }
+
+  // v1: granular SAMPLING setters. Active only when waveform === "sample".
+  // setSampleGranular toggles the mode; setGrainSamplePos / Jitter control
+  // where each grain reads from inside the sample buffer.
+  setSampleGranular(index, on) {
+    const v = this.voices[index]; if (!v) return;
+    v.params.sampleGranular = !!on;
+    // Mute the continuous sampleSrc when granular is on — the grain
+    // scheduler will drive sampleGain via short BufferSource bursts.
+    // When granular toggles off, restore the continuous source.
+    if (this.ctx && v.sampleSrc) {
+      try {
+        v.sampleSrc.playbackRate.value = on ? 0 : Math.max(0.05, Math.min(20, v.params.freq / 220));
+      } catch {}
+    }
+  }
+  setGrainSamplePos(index, frac) {
+    const v = this.voices[index]; if (!v) return;
+    v.params.grainSamplePosFrac = Math.max(0, Math.min(1, frac));
+  }
+  setGrainSamplePosJitter(index, frac) {
+    const v = this.voices[index]; if (!v) return;
+    v.params.grainSamplePosJitter = Math.max(0, Math.min(1, frac));
   }
 
   /// Per-voice timing envelope, driven by transportElapsed:
@@ -1029,7 +1112,12 @@ export class AudioEngine {
     const endFrac = (v.params.sampleEndFrac != null) ? v.params.sampleEndFrac : 1;
     src.loopStart = audioBuffer.duration * Math.max(0, Math.min(0.999, startFrac));
     src.loopEnd = audioBuffer.duration * Math.max(0.001, Math.min(1, endFrac));
-    src.playbackRate.value = Math.max(0.05, Math.min(20, v.params.freq / 220));
+    // v1: if sampleGranular is already on (e.g. coming back from a
+    // stop/play cycle, or after applying a preset that uses granular
+    // sampling), start the continuous source muted — the grain
+    // scheduler will drive sampleGain via short BufferSource bursts.
+    const rate = Math.max(0.05, Math.min(20, v.params.freq / 220));
+    src.playbackRate.value = v.params.sampleGranular ? 0 : rate;
     src.connect(v.sampleGain);
     // Start playback from the window start so the first cycle plays the
     // user's selected region too (not just subsequent loops).

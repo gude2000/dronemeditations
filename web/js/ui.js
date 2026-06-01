@@ -560,8 +560,29 @@ function buildStrip(index) {
       <button type="button" class="sample-button" data-role="sample-bundled" title="Pick from samples shipped with the app + your browser library">Bundled ▾</button>
       <button type="button" class="sample-button" data-role="sample-load" title="Browser picks the folder — use Bundled ▾ for shipped + saved samples">Load file…</button>
       <span class="sample-name" data-role="sample-name" title="">—</span>
+      <!-- v1: Grainy toggle. When on, the continuous sample loop is
+           replaced by short Hann-windowed slices read from the
+           buffer at jittered positions — Tibetan-bowl shimmer,
+           Basinski tape-decay clouds, vowel sustains. The existing
+           GRAIN row sliders (size/density/jitter/spread) apply. -->
+      <button type="button" class="sample-button" data-role="sample-grainy" title="Granular sampling — replaces continuous loop with Hann-windowed slices from the sample buffer (uses the GRAIN row sliders below)">Grainy</button>
       <button type="button" class="sample-bookmark" data-role="sample-save-library" title="Save to my browser library — appears in Bundled ▾ on next visit" hidden>🔖</button>
       <button type="button" class="sample-clear" data-role="sample-clear" hidden>Clear</button>
+    </div>
+    <!-- v1 sample-granular position row. Shown only when waveform === "sample"
+         AND sampleGranular is on. POS sets the center read offset inside
+         the buffer; SCAN jitters that offset per grain so each grain
+         pulls from a slightly different position. -->
+    <div class="filter-row sample-window-row" data-role="sample-grain-row" hidden>
+      <span class="strip-label">SAMPLE GR</span>
+      <div class="mini-control">
+        <span class="mini-label" data-role="grain-pos-label">POS 50%</span>
+        <input type="range" min="0" max="1" step="0.001" data-role="grain-pos" title="Center read position inside the sample buffer (0 = start, 1 = end)" />
+      </div>
+      <div class="mini-control">
+        <span class="mini-label" data-role="grain-scan-label">SCAN 20%</span>
+        <input type="range" min="0" max="1" step="0.001" data-role="grain-scan" title="Jitter applied to POS per grain — wider scan reads from a broader window" />
+      </div>
     </div>
     <!-- Sample window row: shown when waveform === "sample" AND a sample is
          loaded. Four sliders trim the playback window inside the loaded
@@ -799,6 +820,17 @@ function buildStrip(index) {
   });
   root.querySelector('[data-role="sample-clear"]').addEventListener("click", () => dispatch.clearSample(index));
   root.querySelector('[data-role="sample-save-library"]').addEventListener("click", () => dispatch.saveSampleToLibrary(index));
+  // v1 granular sampling toggle + position controls.
+  root.querySelector('[data-role="sample-grainy"]').addEventListener("click", () => {
+    const cur = !!getState().oscillators[index].sampleGranular;
+    dispatch.setSampleGranular(index, !cur);
+  });
+  root.querySelector('[data-role="grain-pos"]').addEventListener("input", (e) => {
+    dispatch.setGrainSamplePos(index, parseFloat(e.target.value));
+  });
+  root.querySelector('[data-role="grain-scan"]').addEventListener("input", (e) => {
+    dispatch.setGrainSamplePosJitter(index, parseFloat(e.target.value));
+  });
 
   // Sample window sliders. Start/end are 0..1 fractions; fade-in/out are
   // 0..1 slider positions mapped to 0–10 seconds (linear).
@@ -981,6 +1013,25 @@ function syncStrip(index, root) {
     const source = dispatch.getSampleSource(index);
     root.querySelector('[data-role="sample-save-library"]').hidden =
       !osc.sampleName || source !== "upload";
+    // v1: reflect Grainy toggle's on/off state visually.
+    const grainyBtn = root.querySelector('[data-role="sample-grainy"]');
+    if (grainyBtn) grainyBtn.classList.toggle("selected", !!osc.sampleGranular);
+  }
+
+  // v1: sample-granular position row — visible only when waveform === sample,
+  // a sample is loaded, AND Grainy is on.
+  const sampleGrainRow = root.querySelector('[data-role="sample-grain-row"]');
+  const sampleGrainVisible = osc.waveform === "sample" && !!osc.sampleName && !!osc.sampleGranular;
+  sampleGrainRow.hidden = !sampleGrainVisible;
+  if (sampleGrainVisible) {
+    const posFrac = osc.grainSamplePosFrac ?? 0.5;
+    const scanFrac = osc.grainSamplePosJitter ?? 0.2;
+    const posSlider = root.querySelector('[data-role="grain-pos"]');
+    if (document.activeElement !== posSlider) posSlider.value = posFrac.toFixed(3);
+    root.querySelector('[data-role="grain-pos-label"]').textContent = `POS ${Math.round(posFrac * 100)}%`;
+    const scanSlider = root.querySelector('[data-role="grain-scan"]');
+    if (document.activeElement !== scanSlider) scanSlider.value = scanFrac.toFixed(3);
+    root.querySelector('[data-role="grain-scan-label"]').textContent = `SCAN ${Math.round(scanFrac * 100)}%`;
   }
 
   // Sample window row visible only when sample mode AND a sample is loaded.
@@ -1022,7 +1073,10 @@ function syncStrip(index, root) {
 
   // Granular row visible only when waveform === "granular".
   const grainRow = root.querySelector('[data-role="grain-row"]');
-  const grainVisible = osc.waveform === "granular";
+  // v1: also show GRAIN sliders when sample-granular is on so the
+  // user can tune size/density/jitter/spread for their recording.
+  const grainVisible = osc.waveform === "granular"
+    || (osc.waveform === "sample" && !!osc.sampleGranular);
   grainRow.hidden = !grainVisible;
   if (grainVisible) {
     const g = osc.grain || { sizeMs: 80, densityHz: 8, jitter: 0.6, panSpread: 0.5 };

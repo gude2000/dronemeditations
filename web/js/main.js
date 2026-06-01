@@ -128,10 +128,10 @@ const defaultDrift  = () => ({
 
 const state = {
   oscillators: [
-    { id: 0, frequencyHz: 110.00, waveform: "sine", amplitude: 0.6,  pan: -0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), grain: defaultGrain(), sampleName: null, startDelaySec: 0, playDurationSec: 0, replayCount: 1, sampleStartFrac: 0, sampleEndFrac: 1, sampleFadeInSec: 0, sampleFadeOutSec: 0 },
-    { id: 1, frequencyHz: 165.00, waveform: "sine", amplitude: 0.6,  pan:  0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), grain: defaultGrain(), sampleName: null, startDelaySec: 0, playDurationSec: 0, replayCount: 1, sampleStartFrac: 0, sampleEndFrac: 1, sampleFadeInSec: 0, sampleFadeOutSec: 0 },
-    { id: 2, frequencyHz: 220.00, waveform: "sine", amplitude: 0.55, pan: -0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), grain: defaultGrain(), sampleName: null, startDelaySec: 0, playDurationSec: 0, replayCount: 1, sampleStartFrac: 0, sampleEndFrac: 1, sampleFadeInSec: 0, sampleFadeOutSec: 0 },
-    { id: 3, frequencyHz: 277.18, waveform: "sine", amplitude: 0.5,  pan:  0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), grain: defaultGrain(), sampleName: null, startDelaySec: 0, playDurationSec: 0, replayCount: 1, sampleStartFrac: 0, sampleEndFrac: 1, sampleFadeInSec: 0, sampleFadeOutSec: 0 }
+    { id: 0, frequencyHz: 110.00, waveform: "sine", amplitude: 0.6,  pan: -0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), grain: defaultGrain(), sampleName: null, startDelaySec: 0, playDurationSec: 0, replayCount: 1, sampleStartFrac: 0, sampleEndFrac: 1, sampleFadeInSec: 0, sampleFadeOutSec: 0, sampleGranular: false, grainSamplePosFrac: 0.5, grainSamplePosJitter: 0.2 },
+    { id: 1, frequencyHz: 165.00, waveform: "sine", amplitude: 0.6,  pan:  0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), grain: defaultGrain(), sampleName: null, startDelaySec: 0, playDurationSec: 0, replayCount: 1, sampleStartFrac: 0, sampleEndFrac: 1, sampleFadeInSec: 0, sampleFadeOutSec: 0, sampleGranular: false, grainSamplePosFrac: 0.5, grainSamplePosJitter: 0.2 },
+    { id: 2, frequencyHz: 220.00, waveform: "sine", amplitude: 0.55, pan: -0.1, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), grain: defaultGrain(), sampleName: null, startDelaySec: 0, playDurationSec: 0, replayCount: 1, sampleStartFrac: 0, sampleEndFrac: 1, sampleFadeInSec: 0, sampleFadeOutSec: 0, sampleGranular: false, grainSamplePosFrac: 0.5, grainSamplePosJitter: 0.2 },
+    { id: 3, frequencyHz: 277.18, waveform: "sine", amplitude: 0.5,  pan:  0.3, isMuted: false, isSoloed: false, filter: defaultFilter(), drive: 1.0, fm: defaultFM(), chorus: defaultChorus(), reverb: defaultReverb(), delay: defaultDelay(), lfos: defaultLfos(), drift: defaultDrift(), grain: defaultGrain(), sampleName: null, startDelaySec: 0, playDurationSec: 0, replayCount: 1, sampleStartFrac: 0, sampleEndFrac: 1, sampleFadeInSec: 0, sampleFadeOutSec: 0, sampleGranular: false, grainSamplePosFrac: 0.5, grainSamplePosJitter: 0.2 }
   ],
   keyId: 9,         // A
   octave: 3,
@@ -742,6 +742,25 @@ const actions = {
     if (!state.oscillators[oscIndex].grain) state.oscillators[oscIndex].grain = defaultGrain();
     state.oscillators[oscIndex].grain.panSpread = clamped;
     engine.setGrainPanSpread(oscIndex, clamped);
+    renderAll();
+  },
+
+  // v1 granular SAMPLING — only audible when waveform === "sample".
+  setSampleGranular(oscIndex, on) {
+    state.oscillators[oscIndex].sampleGranular = !!on;
+    engine.setSampleGranular(oscIndex, !!on);
+    renderAll();
+  },
+  setGrainSamplePos(oscIndex, frac) {
+    const clamped = Math.max(0, Math.min(1, frac));
+    state.oscillators[oscIndex].grainSamplePosFrac = clamped;
+    engine.setGrainSamplePos(oscIndex, clamped);
+    renderAll();
+  },
+  setGrainSamplePosJitter(oscIndex, frac) {
+    const clamped = Math.max(0, Math.min(1, frac));
+    state.oscillators[oscIndex].grainSamplePosJitter = clamped;
+    engine.setGrainSamplePosJitter(oscIndex, clamped);
     renderAll();
   },
 
