@@ -693,6 +693,7 @@ const actions = {
     const clamped = Math.max(1.0, Math.min(12.0, d));
     state.oscillators[oscIndex].drive = clamped;
     engine.setDrive(oscIndex, clamped);
+    renderAll();
   },
   setStartDelay(oscIndex, sec) {
     const clamped = Math.max(0, Math.min(60 * 60, sec || 0));
@@ -1083,25 +1084,37 @@ const actions = {
   },
 
   // Chorus
+  // v1 fix: every dispatch setter that writes to a slider-backed
+  // field needs renderAll() at the end so the --fill CSS var and
+  // label catch up with the new state. Without it, the slider's
+  // thumb moves natively but the colored fill bar stays frozen at
+  // its last render — user saw "balls and bars desynced" on the
+  // chorus row (rate / depth / width / mix). All four were missing
+  // renderAll. setDrive + setFMIndex below got the same treatment
+  // for the same reason.
   setChorusRate(oscIndex, rate) {
     const clamped = Math.max(0.05, Math.min(6.0, rate));
     state.oscillators[oscIndex].chorus.rateHz = clamped;
     engine.setChorusRate(oscIndex, clamped);
+    renderAll();
   },
   setChorusDepth(oscIndex, depth) {
     const clamped = Math.max(0, Math.min(1, depth));
     state.oscillators[oscIndex].chorus.depth = clamped;
     engine.setChorusDepth(oscIndex, clamped);
+    renderAll();
   },
   setChorusWidth(oscIndex, width) {
     const clamped = Math.max(0, Math.min(1, width));
     state.oscillators[oscIndex].chorus.width = clamped;
     engine.setChorusWidth(oscIndex, clamped);
+    renderAll();
   },
   setChorusMix(oscIndex, mix) {
     const clamped = Math.max(0, Math.min(1, mix));
     state.oscillators[oscIndex].chorus.mix = clamped;
     engine.setChorusMix(oscIndex, clamped);
+    renderAll();
   },
 
   // FM (cross-osc): sourceIndex = -1 disables; otherwise must differ from carrier.
@@ -1115,6 +1128,7 @@ const actions = {
     const clamped = Math.max(0, Math.min(800, idx));
     state.oscillators[oscIndex].fm.index = clamped;
     engine.setFMIndex(oscIndex, clamped);
+    renderAll();
   },
 
   clearSample(oscIndex) {
