@@ -978,6 +978,17 @@ body.performance:hover { cursor: default; }
   max-height: 88vh;
   display: flex; flex-direction: column;
   border: 1px solid rgba(255,255,255,0.08);
+  /* v1 fix-3: clip overflow at the panel boundary. Without this,
+     when children sum exceeds max-height: 88vh the children just
+     bleed past the panel's bottom edge — the max-height never
+     becomes a binding constraint, so .sheet-scroll's flex:1 inside
+     has nothing to fill. With overflow: hidden + max-height,
+     children must fit inside the panel; flex:1 on .sheet-scroll
+     then claims (88vh - header height) and its own overflow-y: auto
+     finally engages. Morph fit under 88vh on every screen so it
+     looked fine without this; Journey with 30+ curated cards
+     consistently overflowed and stayed unscrollable until now. */
+  overflow: hidden;
 }
 .sheet-header {
   display: flex; align-items: center; justify-content: space-between;
