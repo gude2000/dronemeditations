@@ -156,7 +156,16 @@ enum UserPresetSharing {
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
 
-        guard let raw = try? Data(contentsOf: url) else { throw ImportError.readFailed }
+        guard let rawOrig = try? Data(contentsOf: url) else { throw ImportError.readFailed }
+        // v1 cross-platform translation pass. The web app uses
+        // shorthand enum strings for LFO shape + target ("sh", "amp",
+        // "q", "fm") where iOS expects the canonical Swift enum case
+        // names ("sampleAndHold", "amplitude", "filterQ", "fmIndex").
+        // Walk the JSON dictionary, rewrite those values in place,
+        // then re-serialize for the strongly-typed decoder. Lossless
+        // for iOS-shaped envelopes — translateWebEnumStrings is a
+        // no-op when the strings are already canonical.
+        let raw = translateWebEnumStrings(in: rawOrig) ?? rawOrig
         let env: Envelope
         do {
             // v1 cross-platform: the web app exports `createdAt` as an
@@ -220,6 +229,53 @@ enum UserPresetSharing {
     /// Strip filesystem-hostile characters from the preset name so the
     /// exported filename works on iOS / macOS / iCloud Drive without
     /// surprise mangling. Trims to 80 chars.
+
+    /// Walk a `.dronepreset` JSON dictionary and rewrite web-shorthand
+    /// LFO enum strings to the canonical Swift case names iOS expects.
+    /// Only touches the two known short forms; everything else stays
+    /// byte-identical so iOS-saved envelopes pass through unchanged.
+    ///
+    /// Web → iOS mapping (kept in lockstep with web's enum strings —
+    /// see web/js/audio.js LFO shape switch + targets in main.js):
+    ///   • shape  "sh"  → "sampleAndHold"
+    ///   • target "amp" → "amplitude"
+    ///   • target "q"   → "filterQ"
+    ///   • target "fm"  → "fmIndex"
+    ///   (sine / triangle / square / sawtooth / ramp, pan / cutoff /
+    ///    pitch are byte-identical already.)
+    ///
+    /// Returns the rewritten Data, or nil if the input doesn't look
+    /// like a JSON object (importPreset will then try to decode the
+    /// original bytes and surface the resulting error to the user).
+    fileprivate static func translateWebEnumStrings(in data: Data) -> Data? {
+        guard var root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
+            return nil
+        }
+        let shapeMap: [String: String] = ["sh": "sampleAndHold"]
+        let targetMap: [String: String] = ["amp": "amplitude", "q": "filterQ", "fm": "fmIndex"]
+
+        if var preset = root["preset"] as? [String: Any],
+           var oscs = preset["oscillators"] as? [[String: Any]] {
+            for i in 0..<oscs.count {
+                guard var lfos = oscs[i]["lfos"] as? [[String: Any]] else { continue }
+                for j in 0..<lfos.count {
+                    if let shape = lfos[j]["shape"] as? String, let mapped = shapeMap[shape] {
+                        lfos[j]["shape"] = mapped
+                    }
+                    if let target = lfos[j]["target"] as? String, let mapped = targetMap[target] {
+                        lfos[j]["target"] = mapped
+                    }
+                    if let targets = lfos[j]["targets"] as? [String] {
+                        lfos[j]["targets"] = targets.map { targetMap[$0] ?? $0 }
+                    }
+                }
+                oscs[i]["lfos"] = lfos
+            }
+            preset["oscillators"] = oscs
+            root["preset"] = preset
+        }
+        return try? JSONSerialization.data(withJSONObject: root)
+    }
 
     /// Lenient JSONDecoder used for `.dronepreset` imports. Tolerates
     /// the three `createdAt` shapes we see in the wild:
