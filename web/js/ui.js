@@ -9,12 +9,12 @@ import {
   CHORDS, CHORD_CATEGORIES, PRESETS, PRESET_CATEGORIES,
   JOURNEYS, journeyTotalSeconds,
   FREQ_MIN, FREQ_MAX, frequencyHue
-} from "./music.js?v=24";
-import { startListening, stopListening, freqToNote, listInputDevices, switchInputDevice } from "./pitch-detect.js?v=24";
-import { initMIDI, midiToKeyOctave } from "./midi.js?v=24";
+} from "./music.js?v=25";
+import { startListening, stopListening, freqToNote, listInputDevices, switchInputDevice } from "./pitch-detect.js?v=25";
+import { initMIDI, midiToKeyOctave } from "./midi.js?v=25";
 import {
   loadSnapshotMeta, saveSnapshotMeta, getSnapshotBlob, deleteSnapshotBlob
-} from "./storage.js?v=24";
+} from "./storage.js?v=25";
 
 const WAVEFORM_SVG = {
   sine:     '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12c3-7 7-7 10 0s7 7 10 0"/></svg>',
@@ -2501,9 +2501,11 @@ function buildPresetList() {
       </div>
     </div>
   `).join("");
-  // Wire clicks for built-in presets AND the new init-preset-list
-  // container (INIT lives there now).
-  const initList = document.getElementById("init-preset-list");
+  // Wire clicks for built-in presets AND the init-preset-list
+  // container (INIT lives there now). Reuses the `initList` const
+  // declared above — re-declaring with `const` would be a redeclare
+  // SyntaxError in strict mode, blocking ui.js from loading, which
+  // is exactly what happened the first time this landed.
   [list, initList].forEach((container) => {
     if (!container) return;
     container.querySelectorAll("button[data-preset]").forEach((b) => {
