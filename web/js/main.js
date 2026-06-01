@@ -1272,7 +1272,30 @@ const actions = {
       while (lfos.length < 4) lfos.push({ shape: "sine", targets: ["pitch"], rateHz: 0.30, depth: 0 });
       for (let k = 0; k < 4; k++) {
         actions.setLfoShape(i, k, lfos[k].shape);
-        actions.setLfoTarget(i, k, lfos[k].target);
+        // v1 fix: read whichever target form is present. Older
+        // presets carry `target: "pan"`; v1.1+ carries
+        // `targets: ["pan", ...]`. Falling back to the singular
+        // `target` only — what we did before — passed undefined for
+        // any preset saved post-v1.1 with the array form only, and
+        // setLfoTarget(undefined) left lfo.targets = [undefined].
+        // The next Save then stringified that as [null] in JSON, and
+        // the strict iOS decoder rejected the imported envelope with
+        // "value not found String at preset.oscillators[N].lfos[M].targets[0]".
+        // currentTargets() returns the v1.1 array directly, falling
+        // back to the legacy singular form if needed.
+        const targetsToApply = currentTargets(lfos[k]);
+        if (targetsToApply.length > 0) {
+          // Use toggleLfoTarget to build up the multi-target set
+          // rather than setLfoTarget which truncates to one. Clear
+          // the LFO's current targets first so the toggles end up
+          // with exactly the saved set.
+          for (const t of currentTargets(state.oscillators[i].lfos[k])) {
+            actions.toggleLfoTarget(i, k, t);
+          }
+          for (const t of targetsToApply) {
+            actions.toggleLfoTarget(i, k, t);
+          }
+        }
         actions.setLfoRate(i, k, lfos[k].rateHz);
         actions.setLfoDepth(i, k, lfos[k].depth);
       }

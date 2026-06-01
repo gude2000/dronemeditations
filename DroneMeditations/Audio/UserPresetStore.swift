@@ -313,8 +313,25 @@ enum UserPresetSharing {
                         if let target = lfos[j]["target"] as? String, let mapped = targetMap[target] {
                             lfos[j]["target"] = mapped
                         }
-                        if let targets = lfos[j]["targets"] as? [String] {
-                            lfos[j]["targets"] = targets.map { targetMap[$0] ?? $0 }
+                        // v1 fix: defensively scrub the targets array.
+                        // Some web-exported presets carry `null` (or
+                        // other non-string sentinels) inside targets —
+                        // observed in user file "JG Dub Wave" at
+                        // oscillators[1].lfos[0].targets[0]. The strict
+                        // iOS decoder rejects the whole envelope with
+                        // "value not found String at ...". Walk the
+                        // array element-by-element, compact away
+                        // anything that isn't a string, then apply the
+                        // shorthand map. Empty result is fine — Voice's
+                        // custom decoder accepts an empty `targets`
+                        // set, and falls back to the singular `target`
+                        // field below if present.
+                        if let targets = lfos[j]["targets"] as? [Any] {
+                            let cleaned: [String] = targets.compactMap { el -> String? in
+                                guard let s = el as? String else { return nil }
+                                return targetMap[s] ?? s
+                            }
+                            lfos[j]["targets"] = cleaned
                         }
                     }
                     voice["lfos"] = lfos
