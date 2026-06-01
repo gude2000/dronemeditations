@@ -1020,24 +1020,39 @@ function syncStrip(index, root) {
 
   // v1: sample-granular position row — visible only when waveform === sample,
   // a sample is loaded, AND Grainy is on.
+  // Null-guard the whole block: if the user has a cached older
+  // index.html (no #sample-grain-row element yet) but loaded the
+  // newer ui.js, the missing element threw an NPE on .hidden=
+  // which aborted the rest of renderStrip — including the --fill
+  // updates for every slider below. Result: thumbs moved but the
+  // colored bars stayed frozen. Cache-resilient version:
   const sampleGrainRow = root.querySelector('[data-role="sample-grain-row"]');
-  const sampleGrainVisible = osc.waveform === "sample" && !!osc.sampleName && !!osc.sampleGranular;
-  sampleGrainRow.hidden = !sampleGrainVisible;
-  if (sampleGrainVisible) {
-    const posFrac = osc.grainSamplePosFrac ?? 0.5;
-    const scanFrac = osc.grainSamplePosJitter ?? 0.2;
-    const posSlider = root.querySelector('[data-role="grain-pos"]');
-    if (document.activeElement !== posSlider) posSlider.value = posFrac.toFixed(3);
-    // v1 BUGFIX: update the --fill CSS var so the colored bar grows /
-    // shrinks with the value. Without this the bar stays where it
-    // was last rendered while the thumb moves, looking visually
-    // out-of-sync. Same pattern as the WINDOW row sliders below.
-    posSlider.style.setProperty("--fill", `${Math.round(posFrac * 100)}%`);
-    root.querySelector('[data-role="grain-pos-label"]').textContent = `POS ${Math.round(posFrac * 100)}%`;
-    const scanSlider = root.querySelector('[data-role="grain-scan"]');
-    if (document.activeElement !== scanSlider) scanSlider.value = scanFrac.toFixed(3);
-    scanSlider.style.setProperty("--fill", `${Math.round(scanFrac * 100)}%`);
-    root.querySelector('[data-role="grain-scan-label"]').textContent = `SCAN ${Math.round(scanFrac * 100)}%`;
+  if (sampleGrainRow) {
+    const sampleGrainVisible = osc.waveform === "sample" && !!osc.sampleName && !!osc.sampleGranular;
+    sampleGrainRow.hidden = !sampleGrainVisible;
+    if (sampleGrainVisible) {
+      const posFrac = osc.grainSamplePosFrac ?? 0.5;
+      const scanFrac = osc.grainSamplePosJitter ?? 0.2;
+      const posSlider = root.querySelector('[data-role="grain-pos"]');
+      if (posSlider) {
+        if (document.activeElement !== posSlider) posSlider.value = posFrac.toFixed(3);
+        // v1 BUGFIX: update the --fill CSS var so the colored bar
+        // grows / shrinks with the value. Without this the bar
+        // stays where it was last rendered while the thumb moves,
+        // looking visually out-of-sync. Same pattern as the WINDOW
+        // row sliders below.
+        posSlider.style.setProperty("--fill", `${Math.round(posFrac * 100)}%`);
+      }
+      const posLabel = root.querySelector('[data-role="grain-pos-label"]');
+      if (posLabel) posLabel.textContent = `POS ${Math.round(posFrac * 100)}%`;
+      const scanSlider = root.querySelector('[data-role="grain-scan"]');
+      if (scanSlider) {
+        if (document.activeElement !== scanSlider) scanSlider.value = scanFrac.toFixed(3);
+        scanSlider.style.setProperty("--fill", `${Math.round(scanFrac * 100)}%`);
+      }
+      const scanLabel = root.querySelector('[data-role="grain-scan-label"]');
+      if (scanLabel) scanLabel.textContent = `SCAN ${Math.round(scanFrac * 100)}%`;
+    }
   }
 
   // Sample window row visible only when sample mode AND a sample is loaded.
