@@ -339,6 +339,17 @@ async function openBundledSamplePicker(anchor, oscIndex) {
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
+    /* v1 fix-3: without overflow:hidden the popup's max-height
+       doesn't bind as a binding constraint — content overflows
+       past the popup boundary into the viewport below it, and the
+       inner scrollBody's flex-shrink doesn't engage. User reported
+       wheel events working but "the lower presets don't reveal" —
+       they were rendering off-screen below the popup's visible
+       area. overflow:hidden on the FRAME forces the visual height
+       to equal max-height, which propagates to the child scrollBody
+       (flex: 1 1 auto + min-height: 0) so its own overflow-y: auto
+       finally scrolls within the visible viewport. */
+    overflow: hidden;
   `;
   // Inner scroll container — this is what actually scrolls. Holds all
   // children (sections + rows) so they all participate in the same
