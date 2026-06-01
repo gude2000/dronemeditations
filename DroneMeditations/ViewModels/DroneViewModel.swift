@@ -692,7 +692,16 @@ final class DroneViewModel: ObservableObject {
                 grainSamplePosFrac: o.grainSamplePosFrac,
                 grainSamplePosJitter: o.grainSamplePosJitter,
                 drift: o.drift,   // v1.1 fix: include drift (was being dropped)
-                sampleNativeBaseFreq: o.sampleNativeBaseFreq
+                sampleNativeBaseFreq: o.sampleNativeBaseFreq,
+                // v1 fix: persist the sample play window so START/END +
+                // FADE IN/OUT actually round-trip. Previously these
+                // existed at runtime (task #99) but were silently
+                // dropped on save — including incoming .dronepreset
+                // files from web, which carry them.
+                sampleStartFrac: o.sampleStartFrac,
+                sampleEndFrac: o.sampleEndFrac,
+                sampleFadeInSec: o.sampleFadeInSec,
+                sampleFadeOutSec: o.sampleFadeOutSec
             )
         }
         let preset = UserPreset(
@@ -816,6 +825,26 @@ final class DroneViewModel: ObservableObject {
             }
             if let posJ = v.grainSamplePosJitter {
                 setGrainSamplePosJitter(posJ, for: i)
+            }
+            // v1 fix: restore sample play window. WINDOW is the START /
+            // END pair (loop region inside the sample buffer, 0..1) plus
+            // FADE IN / FADE OUT (seconds applied at loop boundaries).
+            // These existed at runtime since task #99 but were dropped
+            // by the user-preset save site until just now, so a web
+            // export's WINDOW values landed in the decoded Voice but
+            // were ignored on apply. Defaults — full sample (0..1)
+            // with no fades — match the v1.0 behavior for old saves.
+            if let s = v.sampleStartFrac {
+                setSampleStart(s, for: i)
+            }
+            if let e = v.sampleEndFrac {
+                setSampleEnd(e, for: i)
+            }
+            if let fi = v.sampleFadeInSec {
+                setSampleFadeIn(fi, for: i)
+            }
+            if let fo = v.sampleFadeOutSec {
+                setSampleFadeOut(fo, for: i)
             }
         }
         // Refresh the snap cache so any voice with quantizeToScale on

@@ -60,6 +60,20 @@ struct UserPreset: Identifiable, Codable, Equatable {
         /// Record so playback honors the captured pitch on re-load.
         /// Optional — old saves missing this field get the 220 default.
         var sampleNativeBaseFreq: Double?
+        /// v1 sample play window (was task #99 at runtime but never
+        /// captured in the user-preset schema, so toggling start/end
+        /// + fades and saving lost them on reload — including via
+        /// the .dronepreset round-trip from web, which DID emit them).
+        /// 0..1 fractions of the loaded sample buffer; loop plays
+        /// between them. Old saves without these get 0..1 (full
+        /// sample, the historical default).
+        var sampleStartFrac: Double?
+        var sampleEndFrac: Double?
+        /// v1 fade lengths in seconds — applied at loop boundaries so
+        /// the sample window doesn't click on each pass. Old saves
+        /// default to 0 = no fade.
+        var sampleFadeInSec: Double?
+        var sampleFadeOutSec: Double?
     }
 
     static func newId() -> String {
