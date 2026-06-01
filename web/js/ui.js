@@ -1,17 +1,20 @@
 // UI render + event wiring.
 // Reads from app state, writes through dispatcher callbacks supplied by main.js.
 
+// v1 cache-bust: keep ?v=N in sync across all transitive module
+// imports — see main.js for the rationale. Bumping just main.js's
+// query left ui.js / others stuck on stale browser cache.
 import {
   WAVEFORMS, PITCH_CLASSES, TUNING_SYSTEMS,
   CHORDS, CHORD_CATEGORIES, PRESETS, PRESET_CATEGORIES,
   JOURNEYS, journeyTotalSeconds,
   FREQ_MIN, FREQ_MAX, frequencyHue
-} from "./music.js";
-import { startListening, stopListening, freqToNote, listInputDevices, switchInputDevice } from "./pitch-detect.js";
-import { initMIDI, midiToKeyOctave } from "./midi.js";
+} from "./music.js?v=19";
+import { startListening, stopListening, freqToNote, listInputDevices, switchInputDevice } from "./pitch-detect.js?v=19";
+import { initMIDI, midiToKeyOctave } from "./midi.js?v=19";
 import {
   loadSnapshotMeta, saveSnapshotMeta, getSnapshotBlob, deleteSnapshotBlob
-} from "./storage.js";
+} from "./storage.js?v=19";
 
 const WAVEFORM_SVG = {
   sine:     '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12c3-7 7-7 10 0s7 7 10 0"/></svg>',

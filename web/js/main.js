@@ -1,22 +1,28 @@
 // Bootstrap — owns app state, glues UI + audio + visualizations together.
 
+// v1 cache-bust on ALL module imports. Bumping the version in
+// index.html's <script src="./js/main.js?v=N"> alone only invalidates
+// main.js — the browser still serves cached versions of any module
+// imported with no query string, so ui.js / audio.js / etc. fixes
+// can sit invisibly behind stale cache for hours. Keeping the v in
+// sync with index.html on every release fixes that.
 import {
   CHORDS, PRESETS, WAVEFORMS, JOURNEYS, journeyTotalSeconds, PITCH_CLASSES, TUNING_SYSTEMS,
   pitchToFrequency, chordFrequencies, FREQ_MIN, FREQ_MAX
-} from "./music.js";
-import { AudioEngine } from "./audio.js";
-import { initUI, renderAll } from "./ui.js";
+} from "./music.js?v=19";
+import { AudioEngine } from "./audio.js?v=19";
+import { initUI, renderAll } from "./ui.js?v=19";
 import {
   exportUserPresetDownload, importUserPresetFromFile
-} from "./preset-sharing.js";
-import { initVisualizations, setChladniVisible, setSpectrumVisible } from "./visualizations.js";
+} from "./preset-sharing.js?v=19";
+import { initVisualizations, setChladniVisible, setSpectrumVisible } from "./visualizations.js?v=19";
 import {
   loadUserPresets, saveUserPresets, newPresetId, newSampleId,
   loadVoicePresets, saveVoicePresets, newVoicePresetId,
   loadUserJourneys, saveUserJourneys, newUserJourneyId,
   loadLibrarySamples, saveLibrarySamples,
   putSample, getSample, deleteSample
-} from "./storage.js";
+} from "./storage.js?v=19";
 
 // ──────────────────────────────────────────────────
 // State.
