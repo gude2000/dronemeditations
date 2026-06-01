@@ -766,20 +766,29 @@ const actions = {
   },
 
   // ── Sample play-window (only audible when waveform === "sample") ──
+  // v1 fix: never early-return on the start/end clamp. The slider's
+  // input event fires per-pixel of drag; if the setter rejects a
+  // value, the slider's internal `value` keeps tracking the user's
+  // mouse (browser-native) while state stays at the LAST accepted
+  // value. Result: ball drifts visually away from --fill, eventually
+  // off-screen — user reported "WINDOW end slider loses the ball
+  // when going down past the midline." Now we clamp to a min/max
+  // window with a 0.01 gap between start and end, and ALWAYS write
+  // back + renderAll so the slider tracks state at all times.
   setSampleStart(oscIndex, frac) {
-    const clamped = Math.max(0, Math.min(0.999, frac));
     const o = state.oscillators[oscIndex];
-    if (clamped >= (o.sampleEndFrac ?? 1) - 0.01) return;
+    const end = o.sampleEndFrac ?? 1;
+    const clamped = Math.max(0, Math.min(end - 0.01, frac));
     o.sampleStartFrac = clamped;
-    engine.setSampleWindow(oscIndex, clamped, o.sampleEndFrac ?? 1);
+    engine.setSampleWindow(oscIndex, clamped, end);
     renderAll();
   },
   setSampleEnd(oscIndex, frac) {
-    const clamped = Math.max(0.001, Math.min(1, frac));
     const o = state.oscillators[oscIndex];
-    if (clamped <= (o.sampleStartFrac ?? 0) + 0.01) return;
+    const start = o.sampleStartFrac ?? 0;
+    const clamped = Math.max(start + 0.01, Math.min(1, frac));
     o.sampleEndFrac = clamped;
-    engine.setSampleWindow(oscIndex, o.sampleStartFrac ?? 0, clamped);
+    engine.setSampleWindow(oscIndex, start, clamped);
     renderAll();
   },
   setSampleFadeIn(oscIndex, sec) {
