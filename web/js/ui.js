@@ -9,12 +9,12 @@ import {
   CHORDS, CHORD_CATEGORIES, PRESETS, PRESET_CATEGORIES,
   JOURNEYS, journeyTotalSeconds,
   FREQ_MIN, FREQ_MAX, frequencyHue
-} from "./music.js?v=22";
-import { startListening, stopListening, freqToNote, listInputDevices, switchInputDevice } from "./pitch-detect.js?v=22";
-import { initMIDI, midiToKeyOctave } from "./midi.js?v=22";
+} from "./music.js?v=23";
+import { startListening, stopListening, freqToNote, listInputDevices, switchInputDevice } from "./pitch-detect.js?v=23";
+import { initMIDI, midiToKeyOctave } from "./midi.js?v=23";
 import {
   loadSnapshotMeta, saveSnapshotMeta, getSnapshotBlob, deleteSnapshotBlob
-} from "./storage.js?v=22";
+} from "./storage.js?v=23";
 
 const WAVEFORM_SVG = {
   sine:     '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12c3-7 7-7 10 0s7 7 10 0"/></svg>',
@@ -2468,9 +2468,15 @@ function syncChordList() {
 
 function buildPresetList() {
   const list = document.getElementById("preset-list");
+  // v1: the Setup category renders WITHOUT an <h4> header — INIT
+  // should look like a special first item at the top of the picker,
+  // not another category among the rest. Skipping the heading +
+  // tightening the container gap visually merges INIT into a free-
+  // floating top entry that's clearly distinct from the curated
+  // category sections below.
   list.innerHTML = PRESET_CATEGORIES.map((cat) => `
     <div class="preset-category">
-      <h4>${cat}</h4>
+      ${cat === "Setup" ? "" : `<h4>${cat}</h4>`}
       <div>
         ${PRESETS.filter((p) => p.category === cat).map((p) => `
           <button class="preset-item" type="button" data-preset="${p.id}">

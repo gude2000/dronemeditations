@@ -92,7 +92,14 @@ struct PresetPickerView: View {
 
                 ForEach(Preset.Category.allCases, id: \.self) { cat in
                     if let presets = Preset.byCategory[cat] {
-                        Section(cat.rawValue) {
+                        // v1: the Setup category renders WITHOUT a section
+                        // header — INIT should look like a special first
+                        // item at the top of the picker, not just another
+                        // category among others. Using an empty Section
+                        // label keeps the SwiftUI list grouping but
+                        // suppresses the visible "SETUP" caption above
+                        // the row, so INIT floats at the top.
+                        Section(cat == .setup ? "" : cat.rawValue) {
                             ForEach(presets) { p in
                                 Button {
                                     vm.applyPreset(p)
