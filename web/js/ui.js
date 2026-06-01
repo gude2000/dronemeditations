@@ -9,12 +9,12 @@ import {
   CHORDS, CHORD_CATEGORIES, PRESETS, PRESET_CATEGORIES,
   JOURNEYS, journeyTotalSeconds,
   FREQ_MIN, FREQ_MAX, frequencyHue
-} from "./music.js?v=23";
-import { startListening, stopListening, freqToNote, listInputDevices, switchInputDevice } from "./pitch-detect.js?v=23";
-import { initMIDI, midiToKeyOctave } from "./midi.js?v=23";
+} from "./music.js?v=24";
+import { startListening, stopListening, freqToNote, listInputDevices, switchInputDevice } from "./pitch-detect.js?v=24";
+import { initMIDI, midiToKeyOctave } from "./midi.js?v=24";
 import {
   loadSnapshotMeta, saveSnapshotMeta, getSnapshotBlob, deleteSnapshotBlob
-} from "./storage.js?v=23";
+} from "./storage.js?v=24";
 
 const WAVEFORM_SVG = {
   sine:     '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12c3-7 7-7 10 0s7 7 10 0"/></svg>',
@@ -2467,16 +2467,30 @@ function syncChordList() {
 }
 
 function buildPresetList() {
+  // v1: Setup category (INIT) renders into a SEPARATE container that
+  // sits above #user-preset-list in the sheet DOM, so INIT is the
+  // first reachable item regardless of how many Your-Presets entries
+  // the user has saved. No <h4> header — INIT reads as a standalone
+  // "reset" entry, not another category among the rest.
+  const initList = document.getElementById("init-preset-list");
+  if (initList) {
+    const setupPresets = PRESETS.filter((p) => p.category === "Setup");
+    initList.innerHTML = setupPresets.length
+      ? `<div class="preset-category"><div>${
+          setupPresets.map((p) => `
+            <button class="preset-item" type="button" data-preset="${p.id}">
+              <span class="name">${p.name}</span>
+              ${p.sub ? `<span class="sub">${p.sub}</span>` : ""}
+            </button>`).join("")
+        }</div></div>`
+      : "";
+  }
+
   const list = document.getElementById("preset-list");
-  // v1: the Setup category renders WITHOUT an <h4> header — INIT
-  // should look like a special first item at the top of the picker,
-  // not another category among the rest. Skipping the heading +
-  // tightening the container gap visually merges INIT into a free-
-  // floating top entry that's clearly distinct from the curated
-  // category sections below.
-  list.innerHTML = PRESET_CATEGORIES.map((cat) => `
+  // Skip Setup here — already rendered into #init-preset-list above.
+  list.innerHTML = PRESET_CATEGORIES.filter((c) => c !== "Setup").map((cat) => `
     <div class="preset-category">
-      ${cat === "Setup" ? "" : `<h4>${cat}</h4>`}
+      <h4>${cat}</h4>
       <div>
         ${PRESETS.filter((p) => p.category === cat).map((p) => `
           <button class="preset-item" type="button" data-preset="${p.id}">
@@ -2487,16 +2501,23 @@ function buildPresetList() {
       </div>
     </div>
   `).join("");
-  list.querySelectorAll("button[data-preset]").forEach((b) => {
-    b.addEventListener("click", () => {
-      dispatch.applyPreset(b.dataset.preset);
-      closeSheet("preset-sheet");
+  // Wire clicks for built-in presets AND the new init-preset-list
+  // container (INIT lives there now).
+  const initList = document.getElementById("init-preset-list");
+  [list, initList].forEach((container) => {
+    if (!container) return;
+    container.querySelectorAll("button[data-preset]").forEach((b) => {
+      b.addEventListener("click", () => {
+        dispatch.applyPreset(b.dataset.preset);
+        closeSheet("preset-sheet");
+      });
     });
   });
 }
 function syncPresetList() {
   const name = getState().activePresetName;
-  document.querySelectorAll("#preset-list .preset-item").forEach((b) => {
+  // Include #init-preset-list so INIT's selected-highlight syncs too.
+  document.querySelectorAll("#preset-list .preset-item, #init-preset-list .preset-item").forEach((b) => {
     const id = b.dataset.preset;
     const preset = PRESETS.find((p) => p.id === id);
     b.classList.toggle("selected", preset && preset.name === name);

@@ -224,6 +224,10 @@
         <p class="preset-disclaimer">
           Binaural beats require headphones (one tone in each ear) to take effect.
         </p>
+        <!-- v1: Setup category (INIT) renders here, ABOVE the user's
+             saved presets so the reset gesture is the first reachable
+             item regardless of how many presets the user has saved. -->
+        <div id="init-preset-list" class="preset-list"></div>
         <div id="user-preset-list" class="preset-list"></div>
         <div id="preset-list" class="preset-list"></div>
       </div>
@@ -411,6 +415,6 @@
     </div>
   </div>
 
-  <script type="module" src="./js/main.js?v=23"></script>
+  <script type="module" src="./js/main.js?v=24"></script>
 </body>
 </html>

@@ -37,6 +37,41 @@ struct PresetPickerView: View {
                 }
                 .listRowBackground(Color.white.opacity(0.04))
 
+                // v1: render the Setup category (INIT) AT THE TOP, even
+                // above "Your Presets". The reset gesture should be the
+                // first reachable item in the list regardless of how
+                // many saved presets the user has accumulated.
+                if let setupPresets = Preset.byCategory[.setup] {
+                    Section("") {
+                        ForEach(setupPresets) { p in
+                            Button {
+                                vm.applyPreset(p)
+                                dismiss()
+                            } label: {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(p.name)
+                                        .font(.system(.body, design: .rounded).weight(.medium))
+                                        .foregroundStyle(.white)
+                                    if let sub = p.subtitle {
+                                        Text(sub)
+                                            .font(.footnote)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                .padding(.vertical, 2)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .listRowBackground(
+                                vm.activePresetName == p.name
+                                    ? Color.white.opacity(0.15)
+                                    : Color.white.opacity(0.04)
+                            )
+                        }
+                    }
+                }
+
                 if !vm.userPresets.isEmpty {
                     Section("Your Presets") {
                         ForEach(vm.userPresets) { p in
@@ -91,15 +126,10 @@ struct PresetPickerView: View {
                 }
 
                 ForEach(Preset.Category.allCases, id: \.self) { cat in
-                    if let presets = Preset.byCategory[cat] {
-                        // v1: the Setup category renders WITHOUT a section
-                        // header — INIT should look like a special first
-                        // item at the top of the picker, not just another
-                        // category among others. Using an empty Section
-                        // label keeps the SwiftUI list grouping but
-                        // suppresses the visible "SETUP" caption above
-                        // the row, so INIT floats at the top.
-                        Section(cat == .setup ? "" : cat.rawValue) {
+                    // Setup was rendered above (before "Your Presets")
+                    // so don't double-render here.
+                    if cat != .setup, let presets = Preset.byCategory[cat] {
+                        Section(cat.rawValue) {
                             ForEach(presets) { p in
                                 Button {
                                     vm.applyPreset(p)

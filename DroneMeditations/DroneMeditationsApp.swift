@@ -56,13 +56,30 @@ struct DroneMeditationsApp: App {
                 // URL: valid envelopes succeed, anything else throws
                 // and bounces out without side effects. Same safety,
                 // works for every transport.
+                //
+                // Alert behavior: simple "Imported '<name>'" on
+                // success (everything the user needs — confirmation +
+                // preset name). Failures keep the verbose URL + JSON
+                // dump so we can diagnose on physical devices without
+                // attaching a debugger.
                 .onOpenURL { url in
-                    // v1 diagnostic: surface EVERYTHING about the
-                    // incoming URL so we can see on a physical device
-                    // whether onOpenURL fires, what the URL looks
-                    // like, whether the importer ran, and what it
-                    // returned. Set into importDiagnostic — alert
-                    // below presents.
+                    let scoped = url.startAccessingSecurityScopedResource()
+                    defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+
+                    if let name = viewModel.importUserPreset(from: url) {
+                        // Success path — short, friendly, one line.
+                        importDiagnostic = "Imported \"\(name)\""
+                        NotificationCenter.default.post(
+                            name: Notification.Name("dronemeditations.presetImportLanded"),
+                            object: nil,
+                            userInfo: ["name": name]
+                        )
+                        return
+                    }
+
+                    // Failure path — gather diagnostic detail. Same
+                    // shape as before so we can keep debugging
+                    // round-trips on physical devices.
                     let basics = """
                     URL fired:
                     • lastPath: \(url.lastPathComponent)
@@ -70,16 +87,10 @@ struct DroneMeditationsApp: App {
                     • scheme: \(url.scheme ?? "(none)")
                     • isFileURL: \(url.isFileURL)
                     """
-                    let scoped = url.startAccessingSecurityScopedResource()
-                    defer { if scoped { url.stopAccessingSecurityScopedResource() } }
                     let sizeLine: String
                     var jsonHead: String = ""
                     if let data = try? Data(contentsOf: url) {
                         sizeLine = "• readable: yes (\(data.count) bytes)"
-                        // Peek at the top-level keys — tells us if the
-                        // envelope looks like { version, preset, samples }
-                        // or something else entirely (bare UserPreset, a
-                        // different schema from web, etc.)
                         if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
                             let keys = obj.keys.sorted().joined(separator: ", ")
                             jsonHead = "\n• top-level keys: [\(keys)]"
@@ -99,26 +110,17 @@ struct DroneMeditationsApp: App {
                     } else {
                         sizeLine = "• readable: NO (Data(contentsOf:) failed)"
                     }
-                    if let name = viewModel.importUserPreset(from: url) {
-                        importDiagnostic = "\(basics)\n\(sizeLine)\(jsonHead)\n\nIMPORT OK → \(name)"
-                        NotificationCenter.default.post(
-                            name: Notification.Name("dronemeditations.presetImportLanded"),
-                            object: nil,
-                            userInfo: ["name": name]
-                        )
-                    } else {
-                        // Re-try at this layer to capture the specific
-                        // ImportError (importUserPreset swallows it).
-                        var errLine = "IMPORT FAILED (unknown — importer returned nil)"
-                        do {
-                            _ = try UserPresetSharing.importPreset(from: url)
-                        } catch let e as UserPresetSharing.ImportError {
-                            errLine = "IMPORT FAILED: \(e.errorDescription ?? "ImportError")"
-                        } catch {
-                            errLine = "IMPORT FAILED: \(error.localizedDescription)"
-                        }
-                        importDiagnostic = "\(basics)\n\(sizeLine)\(jsonHead)\n\n\(errLine)"
+                    // Re-try at this layer to capture the specific
+                    // ImportError (importUserPreset swallows it).
+                    var errLine = "IMPORT FAILED (unknown — importer returned nil)"
+                    do {
+                        _ = try UserPresetSharing.importPreset(from: url)
+                    } catch let e as UserPresetSharing.ImportError {
+                        errLine = "IMPORT FAILED: \(e.errorDescription ?? "ImportError")"
+                    } catch {
+                        errLine = "IMPORT FAILED: \(error.localizedDescription)"
                     }
+                    importDiagnostic = "\(basics)\n\(sizeLine)\(jsonHead)\n\n\(errLine)"
                 }
                 .alert(
                     "Preset Import",
