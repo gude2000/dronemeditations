@@ -477,7 +477,21 @@ const actions = {
 
   setMasterVolume(v) {
     state.masterVolume = clamp01(v);
-    engine.setMasterVolume(state.masterVolume);
+    // v1 fix: only ramp the live master gain when transport is playing.
+    // Otherwise the user dragging the master slider — or worse, a
+    // freshly-loaded preset (whose masterVolume usually defaults to
+    // 0.3) — would push audio through a "stopped" transport, making
+    // the sample audible immediately AND leaving the Stop button
+    // unresponsive (Stop early-returns when transportState ===
+    // "stopped"). When stopped/paused, just stage the value into
+    // engine.masterTarget so the next Play's fadeInMaster ramps up to
+    // the right target. engine.setMasterVolume already updates target
+    // itself, so we mirror that path directly for the staged case.
+    if (state.transportState === "playing") {
+      engine.setMasterVolume(state.masterVolume);
+    } else {
+      engine.masterTarget = state.masterVolume;
+    }
     renderAll();
   },
 
