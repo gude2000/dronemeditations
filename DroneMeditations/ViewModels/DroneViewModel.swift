@@ -786,6 +786,37 @@ final class DroneViewModel: ObservableObject {
                 oscillators[i].sampleNativeBaseFreq = base
                 audioEngine.setSampleNativeBaseFreq(base, for: i)
             }
+            // v1 fix: restore granular state. This block was present in
+            // applyPreset() (built-in presets) but missing here, so user
+            // presets that saved granular noise + sample-granular config
+            // would silently load with no granular treatment — a sample
+            // loaded with "Grainy" turned ON came back with it OFF. Now
+            // mirrors the applyPreset flow:
+            //   • grain         — noise/grain config (sizeMs, densityHz,
+            //                      jitter, panSpread)
+            //   • sampleGranular — whether the loaded sample is sliced
+            //                      into Hann-windowed grains
+            //   • grainSamplePosFrac / Jitter — where in the sample the
+            //                      grain head reads from + how far it
+            //                      randomly walks
+            // Old presets without these fields fall through to current
+            // per-voice defaults — no behavior change for them.
+            if let gr = v.grain {
+                oscillators[i].grain = gr
+                audioEngine.setGrainSize(gr.sizeMs, for: i)
+                audioEngine.setGrainDensity(gr.densityHz, for: i)
+                audioEngine.setGrainJitter(gr.jitter, for: i)
+                audioEngine.setGrainPanSpread(gr.panSpread, for: i)
+            }
+            if let sg = v.sampleGranular {
+                setSampleGranular(sg, for: i)
+            }
+            if let posF = v.grainSamplePosFrac {
+                setGrainSamplePos(posF, for: i)
+            }
+            if let posJ = v.grainSamplePosJitter {
+                setGrainSamplePosJitter(posJ, for: i)
+            }
         }
         // Refresh the snap cache so any voice with quantizeToScale on
         // starts hearing the snap immediately, without waiting for the
