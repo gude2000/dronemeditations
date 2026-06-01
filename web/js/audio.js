@@ -686,13 +686,23 @@ export class AudioEngine {
   }
 
   /// Per-voice timing envelope, driven by transportElapsed:
-  ///   t < startDelay                          → silent
-  ///   startDelay <= t < startDelay + FADE    → fade in
-  ///   ...full...
-  ///   if playDuration > 0 and (t - startDelay) > playDuration
-  ///                                          → fade out then silent
-  /// FADE is 8 seconds either side — long enough to feel meditative,
-  /// short enough not to compete with the user's session timer.
+  ///   t < startDelay                                → silent
+  ///   startDelay      ≤ t < startDelay + fadeIn    → fade in
+  ///   fadeIn done     ≤ t < startDelay + playDur   → full volume
+  ///   playDur reached ≤ t < playDur + fadeOut      → fade out (10 s)
+  /// In cycling mode (replayCount != 1) the cycle wraps back to silent
+  /// after the fadeOut tail and re-fades-in for the next pass.
+  ///
+  /// Mirrors iOS Voice.swift behavior:
+  ///   • fadeInFirst = 8 s (first cycle — slow meditative onset)
+  ///   • fadeInLoop  = 4 s (subsequent cycles — snappier rebloom)
+  ///   • fadeOut     = 10 s (linear taper at the end of each playDur)
+  /// Previously web used FADE = 8 for both directions AND set
+  /// cycleLen = startDelay + playDur — the modulo wrapped at the
+  /// instant playDur ended, so the fade-out branch was dead code in
+  /// cycling mode and voices hard-cut at each play-duration boundary.
+  /// Now cycleLen includes the fadeOut tail so the taper actually
+  /// plays before the next cycle's fade-in starts.
   _applyTimingEnvelope(i, nowAudioTime) {
     const v = this.voices[i]; if (!v || !v.envelopeGain) return;
     const startDelay = v.params.startDelaySec || 0;
@@ -709,7 +719,9 @@ export class AudioEngine {
       }
       return;
     }
-    const FADE = 8.0;  // seconds of fade-in and fade-out
+    const FADE_IN_FIRST = 8.0;   // first cycle — slow meditative onset
+    const FADE_IN_LOOP  = 4.0;   // cycles 2+ — snappier rebloom
+    const FADE_OUT      = 10.0;  // linear taper at end of each playDur
     let target = 1.0;
     if (!isFinite(elapsed)) {
       // Transport stopped/paused — leave whatever was there. The master
@@ -717,17 +729,19 @@ export class AudioEngine {
       return;
     } else {
       // Cycle-modular time when replayCount != 1. Each cycle =
-      // startDelay (silence) + playDuration (audible, fade-in + full +
-      // fade-out). After all repeats finish, env is silent forever.
-      // ∞ (replayCount === 0) just keeps cycling — the master fade-out
-      // at session end handles real silence.
-      const cycleLen = startDelay + Math.max(0, playDur);
+      // startDelay (silence) + playDur (audible, fade-in + full) +
+      // FADE_OUT (taper before the next cycle starts). After all
+      // repeats finish, env is silent forever. ∞ (replayCount === 0)
+      // just keeps cycling — the master fade-out at session end
+      // handles real silence.
+      const cycleLen = startDelay + Math.max(0, playDur) + FADE_OUT;
       const infiniteReplay = (replayCount === 0);
       const useCycles = (replayCount !== 1) && playDur > 0 && cycleLen > 0;
       let t;
+      let cycleIdx = 0;
       let beyondAll = false;
       if (useCycles) {
-        const cycleIdx = Math.floor(elapsed / cycleLen);
+        cycleIdx = Math.floor(elapsed / cycleLen);
         if (!infiniteReplay && cycleIdx >= replayCount) {
           beyondAll = true;
           t = 0;
@@ -737,15 +751,20 @@ export class AudioEngine {
       } else {
         t = elapsed;
       }
+      const activeFadeIn = (cycleIdx > 0) ? FADE_IN_LOOP : FADE_IN_FIRST;
       if (beyondAll) {
         target = 0;
       } else if (t < startDelay) {
         target = 0;
-      } else if (t < startDelay + FADE) {
-        target = (t - startDelay) / FADE;
+      } else if (t < startDelay + activeFadeIn) {
+        target = (t - startDelay) / activeFadeIn;
       } else if (playDur > 0 && t >= startDelay + playDur) {
+        // Fade-out portion of the cycle (or one-shot ending). Linear
+        // taper for a continuous perceived fall — matches iOS's
+        // post-v1.0 behavior (smoothstep felt like nothing was
+        // happening for ~3 s then a sudden drop).
         const fadeOutElapsed = t - (startDelay + playDur);
-        target = fadeOutElapsed >= FADE ? 0 : 1 - (fadeOutElapsed / FADE);
+        target = fadeOutElapsed >= FADE_OUT ? 0 : 1 - (fadeOutElapsed / FADE_OUT);
       } else {
         target = 1;
       }
