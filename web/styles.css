@@ -115,7 +115,11 @@ body:has(.controls.hidden) #zoom-wrap,
 #zoom-wrap:hover { opacity: 1; }
 #zoom-wrap span { letter-spacing: 0.05em; }
 #zoom-slider {
-  -webkit-appearance: slider-vertical; appearance: slider-vertical;
+  /* v1: Chrome is removing the `slider-vertical` appearance keyword
+     in milestone 82 (see DevTools deprecation warning). The standard
+     replacement is `writing-mode: vertical-lr; direction: rtl;` which
+     we already had on the next line; the old appearance keyword is
+     now removed. Firefox still works with the writing-mode pair. */
   writing-mode: vertical-lr; direction: rtl;
   width: 14px; height: 90px;
   background: transparent;

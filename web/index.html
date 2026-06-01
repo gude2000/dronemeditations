@@ -5,11 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#000000" />
   <title>Drone Meditations</title>
+  <!-- v1: inline SVG favicon (no external file → no 404 in console).
+       Simple Chladni-style circle on black, scales to any size. -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23000'/%3E%3Ccircle cx='32' cy='32' r='18' fill='none' stroke='%23fff' stroke-width='2' opacity='0.85'/%3E%3Ccircle cx='32' cy='32' r='10' fill='none' stroke='%23fff' stroke-width='2' opacity='0.65'/%3E%3Ccircle cx='32' cy='32' r='3' fill='%23fff'/%3E%3C/svg%3E" />
   <!-- v1 cache-bust query string: bump on every release that touches
        styles.css / main.js / ui.js so users don't get stale JS + new
        HTML (or vice versa), which had caused the slider fills to
        freeze visually on the SAMPLE GR / WINDOW / GRAIN rows. -->
-  <link rel="stylesheet" href="./styles.css?v=5" />
+  <link rel="stylesheet" href="./styles.css?v=6" />
 </head>
 <body>
   <canvas id="bg-canvas" aria-hidden="true"></canvas>
@@ -408,6 +411,6 @@
     </div>
   </div>
 
-  <script type="module" src="./js/main.js?v=5"></script>
+  <script type="module" src="./js/main.js?v=6"></script>
 </body>
 </html>
