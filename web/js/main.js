@@ -204,7 +204,44 @@ let morphIntervalId = null;
 let morphLastTickMs = 0;
 
 // Per-voice in-memory cache of loaded sample blobs (for save-current-as-preset).
-const sampleCache = [null, null, null, null];  // each: { id, name, blob, type } | null
+const sampleCache = [null, null, null, null];  // each: { id, name, blob, type, source } | null
+
+/**
+ * Peak-normalize an AudioBuffer in place — find the absolute max
+ * sample across all channels, then scale so that max sits at
+ * `targetPeak` (default 0.89 ≈ -1 dBFS, leaves a safety lid below
+ * 0 dBFS for any FX chain headroom). Returns a NEW AudioBuffer; the
+ * input is left untouched so callers can still cache the original
+ * if they want.
+ *
+ * Used by the per-osc Record feature where autoGainControl is
+ * disabled on getUserMedia — raw mic is typically -30…-15 dBFS, way
+ * too quiet without this rescue. iOS gets the same behavior for free
+ * via AVAudioRecorder's hardware AGC.
+ */
+function peakNormalize(ctx, buffer, targetPeak = 0.89) {
+  const channels = buffer.numberOfChannels;
+  const length = buffer.length;
+  let peak = 0;
+  for (let c = 0; c < channels; c++) {
+    const data = buffer.getChannelData(c);
+    for (let i = 0; i < length; i++) {
+      const v = Math.abs(data[i]);
+      if (v > peak) peak = v;
+    }
+  }
+  // Empty / silent buffer → no scaling needed; just return as-is to
+  // avoid divide-by-zero blowing up the gain calculation.
+  if (peak <= 1e-6) return buffer;
+  const gain = targetPeak / peak;
+  const out = ctx.createBuffer(channels, length, buffer.sampleRate);
+  for (let c = 0; c < channels; c++) {
+    const src = buffer.getChannelData(c);
+    const dst = out.getChannelData(c);
+    for (let i = 0; i < length; i++) dst[i] = src[i] * gain;
+  }
+  return out;
+}
 
 const engine = new AudioEngine();
 let tickTimer = null;
@@ -464,6 +501,33 @@ const actions = {
         engine.setWaveform(i, state.oscillators[i].waveform);
         engine.setMute(i, state.oscillators[i].isMuted);
         engine.setSolo(i, state.oscillators[i].isSoloed);
+      }
+      // CRITICAL bug fix: engine.stop() closes the AudioContext + clears
+      // voices, so on the next Play after Stop, ensureStarted creates a
+      // fresh engine WITHOUT any loaded samples. ANY voice on
+      // waveform === "sample" went silent on subsequent plays. Re-load
+      // every cached sample blob now so the recording / uploaded WAV
+      // survives stop+play cycles for the lifetime of the page. Fired
+      // in the background — fadeInMaster runs immediately so the user
+      // doesn't perceive lag waiting for the decode.
+      if (fromStopped) {
+        for (let i = 0; i < 4; i++) {
+          const o = state.oscillators[i];
+          const cache = sampleCache[i];
+          if (o.waveform === "sample" && cache && cache.blob) {
+            const isRec = cache.source === "recording";
+            cache.blob.arrayBuffer()
+              .then((buf) => engine.ctx.decodeAudioData(buf.slice(0)))
+              .then((audioBuffer) => {
+                // Recordings need the same peak-normalize the
+                // initial loadRecordedSample applied, otherwise the
+                // restored buffer plays at raw mic level.
+                const ab = isRec ? peakNormalize(engine.ctx, audioBuffer, 0.89) : audioBuffer;
+                engine.loadSample(i, ab);
+              })
+              .catch((err) => console.warn("[sample restore]", err));
+          }
+        }
       }
       engine.fadeInMaster(fromStopped ? 3.0 : 1.0);
       // Initialize transportElapsed so the per-voice timing envelope can
@@ -795,17 +859,54 @@ const actions = {
     engine.ensureStarted(state.oscillators);
     engine.resume();
     const arrayBuffer = await blob.arrayBuffer();
-    const audioBuffer = await engine.ctx.decodeAudioData(arrayBuffer.slice(0));
-    engine.loadSample(oscIndex, audioBuffer);
+    const decoded = await engine.ctx.decodeAudioData(arrayBuffer.slice(0));
+    // Peak-normalize the recording to -1 dBFS so it sits at a usable
+    // level regardless of mic gain. We deliberately disabled
+    // autoGainControl in the getUserMedia constraints to keep the
+    // capture transparent, so raw mic input is typically -30…-15 dBFS;
+    // without this normalization the user has to crank LVL to 1.0 just
+    // to hear themselves. We re-bake the normalized PCM into a fresh
+    // AudioBuffer so the engine reads it directly.
+    const normalizedBuffer = peakNormalize(engine.ctx, decoded, 0.89);
+    engine.loadSample(oscIndex, normalizedBuffer);
     const label = `Recording (OSC ${oscIndex + 1})`;
     state.oscillators[oscIndex].sampleName = label;
     state.oscillators[oscIndex].waveform = "sample";
     engine.setWaveform(oscIndex, "sample");
+    // Auto-persist the recording to the user's browser library so it
+    // appears in the Bundled ▾ picker's new "Recorded" section AND
+    // survives page reloads. The blob lives in IndexedDB (samples
+    // store), a small metadata row sits in localStorage with
+    // category: "recording" so the picker can group entries.
+    const recId = newSampleId();
+    const stamp = new Date().toISOString().slice(0, 16).replace("T", " ");
+    const libraryName = `OSC ${oscIndex + 1} — ${stamp}`;
+    const cacheBlob = new Blob([arrayBuffer], { type: mime || blob.type || "audio/webm" });
+    const cacheType = mime || blob.type || "audio/webm";
+    try {
+      await putSample(recId, cacheBlob, libraryName, cacheType);
+      const lib = loadLibrarySamples();
+      lib.unshift({
+        id: recId,
+        name: libraryName,
+        addedAt: new Date().toISOString(),
+        category: "recording"
+      });
+      saveLibrarySamples(lib);
+    } catch (err) {
+      // Persistence failure isn't fatal — the recording still plays
+      // from the in-memory cache until the page is reloaded.
+      console.warn("[recording persist] failed:", err);
+    }
+    // Cache the ORIGINAL (un-normalized) blob so saveCurrentAsUserPreset
+    // and the .dronepreset exporter persist the source — anyone who
+    // imports it gets to apply their own normalization (or none). The
+    // engine works with the normalized in-memory copy.
     sampleCache[oscIndex] = {
-      id: null,
+      id: recId,                                  // points at IndexedDB row
       name: label,
-      blob: new Blob([arrayBuffer], { type: mime || blob.type || "audio/webm" }),
-      type: mime || blob.type || "audio/webm",
+      blob: cacheBlob,
+      type: cacheType,
       source: "recording"
     };
     state.activePresetName = null;

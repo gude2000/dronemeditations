@@ -317,9 +317,13 @@ async function openBundledSamplePicker(anchor, oscIndex) {
   // Pull the user's browser-library samples first so they appear at the
   // top of the picker — these are files the user explicitly chose to save
   // and are more likely the ones they want again.
-  const librarySamples = dispatch.getLibrarySamples();
+  // v1: split into Recorded (auto-saved on per-osc Record) vs
+  // My Library (explicitly-saved file uploads).
+  const allLibrary = dispatch.getLibrarySamples();
+  const recordedSamples = allLibrary.filter((e) => e.category === "recording");
+  const librarySamples  = allLibrary.filter((e) => e.category !== "recording");
 
-  if (samples.length === 0 && librarySamples.length === 0) {
+  if (samples.length === 0 && allLibrary.length === 0) {
     const empty = document.createElement("div");
     empty.style.cssText = "padding:12px 14px;font-size:12px;color:rgba(255,255,255,0.65);max-width:280px;line-height:1.45";
     empty.innerHTML = `No bundled samples yet. Add audio files to
@@ -329,49 +333,64 @@ async function openBundledSamplePicker(anchor, oscIndex) {
       it to your browser library.`;
     popup.appendChild(empty);
   } else {
+    // Helper closure so the Recorded + My Library sections share row
+    // markup (load button + × remove button + hover styling). Saves
+    // duplicating ~40 lines for the new section.
+    const appendLibraryRow = (entry, accentColor) => {
+      const row = document.createElement("div");
+      row.style.cssText = "display:flex;align-items:center;gap:4px;border-radius:6px";
+      row.addEventListener("mouseenter", () => { row.style.background = "rgba(255,255,255,0.08)"; });
+      row.addEventListener("mouseleave", () => { row.style.background = "transparent"; });
+
+      const loadBtn = document.createElement("button");
+      loadBtn.type = "button";
+      loadBtn.style.cssText = "flex:1;text-align:left;padding:8px 10px;background:transparent;border:0;color:#fff;font-size:13px;cursor:pointer";
+      loadBtn.textContent = entry.name || "(unnamed)";
+      loadBtn.addEventListener("click", () => {
+        popup.remove();
+        dispatch.loadLibrarySample(oscIndex, entry);
+      });
+
+      const delBtn = document.createElement("button");
+      delBtn.type = "button";
+      delBtn.title = "Remove from library";
+      delBtn.style.cssText = "padding:4px 8px;background:transparent;border:0;color:rgba(255,255,255,0.45);font-size:14px;cursor:pointer;border-radius:4px";
+      delBtn.textContent = "×";
+      delBtn.addEventListener("mouseenter", () => { delBtn.style.color = "#ff7a7a"; });
+      delBtn.addEventListener("mouseleave", () => { delBtn.style.color = "rgba(255,255,255,0.45)"; });
+      delBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (confirm(`Remove "${entry.name}" from your browser library?`)) {
+          dispatch.removeFromLibrary(entry.id);
+          popup.remove();
+          openBundledSamplePicker(anchor, oscIndex);
+        }
+      });
+
+      row.appendChild(loadBtn);
+      row.appendChild(delBtn);
+      popup.appendChild(row);
+    };
+    const sectionHeader = (text, color) => {
+      const hdr = document.createElement("div");
+      hdr.style.cssText = `font-size:9px;letter-spacing:0.10em;text-transform:uppercase;color:${color};padding:8px 10px 4px`;
+      hdr.textContent = text;
+      popup.appendChild(hdr);
+    };
+
+    // ── Recorded section (v1, only renders if any recordings exist) ──
+    // Auto-populated by the per-osc 🎙 Record button. Listed first so
+    // a fresh recording is one tap away from being loaded into a
+    // different oscillator.
+    if (recordedSamples.length > 0) {
+      sectionHeader("Recorded", "#ff8aa8");
+      for (const entry of recordedSamples) appendLibraryRow(entry, "#ff8aa8");
+    }
+
     // ── My Library section (renders only if there are saved entries) ──
     if (librarySamples.length > 0) {
-      const hdr = document.createElement("div");
-      hdr.style.cssText = "font-size:9px;letter-spacing:0.10em;text-transform:uppercase;color:#ffcf80;padding:8px 10px 4px";
-      hdr.textContent = "My Library";
-      popup.appendChild(hdr);
-      for (const entry of librarySamples) {
-        // Each row is a load-button + a small × delete button.
-        const row = document.createElement("div");
-        row.style.cssText = "display:flex;align-items:center;gap:4px;border-radius:6px";
-        row.addEventListener("mouseenter", () => { row.style.background = "rgba(255,255,255,0.08)"; });
-        row.addEventListener("mouseleave", () => { row.style.background = "transparent"; });
-
-        const loadBtn = document.createElement("button");
-        loadBtn.type = "button";
-        loadBtn.style.cssText = "flex:1;text-align:left;padding:8px 10px;background:transparent;border:0;color:#fff;font-size:13px;cursor:pointer";
-        loadBtn.textContent = entry.name || "(unnamed)";
-        loadBtn.addEventListener("click", () => {
-          popup.remove();
-          dispatch.loadLibrarySample(oscIndex, entry);
-        });
-
-        const delBtn = document.createElement("button");
-        delBtn.type = "button";
-        delBtn.title = "Remove from library";
-        delBtn.style.cssText = "padding:4px 8px;background:transparent;border:0;color:rgba(255,255,255,0.45);font-size:14px;cursor:pointer;border-radius:4px";
-        delBtn.textContent = "×";
-        delBtn.addEventListener("mouseenter", () => { delBtn.style.color = "#ff7a7a"; });
-        delBtn.addEventListener("mouseleave", () => { delBtn.style.color = "rgba(255,255,255,0.45)"; });
-        delBtn.addEventListener("click", (e) => {
-          e.stopPropagation();
-          if (confirm(`Remove "${entry.name}" from your browser library?`)) {
-            dispatch.removeFromLibrary(entry.id);
-            // Re-open the picker so the list refreshes.
-            popup.remove();
-            openBundledSamplePicker(anchor, oscIndex);
-          }
-        });
-
-        row.appendChild(loadBtn);
-        row.appendChild(delBtn);
-        popup.appendChild(row);
-      }
+      sectionHeader("My Library", "#ffcf80");
+      for (const entry of librarySamples) appendLibraryRow(entry, "#ffcf80");
     }
 
     // ── Shipped bundled samples, grouped by optional category ──
