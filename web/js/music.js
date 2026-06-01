@@ -231,7 +231,14 @@ const SILENT = { hz: 110, pan: 0.0, _silent: true };
 const V = (spec) => ({ hz: spec.hz, pan: spec.pan ?? 0, ...spec });
 
 export const PRESET_CATEGORIES = [
+  // v1: utility category at the top — INIT lives here.
+  "Setup",
   "Drone Artists",
+  // v1: was added when the JG patches landed but missed from this
+  // ordering list, so the Developer Patches section may have been
+  // rendering out-of-place. Slot here after Drone Artists to match
+  // iOS Category.allCases order.
+  "Developer Patches",
   "Binaural — 2 tone",
   "Binaural — 3 tone",
   "Binaural — 4 tone",
@@ -242,6 +249,58 @@ export const PRESET_CATEGORIES = [
 ];
 
 export const PRESETS = [
+  // ── Setup — INIT (rescue gesture) ──────────────────────────
+  // Returns every voice to a known clean state. Every FX block
+  // is specified explicitly because applyPreset's optional-field
+  // pattern means an omitted field LEAVES the previous preset's
+  // value in place. Pans + freqs match the app's first-launch
+  // defaults so loading INIT is visually identical to a fresh
+  // app start, minus the pill-row state (chord / BPM / master
+  // are app-level, not preset-level).
+  {
+    id: "init_clean",
+    name: "INIT — Clean state",
+    category: "Setup",
+    sub: "Reset every voice to neutral · 4 sine voices, dry, no LFO depth",
+    voices: (() => {
+      const neutralFilter = { type: "lowpass", cutoffHz: 4000, q: 0.7 };
+      const neutralReverb = { decaySec: 2.0, mix: 0.0 };
+      const neutralDelay  = { timeSec: 0.30, feedback: 0.40, mix: 0.0,
+                              mode: "mono", timing: "free" };
+      const neutralChorus = { rateHz: 0.50, depth: 0.50, width: 0.50, mix: 0.0 };
+      const neutralFM     = { sourceIndex: -1, index: 0 };
+      const neutralGrain  = { sizeMs: 80, densityHz: 8, jitter: 0.6, panSpread: 0.5,
+                              densitySyncEnabled: false,
+                              densityDenomination: "sixteenth" };
+      // "Armed but silent" LFOs — common targets pre-routed, depth 0
+      // so the user can dial up depth without re-picking a target.
+      const armedLfos = [
+        { shape: "sine", targets: ["pan"],    rateHz: 0.25, depth: 0 },
+        { shape: "sh",   targets: ["amp"],    rateHz: 0.50, depth: 0 },
+        { shape: "sine", targets: ["cutoff"], rateHz: 0.30, depth: 0 },
+        { shape: "sine", targets: ["pitch"],  rateHz: 0.30, depth: 0 }
+      ];
+      const staticDrift = {
+        pitchMode: "static", pitchAmount: 0, pitchPhase: 0,
+        panMode: "static",   panAmount: 0,   panPhase: 0,
+        quantizeToScale: false
+      };
+      const mk = (hz, pan) => V({
+        hz, pan, wave: "sine", amp: 0.50, drive: 1.0,
+        startDelaySec: 0, playDurationSec: 0, replayCount: 1,
+        filter: neutralFilter, reverb: neutralReverb,
+        delay: neutralDelay, chorus: neutralChorus, fm: neutralFM,
+        grain: neutralGrain, lfos: armedLfos, drift: staticDrift
+      });
+      return [
+        mk(110.00, -0.3),
+        mk(165.00,  0.1),
+        mk(220.00, -0.1),
+        mk(277.18,  0.3)
+      ];
+    })()
+  },
+
   // 2-tone binaural
   { id: "delta_4",  name: "Delta 4 Hz (Deep Sleep)",      category: "Binaural — 2 tone", sub: "200 L / 204 R",      voices: [L(200), R(204), SILENT, SILENT] },
   { id: "theta_6",  name: "Theta 6 Hz (Meditation)",      category: "Binaural — 2 tone", sub: "200 L / 206 R",      voices: [L(200), R(206), SILENT, SILENT] },

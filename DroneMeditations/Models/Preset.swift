@@ -97,6 +97,12 @@ struct Preset: Identifiable, Hashable {
     }
 
     enum Category: String, CaseIterable {
+        // v1: utility category at the very top of the picker. Currently
+        // hosts just INIT — a "rescue gesture" that returns every voice
+        // to a known clean state regardless of what preset you loaded
+        // last. Future utility presets (e.g. "Sample sandbox", "5-voice
+        // cluster init") can live here too.
+        case setup = "Setup"
         case droneArtists = "Drone Artists"
         case developerPatches = "Developer Patches"
         case binaural2 = "Binaural — 2 tone"
@@ -127,6 +133,68 @@ extension Preset {
 
     /// Schumann resonance: 7.83 Hz. Implemented as binaural carrier delta.
     static let all: [Preset] = [
+        // ─────────────────────────────────────────────────────────────
+        // MARK: Setup — INIT (rescue gesture)
+        //
+        // Returns every voice to a known clean state regardless of what
+        // preset you loaded last. Every field is specified explicitly
+        // — omitting a field would mean applyPreset doesn't push it,
+        // leaving the previous preset's value in place (the opposite
+        // of what INIT should do). Pans match the app's first-launch
+        // defaults so loading INIT is visually identical to a fresh
+        // app start, minus the pill-row state (chord / BPM / master
+        // are app-level, not preset-level).
+        // ─────────────────────────────────────────────────────────────
+
+        Preset("INIT — Clean state", .setup,
+               subtitle: "Reset every voice to neutral · 4 sine voices, dry, no LFO depth",
+               {
+                   let neutralFilter = FilterState(type: .lowpass, cutoffHz: 4000, q: 0.7)
+                   let neutralReverb = ReverbState(decaySec: 2.0, mix: 0.0)
+                   let neutralDelay  = DelayState(timeSec: 0.30, feedback: 0.40, mix: 0.0)
+                   let neutralChorus = ChorusState(rateHz: 0.50, depth: 0.50, width: 0.50, mix: 0.0)
+                   let neutralFM     = FMState(sourceIndex: -1, index: 0)
+                   let neutralGrain  = GrainState()   // 80 ms / 8 Hz / 0.6 jit / 0.5 spread
+                   // LfoState.defaults() gives the conventional 4-LFO setup —
+                   // sine→pan, S&H→amp, sine→cutoff, sine→pitch — all at
+                   // depth 0. "Armed but silent" so the user can dial in
+                   // depth without having to also re-pick a target.
+                   let armedLfos: [LfoState?] = LfoState.defaults().map { Optional($0) }
+                   let staticDrift = DriftVoiceConfig(
+                       pitchMode: .static, pitchAmount: 0, pitchPhase: 0,
+                       panMode: .static, panAmount: 0, panPhase: 0
+                   )
+                   func makeVoice(hz: Double, pan: Double) -> Voice {
+                       Voice(
+                           hz: hz, pan: pan,
+                           wave: .sine,
+                           amp: 0.50,
+                           drive: 1.0,
+                           startDelaySec: 0,
+                           playDurationSec: 0,
+                           replayCount: 1,
+                           filter: neutralFilter,
+                           reverb: neutralReverb,
+                           delay: neutralDelay,
+                           chorus: neutralChorus,
+                           fm: neutralFM,
+                           grain: neutralGrain,
+                           lfos: armedLfos,
+                           drift: staticDrift,
+                           bundledSampleName: nil,
+                           sampleGranular: false,
+                           grainSamplePosFrac: 0.5,
+                           grainSamplePosJitter: 0.2
+                       )
+                   }
+                   return [
+                    makeVoice(hz: 110.00,  pan: -0.3),
+                    makeVoice(hz: 165.00,  pan:  0.1),
+                    makeVoice(hz: 220.00,  pan: -0.1),
+                    makeVoice(hz: 277.18,  pan:  0.3)
+                   ]
+               }()),
+
         // MARK: 2-tone binaural
         Preset("Delta 4 Hz (Deep Sleep)",      .binaural2, subtitle: "200 L / 204 R", [L(200), R(204), silent, silent]),
         Preset("Theta 6 Hz (Meditation)",      .binaural2, subtitle: "200 L / 206 R", [L(200), R(206), silent, silent]),
