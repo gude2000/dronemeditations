@@ -19,6 +19,7 @@ import argparse, json, pathlib, shutil
 ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 IOS_SAMPLES = ROOT / "DroneMeditations" / "Samples"
 WEB_SAMPLES = ROOT / "web" / "samples"
+DISPLAY_NAMES_FILE = WEB_SAMPLES / "display_names.json"
 
 # Audio extensions the web engine can decode (decodeAudioData).
 AUDIO_EXTS = {".wav", ".mp3", ".m4a", ".aac", ".ogg", ".flac", ".aif", ".aiff"}
@@ -30,6 +31,32 @@ INCLUDE_CATEGORIES = {
     "Acoustic", "Atmospheric", "Cosmic", "Developer",
     "Field", "Instruments", "Urban",
 }
+
+def load_display_overrides() -> dict[str, str]:
+    """Read display_names.json if present. Returns a stem → pretty-name
+    map. Missing file → empty dict (script still runs)."""
+    if not DISPLAY_NAMES_FILE.exists():
+        return {}
+    try:
+        with open(DISPLAY_NAMES_FILE) as f:
+            data = json.load(f)
+        return data.get("overrides", {}) or {}
+    except (json.JSONDecodeError, OSError) as e:
+        print(f"   ⚠  couldn't read {DISPLAY_NAMES_FILE.name}: {e}")
+        return {}
+
+def pretty_name(stem: str, overrides: dict[str, str]) -> str:
+    """Compute the display name for a file stem.
+       1. explicit override from display_names.json (wins)
+       2. all-lowercase + has hyphens → Title Case (so 'phi-drone'
+          becomes 'Phi Drone')
+       3. otherwise pass through (already-pretty names like
+          'Bansuri B2' or 'Calm Sea' stay as-is)."""
+    if stem in overrides:
+        return overrides[stem]
+    if stem.islower() and "-" in stem:
+        return stem.replace("-", " ").title()
+    return stem
 
 def main():
     p = argparse.ArgumentParser()
@@ -86,6 +113,7 @@ def main():
                 print(f"   ✗ drop {rel} (not in iOS)")
 
     # ── Regenerate manifest ─────────────────────────────────
+    display_overrides = load_display_overrides()
     samples_entries = []
     for cat_name in sorted(INCLUDE_CATEGORIES):
         web_cat = WEB_SAMPLES / cat_name
@@ -95,7 +123,7 @@ def main():
             if not f.is_file() or f.suffix.lower() not in AUDIO_EXTS:
                 continue
             rel_for_json = f"{cat_name}/{f.name}"
-            display = f.stem   # filename without extension
+            display = pretty_name(f.stem, display_overrides)
             samples_entries.append({
                 "file": rel_for_json,
                 "name": display,

@@ -4,32 +4,32 @@
   "samples": [
     {
       "file": "Acoustic/alex-and-alma-theme.mp3",
-      "name": "alex-and-alma-theme",
+      "name": "Alex & Alma Theme",
       "category": "Acoustic"
     },
     {
       "file": "Acoustic/alex-and-jose-theme.mp3",
-      "name": "alex-and-jose-theme",
+      "name": "Alex & Jose Theme",
       "category": "Acoustic"
     },
     {
       "file": "Acoustic/jg-vox-nothing-at-all.wav",
-      "name": "jg-vox-nothing-at-all",
+      "name": "JG Vox — Nothing At All",
       "category": "Acoustic"
     },
     {
       "file": "Acoustic/phi-drone.mp3",
-      "name": "phi-drone",
+      "name": "Phi Drone",
       "category": "Acoustic"
     },
     {
       "file": "Acoustic/sable-almost.mp3",
-      "name": "sable-almost",
+      "name": "Sable — Almost",
       "category": "Acoustic"
     },
     {
       "file": "Acoustic/scriabin-mystic-piano.mp3",
-      "name": "scriabin-mystic-piano",
+      "name": "Scriabin Mystic — Piano",
       "category": "Acoustic"
     },
     {
@@ -89,7 +89,7 @@
     },
     {
       "file": "Developer/JG Dub Wave-2.wav",
-      "name": "JG Dub Wave-2",
+      "name": "JG Dub Wave 2",
       "category": "Developer"
     },
     {
@@ -99,7 +99,7 @@
     },
     {
       "file": "Developer/JG Scriabin Rain-2.wav",
-      "name": "JG Scriabin Rain-2",
+      "name": "JG Scriabin Rain 2",
       "category": "Developer"
     },
     {
@@ -249,12 +249,12 @@
     },
     {
       "file": "Instruments/acoustic-guitar-chord.aif",
-      "name": "acoustic-guitar-chord",
+      "name": "Acoustic Guitar Chord",
       "category": "Instruments"
     },
     {
       "file": "Instruments/organ-mid.wav",
-      "name": "organ-mid",
+      "name": "Organ — Mid Note",
       "category": "Instruments"
     },
     {

@@ -1,0 +1,15 @@
+{
+  "_comment": "Pretty display name overrides for the bundled-sample picker. Keys are file stems (filename without extension); values are the display string the picker shows. Filenames without an entry here fall back to mirror_from_ios.py's auto-transform: lowercase-kebab → Title Case (so 'phi-drone' → 'Phi Drone'), CamelCase / already-spaced names pass through untouched. Add an entry whenever you want a specific override (e.g. em-dash, punctuation, branded casing).",
+  "overrides": {
+    "phi-drone":             "Phi Drone",
+    "organ-mid":             "Organ — Mid Note",
+    "scriabin-mystic-piano": "Scriabin Mystic — Piano",
+    "acoustic-guitar-chord": "Acoustic Guitar Chord",
+    "jg-vox-nothing-at-all": "JG Vox — Nothing At All",
+    "sable-almost":          "Sable — Almost",
+    "alex-and-jose-theme":   "Alex & Jose Theme",
+    "alex-and-alma-theme":   "Alex & Alma Theme",
+    "JG Dub Wave-2":         "JG Dub Wave 2",
+    "JG Scriabin Rain-2":    "JG Scriabin Rain 2"
+  }
+}
