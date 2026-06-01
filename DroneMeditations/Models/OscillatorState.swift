@@ -28,7 +28,7 @@ struct LfoState: Equatable, Codable {
         }
     }
     enum Target: String, Codable, CaseIterable, Identifiable {
-        case pan, amplitude, cutoff, pitch, filterQ, fmIndex
+        case pan, amplitude, cutoff, pitch, filterQ, fmIndex, fxMix
         var id: String { rawValue }
         var shortLabel: String {
             switch self {
@@ -38,6 +38,7 @@ struct LfoState: Equatable, Codable {
             case .pitch: return "pitch"
             case .filterQ: return "Q"
             case .fmIndex: return "FM"
+            case .fxMix: return "FX"
             }
         }
     }
@@ -257,9 +258,22 @@ struct FMState: Equatable, Codable {
 /// stereo placement around the voice's base pan.
 struct GrainState: Equatable, Codable {
     var sizeMs: Double = 80       // 5 .. 500 ms (log)
-    var densityHz: Double = 8     // 0.5 .. 50 grains/sec (log)
+    var densityHz: Double = 8     // 0.5 .. 50 grains/sec (log) — used when sync is off
     var jitter: Double = 0.6      // 0 .. 1
     var panSpread: Double = 0.5   // 0 .. 1
+    /// v1: when true, grain trigger interval is derived from the
+    /// project BPM and `densityDenomination` rather than `densityHz`.
+    /// Optional for backward compat — old saves (nil) default to free
+    /// (sync off, free-running Hz density).
+    var densitySyncEnabled: Bool? = nil
+    /// v1: denomination used when sync is enabled (1/2 … 1/32T).
+    /// Optional for backward compat — old saves (nil) default to 1/16.
+    var densityDenomination: GrainDenomination? = nil
+    /// Resolved sync state — nil = off. Always use this from UI / engine
+    /// rather than the raw optional so old presets get the historical
+    /// behavior (free-running density).
+    var resolvedSyncEnabled: Bool { densitySyncEnabled ?? false }
+    var resolvedDenomination: GrainDenomination { densityDenomination ?? .sixteenth }
 
     static let sizeMinMs: Double = 5
     static let sizeMaxMs: Double = 500
@@ -267,6 +281,52 @@ struct GrainState: Equatable, Codable {
     static let densityMax: Double = 50
 
     static func defaults() -> GrainState { GrainState() }
+}
+
+/// v1: musical subdivisions for BPM-synced grain density. Mirrors
+/// the DelayState.Timing pattern but adds 1/32 and 1/32T (granular
+/// rhythmic motion wants finer subdivisions than delay typically
+/// does) and drops .third / .thirdT.
+enum GrainDenomination: String, Codable, CaseIterable, Identifiable {
+    case half, quarter, quarterT
+    case eighth, eighthT, sixteenth, sixteenthT
+    case thirtySecond, thirtySecondT
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .half:          return "1/2"
+        case .quarter:       return "1/4"
+        case .quarterT:      return "1/4T"
+        case .eighth:        return "1/8"
+        case .eighthT:       return "1/8T"
+        case .sixteenth:     return "1/16"
+        case .sixteenthT:    return "1/16T"
+        case .thirtySecond:  return "1/32"
+        case .thirtySecondT: return "1/32T"
+        }
+    }
+    /// Beats per grain trigger (1/4 = 1 beat). Triplet variants
+    /// compress 3 against 2, so 1/4T = 2/3 beats per tap.
+    var beats: Double {
+        switch self {
+        case .half:          return 2.0
+        case .quarter:       return 1.0
+        case .quarterT:      return 2.0 / 3.0
+        case .eighth:        return 0.5
+        case .eighthT:       return 1.0 / 3.0
+        case .sixteenth:     return 0.25
+        case .sixteenthT:    return 1.0 / 6.0
+        case .thirtySecond:  return 0.125
+        case .thirtySecondT: return 1.0 / 12.0
+        }
+    }
+    /// Seconds between grain triggers at the given BPM.
+    func seconds(bpm: Double) -> Double { beats * 60.0 / max(1.0, bpm) }
+    /// Equivalent free-density Hz at the given BPM. Used by the audio
+    /// engine to keep the existing scheduler path unchanged — we just
+    /// compute the effective Hz from BPM × denomination and push it
+    /// through the same setter.
+    func hz(bpm: Double) -> Double { 1.0 / max(1e-4, seconds(bpm: bpm)) }
 }
 
 /// Per-oscillator biquad filter. Type LP/HP/BP. Modulatable via an LFO targeting `cutoff`.

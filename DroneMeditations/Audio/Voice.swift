@@ -404,6 +404,13 @@ final class Voice {
         // to fmIndex (Hz). Both clamped at their application sites.
         var qOct: Double = 0
         var fmIndexMod: Double = 0
+        // v1 (FX Mix macro). Single bias accumulated from any LFO
+        // routed to .fxMix; applied additively to reverb / delay /
+        // chorus mixes at their read sites (lines ~538, 539, 685),
+        // clamped 0..1. A "swell" macro — one LFO modulates the
+        // entire wet bus together. Full LFO depth swings each mix
+        // ±0.5 (so a base mix of 0.5 swings the full 0..1 range).
+        var fxMixMod: Double = 0
         for k in 0..<4 {
             let depth = lfoDepths[k]
             if depth < 0.001 { continue }
@@ -467,6 +474,11 @@ final class Voice {
                     // ±200 Hz FM index swing at full depth. Additive.
                     // Clamped later when applied to the FM source.
                     fmIndexMod += 200.0 * depth * value
+                case .fxMix:
+                    // ±0.5 bias on the FX mix bus (reverb + delay +
+                    // chorus mixes together). Applied additively to
+                    // each FX mix at its read site, clamped 0..1.
+                    fxMixMod += 0.5 * depth * value
                 }
             }
         }
@@ -535,8 +547,13 @@ final class Voice {
         // because moving the tap is a small Doppler shift; faster slew
         // = louder pitch glide during a drag.
         let delayTapSlew: Double = 1.0 / (0.200 * sampleRate)
-        let revMix = reverbMix
-        let dlyMix = delayMix
+        // v1 FX Mix macro: apply the accumulated LFO bias (set above
+        // in the per-buffer LFO dispatch) to reverb + delay + chorus
+        // mixes together. Clamped 0..1. When no LFO targets .fxMix,
+        // fxMixMod is 0 and these read identically to before.
+        let fxMixBias = Float(fxMixMod)
+        let revMix = max(0.0, min(1.0, reverbMix + fxMixBias))
+        let dlyMix = max(0.0, min(1.0, delayMix + fxMixBias))
         let dlyFb = delayFeedback
         // ── CPU bypass guards (v1.1). When mix is effectively zero AND
         // the feedback isn't keeping the buffer alive, skip the entire
@@ -682,7 +699,9 @@ final class Voice {
             chorusLfoPhaseR -= floor(chorusLfoPhaseR)
             lastChorusWidth = chorusWidth
         }
-        let chMix = chorusMix
+        // v1 FX Mix macro: chorus mix participates in the same wet-bus
+        // swell as reverb + delay (see fxMixBias above).
+        let chMix = max(0.0, min(1.0, chorusMix + fxMixBias))
         // chSwing is now derived from currentChorusDepth per sample (see
         // the tapSecL/R calc in the chorus block below) so depth-slider
         // drags don't step the swing range at buffer boundaries.

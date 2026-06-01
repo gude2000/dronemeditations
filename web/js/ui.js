@@ -492,7 +492,12 @@ const LFO_TARGETS = [
   {id: "cutoff", label: "cut"},
   {id: "pitch",  label: "pitch"},
   {id: "q",      label: "Q"},
-  {id: "fm",     label: "FM"}
+  {id: "fm",     label: "FM"},
+  // v1 FX Mix macro: one LFO biases reverb + chorus mixes together
+  // for a "swell" effect. iOS engine also modulates delay mix as part
+  // of the macro; web modulates reverb + chorus (delay routing goes
+  // through a per-mode router so it's not a single gain node).
+  {id: "fxMix",  label: "FX"}
 ];
 const FILTER_TYPES = [
   {id: "lowpass",  label: "LP"},
@@ -618,7 +623,22 @@ function buildStrip(index) {
       </div>
       <div class="mini-control">
         <span class="mini-label" data-role="grain-density-label">DENSITY</span>
-        <input type="range" min="0" max="1" step="0.0001" data-role="grain-density" title="Grains per second, 0.5–50 (log)" />
+        <input type="range" min="0" max="1" step="0.0001" data-role="grain-density" title="Grains per second, 0.5–50 (log). Hidden when sync is on." />
+        <!-- v1 BPM-synced grain density. The select shows "Free" plus
+             musical subdivisions; switching to a denomination hides
+             the slider above (its value would be ignored). -->
+        <select data-role="grain-density-sync" title="Free Hz or BPM-synced subdivision">
+          <option value="free">Free</option>
+          <option value="half">1/2</option>
+          <option value="quarter">1/4</option>
+          <option value="quarterT">1/4T</option>
+          <option value="eighth">1/8</option>
+          <option value="eighthT">1/8T</option>
+          <option value="sixteenth">1/16</option>
+          <option value="sixteenthT">1/16T</option>
+          <option value="thirtySecond">1/32</option>
+          <option value="thirtySecondT">1/32T</option>
+        </select>
       </div>
       <div class="mini-control">
         <span class="mini-label" data-role="grain-jitter-label">JITTER</span>
@@ -879,6 +899,20 @@ function buildStrip(index) {
     const hz = GRAIN_DENS_MIN * Math.pow(GRAIN_DENS_MAX / GRAIN_DENS_MIN, t);
     dispatch.setGrainDensity(index, hz);
   });
+  // v1 BPM-synced grain density. "free" sets sync off (slider takes
+  // over). Any denomination value sets sync on + denomination.
+  const grainSyncSelect = root.querySelector('[data-role="grain-density-sync"]');
+  if (grainSyncSelect) {
+    grainSyncSelect.addEventListener("change", (e) => {
+      const v = e.target.value;
+      if (v === "free") {
+        dispatch.setGrainDensitySync(index, false);
+      } else {
+        dispatch.setGrainDensityDenomination(index, v);
+        dispatch.setGrainDensitySync(index, true);
+      }
+    });
+  }
   root.querySelector('[data-role="grain-jitter"]').addEventListener("input", (e) => {
     dispatch.setGrainJitter(index, parseFloat(e.target.value));
   });
@@ -1143,9 +1177,26 @@ function syncStrip(index, root) {
       densSlider.style.setProperty("--fill", `${Math.round(densT * 100)}%`);
     }
     const densLabel = root.querySelector('[data-role="grain-density-label"]');
-    if (densLabel) densLabel.textContent = g.densityHz >= 1
-      ? `DENSITY ${Math.round(g.densityHz)}/s`
-      : `DENSITY ${Math.round(g.densityHz * 60)}/min`;
+    if (densLabel) {
+      if (g.densitySyncEnabled) {
+        densLabel.textContent = `DENSITY · sync`;
+      } else {
+        densLabel.textContent = g.densityHz >= 1
+          ? `DENSITY ${Math.round(g.densityHz)}/s`
+          : `DENSITY ${Math.round(g.densityHz * 60)}/min`;
+      }
+    }
+    // v1: reflect sync state into the dropdown + hide slider when synced.
+    const syncSelect = root.querySelector('[data-role="grain-density-sync"]');
+    if (syncSelect) {
+      const wantVal = g.densitySyncEnabled
+        ? (g.densityDenomination || "sixteenth")
+        : "free";
+      if (syncSelect.value !== wantVal) syncSelect.value = wantVal;
+    }
+    if (densSlider) {
+      densSlider.style.display = g.densitySyncEnabled ? "none" : "";
+    }
     // Jitter (linear)
     const jitSlider = root.querySelector('[data-role="grain-jitter"]');
     if (jitSlider) {

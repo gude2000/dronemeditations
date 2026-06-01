@@ -63,13 +63,57 @@ const defaultFM = () => ({
   sourceIndex: -1,  // -1 = off; otherwise 0..3 (must differ from carrier index)
   index: 0          // 0 – 800 Hz, log; 0 = no modulation
 });
-// Granular synth defaults. Only audible when waveform === "granular".
+// Granular synth defaults. Only audible when waveform === "granular"
+// or sampleGranular === true on a sample voice.
 const defaultGrain  = () => ({
   sizeMs: 80,        // 5..500 ms (log slider)
-  densityHz: 8,      // 0.5..50 grains/sec (log slider)
+  densityHz: 8,      // 0.5..50 grains/sec (log slider, used when sync off)
   jitter: 0.6,       // 0..1 — randomizes inter-grain timing
-  panSpread: 0.5     // 0..1 — random per-grain stereo placement
+  panSpread: 0.5,    // 0..1 — random per-grain stereo placement
+  // v1 BPM sync. When true the engine reads from BPM × denomination
+  // instead of densityHz. Mirrors the iOS GrainState fields.
+  densitySyncEnabled: false,
+  densityDenomination: "sixteenth"   // "half" .. "thirtySecondT"
 });
+// v1: musical subdivisions for BPM-synced grain density. Beat counts
+// match iOS GrainDenomination.beats so the two platforms compute
+// identical effective Hz from the same BPM.
+const GRAIN_DENOMS = [
+  { id: "half",          label: "1/2",   beats: 2.0 },
+  { id: "quarter",       label: "1/4",   beats: 1.0 },
+  { id: "quarterT",      label: "1/4T",  beats: 2.0 / 3.0 },
+  { id: "eighth",        label: "1/8",   beats: 0.5 },
+  { id: "eighthT",       label: "1/8T",  beats: 1.0 / 3.0 },
+  { id: "sixteenth",     label: "1/16",  beats: 0.25 },
+  { id: "sixteenthT",    label: "1/16T", beats: 1.0 / 6.0 },
+  { id: "thirtySecond",  label: "1/32",  beats: 0.125 },
+  { id: "thirtySecondT", label: "1/32T", beats: 1.0 / 12.0 }
+];
+function grainDenomBeats(id) {
+  const d = GRAIN_DENOMS.find((x) => x.id === id);
+  return d ? d.beats : 0.25;
+}
+function grainSyncHz(bpm, id) {
+  return 1.0 / Math.max(1e-4, grainDenomBeats(id) * 60 / Math.max(1, bpm));
+}
+
+/// v1: route a voice's grain density to the engine, picking BPM-synced
+/// or free Hz based on the per-voice grain.densitySyncEnabled flag.
+/// Called from every entry point that can change the effective rate
+/// (slider drag, sync toggle, denomination pick, BPM change,
+/// preset load). Keeps the audio engine path identical to before —
+/// the engine still consumes a Hz value.
+function pushEffectiveGrainDensity(oscIndex) {
+  const o = state.oscillators[oscIndex];
+  if (!o || !o.grain) return;
+  let hz;
+  if (o.grain.densitySyncEnabled) {
+    hz = grainSyncHz(state.bpm, o.grain.densityDenomination || "sixteenth");
+  } else {
+    hz = Math.max(0.5, Math.min(50, o.grain.densityHz || 8));
+  }
+  engine.setGrainDensity(oscIndex, hz);
+}
 
 const defaultDelay  = () => ({
   timeSec: 0.30,
@@ -369,7 +413,10 @@ const actions = {
         const gr = { ...defaultGrain(), ...v.grain };
         state.oscillators[i].grain = gr;
         engine.setGrainSize(i, gr.sizeMs);
-        engine.setGrainDensity(i, gr.densityHz);
+        // v1: sync-aware density push — honors the preset's
+        // densitySyncEnabled / densityDenomination if present, otherwise
+        // falls back to the raw densityHz (same as before).
+        pushEffectiveGrainDensity(i);
         engine.setGrainJitter(i, gr.jitter);
         engine.setGrainPanSpread(i, gr.panSpread);
       }
@@ -742,7 +789,21 @@ const actions = {
     const clamped = Math.max(0.5, Math.min(50, hz));
     if (!state.oscillators[oscIndex].grain) state.oscillators[oscIndex].grain = defaultGrain();
     state.oscillators[oscIndex].grain.densityHz = clamped;
-    engine.setGrainDensity(oscIndex, clamped);
+    pushEffectiveGrainDensity(oscIndex);
+    renderAll();
+  },
+  setGrainDensitySync(oscIndex, on) {
+    if (!state.oscillators[oscIndex].grain) state.oscillators[oscIndex].grain = defaultGrain();
+    state.oscillators[oscIndex].grain.densitySyncEnabled = !!on;
+    pushEffectiveGrainDensity(oscIndex);
+    renderAll();
+  },
+  setGrainDensityDenomination(oscIndex, denomId) {
+    if (!state.oscillators[oscIndex].grain) state.oscillators[oscIndex].grain = defaultGrain();
+    state.oscillators[oscIndex].grain.densityDenomination = denomId;
+    if (state.oscillators[oscIndex].grain.densitySyncEnabled) {
+      pushEffectiveGrainDensity(oscIndex);
+    }
     renderAll();
   },
   setGrainJitter(oscIndex, j) {
@@ -1091,6 +1152,11 @@ const actions = {
         state.oscillators[i].delay.timeSec = sec;
         engine.setDelayTime(i, sec);
       }
+      // v1: BPM-synced grain density. When sync is on, the effective
+      // Hz depends on BPM × denomination — recompute and push.
+      if (state.oscillators[i].grain && state.oscillators[i].grain.densitySyncEnabled) {
+        pushEffectiveGrainDensity(i);
+      }
     }
     renderAll();
   },
@@ -1321,6 +1387,16 @@ const actions = {
       // toggling Grainy on then saving lost the state.
       if (o.grain) {
         actions.setGrainSize(i, o.grain.sizeMs);
+        // v1: restore BPM-sync fields BEFORE density so the density
+        // setter routes through the right path. When sync is on, the
+        // raw densityHz from the preset becomes the "free fallback"
+        // value — the engine reads BPM × denomination instead.
+        if (o.grain.densityDenomination != null) {
+          actions.setGrainDensityDenomination(i, o.grain.densityDenomination);
+        }
+        if (o.grain.densitySyncEnabled != null) {
+          actions.setGrainDensitySync(i, !!o.grain.densitySyncEnabled);
+        }
         actions.setGrainDensity(i, o.grain.densityHz);
         actions.setGrainJitter(i, o.grain.jitter);
         actions.setGrainPanSpread(i, o.grain.panSpread);

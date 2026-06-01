@@ -448,7 +448,45 @@ final class DroneViewModel: ObservableObject {
         guard oscillators.indices.contains(index) else { return }
         let clamped = max(GrainState.densityMin, min(GrainState.densityMax, hz))
         oscillators[index].grain.densityHz = clamped
-        audioEngine.setGrainDensity(clamped, for: index)
+        // v1: when sync is on, the engine's effective Hz comes from
+        // BPM × denomination, not the raw slider value. Don't push the
+        // slider's Hz directly — pushEffectiveGrainDensity reads the
+        // resolved value (sync or free) and pushes that.
+        pushEffectiveGrainDensity(for: index)
+    }
+    /// v1 BPM-synced grain density. When sync is on, the engine reads
+    /// from BPM × denomination; when off, from the raw `densityHz`
+    /// slider value. Pushing through a single helper keeps the audio
+    /// engine path unchanged (still consumes a Hz value) regardless
+    /// of which mode the UI is in.
+    func setGrainDensitySync(_ on: Bool, for index: Int) {
+        guard oscillators.indices.contains(index) else { return }
+        oscillators[index].grain.densitySyncEnabled = on
+        pushEffectiveGrainDensity(for: index)
+    }
+    func setGrainDensityDenomination(_ d: GrainDenomination, for index: Int) {
+        guard oscillators.indices.contains(index) else { return }
+        oscillators[index].grain.densityDenomination = d
+        if oscillators[index].grain.resolvedSyncEnabled {
+            pushEffectiveGrainDensity(for: index)
+        }
+    }
+    /// Compute the effective grain trigger Hz from the voice's grain
+    /// settings + current BPM and push to the audio engine. When sync
+    /// is off this is just the slider value clamped; when on it's the
+    /// BPM × denomination conversion. Called from every entry point
+    /// that can change the effective rate (slider drag, sync toggle,
+    /// denomination pick, BPM change).
+    private func pushEffectiveGrainDensity(for index: Int) {
+        guard oscillators.indices.contains(index) else { return }
+        let g = oscillators[index].grain
+        let hz: Double
+        if g.resolvedSyncEnabled {
+            hz = g.resolvedDenomination.hz(bpm: bpm)
+        } else {
+            hz = max(GrainState.densityMin, min(GrainState.densityMax, g.densityHz))
+        }
+        audioEngine.setGrainDensity(hz, for: index)
     }
     func setGrainJitter(_ j: Double, for index: Int) {
         guard oscillators.indices.contains(index) else { return }
@@ -588,6 +626,12 @@ final class DroneViewModel: ObservableObject {
             let timing = oscillators[i].delay.timing
             if let sec = timing.seconds(bpm: clamped) {
                 setDelayTime(sec, for: i)
+            }
+            // v1: BPM-synced grain density. When sync is on, the
+            // effective Hz depends on BPM × denomination — recompute
+            // and push to the engine alongside the delay-sync recompute.
+            if oscillators[i].grain.resolvedSyncEnabled {
+                pushEffectiveGrainDensity(for: i)
             }
         }
     }
@@ -813,7 +857,10 @@ final class DroneViewModel: ObservableObject {
             if let gr = v.grain {
                 oscillators[i].grain = gr
                 audioEngine.setGrainSize(gr.sizeMs, for: i)
-                audioEngine.setGrainDensity(gr.densityHz, for: i)
+                // v1: route density through the effective-rate path so a
+                // preset that saved sync=on with denomination=1/8 lands
+                // at BPM × 1/8 instead of the raw densityHz slider value.
+                pushEffectiveGrainDensity(for: i)
                 audioEngine.setGrainJitter(gr.jitter, for: i)
                 audioEngine.setGrainPanSpread(gr.panSpread, for: i)
             }
@@ -1018,6 +1065,16 @@ final class DroneViewModel: ObservableObject {
         case .pitch:     audioEngine.setFrequency(o.frequencyHz, for: index)
         case .filterQ:   audioEngine.setFilterQ(o.filter.q, for: index)
         case .fmIndex:   audioEngine.setFMIndex(o.fm.index, for: index)
+        case .fxMix:
+            // v1 FX Mix macro restore. The LFO bias is added on top of
+            // the user's slider values inside Voice.swift's per-buffer
+            // render, so removing the .fxMix target leaves no stuck
+            // modulation — we just re-push the original FX mixes so the
+            // engine's internal slewed values converge back to the
+            // user's settings if the bias had nudged them mid-fade.
+            audioEngine.setReverbMix(o.reverb.mix, for: index)
+            audioEngine.setDelayMix(o.delay.mix, for: index)
+            audioEngine.setChorusMix(o.chorus.mix, for: index)
         }
     }
 
@@ -1183,7 +1240,9 @@ final class DroneViewModel: ObservableObject {
             if let gr = voice.grain {
                 oscillators[i].grain = gr
                 audioEngine.setGrainSize(gr.sizeMs, for: i)
-                audioEngine.setGrainDensity(gr.densityHz, for: i)
+                // v1: see comment at the loadUserPreset twin block —
+                // sync-aware effective density push.
+                pushEffectiveGrainDensity(for: i)
                 audioEngine.setGrainJitter(gr.jitter, for: i)
                 audioEngine.setGrainPanSpread(gr.panSpread, for: i)
             }
@@ -1327,7 +1386,9 @@ final class DroneViewModel: ObservableObject {
         audioEngine.setDelayFeedback(v.delay.feedback, for: index)
         audioEngine.setDelayMix(v.delay.mix, for: index)
         audioEngine.setGrainSize(loadedGrain.sizeMs, for: index)
-        audioEngine.setGrainDensity(loadedGrain.densityHz, for: index)
+        // v1: route through the effective-rate helper so a per-voice
+        // preset that saved sync=on lands at BPM × denomination.
+        pushEffectiveGrainDensity(for: index)
         audioEngine.setGrainJitter(loadedGrain.jitter, for: index)
         audioEngine.setGrainPanSpread(loadedGrain.panSpread, for: index)
         for (i, lfo) in v.lfos.enumerated() {
@@ -1931,7 +1992,8 @@ final class DroneViewModel: ObservableObject {
         audioEngine.setFMSource(o.fm.sourceIndex, for: index)
         audioEngine.setFMIndex(o.fm.index, for: index)
         audioEngine.setGrainSize(o.grain.sizeMs, for: index)
-        audioEngine.setGrainDensity(o.grain.densityHz, for: index)
+        // v1: sync-aware grain density push.
+        pushEffectiveGrainDensity(for: index)
         audioEngine.setGrainJitter(o.grain.jitter, for: index)
         audioEngine.setGrainPanSpread(o.grain.panSpread, for: index)
         for k in 0..<o.lfos.count {

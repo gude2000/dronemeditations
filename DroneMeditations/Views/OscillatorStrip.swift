@@ -515,21 +515,70 @@ struct OscillatorStrip: View {
                 .tint(Color(red: 0.72, green: 0.86, blue: 1.0))
             }
 
-            // Density slider (log scale)
+            // Density — Free (slider, Hz) or Sync (denomination
+            // picker locked to project BPM). v1: a compact Menu that
+            // always shows the current mode and lets the user switch
+            // between Free and any musical subdivision in one tap.
             VStack(alignment: .leading, spacing: 2) {
-                Text("density · \(formatDensity(g.densityHz))")
-                    .font(.system(size: isPad ? 13 : 10, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-                Slider(value: Binding(
-                    get: { densT },
-                    set: { t in
-                        let hz = GrainState.densityMin *
-                                 pow(GrainState.densityMax / GrainState.densityMin, t)
-                        vm.setGrainDensity(hz, for: index)
+                HStack(spacing: 6) {
+                    Text(g.resolvedSyncEnabled ? "density · sync" : "density")
+                        .font(.system(size: isPad ? 13 : 10, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
+                    Menu {
+                        Button {
+                            vm.setGrainDensitySync(false, for: index)
+                        } label: {
+                            Label("Free (Hz)", systemImage: g.resolvedSyncEnabled ? "" : "checkmark")
+                        }
+                        Divider()
+                        ForEach(GrainDenomination.allCases) { d in
+                            Button {
+                                vm.setGrainDensitySync(true, for: index)
+                                vm.setGrainDensityDenomination(d, for: index)
+                            } label: {
+                                Label(
+                                    d.label,
+                                    systemImage: (g.resolvedSyncEnabled && g.resolvedDenomination == d)
+                                        ? "checkmark" : ""
+                                )
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 2) {
+                            Text(g.resolvedSyncEnabled
+                                 ? g.resolvedDenomination.label
+                                 : formatDensity(g.densityHz))
+                                .font(.system(size: isPad ? 12 : 10, weight: .bold))
+                                .monospacedDigit()
+                                .foregroundStyle(Color(red: 0.72, green: 0.86, blue: 1.0))
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: isPad ? 9 : 7, weight: .semibold))
+                                .foregroundStyle(Color(red: 0.72, green: 0.86, blue: 1.0).opacity(0.7))
+                        }
                     }
-                ), in: 0...1)
-                .tint(Color(red: 0.72, green: 0.86, blue: 1.0))
+                }
+                // Slider only when Free. In Sync mode the rate is
+                // computed from BPM × denomination — exposing a slider
+                // there would be misleading (it would set densityHz
+                // but the engine wouldn't honor it).
+                if !g.resolvedSyncEnabled {
+                    Slider(value: Binding(
+                        get: { densT },
+                        set: { t in
+                            let hz = GrainState.densityMin *
+                                     pow(GrainState.densityMax / GrainState.densityMin, t)
+                            vm.setGrainDensity(hz, for: index)
+                        }
+                    ), in: 0...1)
+                    .tint(Color(red: 0.72, green: 0.86, blue: 1.0))
+                } else {
+                    // Spacer to keep the row's height consistent with
+                    // free mode so the strip layout doesn't jump.
+                    Rectangle()
+                        .fill(Color.clear)
+                        .frame(height: isPad ? 24 : 20)
+                }
             }
 
             // Jitter slider (linear 0..1)

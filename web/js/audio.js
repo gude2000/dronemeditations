@@ -790,8 +790,9 @@ export class AudioEngine {
     let pitchSemitones = 0;  // additive semitones of pitch modulation
     let qOct = 0;            // additive octaves of filter Q modulation (v1.1)
     let fmIndexMod = 0;      // additive Hz of FM index modulation (v1.1)
+    let fxMixMod = 0;        // v1 FX Mix macro — bias for reverb+delay+chorus mixes
     let anyPan = false, anyAmp = false, anyCutoff = false, anyPitch = false;
-    let anyQ = false, anyFm = false;
+    let anyQ = false, anyFm = false, anyFxMix = false;
 
     for (let k = 0; k < 4; k++) {
       const lfo = v.params.lfos[k];
@@ -861,6 +862,13 @@ export class AudioEngine {
         } else if (target === "fm") {
           fmIndexMod += 200 * lfo.depth * lfoValue;
           anyFm = true;
+        } else if (target === "fxMix") {
+          // v1 FX Mix macro: ±0.5 bias on the wet bus (reverb + delay
+          // + chorus mixes together). Applied additively to each FX
+          // mix at its read site below, clamped 0..1. A "swell" macro
+          // — one LFO modulates the entire wet bus together.
+          fxMixMod += 0.5 * lfo.depth * lfoValue;
+          anyFxMix = true;
         }
       }
     }
@@ -954,6 +962,30 @@ export class AudioEngine {
         v.fmDepthGain.gain.setValueAtTime(v.fmDepthGain.gain.value, now);
         v.fmDepthGain.gain.linearRampToValueAtTime(fmEff, now + LFO_SMOOTH);
       }
+    }
+    // v1 FX Mix macro. Applies the per-buffer LFO bias to the wet bus
+    // nodes — reverb + chorus on web. (Delay's routing goes through
+    // _applyDelayMode and isn't a single gain node we can write to
+    // without re-running the router; documented gap, can be added
+    // later. The "swell" feel still reads with two of three wet
+    // effects moving together.)
+    //
+    // We always overwrite when anyFxMix was set this buffer OR was
+    // set the previous buffer — that way the turn-off transition
+    // re-writes the base value once, after which the regular slider-
+    // drag setters take over again.
+    if (anyFxMix || v._fxMixWasActive) {
+      const baseRev = v.params.reverb.mix || 0;
+      const baseCh = v.params.chorus.mix || 0;
+      const effRev = Math.max(0, Math.min(1, baseRev + fxMixMod));
+      const effCh = Math.max(0, Math.min(1, baseCh + fxMixMod));
+      v.reverbWet.gain.cancelScheduledValues(now);
+      v.reverbWet.gain.setValueAtTime(effRev, now);
+      v.chorusWetL.gain.cancelScheduledValues(now);
+      v.chorusWetL.gain.setValueAtTime(effCh, now);
+      v.chorusWetR.gain.cancelScheduledValues(now);
+      v.chorusWetR.gain.setValueAtTime(effCh, now);
+      v._fxMixWasActive = anyFxMix;
     }
   }
 
