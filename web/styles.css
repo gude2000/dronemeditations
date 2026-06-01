@@ -1029,6 +1029,13 @@ body.performance:hover { cursor: default; }
 .user-preset-delete:hover { background: rgba(224, 82, 74, 0.25); }
 .sheet-scroll {
   overflow-y: auto;
+  /* v1 fix: prevent wheel/touch events from bubbling to the page at
+     the scroll edge — felt like "the sheet won't scroll" on the
+     preset list (and on Journey / Morph sheets too, which share this
+     class). overscroll-behavior contains scroll chaining; the iOS
+     hint gives Safari's touch momentum a smoother feel. */
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   padding: 14px 18px 22px 18px;
   display: flex; flex-direction: column; gap: 18px;
   scrollbar-width: thin;
