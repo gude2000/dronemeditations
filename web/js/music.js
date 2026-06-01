@@ -1326,7 +1326,236 @@ export const PRESETS = [
           ],
           drift: { pitchMode: "static", panMode: "static", quantizeToScale: true } })
     ]
-  }
+  },
+
+  // ──────────────────────────────────────────────────────────
+  // Developer Patches — JG character explorations.
+  //
+  // These presets lean on the v1 per-voice timing envelope
+  // (start delay + play duration + Replay × N) and unusual
+  // scales / modes / tunings (Phrygian dominant, Lydian #4,
+  // Slendro-flavoured pentatonic, just-intonation 4:5:6,
+  // Locrian, quartertone clusters, Pythagorean fifths).
+  //
+  // The iOS counterparts auto-load bundled samples (Bansuri,
+  // Shakuhachi, Tide, Galactic-C2, scriabin-mystic-piano,
+  // etc.) and apply granular sampling. Web's built-in
+  // preset apply path doesn't yet honor bundled samples on
+  // built-ins, so these versions capture the *harmonic +
+  // envelope character* with synth voices + granular noise
+  // mode. Same scale / start-delay / replay shape, same
+  // envelope behavior at play-duration boundaries.
+  //
+  // Author retains the right to add more later. The four
+  // named JG presets (Ondulations, Dub Wave, Freedom Did Not
+  // Lose, Piano Repetition) live on iOS only at first — see
+  // JGPresets/README.md at the project root.
+  // ──────────────────────────────────────────────────────────
+
+  { id: "jg_tessellation", name: "JG Tessellation", category: "Developer Patches",
+    sub: "Indian-just shadja stack · granular tessellation",
+    voices: [
+      V({ hz: 246.94, pan: -0.4, wave: "granular", amp: 0.55,
+          startDelaySec: 0,  playDurationSec: 120, replayCount: 0,
+          filter: { type: "lowpass", cutoffHz: 4200, q: 0.5 },
+          reverb: { decaySec: 8.0, mix: 0.55 },
+          grain: { sizeMs: 180, densityHz: 16, jitter: 0.55, panSpread: 0.90 } }),
+      V({ hz: 261.63, pan: 0.4,  wave: "granular", amp: 0.48,
+          startDelaySec: 30, playDurationSec: 120, replayCount: 0,
+          filter: { type: "lowpass", cutoffHz: 4200, q: 0.5 },
+          reverb: { decaySec: 8.0, mix: 0.55 },
+          grain: { sizeMs: 240, densityHz: 11, jitter: 0.40, panSpread: 0.85 } }),
+      V({ hz: 123.47, pan: 0.0, wave: "sine", amp: 0.28,
+          reverb: { decaySec: 8.0, mix: 0.55 } }),
+      SILENT
+    ] },
+
+  { id: "jg_phrygian_procession", name: "JG Phrygian Procession", category: "Developer Patches",
+    sub: "E Phrygian dominant · sparse procession · Replay × 5",
+    voices: [
+      V({ hz: 164.81, pan: -0.5, wave: "granular", amp: 0.55,
+          startDelaySec: 0,  playDurationSec: 45, replayCount: 5,
+          filter: { type: "lowpass", cutoffHz: 3200, q: 0.7 },
+          reverb: { decaySec: 9.0, mix: 0.50 },
+          grain: { sizeMs: 350, densityHz: 5, jitter: 0.45, panSpread: 0.95 } }),
+      V({ hz: 174.61, pan: 0.5, wave: "sine", amp: 0.32,
+          startDelaySec: 15, playDurationSec: 50, replayCount: 5,
+          filter: { type: "lowpass", cutoffHz: 3200, q: 0.7 },
+          reverb: { decaySec: 9.0, mix: 0.50 } }),
+      V({ hz: 207.65, pan: -0.2, wave: "triangle", amp: 0.28,
+          startDelaySec: 30, playDurationSec: 40, replayCount: 5,
+          filter: { type: "lowpass", cutoffHz: 3200, q: 0.7 },
+          reverb: { decaySec: 9.0, mix: 0.50 } }),
+      V({ hz: 261.63, pan: 0.2, wave: "sine", amp: 0.24,
+          startDelaySec: 60, playDurationSec: 55, replayCount: 5,
+          filter: { type: "lowpass", cutoffHz: 3200, q: 0.7 },
+          reverb: { decaySec: 9.0, mix: 0.50 } })
+    ] },
+
+  { id: "jg_ocean_eigenstate", name: "JG Ocean Eigenstate", category: "Developer Patches",
+    sub: "Pythagorean 3:2 · ocean drift · Replay ∞",
+    voices: [
+      V({ hz: 110.00, pan: 0.0, wave: "sine", amp: 0.38,
+          startDelaySec: 0, playDurationSec: 240, replayCount: 0,
+          reverb: { decaySec: 7.0, mix: 0.55 } }),
+      V({ hz: 220.00, pan: -0.5, wave: "granular", amp: 0.48,
+          startDelaySec: 5, playDurationSec: 90, replayCount: 0,
+          filter: { type: "lowpass", cutoffHz: 2400, q: 0.4 },
+          reverb: { decaySec: 7.0, mix: 0.55 },
+          grain: { sizeMs: 220, densityHz: 8, jitter: 0.70, panSpread: 1.0 },
+          drift: { pitchMode: "ocean", pitchAmount: 0.8, panMode: "pendulum", panAmount: 0.5 } }),
+      V({ hz: 165.00, pan: 0.5, wave: "granular", amp: 0.42,
+          startDelaySec: 25, playDurationSec: 110, replayCount: 0,
+          filter: { type: "lowpass", cutoffHz: 2400, q: 0.4 },
+          reverb: { decaySec: 7.0, mix: 0.55 },
+          grain: { sizeMs: 320, densityHz: 4, jitter: 0.60, panSpread: 0.85 },
+          drift: { pitchMode: "ocean", pitchAmount: 1.0, panMode: "static" } }),
+      SILENT
+    ] },
+
+  { id: "jg_lydian_bloom2", name: "JG Lydian Bloom 2", category: "Developer Patches",
+    sub: "Lydian #4 · randomized granular bloom · Replay × 4",
+    voices: [
+      V({ hz: 261.63, pan: -0.4, wave: "granular", amp: 0.50,
+          startDelaySec: 0, playDurationSec: 60, replayCount: 4,
+          filter: { type: "lowpass", cutoffHz: 4800, q: 0.5 },
+          reverb: { decaySec: 9.0, mix: 0.55 },
+          grain: { sizeMs: 200, densityHz: 12, jitter: 0.65, panSpread: 0.95 } }),
+      V({ hz: 369.99, pan: 0.4, wave: "sine", amp: 0.34,
+          startDelaySec: 20, playDurationSec: 60, replayCount: 4,
+          filter: { type: "lowpass", cutoffHz: 4800, q: 0.5 },
+          reverb: { decaySec: 9.0, mix: 0.55 } }),
+      V({ hz: 65.41, pan: 0.0, wave: "sawtooth", amp: 0.34,
+          startDelaySec: 0, playDurationSec: 240, replayCount: 0,
+          filter: { type: "lowpass", cutoffHz: 1200, q: 0.6 },
+          reverb: { decaySec: 7.0, mix: 0.40 } }),
+      V({ hz: 440.00, pan: 0.0, wave: "triangle", amp: 0.22,
+          startDelaySec: 40, playDurationSec: 60, replayCount: 4,
+          filter: { type: "lowpass", cutoffHz: 4800, q: 0.5 },
+          reverb: { decaySec: 9.0, mix: 0.55 } })
+    ] },
+
+  { id: "jg_gamelan_spiral", name: "JG Gamelan Spiral", category: "Developer Patches",
+    sub: "Slendro pentatonic · gamelan polyrhythm via mismatched replay",
+    voices: [
+      V({ hz: 110.00, pan: 0.0, wave: "granular", amp: 0.42,
+          startDelaySec: 0, playDurationSec: 180, replayCount: 0,
+          filter: { type: "lowpass", cutoffHz: 3800, q: 0.6 },
+          reverb: { decaySec: 7.0, mix: 0.50 },
+          grain: { sizeMs: 280, densityHz: 6, jitter: 0.50, panSpread: 0.90 } }),
+      V({ hz: 126.43, pan: -0.5, wave: "triangle", amp: 0.30,
+          startDelaySec: 12, playDurationSec: 22, replayCount: 0,
+          filter: { type: "lowpass", cutoffHz: 3800, q: 0.6 },
+          reverb: { decaySec: 7.0, mix: 0.50 } }),
+      V({ hz: 144.61, pan: 0.5,  wave: "sine", amp: 0.28,
+          startDelaySec: 18, playDurationSec: 31, replayCount: 0,
+          filter: { type: "lowpass", cutoffHz: 3800, q: 0.6 },
+          reverb: { decaySec: 7.0, mix: 0.50 } }),
+      V({ hz: 261.63, pan: 0.2, wave: "granular", amp: 0.45,
+          startDelaySec: 8, playDurationSec: 45, replayCount: 0,
+          filter: { type: "lowpass", cutoffHz: 3800, q: 0.6 },
+          reverb: { decaySec: 7.0, mix: 0.50 },
+          grain: { sizeMs: 160, densityHz: 14, jitter: 0.40, panSpread: 0.95 } })
+    ] },
+
+  { id: "jg_mystic_wash", name: "JG Mystic Wash", category: "Developer Patches",
+    sub: "Scriabin mystic · Basinski-style granular cloud · Replay × 3",
+    voices: [
+      V({ hz: 261.63, pan: -0.4, wave: "granular", amp: 0.52,
+          startDelaySec: 0, playDurationSec: 90, replayCount: 3,
+          filter: { type: "lowpass", cutoffHz: 3600, q: 0.5 },
+          reverb: { decaySec: 10.0, mix: 0.60 },
+          grain: { sizeMs: 280, densityHz: 7, jitter: 0.90, panSpread: 1.0 } }),
+      V({ hz: 369.99, pan: 0.4, wave: "sine", amp: 0.28,
+          startDelaySec: 15, playDurationSec: 90, replayCount: 3,
+          filter: { type: "lowpass", cutoffHz: 3600, q: 0.5 },
+          reverb: { decaySec: 10.0, mix: 0.60 } }),
+      V({ hz: 130.81, pan: 0.0, wave: "sine", amp: 0.32,
+          startDelaySec: 0, playDurationSec: 240, replayCount: 0,
+          filter: { type: "lowpass", cutoffHz: 3600, q: 0.5 },
+          reverb: { decaySec: 10.0, mix: 0.60 } }),
+      SILENT
+    ] },
+
+  { id: "jg_storm_mantra", name: "JG Storm Mantra", category: "Developer Patches",
+    sub: "A Aeolian stack · ebb-and-flow envelope · Replay ∞",
+    voices: [
+      V({ hz: 220.00, pan: -0.6, wave: "granular", amp: 0.50,
+          startDelaySec: 0, playDurationSec: 80, replayCount: 0,
+          filter: { type: "lowpass", cutoffHz: 2200, q: 0.4 },
+          reverb: { decaySec: 8.0, mix: 0.45 },
+          grain: { sizeMs: 200, densityHz: 18, jitter: 0.60, panSpread: 1.0 } }),
+      V({ hz: 261.63, pan: 0.6,  wave: "granular", amp: 0.40,
+          startDelaySec: 30, playDurationSec: 100, replayCount: 0,
+          filter: { type: "lowpass", cutoffHz: 2200, q: 0.4 },
+          reverb: { decaySec: 8.0, mix: 0.45 },
+          grain: { sizeMs: 300, densityHz: 6, jitter: 0.55, panSpread: 0.95 } }),
+      V({ hz: 329.63, pan: -0.2, wave: "sine", amp: 0.26,
+          startDelaySec: 50, playDurationSec: 60, replayCount: 0,
+          filter: { type: "lowpass", cutoffHz: 2200, q: 0.4 },
+          reverb: { decaySec: 8.0, mix: 0.45 } }),
+      V({ hz: 110.00, pan: 0.0, wave: "sine", amp: 0.32,
+          reverb: { decaySec: 8.0, mix: 0.45 } })
+    ] },
+
+  { id: "jg_microtonal_pulse", name: "JG Microtonal Pulse", category: "Developer Patches",
+    sub: "1/4-tone cluster · dense small-grain pulse",
+    voices: [
+      V({ hz: 220.0, pan: -0.6, wave: "granular", amp: 0.42,
+          startDelaySec: 0, playDurationSec: 60, replayCount: 0,
+          filter: { type: "lowpass", cutoffHz: 3000, q: 0.6 },
+          reverb: { decaySec: 6.0, mix: 0.45 },
+          grain: { sizeMs: 60, densityHz: 28, jitter: 0.25, panSpread: 0.90 } }),
+      V({ hz: 226.7, pan: -0.2, wave: "sine", amp: 0.28,
+          reverb: { decaySec: 6.0, mix: 0.45 } }),
+      V({ hz: 233.5, pan: 0.2,  wave: "sine", amp: 0.28,
+          reverb: { decaySec: 6.0, mix: 0.45 } }),
+      V({ hz: 240.5, pan: 0.6,  wave: "triangle", amp: 0.26,
+          reverb: { decaySec: 6.0, mix: 0.45 } })
+    ] },
+
+  { id: "jg_pearl_bloom", name: "JG Pearl Bloom", category: "Developer Patches",
+    sub: "Just-intonation 4:5:6 · long-grain pearl · Replay × 3",
+    voices: [
+      V({ hz: 65.41,  pan: 0.0,  wave: "granular", amp: 0.45,
+          startDelaySec: 0, playDurationSec: 90, replayCount: 3,
+          filter: { type: "lowpass", cutoffHz: 4000, q: 0.4 },
+          reverb: { decaySec: 10.0, mix: 0.55 },
+          grain: { sizeMs: 400, densityHz: 3, jitter: 0.55, panSpread: 1.0 } }),
+      V({ hz: 81.76,  pan: -0.5, wave: "sine", amp: 0.30,
+          startDelaySec: 12, playDurationSec: 90, replayCount: 3,
+          reverb: { decaySec: 10.0, mix: 0.55 } }),
+      V({ hz: 98.12,  pan: 0.5,  wave: "sine", amp: 0.30,
+          startDelaySec: 24, playDurationSec: 90, replayCount: 3,
+          reverb: { decaySec: 10.0, mix: 0.55 } }),
+      V({ hz: 163.52, pan: 0.0,  wave: "triangle", amp: 0.22,
+          startDelaySec: 36, playDurationSec: 90, replayCount: 3,
+          filter: { type: "lowpass", cutoffHz: 4000, q: 0.4 },
+          reverb: { decaySec: 10.0, mix: 0.55 } })
+    ] },
+
+  { id: "jg_whispered_forest", name: "JG Whispered Forest", category: "Developer Patches",
+    sub: "C Locrian · sparse granular whisper · Replay ∞",
+    voices: [
+      V({ hz: 261.63, pan: -0.5, wave: "granular", amp: 0.46,
+          startDelaySec: 0, playDurationSec: 100, replayCount: 0,
+          filter: { type: "lowpass", cutoffHz: 3200, q: 0.5 },
+          reverb: { decaySec: 9.0, mix: 0.55 },
+          grain: { sizeMs: 250, densityHz: 4, jitter: 0.80, panSpread: 1.0 } }),
+      V({ hz: 277.18, pan: 0.5, wave: "sine", amp: 0.28,
+          startDelaySec: 25, playDurationSec: 80, replayCount: 0,
+          filter: { type: "lowpass", cutoffHz: 3200, q: 0.5 },
+          reverb: { decaySec: 9.0, mix: 0.55 } }),
+      V({ hz: 369.99, pan: 0.0, wave: "granular", amp: 0.40,
+          startDelaySec: 10, playDurationSec: 130, replayCount: 0,
+          filter: { type: "lowpass", cutoffHz: 3200, q: 0.5 },
+          reverb: { decaySec: 9.0, mix: 0.55 },
+          grain: { sizeMs: 320, densityHz: 5, jitter: 0.45, panSpread: 0.85 } }),
+      V({ hz: 466.16, pan: 0.0, wave: "triangle", amp: 0.20,
+          startDelaySec: 50, playDurationSec: 60, replayCount: 0,
+          filter: { type: "lowpass", cutoffHz: 3200, q: 0.5 },
+          reverb: { decaySec: 9.0, mix: 0.55 } })
+    ] }
 ];
 
 // ────────────────────────────────────────────────────────────

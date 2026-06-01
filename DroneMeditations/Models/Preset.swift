@@ -98,6 +98,7 @@ struct Preset: Identifiable, Hashable {
 
     enum Category: String, CaseIterable {
         case droneArtists = "Drone Artists"
+        case developerPatches = "Developer Patches"
         case binaural2 = "Binaural — 2 tone"
         case binaural3 = "Binaural — 3 tone"
         case binaural4 = "Binaural — 4 tone"
@@ -1501,6 +1502,333 @@ extension Preset {
                           startDelaySec: 120, playDurationSec: 240,
                           replayCount: 3,
                           filter: f, reverb: rev)      // B♭ (♭7)
+                   ]
+               }()),
+
+        // ─────────────────────────────────────────────────────────────
+        // MARK: Developer Patches — JG character explorations
+        //
+        // Author-curated patches that lean into the v1 sample-granular
+        // capabilities, the per-voice timing envelope (start delay +
+        // play duration + Replay × N for rhythmic / harmonic motion),
+        // and unusual scales / modes / tunings (Phrygian dominant,
+        // Lydian #4, Slendro-flavoured pentatonic, just-intonation
+        // triads, Pythagorean fifths, Locrian, quartertone clusters).
+        // Each preset auto-arrives with a working granular voice on a
+        // bundled sample so users get the full character on tap.
+        //
+        // Slot reserved at the top of this block for the four named
+        // JG presets (Ondulations, Dub Wave, Freedom Did Not Lose,
+        // Piano Repetition) — see JGPresets/README.md for the drop-in
+        // workflow. Author retains the right to add more later.
+        // ─────────────────────────────────────────────────────────────
+
+        // ── JG Tessellation ──
+        // Bansuri B2 chopped fine with high pos jitter so the sustain
+        // tessellates over itself; Shakuhachi enters at 30 s with its
+        // own grain stream. Indian-just shadja stack (1 · 5/4 · 3/2)
+        // anchors the harmony. Replay ∞ keeps the bowl rotating.
+        Preset("JG Tessellation", .developerPatches,
+               subtitle: "Bansuri × Shakuhachi · Indian-just · granular tessellation",
+               {
+                   let rev = ReverbState(decaySec: 8.0, mix: 0.55)
+                   let f   = FilterState(type: .lowpass, cutoffHz: 4200, q: 0.5)
+                   let g1  = GrainState(sizeMs: 180, densityHz: 16, jitter: 0.55, panSpread: 0.90)
+                   let g2  = GrainState(sizeMs: 240, densityHz: 11, jitter: 0.40, panSpread: 0.85)
+                   return [
+                    Voice(hz: 246.94, pan: -0.4, wave: .sample, amp: 0.55,
+                          startDelaySec: 0,  playDurationSec: 120, replayCount: 0,
+                          filter: f, reverb: rev, grain: g1,
+                          bundledSampleName: "Bansuri B2",
+                          sampleGranular: true,
+                          grainSamplePosFrac: 0.42, grainSamplePosJitter: 0.65),
+                    Voice(hz: 261.63, pan: 0.4,  wave: .sample, amp: 0.48,
+                          startDelaySec: 30, playDurationSec: 120, replayCount: 0,
+                          filter: f, reverb: rev, grain: g2,
+                          bundledSampleName: "Shakuhachi Chant 1 C4",
+                          sampleGranular: true,
+                          grainSamplePosFrac: 0.55, grainSamplePosJitter: 0.50),
+                    Voice(hz: 123.47, pan: 0.0, wave: .sine, amp: 0.28, reverb: rev), // root 5th below
+                    silent
+                   ]
+               }()),
+
+        // ── JG Phrygian Procession ──
+        // E Phrygian dominant (E F G# A B C D). Granular JG Chords 1 in
+        // slow large-grain mode = sparse mid-eastern processional. Replay
+        // × 5 with mismatched play durations = harmonic motion as voices
+        // ebb in and out.
+        Preset("JG Phrygian Procession", .developerPatches,
+               subtitle: "Phrygian dominant · sparse granular procession · Replay × 5",
+               {
+                   let rev = ReverbState(decaySec: 9.0, mix: 0.50)
+                   let f   = FilterState(type: .lowpass, cutoffHz: 3200, q: 0.7)
+                   let gSparse = GrainState(sizeMs: 350, densityHz: 5, jitter: 0.45, panSpread: 0.95)
+                   return [
+                    Voice(hz: 164.81, pan: -0.5, wave: .sample, amp: 0.55,        // E3
+                          startDelaySec: 0,  playDurationSec: 45, replayCount: 5,
+                          filter: f, reverb: rev, grain: gSparse,
+                          bundledSampleName: "JG Chords 1",
+                          sampleGranular: true,
+                          grainSamplePosFrac: 0.30, grainSamplePosJitter: 0.40),
+                    Voice(hz: 174.61, pan: 0.5, wave: .sine, amp: 0.32,           // F3 (♭2)
+                          startDelaySec: 15, playDurationSec: 50, replayCount: 5,
+                          filter: f, reverb: rev),
+                    Voice(hz: 207.65, pan: -0.2, wave: .triangle, amp: 0.28,      // G#3 (♮3)
+                          startDelaySec: 30, playDurationSec: 40, replayCount: 5,
+                          filter: f, reverb: rev),
+                    Voice(hz: 261.63, pan: 0.2, wave: .sine, amp: 0.24,           // C4 (♭6)
+                          startDelaySec: 60, playDurationSec: 55, replayCount: 5,
+                          filter: f, reverb: rev)
+                   ]
+               }()),
+
+        // ── JG Ocean Eigenstate ──
+        // Tide granular + Calm Sea sub-pad + sine root: Pythagorean
+        // 3:2 fifths above the root, ocean drift on pitch keeps the
+        // whole thing breathing. Replay ∞.
+        Preset("JG Ocean Eigenstate", .developerPatches,
+               subtitle: "Tide × Calm Sea granular · Pythagorean 3:2 · ocean drift",
+               {
+                   let rev = ReverbState(decaySec: 7.0, mix: 0.55)
+                   let f   = FilterState(type: .lowpass, cutoffHz: 2400, q: 0.4)
+                   let g1  = GrainState(sizeMs: 220, densityHz: 8, jitter: 0.70, panSpread: 1.0)
+                   let g2  = GrainState(sizeMs: 320, densityHz: 4, jitter: 0.60, panSpread: 0.85)
+                   let oceanA = DriftVoiceConfig(pitchMode: .ocean, pitchAmount: 0.8, pitchPhase: 0,
+                                                 panMode: .pendulum, panAmount: 0.5, panPhase: 0)
+                   let oceanB = DriftVoiceConfig(pitchMode: .ocean, pitchAmount: 1.0, pitchPhase: 0.5,
+                                                 panMode: .static, panAmount: 0, panPhase: 0)
+                   return [
+                    Voice(hz: 110.00, pan: 0.0, wave: .sine, amp: 0.38,
+                          startDelaySec: 0, playDurationSec: 240, replayCount: 0,
+                          reverb: rev),                                            // root
+                    Voice(hz: 220.00, pan: -0.5, wave: .sample, amp: 0.48,
+                          startDelaySec: 5, playDurationSec: 90, replayCount: 0,
+                          filter: f, reverb: rev, grain: g1,
+                          drift: oceanA,
+                          bundledSampleName: "Tide",
+                          sampleGranular: true,
+                          grainSamplePosFrac: 0.50, grainSamplePosJitter: 0.80),
+                    Voice(hz: 165.00, pan: 0.5, wave: .sample, amp: 0.42,          // 3:2 fifth
+                          startDelaySec: 25, playDurationSec: 110, replayCount: 0,
+                          filter: f, reverb: rev, grain: g2,
+                          drift: oceanB,
+                          bundledSampleName: "Calm Sea",
+                          sampleGranular: true,
+                          grainSamplePosFrac: 0.40, grainSamplePosJitter: 0.70),
+                    silent
+                   ]
+               }()),
+
+        // ── JG Lydian Bloom 2 ──
+        // C Lydian #4 (C D E F# G A B). Galactic-C2 cosmic bed below,
+        // JG Chords 2 granular bloom on top. High pos jitter for
+        // harmonic randomization. Replay × 4 with 60 s play duration.
+        Preset("JG Lydian Bloom 2", .developerPatches,
+               subtitle: "Lydian · cosmic bed · randomized granular bloom · Replay × 4",
+               {
+                   let rev = ReverbState(decaySec: 9.0, mix: 0.55)
+                   let revPad = ReverbState(decaySec: 7.0, mix: 0.40)
+                   let f   = FilterState(type: .lowpass, cutoffHz: 4800, q: 0.5)
+                   let g1  = GrainState(sizeMs: 200, densityHz: 12, jitter: 0.65, panSpread: 0.95)
+                   return [
+                    Voice(hz: 261.63, pan: -0.4, wave: .sample, amp: 0.50,         // C
+                          startDelaySec: 0, playDurationSec: 60, replayCount: 4,
+                          filter: f, reverb: rev, grain: g1,
+                          bundledSampleName: "JG Chords 2",
+                          sampleGranular: true,
+                          grainSamplePosFrac: 0.45, grainSamplePosJitter: 0.70),
+                    Voice(hz: 369.99, pan: 0.4, wave: .sine, amp: 0.34,            // F#4 (#4)
+                          startDelaySec: 20, playDurationSec: 60, replayCount: 4,
+                          filter: f, reverb: rev),
+                    Voice(hz: 65.41, pan: 0.0, wave: .sample, amp: 0.42,           // C2 sub
+                          startDelaySec: 0, playDurationSec: 240, replayCount: 0,
+                          filter: f, reverb: revPad,
+                          bundledSampleName: "Galactic-C2"),
+                    Voice(hz: 440.00, pan: 0.0, wave: .triangle, amp: 0.22,        // A4 (6th)
+                          startDelaySec: 40, playDurationSec: 60, replayCount: 4,
+                          filter: f, reverb: rev)
+                   ]
+               }()),
+
+        // ── JG Gamelan Spiral ──
+        // Slendro-flavoured ~5-tone pentatonic (~240 cents per step,
+        // approximated). Bagpipe Drone in slow granular mode + Bansuri
+        // C4 on top with mismatched replay durations so the voices
+        // form gamelan-like polyrhythms.
+        Preset("JG Gamelan Spiral", .developerPatches,
+               subtitle: "Slendro-flavoured pentatonic · gamelan polyrhythm via mismatched replay",
+               {
+                   let rev = ReverbState(decaySec: 7.0, mix: 0.50)
+                   let f   = FilterState(type: .lowpass, cutoffHz: 3800, q: 0.6)
+                   let gSlow  = GrainState(sizeMs: 280, densityHz: 6, jitter: 0.50, panSpread: 0.90)
+                   let gFast  = GrainState(sizeMs: 160, densityHz: 14, jitter: 0.40, panSpread: 0.95)
+                   return [
+                    Voice(hz: 110.00, pan: 0.0, wave: .sample, amp: 0.42,
+                          startDelaySec: 0, playDurationSec: 180, replayCount: 0,
+                          filter: f, reverb: rev, grain: gSlow,
+                          bundledSampleName: "Bagpipe Drone",
+                          sampleGranular: true,
+                          grainSamplePosFrac: 0.50, grainSamplePosJitter: 0.30),
+                    Voice(hz: 126.43, pan: -0.5, wave: .triangle, amp: 0.30,       // ≈240¢ above
+                          startDelaySec: 12, playDurationSec: 22, replayCount: 0,
+                          filter: f, reverb: rev),
+                    Voice(hz: 144.61, pan: 0.5,  wave: .sine, amp: 0.28,           // ≈480¢
+                          startDelaySec: 18, playDurationSec: 31, replayCount: 0,
+                          filter: f, reverb: rev),
+                    Voice(hz: 261.63, pan: 0.2, wave: .sample, amp: 0.45,
+                          startDelaySec: 8, playDurationSec: 45, replayCount: 0,
+                          filter: f, reverb: rev, grain: gFast,
+                          bundledSampleName: "Bansuri C4",
+                          sampleGranular: true,
+                          grainSamplePosFrac: 0.35, grainSamplePosJitter: 0.55)
+                   ]
+               }()),
+
+        // ── JG Mystic Wash ──
+        // Scriabin mystic chord (C–F#–B♭–E–A–D in spread voicing).
+        // Long granular piano grains low density high jitter =
+        // Basinski-style harmonic cloud. Sine pads at root + tritone.
+        Preset("JG Mystic Wash", .developerPatches,
+               subtitle: "Scriabin mystic · Basinski-style granular piano cloud",
+               {
+                   let rev = ReverbState(decaySec: 10.0, mix: 0.60)
+                   let f   = FilterState(type: .lowpass, cutoffHz: 3600, q: 0.5)
+                   let gCloud = GrainState(sizeMs: 280, densityHz: 7, jitter: 0.90, panSpread: 1.0)
+                   return [
+                    Voice(hz: 261.63, pan: -0.4, wave: .sample, amp: 0.52,         // C
+                          startDelaySec: 0, playDurationSec: 90, replayCount: 3,
+                          filter: f, reverb: rev, grain: gCloud,
+                          bundledSampleName: "scriabin-mystic-piano",
+                          sampleGranular: true,
+                          grainSamplePosFrac: 0.50, grainSamplePosJitter: 0.85),
+                    Voice(hz: 369.99, pan: 0.4, wave: .sine, amp: 0.28,            // F# (tritone)
+                          startDelaySec: 15, playDurationSec: 90, replayCount: 3,
+                          filter: f, reverb: rev),
+                    Voice(hz: 130.81, pan: 0.0, wave: .sine, amp: 0.32,            // root sub
+                          startDelaySec: 0, playDurationSec: 240, replayCount: 0,
+                          filter: f, reverb: rev),
+                    silent
+                   ]
+               }()),
+
+        // ── JG Storm Mantra ──
+        // Heavy Rain + Wind 1 granular = storm bed. Aeolian (A minor
+        // natural) ascending stack above. Replay ∞ with varied start
+        // delays so storm intensity ebbs/flows over a session.
+        Preset("JG Storm Mantra", .developerPatches,
+               subtitle: "Heavy Rain × Wind 1 granular · A Aeolian stack · ebb and flow",
+               {
+                   let rev = ReverbState(decaySec: 8.0, mix: 0.45)
+                   let f   = FilterState(type: .lowpass, cutoffHz: 2200, q: 0.4)
+                   let g1  = GrainState(sizeMs: 200, densityHz: 18, jitter: 0.60, panSpread: 1.0)
+                   let g2  = GrainState(sizeMs: 300, densityHz: 6,  jitter: 0.55, panSpread: 0.95)
+                   return [
+                    Voice(hz: 220.00, pan: -0.6, wave: .sample, amp: 0.50,         // A3
+                          startDelaySec: 0, playDurationSec: 80, replayCount: 0,
+                          filter: f, reverb: rev, grain: g1,
+                          bundledSampleName: "Heavy Rain",
+                          sampleGranular: true,
+                          grainSamplePosFrac: 0.45, grainSamplePosJitter: 0.65),
+                    Voice(hz: 261.63, pan: 0.6,  wave: .sample, amp: 0.40,         // C4 (♭3)
+                          startDelaySec: 30, playDurationSec: 100, replayCount: 0,
+                          filter: f, reverb: rev, grain: g2,
+                          bundledSampleName: "Wind 1",
+                          sampleGranular: true,
+                          grainSamplePosFrac: 0.55, grainSamplePosJitter: 0.70),
+                    Voice(hz: 329.63, pan: -0.2, wave: .sine, amp: 0.26,           // E4
+                          startDelaySec: 50, playDurationSec: 60, replayCount: 0,
+                          filter: f, reverb: rev),
+                    Voice(hz: 110.00, pan: 0.0, wave: .sine, amp: 0.32,            // A2 root
+                          reverb: rev)
+                   ]
+               }()),
+
+        // ── JG Microtonal Pulse ──
+        // 1/4-tone cluster around A3 (220 · 226.7 · 233.5 · 240.5 Hz).
+        // Dense small granular Clang and Drone = pulsing rhythmic
+        // grain texture. The microtonal cluster beats against itself.
+        Preset("JG Microtonal Pulse", .developerPatches,
+               subtitle: "Quartertone cluster · dense small-grain Clang · pulsing",
+               {
+                   let rev = ReverbState(decaySec: 6.0, mix: 0.45)
+                   let f   = FilterState(type: .lowpass, cutoffHz: 3000, q: 0.6)
+                   let gPulse = GrainState(sizeMs: 60, densityHz: 28, jitter: 0.25, panSpread: 0.90)
+                   return [
+                    Voice(hz: 220.0, pan: -0.6, wave: .sample, amp: 0.42,
+                          startDelaySec: 0, playDurationSec: 60, replayCount: 0,
+                          filter: f, reverb: rev, grain: gPulse,
+                          bundledSampleName: "Clang and Drone",
+                          sampleGranular: true,
+                          grainSamplePosFrac: 0.40, grainSamplePosJitter: 0.50),
+                    Voice(hz: 226.7, pan: -0.2, wave: .sine, amp: 0.28, reverb: rev),
+                    Voice(hz: 233.5, pan: 0.2,  wave: .sine, amp: 0.28, reverb: rev),
+                    Voice(hz: 240.5, pan: 0.6,  wave: .triangle, amp: 0.26, reverb: rev)
+                   ]
+               }()),
+
+        // ── JG Pearl Bloom ──
+        // Genesis Soundhread granular with very long grains (400 ms)
+        // and low density (3 Hz) = slow-pearl bloom. Just intonation
+        // major triad (4:5:6 ratios over C2 root). Replay × 3 with
+        // 90 s play duration, allowing each bloom to fully develop.
+        Preset("JG Pearl Bloom", .developerPatches,
+               subtitle: "Genesis Soundhread granular pearl · just-intonation 4:5:6 · Replay × 3",
+               {
+                   let rev = ReverbState(decaySec: 10.0, mix: 0.55)
+                   let f   = FilterState(type: .lowpass, cutoffHz: 4000, q: 0.4)
+                   let gPearl = GrainState(sizeMs: 400, densityHz: 3, jitter: 0.55, panSpread: 1.0)
+                   // Just intonation 4:5:6 over C2 (65.41) → C2, E2 just, G2 just
+                   return [
+                    Voice(hz: 65.41,  pan: 0.0,  wave: .sample, amp: 0.45,        // C2 (4)
+                          startDelaySec: 0, playDurationSec: 90, replayCount: 3,
+                          filter: f, reverb: rev, grain: gPearl,
+                          bundledSampleName: "Genesis Soundhread",
+                          sampleGranular: true,
+                          grainSamplePosFrac: 0.50, grainSamplePosJitter: 0.60),
+                    Voice(hz: 81.76,  pan: -0.5, wave: .sine, amp: 0.30,           // 5/4 just major third
+                          startDelaySec: 12, playDurationSec: 90, replayCount: 3,
+                          reverb: rev),
+                    Voice(hz: 98.12,  pan: 0.5,  wave: .sine, amp: 0.30,           // 3/2 just fifth
+                          startDelaySec: 24, playDurationSec: 90, replayCount: 3,
+                          reverb: rev),
+                    Voice(hz: 163.52, pan: 0.0,  wave: .triangle, amp: 0.22,       // C4 octave 4:5:6 → top
+                          startDelaySec: 36, playDurationSec: 90, replayCount: 3,
+                          filter: f, reverb: rev)
+                   ]
+               }()),
+
+        // ── JG Whispered Forest ──
+        // Sparse Night-forest-insects granular voice (treated like
+        // discrete pitch events at random positions) + Bansuri C4
+        // sustaining above. C Locrian (1 ♭2 ♭3 4 ♭5 ♭6 ♭7) = unstable,
+        // eerie. Replay ∞.
+        Preset("JG Whispered Forest", .developerPatches,
+               subtitle: "Night-forest granular · C Locrian · Bansuri whisper · Replay ∞",
+               {
+                   let rev = ReverbState(decaySec: 9.0, mix: 0.55)
+                   let f   = FilterState(type: .lowpass, cutoffHz: 3200, q: 0.5)
+                   let gSparse = GrainState(sizeMs: 250, densityHz: 4, jitter: 0.80, panSpread: 1.0)
+                   let gWhisper = GrainState(sizeMs: 320, densityHz: 5, jitter: 0.45, panSpread: 0.85)
+                   return [
+                    Voice(hz: 261.63, pan: -0.5, wave: .sample, amp: 0.46,         // C (root)
+                          startDelaySec: 0, playDurationSec: 100, replayCount: 0,
+                          filter: f, reverb: rev, grain: gSparse,
+                          bundledSampleName: "Night forest with insects",
+                          sampleGranular: true,
+                          grainSamplePosFrac: 0.50, grainSamplePosJitter: 0.90),
+                    Voice(hz: 277.18, pan: 0.5, wave: .sine, amp: 0.28,            // D♭ (♭2)
+                          startDelaySec: 25, playDurationSec: 80, replayCount: 0,
+                          filter: f, reverb: rev),
+                    Voice(hz: 369.99, pan: 0.0, wave: .sample, amp: 0.40,          // F# (♭5)
+                          startDelaySec: 10, playDurationSec: 130, replayCount: 0,
+                          filter: f, reverb: rev, grain: gWhisper,
+                          bundledSampleName: "Bansuri C4",
+                          sampleGranular: true,
+                          grainSamplePosFrac: 0.40, grainSamplePosJitter: 0.55),
+                    Voice(hz: 466.16, pan: 0.0, wave: .triangle, amp: 0.20,        // B♭ (♭7)
+                          startDelaySec: 50, playDurationSec: 60, replayCount: 0,
+                          filter: f, reverb: rev)
                    ]
                }())
     ]
