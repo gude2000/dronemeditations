@@ -46,6 +46,123 @@ def fmt(x, places=2):
         return f"{x:.{places}f}"
     return str(x)
 
+
+# JSON shape id → Swift LfoState.Shape enum case
+SHAPE_MAP = {
+    "sine":          "sine",
+    "triangle":      "triangle",
+    "square":        "square",
+    "sampleAndHold": "sampleAndHold",
+    "sh":            "sampleAndHold",      # web id
+    "sawtooth":      "sawtooth",
+    "ramp":          "ramp",
+}
+
+# JSON target id → Swift LfoState.Target enum case
+TARGET_MAP = {
+    "pan":       "pan",
+    "amp":       "amplitude",
+    "amplitude": "amplitude",
+    "cutoff":    "cutoff",
+    "pitch":     "pitch",
+    "q":         "filterQ",
+    "filterQ":   "filterQ",
+    "fm":        "fmIndex",
+    "fmIndex":   "fmIndex",
+    "fxMix":     "fxMix",
+}
+
+
+def lfo_lines(lfos, indent):
+    """Render the `lfos: [...]` argument. LFOs with depth ≈ 0 emit
+    as `nil` so the loaded preset doesn't disturb whatever
+    armed-but-silent LFOs the user has on the strip already.
+    Returns None if the whole array is nil (use Voice's default).
+    Indent is the column prefix for nested LfoState lines."""
+    if not lfos:
+        return None
+    rendered = []
+    any_real = False
+    for lfo in lfos:
+        if not isinstance(lfo, dict):
+            rendered.append("nil")
+            continue
+        depth = lfo.get("depth", 0) or 0
+        if depth < 0.001:
+            rendered.append("nil")
+            continue
+        any_real = True
+        shape_raw = lfo.get("shape") or "sine"
+        shape = SHAPE_MAP.get(shape_raw, "sine")
+        # Targets can be either ["pan", ...] (v1.1) or "pan" (legacy).
+        tlist = lfo.get("targets")
+        if tlist is None and lfo.get("target"):
+            tlist = [lfo.get("target")]
+        tlist = tlist or []
+        tswift = ", ".join(f".{TARGET_MAP.get(t, t)}" for t in tlist)
+        sync = lfo.get("rateSyncEnabled")
+        denom = lfo.get("rateDenomination")
+        parts = [
+            f"shape: .{shape}",
+            f"targets: [{tswift}]",
+            f"rateHz: {fmt(lfo.get('rateHz', 0.3))}",
+            f"depth: {fmt(depth)}",
+        ]
+        if sync:
+            parts.append("rateSyncEnabled: true")
+        if denom:
+            parts.append(f"rateDenomination: .{denom}")
+        # Multi-line LfoState — fits within Swift's 4 LFO slots cleanly.
+        sep = ",\n" + indent + "         "
+        rendered.append(f"LfoState({sep.join(parts)})")
+    if not any_real:
+        return None
+    joiner = ",\n" + indent + "    "
+    return "lfos: [\n" + indent + "    " + joiner.join(rendered) + "\n" + indent + "]"
+
+
+def drift_part(dr):
+    """Render the `drift: DriftVoiceConfig(...)` argument when the
+    voice's drift has any non-default field. Returns None if it's
+    pure defaults (no need to emit)."""
+    if not isinstance(dr, dict):
+        return None
+    pitch_mode = dr.get("pitchMode") or "static"
+    pan_mode = dr.get("panMode") or "static"
+    quant = bool(dr.get("quantizeToScale"))
+    p_amt = dr.get("pitchAmount")
+    p_ph  = dr.get("pitchPhase")
+    n_amt = dr.get("panAmount")
+    n_ph  = dr.get("panPhase")
+    p_semi = dr.get("pitchSemitones")
+    p_per  = dr.get("pitchPeriodSec")
+    # Default if every field is at its default value AND quantize off.
+    is_default = (pitch_mode == "static" and pan_mode == "static"
+                  and (p_amt is None or abs(p_amt - 1.0) < 1e-3)
+                  and (p_ph  is None or abs(p_ph) < 1e-3)
+                  and (n_amt is None or abs(n_amt - 1.0) < 1e-3)
+                  and (n_ph  is None or abs(n_ph) < 1e-3)
+                  and p_semi is None and p_per is None
+                  and not quant)
+    if is_default:
+        return None
+    fields = [f"pitchMode: .{pitch_mode}", f"panMode: .{pan_mode}"]
+    if p_amt is not None and abs(p_amt - 1.0) > 1e-3:
+        fields.append(f"pitchAmount: {fmt(p_amt)}")
+    if p_ph is not None and abs(p_ph) > 1e-3:
+        fields.append(f"pitchPhase: {fmt(p_ph)}")
+    if n_amt is not None and abs(n_amt - 1.0) > 1e-3:
+        fields.append(f"panAmount: {fmt(n_amt)}")
+    if n_ph is not None and abs(n_ph) > 1e-3:
+        fields.append(f"panPhase: {fmt(n_ph)}")
+    if p_semi is not None:
+        fields.append(f"pitchSemitones: {fmt(p_semi)}")
+    if p_per is not None:
+        fields.append(f"pitchPeriodSec: {fmt(p_per)}")
+    if quant:
+        fields.append("quantizeToScale: true")
+    return "drift: DriftVoiceConfig(" + ", ".join(fields) + ")"
+
 def voice_lines(idx, v):
     """Render one Voice(...) call. Only emit fields whose values differ
     from the Voice init default (or are required: hz / pan)."""
@@ -130,6 +247,19 @@ def voice_lines(idx, v):
     pj = v.get("grainSamplePosJitter")
     if pj is not None and abs(pj - 0.2) > 0.01:
         parts.append(f'grainSamplePosJitter: {fmt(pj)}')
+
+    # LFOs + drift. Indent here is the 4-space prefix for the inner
+    # rendering — Voice( has 4 + the outer call site's indentation,
+    # but since the eventual paste-in to Preset.swift adds its own
+    # 16-column indent on top, we just use a relative 4-space inner
+    # for readability and let the paste step handle outer alignment.
+    lfo_str = lfo_lines(v.get("lfos") or [], indent="")
+    if lfo_str:
+        parts.append(lfo_str)
+
+    dr_str = drift_part(v.get("drift") or {})
+    if dr_str:
+        parts.append(dr_str)
 
     return f"Voice(\n    {',\n    '.join(parts)}\n)"
 

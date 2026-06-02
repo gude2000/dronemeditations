@@ -18,7 +18,25 @@
                     grain: GrainState(sizeMs: 63, densityHz: 9.90, jitter: 0.54, panSpread: 0.77),
                     bundledSampleName: "JG Dub Wave",
                     grainSamplePosFrac: 0.69,
-                    grainSamplePosJitter: 0.15
+                    grainSamplePosJitter: 0.15,
+                    lfos: [
+                    LfoState(shape: .square,
+                         targets: [.pan],
+                         rateHz: 1.12,
+                         depth: 0.12),
+                    LfoState(shape: .sine,
+                         targets: [.pitch],
+                         rateHz: 0.03,
+                         depth: 0.39),
+                    LfoState(shape: .sine,
+                         targets: [.pan],
+                         rateHz: 1.26,
+                         depth: 0.47),
+                    LfoState(shape: .sampleAndHold,
+                         targets: [.pitch, .amplitude, .fmIndex],
+                         rateHz: 1.49,
+                         depth: 0.21)
+                ]
                 ),
                 Voice(
                     hz: 61.27,
@@ -28,7 +46,22 @@
                     drive: 1.38,
                     reverb: ReverbState(decaySec: 4.71, mix: 0.30),
                     delay: DelayState(timeSec: 0.30, feedback: 0.40, mix: 0.14),
-                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.21)
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.21),
+                    lfos: [
+                    LfoState(shape: .sine,
+                         targets: [.None, .pitch],
+                         rateHz: 0.47,
+                         depth: 0.10),
+                    LfoState(shape: .sampleAndHold,
+                         targets: [.None, .pitch],
+                         rateHz: 0.16,
+                         depth: 1),
+                    LfoState(shape: .sine,
+                         targets: [.None, .fmIndex],
+                         rateHz: 0.05,
+                         depth: 0.44),
+                    nil
+                ]
                 ),
                 Voice(
                     hz: 123.47,
@@ -42,7 +75,19 @@
                     reverb: ReverbState(decaySec: 4.75, mix: 0.49),
                     delay: DelayState(timeSec: 0.70, feedback: 0.67, mix: 0.66),
                     chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.19),
-                    bundledSampleName: "JG Dub Wave-2"
+                    bundledSampleName: "JG Dub Wave-2",
+                    lfos: [
+                    nil,
+                    LfoState(shape: .sampleAndHold,
+                         targets: [.None, .pitch],
+                         rateHz: 0.32,
+                         depth: 0.69),
+                    LfoState(shape: .sine,
+                         targets: [.None, .amplitude],
+                         rateHz: 0.04,
+                         depth: 0.48),
+                    nil
+                ]
                 ),
                 Voice(
                     hz: 138.59,
@@ -52,7 +97,19 @@
                     playDurationSec: 60,
                     replayCount: 5,
                     reverb: ReverbState(decaySec: 2, mix: 0.66),
-                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0)
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0),
+                    lfos: [
+                    LfoState(shape: .square,
+                         targets: [.None, .amplitude],
+                         rateHz: 1.53,
+                         depth: 0.46),
+                    LfoState(shape: .sampleAndHold,
+                         targets: [.None, .pitch],
+                         rateHz: 0.42,
+                         depth: 0.49),
+                    nil,
+                    nil
+                ]
                 )
                ]),
 
@@ -74,7 +131,22 @@
                     grain: GrainState(sizeMs: 487, densityHz: 6.38, jitter: 0.44, panSpread: 0.78),
                     bundledSampleName: "JG Dub Wave",
                     sampleGranular: true,
-                    grainSamplePosFrac: 0.70
+                    grainSamplePosFrac: 0.70,
+                    lfos: [
+                    nil,
+                    LfoState(shape: .sampleAndHold,
+                         targets: [.amplitude, .cutoff, .fmIndex],
+                         rateHz: 0.50,
+                         depth: 0.51),
+                    LfoState(shape: .sine,
+                         targets: [.cutoff, .pan],
+                         rateHz: 0.30,
+                         depth: 0.71),
+                    LfoState(shape: .sampleAndHold,
+                         targets: [.pitch],
+                         rateHz: 8.00,
+                         depth: 0.96)
+                ]
                 ),
                 Voice(
                     hz: 105.84,
@@ -85,7 +157,23 @@
                     playDurationSec: 180,
                     replayCount: 2,
                     delay: DelayState(timeSec: 0.30, feedback: 0.64, mix: 0.60),
-                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.07)
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.07),
+                    lfos: [
+                    LfoState(shape: .sine,
+                         targets: [.pan],
+                         rateHz: 0.03,
+                         depth: 0.58),
+                    nil,
+                    LfoState(shape: .sine,
+                         targets: [.cutoff],
+                         rateHz: 0.12,
+                         depth: 0.44),
+                    LfoState(shape: .sine,
+                         targets: [.pitch],
+                         rateHz: 0.30,
+                         depth: 0.05)
+                ],
+                    drift: DriftVoiceConfig(pitchMode: .downUp, panMode: .static)
                 ),
                 Voice(
                     hz: 113.22,
@@ -98,7 +186,23 @@
                     replayCount: 2,
                     reverb: ReverbState(decaySec: 7.26, mix: 0.52),
                     delay: DelayState(timeSec: 0.97, feedback: 0.72, mix: 0.80),
-                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.20)
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.20),
+                    lfos: [
+                    LfoState(shape: .sine,
+                         targets: [.pan],
+                         rateHz: 0.25,
+                         depth: 0.18),
+                    LfoState(shape: .sampleAndHold,
+                         targets: [.amplitude],
+                         rateHz: 0.50,
+                         depth: 0.75),
+                    LfoState(shape: .sine,
+                         targets: [.cutoff, .filterQ, .fmIndex],
+                         rateHz: 0.08,
+                         depth: 0.46),
+                    nil
+                ],
+                    drift: DriftVoiceConfig(pitchMode: .upDown, panMode: .static)
                 ),
                 Voice(
                     hz: 122.25,
@@ -111,7 +215,17 @@
                     replayCount: 2,
                     filter: FilterState(type: .highpass, cutoffHz: 284, q: 4.71),
                     delay: DelayState(timeSec: 0.72, feedback: 0.65, mix: 0.29),
-                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0)
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0),
+                    lfos: [
+                    LfoState(shape: .sine,
+                         targets: [.pan, .filterQ, .fmIndex],
+                         rateHz: 0.06,
+                         depth: 0.59),
+                    nil,
+                    nil,
+                    nil
+                ],
+                    drift: DriftVoiceConfig(pitchMode: .ocean, panMode: .static)
                 )
                ]),
 
@@ -132,7 +246,16 @@
                     chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0),
                     grain: GrainState(sizeMs: 80, densityHz: 2.67, jitter: 0, panSpread: 0.50),
                     bundledSampleName: "JG JoG",
-                    sampleGranular: true
+                    sampleGranular: true,
+                    lfos: [
+                    LfoState(shape: .sine,
+                         targets: [.fxMix],
+                         rateHz: 0.10,
+                         depth: 0.88),
+                    nil,
+                    nil,
+                    nil
+                ]
                 ),
                 Voice(
                     hz: 138.59,
@@ -144,7 +267,28 @@
                     replayCount: 5,
                     reverb: ReverbState(decaySec: 3.26, mix: 0.30),
                     delay: DelayState(timeSec: 0.25, feedback: 0.47, mix: 0.61),
-                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.08)
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.08),
+                    lfos: [
+                    LfoState(shape: .sine,
+                         targets: [.pan],
+                         rateHz: 0.25,
+                         depth: 0.24),
+                    LfoState(shape: .triangle,
+                         targets: [.amplitude],
+                         rateHz: 0.10,
+                         depth: 0.24),
+                    LfoState(shape: .sine,
+                         targets: [.cutoff],
+                         rateHz: 0.19,
+                         depth: 0.26),
+                    LfoState(shape: .sampleAndHold,
+                         targets: [.pitch],
+                         rateHz: 0.30,
+                         depth: 1,
+                         rateSyncEnabled: true,
+                         rateDenomination: .eighthT)
+                ],
+                    drift: DriftVoiceConfig(pitchMode: .static, panMode: .static, quantizeToScale: true)
                 ),
                 Voice(
                     hz: 174.61,
@@ -155,7 +299,26 @@
                     filter: FilterState(type: .lowpass, cutoffHz: 2002, q: 1.52),
                     reverb: ReverbState(decaySec: 5.73, mix: 0.43),
                     delay: DelayState(timeSec: 0.30, feedback: 0.40, mix: 0.22),
-                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.19)
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.19),
+                    lfos: [
+                    LfoState(shape: .sine,
+                         targets: [.pan],
+                         rateHz: 0.05,
+                         depth: 0.26),
+                    LfoState(shape: .sampleAndHold,
+                         targets: [.amplitude, .filterQ, .cutoff],
+                         rateHz: 0.04,
+                         depth: 0.17),
+                    LfoState(shape: .sine,
+                         targets: [.cutoff, .fmIndex],
+                         rateHz: 0.09,
+                         depth: 0.46),
+                    LfoState(shape: .sine,
+                         targets: [.pitch],
+                         rateHz: 1.00,
+                         depth: 0.06)
+                ],
+                    drift: DriftVoiceConfig(pitchMode: .static, panMode: .static, quantizeToScale: true)
                 ),
                 Voice(
                     hz: 56.84,
@@ -164,7 +327,27 @@
                     amp: 0.50,
                     drive: 2.10,
                     filter: FilterState(type: .lowpass, cutoffHz: 471, q: 3.21),
-                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.16)
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.16),
+                    lfos: [
+                    nil,
+                    LfoState(shape: .sine,
+                         targets: [],
+                         rateHz: 0.50,
+                         depth: 0.06,
+                         rateSyncEnabled: true,
+                         rateDenomination: .sixteenth),
+                    LfoState(shape: .sine,
+                         targets: [.cutoff, .amplitude],
+                         rateHz: 0.05,
+                         depth: 0.54),
+                    LfoState(shape: .sampleAndHold,
+                         targets: [.pitch, .filterQ],
+                         rateHz: 0.14,
+                         depth: 1,
+                         rateSyncEnabled: true,
+                         rateDenomination: .half)
+                ],
+                    drift: DriftVoiceConfig(pitchMode: .static, panMode: .static, quantizeToScale: true)
                 )
                ]),
 
@@ -182,7 +365,16 @@
                     reverb: ReverbState(decaySec: 9, mix: 0.50),
                     delay: DelayState(timeSec: 0.19, feedback: 0.82, mix: 0.61),
                     chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0),
-                    grain: GrainState(sizeMs: 89, densityHz: 1.33, jitter: 0, panSpread: 0.95)
+                    grain: GrainState(sizeMs: 89, densityHz: 1.33, jitter: 0, panSpread: 0.95),
+                    lfos: [
+                    LfoState(shape: .sine,
+                         targets: [.pan],
+                         rateHz: 0.13,
+                         depth: 0.53),
+                    nil,
+                    nil,
+                    nil
+                ]
                 ),
                 Voice(
                     hz: 261.63,
@@ -196,7 +388,19 @@
                     reverb: ReverbState(decaySec: 9, mix: 0.72),
                     delay: DelayState(timeSec: 0.76, feedback: 0.82, mix: 0.58),
                     chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0),
-                    grain: GrainState(sizeMs: 80, densityHz: 8, jitter: 0, panSpread: 0.50)
+                    grain: GrainState(sizeMs: 80, densityHz: 8, jitter: 0, panSpread: 0.50),
+                    lfos: [
+                    nil,
+                    nil,
+                    nil,
+                    LfoState(shape: .sampleAndHold,
+                         targets: [.pitch],
+                         rateHz: 1.00,
+                         depth: 1,
+                         rateSyncEnabled: true,
+                         rateDenomination: .quarter)
+                ],
+                    drift: DriftVoiceConfig(pitchMode: .static, panMode: .static, quantizeToScale: true)
                 ),
                 Voice(
                     hz: 293.66,
@@ -210,7 +414,25 @@
                     reverb: ReverbState(decaySec: 9, mix: 0.82),
                     delay: DelayState(timeSec: 0.73, feedback: 0.63, mix: 0.68),
                     chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.17),
-                    grain: GrainState(sizeMs: 80, densityHz: 8, jitter: 0, panSpread: 0.50)
+                    grain: GrainState(sizeMs: 80, densityHz: 8, jitter: 0, panSpread: 0.50),
+                    lfos: [
+                    LfoState(shape: .sine,
+                         targets: [.pan],
+                         rateHz: 0.39,
+                         depth: 0.54),
+                    nil,
+                    LfoState(shape: .sine,
+                         targets: [.cutoff, .filterQ, .fmIndex],
+                         rateHz: 0.45,
+                         depth: 0.67),
+                    LfoState(shape: .sampleAndHold,
+                         targets: [.pitch],
+                         rateHz: 0.32,
+                         depth: 1,
+                         rateSyncEnabled: true,
+                         rateDenomination: .sixteenth)
+                ],
+                    drift: DriftVoiceConfig(pitchMode: .static, panMode: .static, quantizeToScale: true)
                 ),
                 Voice(
                     hz: 71.49,
@@ -225,7 +447,31 @@
                     reverb: ReverbState(decaySec: 9, mix: 0.61),
                     delay: DelayState(timeSec: 0.30, feedback: 0.58, mix: 0.38),
                     chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.15),
-                    grain: GrainState(sizeMs: 80, densityHz: 8, jitter: 0, panSpread: 0.50)
+                    grain: GrainState(sizeMs: 80, densityHz: 8, jitter: 0, panSpread: 0.50),
+                    lfos: [
+                    LfoState(shape: .sine,
+                         targets: [.pan],
+                         rateHz: 0.07,
+                         depth: 0.28),
+                    LfoState(shape: .sine,
+                         targets: [.amplitude, .fxMix, .fmIndex],
+                         rateHz: 0.79,
+                         depth: 0.35,
+                         rateSyncEnabled: true,
+                         rateDenomination: .half),
+                    LfoState(shape: .sine,
+                         targets: [.cutoff, .filterQ],
+                         rateHz: 0.21,
+                         depth: 0.60,
+                         rateDenomination: .eighth),
+                    LfoState(shape: .sampleAndHold,
+                         targets: [.pitch],
+                         rateHz: 6.94,
+                         depth: 1,
+                         rateSyncEnabled: true,
+                         rateDenomination: .eighth)
+                ],
+                    drift: DriftVoiceConfig(pitchMode: .static, panMode: .static, quantizeToScale: true)
                 )
                ]),
 
@@ -248,7 +494,25 @@
                     bundledSampleName: "JG Dub Wave",
                     sampleGranular: true,
                     grainSamplePosFrac: 0.69,
-                    grainSamplePosJitter: 0.15
+                    grainSamplePosJitter: 0.15,
+                    lfos: [
+                    LfoState(shape: .square,
+                         targets: [.pan],
+                         rateHz: 1.04,
+                         depth: 0.31),
+                    LfoState(shape: .sine,
+                         targets: [.pan],
+                         rateHz: 0.68,
+                         depth: 0.32),
+                    LfoState(shape: .sampleAndHold,
+                         targets: [.pitch],
+                         rateHz: 1.03,
+                         depth: 0.32),
+                    LfoState(shape: .square,
+                         targets: [.pitch],
+                         rateHz: 0.36,
+                         depth: 0.11)
+                ]
                 ),
                 Voice(
                     hz: 61.27,
@@ -258,7 +522,19 @@
                     drive: 1.38,
                     reverb: ReverbState(decaySec: 4.71, mix: 0.30),
                     delay: DelayState(timeSec: 0.30, feedback: 0.40, mix: 0.14),
-                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.21)
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.21),
+                    lfos: [
+                    LfoState(shape: .sine,
+                         targets: [.None, .pitch],
+                         rateHz: 0.18,
+                         depth: 0.04),
+                    LfoState(shape: .square,
+                         targets: [.None, .pitch],
+                         rateHz: 0.41,
+                         depth: 1),
+                    nil,
+                    nil
+                ]
                 ),
                 Voice(
                     hz: 123.47,
@@ -272,7 +548,19 @@
                     reverb: ReverbState(decaySec: 4.75, mix: 0.37),
                     delay: DelayState(timeSec: 0.70, feedback: 0.67, mix: 0.57),
                     chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.19),
-                    bundledSampleName: "JG Dub Wave-2"
+                    bundledSampleName: "JG Dub Wave-2",
+                    lfos: [
+                    nil,
+                    LfoState(shape: .sampleAndHold,
+                         targets: [.None, .pitch],
+                         rateHz: 0.32,
+                         depth: 0.69),
+                    LfoState(shape: .sine,
+                         targets: [.None, .amplitude],
+                         rateHz: 0.04,
+                         depth: 0.48),
+                    nil
+                ]
                 ),
                 Voice(
                     hz: 138.59,
@@ -282,7 +570,19 @@
                     playDurationSec: 60,
                     replayCount: 5,
                     reverb: ReverbState(decaySec: 2, mix: 0.66),
-                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0)
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0),
+                    lfos: [
+                    LfoState(shape: .square,
+                         targets: [.None, .amplitude],
+                         rateHz: 1.53,
+                         depth: 0.46),
+                    LfoState(shape: .sampleAndHold,
+                         targets: [.None, .pitch],
+                         rateHz: 2.79,
+                         depth: 1.00),
+                    nil,
+                    nil
+                ]
                 )
                ]),
 
@@ -301,7 +601,18 @@
                     delay: DelayState(timeSec: 1.22, feedback: 0.90, mix: 0.98),
                     chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.09),
                     grain: GrainState(sizeMs: 23, densityHz: 5.33, jitter: 0, panSpread: 0.99),
-                    grainSamplePosJitter: 0.37
+                    grainSamplePosJitter: 0.37,
+                    lfos: [
+                    nil,
+                    nil,
+                    nil,
+                    LfoState(shape: .sine,
+                         targets: [.pitch, .fxMix],
+                         rateHz: 0.67,
+                         depth: 1,
+                         rateSyncEnabled: true,
+                         rateDenomination: .half)
+                ]
                 ),
                 Voice(
                     hz: 182.57,
@@ -319,7 +630,22 @@
                     grain: GrainState(sizeMs: 130, densityHz: 5.33, jitter: 0, panSpread: 0.85),
                     bundledSampleName: "JG Small Steps",
                     sampleGranular: true,
-                    grainSamplePosJitter: 0.35
+                    grainSamplePosJitter: 0.35,
+                    lfos: [
+                    nil,
+                    nil,
+                    LfoState(shape: .sine,
+                         targets: [.cutoff, .filterQ],
+                         rateHz: 0.30,
+                         depth: 0.63),
+                    LfoState(shape: .sampleAndHold,
+                         targets: [.pitch],
+                         rateHz: 0.30,
+                         depth: 1,
+                         rateSyncEnabled: true,
+                         rateDenomination: .sixteenth)
+                ],
+                    drift: DriftVoiceConfig(pitchMode: .static, panMode: .static, quantizeToScale: true)
                 ),
                 Voice(
                     hz: 135.22,
@@ -328,7 +654,28 @@
                     amp: 0.20,
                     reverb: ReverbState(decaySec: 9.29, mix: 0.84),
                     delay: DelayState(timeSec: 0.53, feedback: 0.73, mix: 0.86),
-                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.10)
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.10),
+                    lfos: [
+                    LfoState(shape: .sine,
+                         targets: [.pan, .fmIndex, .amplitude],
+                         rateHz: 0.08,
+                         depth: 0.38),
+                    LfoState(shape: .sine,
+                         targets: [.cutoff, .filterQ],
+                         rateHz: 0.06,
+                         depth: 0.46),
+                    LfoState(shape: .sine,
+                         targets: [.cutoff, .fmIndex, .filterQ],
+                         rateHz: 0.16,
+                         depth: 0.67),
+                    LfoState(shape: .sampleAndHold,
+                         targets: [],
+                         rateHz: 0.30,
+                         depth: 1,
+                         rateSyncEnabled: true,
+                         rateDenomination: .quarter)
+                ],
+                    drift: DriftVoiceConfig(pitchMode: .static, panMode: .static, quantizeToScale: true)
                 ),
                 Voice(
                     hz: 535.47,
@@ -339,7 +686,28 @@
                     filter: FilterState(type: .lowpass, cutoffHz: 3961, q: 1.00),
                     reverb: ReverbState(decaySec: 3.19, mix: 0.22),
                     delay: DelayState(timeSec: 0.48, feedback: 0.28, mix: 0.27),
-                    chorus: ChorusState(rateHz: 1.82, depth: 0.31, width: 0.88, mix: 0.19)
+                    chorus: ChorusState(rateHz: 1.82, depth: 0.31, width: 0.88, mix: 0.19),
+                    lfos: [
+                    LfoState(shape: .sine,
+                         targets: [.fxMix],
+                         rateHz: 1.41,
+                         depth: 0.56,
+                         rateSyncEnabled: true,
+                         rateDenomination: .half),
+                    LfoState(shape: .triangle,
+                         targets: [.amplitude, .filterQ, .cutoff, .fmIndex],
+                         rateHz: 0.43,
+                         depth: 0.30),
+                    LfoState(shape: .sine,
+                         targets: [.pan],
+                         rateHz: 1.45,
+                         depth: 0.46),
+                    LfoState(shape: .sine,
+                         targets: [.pan],
+                         rateHz: 0.41,
+                         depth: 0.19)
+                ],
+                    drift: DriftVoiceConfig(pitchMode: .static, panMode: .static, pitchAmount: 0.61, pitchPhase: 0.11, panAmount: 0.94, panPhase: 0.43, quantizeToScale: true)
                 )
                ]),
 
@@ -359,7 +727,16 @@
                     chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0),
                     grain: GrainState(sizeMs: 76, densityHz: 1.33, jitter: 0, panSpread: 0.50),
                     bundledSampleName: "JG JoG",
-                    sampleGranular: true
+                    sampleGranular: true,
+                    lfos: [
+                    LfoState(shape: .sine,
+                         targets: [.pan],
+                         rateHz: 0.11,
+                         depth: 0.40),
+                    nil,
+                    nil,
+                    nil
+                ]
                 ),
                 Voice(
                     hz: 138.59,
@@ -371,7 +748,25 @@
                     replayCount: 5,
                     reverb: ReverbState(decaySec: 3.26, mix: 0.30),
                     delay: DelayState(timeSec: 0.25, feedback: 0.47, mix: 0.61),
-                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.08)
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.08),
+                    lfos: [
+                    nil,
+                    LfoState(shape: .sine,
+                         targets: [.amplitude, .fxMix],
+                         rateHz: 0.07,
+                         depth: 0.66),
+                    LfoState(shape: .sine,
+                         targets: [.cutoff],
+                         rateHz: 0.19,
+                         depth: 0.26),
+                    LfoState(shape: .sampleAndHold,
+                         targets: [.pitch],
+                         rateHz: 0.30,
+                         depth: 1,
+                         rateSyncEnabled: true,
+                         rateDenomination: .quarter)
+                ],
+                    drift: DriftVoiceConfig(pitchMode: .static, panMode: .static, quantizeToScale: true)
                 ),
                 Voice(
                     hz: 174.61,
@@ -380,7 +775,25 @@
                     amp: 0.55,
                     reverb: ReverbState(decaySec: 4.37, mix: 0.23),
                     delay: DelayState(timeSec: 0.30, feedback: 0.40, mix: 0.26),
-                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.13)
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.13),
+                    lfos: [
+                    LfoState(shape: .triangle,
+                         targets: [.pan],
+                         rateHz: 0.25,
+                         depth: 0.42),
+                    LfoState(shape: .sine,
+                         targets: [.amplitude],
+                         rateHz: 0.06,
+                         depth: 0.33),
+                    LfoState(shape: .sine,
+                         targets: [.cutoff, .fmIndex],
+                         rateHz: 0.09,
+                         depth: 0.46),
+                    LfoState(shape: .sine,
+                         targets: [.pitch],
+                         rateHz: 1.00,
+                         depth: 0.06)
+                ]
                 ),
                 Voice(
                     hz: 56.84,
@@ -389,7 +802,26 @@
                     amp: 0.83,
                     drive: 1.51,
                     filter: FilterState(type: .lowpass, cutoffHz: 6636, q: 3.21),
-                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.16)
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.16),
+                    lfos: [
+                    nil,
+                    LfoState(shape: .sine,
+                         targets: [.amplitude],
+                         rateHz: 0.50,
+                         depth: 0.06,
+                         rateSyncEnabled: true,
+                         rateDenomination: .sixteenth),
+                    LfoState(shape: .sine,
+                         targets: [.cutoff, .amplitude],
+                         rateHz: 0.05,
+                         depth: 0.54),
+                    LfoState(shape: .sampleAndHold,
+                         targets: [.pitch],
+                         rateHz: 0.14,
+                         depth: 1,
+                         rateSyncEnabled: true,
+                         rateDenomination: .eighth)
+                ]
                 )
                ]),
 
@@ -412,7 +844,25 @@
                     bundledSampleName: "JG Dub Wave",
                     sampleGranular: true,
                     grainSamplePosFrac: 0.69,
-                    grainSamplePosJitter: 0.15
+                    grainSamplePosJitter: 0.15,
+                    lfos: [
+                    LfoState(shape: .square,
+                         targets: [.pan],
+                         rateHz: 1.04,
+                         depth: 0.31),
+                    LfoState(shape: .sine,
+                         targets: [.pan],
+                         rateHz: 0.68,
+                         depth: 0.32),
+                    LfoState(shape: .sampleAndHold,
+                         targets: [.pitch],
+                         rateHz: 1.03,
+                         depth: 0.32),
+                    LfoState(shape: .square,
+                         targets: [.pitch],
+                         rateHz: 0.36,
+                         depth: 0.11)
+                ]
                 ),
                 Voice(
                     hz: 110.00,
@@ -422,7 +872,16 @@
                     drive: 1.38,
                     reverb: ReverbState(decaySec: 4.71, mix: 0.30),
                     delay: DelayState(timeSec: 0.30, feedback: 0.40, mix: 0.14),
-                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.21)
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.21),
+                    lfos: [
+                    LfoState(shape: .sine,
+                         targets: [.None, .pitch],
+                         rateHz: 0.18,
+                         depth: 0.04),
+                    nil,
+                    nil,
+                    nil
+                ]
                 ),
                 Voice(
                     hz: 123.47,
@@ -436,7 +895,19 @@
                     reverb: ReverbState(decaySec: 4.75, mix: 0.37),
                     delay: DelayState(timeSec: 0.70, feedback: 0.67, mix: 0.57),
                     chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.19),
-                    bundledSampleName: "JG Dub Wave-2"
+                    bundledSampleName: "JG Dub Wave-2",
+                    lfos: [
+                    nil,
+                    LfoState(shape: .sampleAndHold,
+                         targets: [.None, .pitch],
+                         rateHz: 0.32,
+                         depth: 0.69),
+                    LfoState(shape: .sine,
+                         targets: [.None, .amplitude],
+                         rateHz: 0.04,
+                         depth: 0.48),
+                    nil
+                ]
                 ),
                 Voice(
                     hz: 138.59,
@@ -445,6 +916,18 @@
                     startDelaySec: 120,
                     playDurationSec: 60,
                     replayCount: 5,
-                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0)
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0),
+                    lfos: [
+                    LfoState(shape: .square,
+                         targets: [.None, .amplitude],
+                         rateHz: 1.53,
+                         depth: 0.46),
+                    LfoState(shape: .sampleAndHold,
+                         targets: [.None, .pitch],
+                         rateHz: 2.79,
+                         depth: 1.00),
+                    nil,
+                    nil
+                ]
                 )
                ]),
