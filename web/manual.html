@@ -384,7 +384,7 @@
     <li><a href="#oscillators">Oscillator strips</a></li>
     <li><a href="#chord">Chord, key, octave</a></li>
     <li><a href="#tuning">Tuning systems</a></li>
-    <li><a href="#presets">Presets &amp; voice presets</a></li>
+    <li><a href="#presets">Presets &amp; voice presets</a> · <a href="./preset-reference.html">Full preset reference →</a></li>
     <li><a href="#waveforms">Waveforms (sine, sawtooth, white/pink noise, granular, sample…)</a></li>
     <li><a href="#fx">Per-voice FX (filter, drive, FM, chorus, delay, reverb)</a></li>
     <li><a href="#lfos">The 4 LFOs</a></li>
@@ -580,6 +580,9 @@
   <p>Tap "Save as preset…" to capture the current full state under a custom name. User presets live alongside the factory list in their own section.</p>
   <div class="callout">
     <strong>Drone Artists presets carry full character.</strong> Unlike the simpler categories (which only set frequencies + pan), these write waveform, filter, reverb, chorus, delay, LFOs, and per-voice drift in one step — so loading one captures the artist's <em>sound</em>, not just their notes. Tweak afterward to make it your own.
+  </div>
+  <div class="callout note">
+    <strong>Full preset reference.</strong> Every built-in preset that ships in the app — voices, FX highlights, timing envelopes, and (for the Drone Artists) artistic context — is documented on a single page: <a href="./preset-reference.html"><strong>preset-reference.html</strong></a>. Auto-generated from the Swift + JS sources so it never drifts out of date.
   </div>
 
   <h3>Voice presets</h3>
@@ -782,6 +785,11 @@ SUBTITLES = {
   <div class="callout note">
     <strong>Why this isn't automatic.</strong> A <code>.dronepreset</code> file is a JSON envelope with base64-encoded audio inline — fine for user-to-user sharing where the receiving app can decode at runtime, but inefficient as a built-in: every launch would re-decode the same bytes. The pipeline above extracts the audio once into a real <code>.wav</code> that ships in the app bundle, and emits Swift code that references it by name. Net result: app launches are fast and the preset reads with the same syntax as every other curated patch.
   </div>
+
+  <h3>Regenerating the preset reference page <span class="lede" style="font-size:14px;font-weight:500;">— for maintainers + contributors</span></h3>
+  <p>The page at <a href="./preset-reference.html"><strong>preset-reference.html</strong></a> is auto-generated from <code>DroneMeditations/Models/Preset.swift</code> and <code>web/js/music.js</code>. Re-run the generator any time you add a preset, swap a sample, or tweak a curated Drone Artist note:</p>
+  <pre><code>python3 tools/render_preset_reference.py</code></pre>
+  <p>Hand-written artistic context for the Drone Artists category lives in <code>tools/drone_artists_descriptions.json</code> — keyed by preset name, value is a one-to-three-sentence HTML snippet rendered above each preset's auto voice table. Add or edit entries there and re-run the script to surface them on the page; other categories stay purely auto-described.</p>
 
   <h3>Upload your own</h3>
   <ul>

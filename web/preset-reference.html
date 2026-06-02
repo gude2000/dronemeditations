@@ -1,0 +1,1307 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Drone Meditations — Preset Reference</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23000'/%3E%3Ccircle cx='32' cy='32' r='18' fill='none' stroke='%23fff' stroke-width='2' opacity='0.85'/%3E%3Ccircle cx='32' cy='32' r='10' fill='none' stroke='%23fff' stroke-width='2' opacity='0.65'/%3E%3Ccircle cx='32' cy='32' r='3' fill='%23fff'/%3E%3C/svg%3E" />
+<style>
+  :root { --accent: #8fb9d9; --accent-2: #cfb6ea; --ink: #f0f0f0; --muted: rgba(255,255,255,0.65); --bg: #050505; }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "SF Pro", system-ui, sans-serif; line-height: 1.55; padding: 24px; max-width: 1000px; margin: 0 auto; font-size: 15px; }
+  h1 { font-size: 30px; margin: 24px 0 8px; letter-spacing: -0.01em; }
+  h2 { font-size: 22px; margin: 44px 0 16px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.12); color: var(--accent); }
+  h4 { margin: 22px 0 4px; font-size: 16px; font-weight: 600; }
+  p.lede { color: var(--muted); margin-top: 0; }
+  .preset-entry { margin-bottom: 26px; padding: 14px 18px; border-radius: 10px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); }
+  .preset-subtitle { color: var(--muted); font-size: 13.5px; margin: 4px 0 10px; font-style: italic; }
+  .preset-curated { color: var(--ink); font-size: 14px; margin: 8px 0 14px; padding: 10px 14px; background: rgba(207,182,234,0.05); border-left: 3px solid var(--accent-2); border-radius: 4px; }
+  .preset-voices { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+  .preset-voices th { text-align: left; color: var(--accent); padding: 6px 10px; border-bottom: 1px solid rgba(255,255,255,0.16); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .preset-voices td { padding: 7px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); vertical-align: top; }
+  .preset-voices td:first-child { color: var(--accent); font-weight: 600; white-space: nowrap; width: 60px; }
+  .platform-badge { display: inline-block; font-size: 10px; padding: 1px 7px; border-radius: 4px; margin-left: 4px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; vertical-align: 2px; }
+  .platform-ios { background: rgba(143,185,217,0.20); color: var(--accent); }
+  .platform-web { background: rgba(207,182,234,0.20); color: var(--accent-2); }
+  .toc { background: rgba(255,255,255,0.04); padding: 14px 18px; border-radius: 10px; margin: 24px 0 36px; }
+  .toc-entry { display: inline-block; margin-right: 14px; margin-bottom: 4px; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .back-link { display: inline-block; margin: 16px 0; color: var(--muted); font-size: 14px; }
+  .meta { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
+</style>
+</head>
+<body>
+<a href="./manual.html" class="back-link">← Back to manual</a>
+<h1>Preset reference</h1>
+<p class="lede">Auto-generated summary of every built-in preset that ships in the app. Tap a preset name in the app to load it; this page describes what's inside — voices, FX highlights, timing envelopes, and (for the Drone Artists category) curated artistic context.</p>
+<p class="meta">Each row is one voice. <em>Source</em> is the waveform or sample. <em>Highlights</em> lists non-default amp / drive / filter / reverb / delay / grain / timing values — defaults are omitted to keep the table scannable. Pitches are shown as both note name and Hz so they read in any tuning system.</p>
+
+<div class="toc"><strong>Jump to:</strong> 
+<span class="toc-entry"><a href="#cat-setup">Setup (1)</a></span>
+<span class="toc-entry"><a href="#cat-drone-artists">Drone Artists (48)</a></span>
+<span class="toc-entry"><a href="#cat-developer-patches">Developer Patches (19)</a></span>
+<span class="toc-entry"><a href="#cat-natural-resonance">Natural Resonance (7)</a></span>
+<span class="toc-entry"><a href="#cat-cymatics">Cymatics (6)</a></span>
+<span class="toc-entry"><a href="#cat-solfeggio">Solfeggio (11)</a></span>
+<span class="toc-entry"><a href="#cat-mystic-composers">Mystic &amp; Composers (6)</a></span>
+<span class="toc-entry"><a href="#cat-binaural2">binaural2 (6)</a></span>
+<span class="toc-entry"><a href="#cat-binaural3">binaural3 (3)</a></span>
+<span class="toc-entry"><a href="#cat-binaural4">binaural4 (4)</a></span>
+</div>
+<section><h2 id="cat-setup">Setup</h2>
+<article id="preset-init-clean-state" class="preset-entry">
+<h4>INIT — Clean state <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Reset every voice to neutral · 4 sine voices, dry, no LFO depth</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>—</td><td>—</td><td>silent</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>centred</td><td>—</td></tr>
+</table>
+</article>
+</section>
+<section><h2 id="cat-drone-artists">Drone Artists</h2>
+<article id="preset-bansuri-frozen-shimmer" class="preset-entry">
+<h4>Bansuri — Frozen Shimmer <span class="platform-badge platform-ios">ios</span></h4>
+<p class="preset-subtitle">Bansuri sustain granular-frozen at 35 % · stereo reverb glow</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sample: Bansuri C4 (granular)</td><td>C4 (261.63 Hz), centred</td><td>amp 0.55</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>A3 (220.00 Hz), L</td><td>amp 0.22</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>A2 (110.00 Hz), R</td><td>amp 0.20</td></tr>
+<tr><td>OSC 4</td><td>—</td><td>—</td><td>silent</td></tr>
+</table>
+</article>
+<article id="preset-basinski-disintegration" class="preset-entry">
+<h4>Basinski — Disintegration <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Basinski · tape-loop voice + pink-noise hiss · C major support</p>
+<div class="preset-curated"><strong>William Basinski</strong> recorded a 1980s tape loop in 2001, only to watch its iron oxide flake off into his cassette deck across hours of playback. The recording of that decay became <em>The Disintegration Loops</em>. This preset uses pink-noise granular on voice 4 to mimic the tape-hiss layer, with the main melodic voices entering at 90 s — the long fade-in is the point. Pair with the WINDOW row's fade-in/out settings on a sample voice for the literal tape-decay effect.</div>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>triangle</td><td>C4 (261.63 Hz), centred</td><td>amp 0.55, drive 1.80×, LP 1500 Hz Q 1.00</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>C3 (130.81 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>G4 (392.00 Hz), slight L</td><td>amp 0.35</td></tr>
+<tr><td>OSC 4</td><td>pink noise</td><td>centred</td><td>amp 0.22, HP 600 Hz Q 0.70, start 90 s</td></tr>
+</table>
+</article>
+<article id="preset-basinski-tape-decay-cycle" class="preset-entry">
+<h4>Basinski — Tape Decay Cycle <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Basinski · loop fades out as granular crackle takes over · 5-min arc</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>—</td><td>—</td><td>silent</td></tr>
+<tr><td>OSC 2</td><td>triangle</td><td>C4 (261.63 Hz), centred</td><td>amp 0.55, drive 1.50×, LP 1500 Hz Q 1.00, play 240 s</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>C3 (130.81 Hz), centred</td><td>amp 0.35</td></tr>
+<tr><td>OSC 4</td><td>granular noise</td><td>L</td><td>HP 1200 Hz Q 1.20, grain 45 ms @ 2.50/s, start 30 s</td></tr>
+</table>
+</article>
+<article id="preset-budd-granular-pearl-drops" class="preset-entry">
+<h4>Budd — Granular Pearl Drops <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Budd · soft pad · sparse granular pebbles · 5-min arc</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>F3 (174.61 Hz), slight L</td><td>LP 1200 Hz Q 0.70</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>C4 (261.63 Hz), slight R</td><td>amp 0.40, LP 1200 Hz Q 0.70, start 30 s</td></tr>
+<tr><td>OSC 3</td><td>granular noise</td><td>L</td><td>amp 0.35, BP 2400 Hz Q 2.50, grain 14 ms @ 3.00/s, start 60 s / play 240 s</td></tr>
+<tr><td>OSC 4</td><td>granular noise</td><td>R</td><td>amp 0.35, BP 3000 Hz Q 2.50, grain 12 ms @ 4.00/s, start 120 s / play 180 s</td></tr>
+</table>
+</article>
+<article id="preset-budd-pearl-pad" class="preset-entry">
+<h4>Budd — Pearl Pad <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Harold Budd · soft Cmaj7 pad · breathing amp LFO · 9 s reverb halo</p>
+<div class="preset-curated"><strong>Harold Budd</strong> played soft-pedalled Steinways through cascading reverb tanks; Brian Eno produced him. The preset uses sine voices with mild chorus and a very long reverb decay; the chord template defaults to a sus2 voicing because Budd's harmonic vocabulary was open and unresolved. Try it on top of a journey for an instant Eno-Budd <em>The Plateaux of Mirror</em> atmosphere.</div>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>C3 (130.81 Hz), slight L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>G3 (196.00 Hz), slight R</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>triangle</td><td>C4 (261.63 Hz), slight L</td><td>amp 0.38</td></tr>
+<tr><td>OSC 4</td><td>triangle</td><td>E4 (329.63 Hz), slight R</td><td>amp 0.35</td></tr>
+</table>
+</article>
+<article id="preset-chord-arpeggio" class="preset-entry">
+<h4>Chord Arpeggio <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Solo voice · S&amp;H pitch quantized to current chord · slow random walk</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>triangle</td><td>A3 (220.00 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>—</td><td>—</td><td>silent</td></tr>
+<tr><td>OSC 3</td><td>—</td><td>—</td><td>silent</td></tr>
+<tr><td>OSC 4</td><td>—</td><td>—</td><td>silent</td></tr>
+</table>
+</article>
+<article id="preset-coltrane-spiritual-granular" class="preset-entry">
+<h4>Coltrane — Spiritual Granular <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Coltrane · Leslie organ · granular tabla blooms 1:00–4:00</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>triangle</td><td>A2 (110.00 Hz), L</td><td>drive 1.80×, LP 2000 Hz Q 1.00</td></tr>
+<tr><td>OSC 2</td><td>triangle</td><td>E3 (165.00 Hz), R</td><td>drive 1.80×, LP 2000 Hz Q 1.00, start 30 s</td></tr>
+<tr><td>OSC 3</td><td>granular noise</td><td>centred</td><td>amp 0.40, BP 1400 Hz Q 2.00, grain 35 ms @ 6.00/s, start 60 s / play 180 s</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>A1 (55.00 Hz), centred</td><td>amp 0.35</td></tr>
+</table>
+</article>
+<article id="preset-coltrane-spiritual-organ" class="preset-entry">
+<h4>Coltrane — Spiritual Organ <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Alice Coltrane · Bbm7 organ · Leslie pan rotation + tremolo</p>
+<div class="preset-curated"><strong>Alice Coltrane</strong> played Wurlitzer organ through a Leslie speaker into hours of devotional improvisation; her recordings under Swami Turiyasangitananda are the modal-jazz-ashram bridge. This preset uses sawtooth voices through chorus + delay to suggest the Leslie spread, with a Dorian-flavoured chord template. Open the Modal chord category and pick Dorian or Aeolian to lock it deeper into the spiritual-jazz idiom.</div>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sawtooth</td><td>A♯1 (58.27 Hz), centred</td><td>amp 0.60, LP 1500 Hz Q 1.00</td></tr>
+<tr><td>OSC 2</td><td>sawtooth</td><td>A♯2 (116.54 Hz), L</td><td>LP 2000 Hz Q 1.00</td></tr>
+<tr><td>OSC 3</td><td>sawtooth</td><td>F3 (174.61 Hz), R</td><td>amp 0.40, LP 2200 Hz Q 1.00</td></tr>
+<tr><td>OSC 4</td><td>triangle</td><td>G♯3 (207.65 Hz), centred</td><td>amp 0.36</td></tr>
+</table>
+</article>
+<article id="preset-detune-choir" class="preset-entry">
+<h4>Detune Choir <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Unison triangle quartet · independent ±¼-semi drift periods · natural chorusing</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>triangle</td><td>A3 (220.00 Hz), L</td><td>amp 0.40</td></tr>
+<tr><td>OSC 2</td><td>triangle</td><td>A3 (220.00 Hz), slight L</td><td>amp 0.40</td></tr>
+<tr><td>OSC 3</td><td>triangle</td><td>A3 (220.00 Hz), slight R</td><td>amp 0.40</td></tr>
+<tr><td>OSC 4</td><td>triangle</td><td>A3 (220.00 Hz), R</td><td>amp 0.40</td></tr>
+</table>
+</article>
+<article id="preset-earth-granular-tar" class="preset-entry">
+<h4>Earth — Granular Tar <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Earth · low-B doom dyad · dense granular grit 1:30–6:00</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sawtooth</td><td>B0 (30.87 Hz), L</td><td>amp 0.70, drive 5.00×, LP 500 Hz Q 1.80</td></tr>
+<tr><td>OSC 2</td><td>sawtooth</td><td>F♯1 (46.25 Hz), R</td><td>amp 0.60, drive 4.50×, LP 550 Hz Q 1.80, start 30 s</td></tr>
+<tr><td>OSC 3</td><td>granular noise</td><td>centred</td><td>BP 1200 Hz Q 1.80, grain 22 ms @ 16.00/s, start 90 s / play 270 s</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>—, centred</td><td>amp 0.00</td></tr>
+</table>
+</article>
+<article id="preset-earth-tar-pit" class="preset-entry">
+<h4>Earth — Tar Pit <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Earth (Carlson) · Earth-2 doom · driven low B + 4th · 10 s reverb</p>
+<div class="preset-curated"><strong>Earth</strong> (Dylan Carlson) basically invented drone metal in 1990 with <em>Earth 2</em> — slow downtuned riffs played at minimal tempo, no drums. This preset matches the doom register: square wave bass at a tritone interval with heavy drive and high-resonance low-pass — the resonant filter sweep is what Carlson got from his amp's tone stack. Bonus: open the DRIFT pill and pick Glacial Down to suggest detuning fatigue across a long session.</div>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sawtooth</td><td>B0 (30.87 Hz), slight L</td><td>amp 0.70, drive 4.50×, LP 250 Hz Q 2.00</td></tr>
+<tr><td>OSC 2</td><td>sawtooth</td><td>E1 (41.20 Hz), slight R</td><td>amp 0.65, drive 4.00×, LP 280 Hz Q 1.80</td></tr>
+<tr><td>OSC 3</td><td>square</td><td>B1 (61.74 Hz), centred</td><td>drive 3.00×, LP 400 Hz Q 1.50</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>F♯2 (92.50 Hz), centred</td><td>amp 0.35</td></tr>
+</table>
+</article>
+<article id="preset-galactic-dust" class="preset-entry">
+<h4>Galactic Dust <span class="platform-badge platform-ios">ios</span></h4>
+<p class="preset-subtitle">Cosmic synth · ultra-fine grains · stereo reverb depth</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sample: Galactic-C2 (granular)</td><td>C4 (261.63 Hz), L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sample: Galactic-C2 (granular)</td><td>C3 (130.81 Hz), R</td><td>amp 0.40</td></tr>
+<tr><td>OSC 3</td><td>—</td><td>—</td><td>silent</td></tr>
+<tr><td>OSC 4</td><td>—</td><td>—</td><td>silent</td></tr>
+</table>
+</article>
+<article id="preset-geiger-counter-granular" class="preset-entry">
+<h4>Geiger Counter (Granular) <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Granular · isolated clicks every ~1 s · soft sine bed · medium reverb</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>A2 (110.00 Hz), centred</td><td>amp 0.40, LP 1200 Hz Q 0.70</td></tr>
+<tr><td>OSC 2</td><td>granular noise</td><td>centred</td><td>amp 0.55, HP 1400 Hz Q 1.00, grain 12 ms @ 1.20/s</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>—, centred</td><td>amp 0.00</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>—, centred</td><td>amp 0.00</td></tr>
+</table>
+</article>
+<article id="preset-haino-granular-spectral" class="preset-entry">
+<h4>Haino — Granular Spectral <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Haino · D drone · two granular shimmer layers cross-fade 1:00–5:00</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sawtooth</td><td>D2 (73.42 Hz), centred</td><td>amp 0.55, drive 3.00×, LP 800 Hz Q 1.80</td></tr>
+<tr><td>OSC 2</td><td>square</td><td>D3 (146.83 Hz), centred</td><td>amp 0.25, LP 1200 Hz Q 1.50, start 30 s</td></tr>
+<tr><td>OSC 3</td><td>granular noise</td><td>L</td><td>amp 0.40, HP 2500 Hz Q 1.80, grain 25 ms @ 16.00/s, start 60 s / play 180 s</td></tr>
+<tr><td>OSC 4</td><td>granular noise</td><td>R</td><td>amp 0.35, HP 1500 Hz Q 1.80, grain 40 ms @ 12.00/s, start 180 s</td></tr>
+</table>
+</article>
+<article id="preset-haino-spectral-shimmer" class="preset-entry">
+<h4>Haino — Spectral Shimmer <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Keiji Haino · D drone + HP shimmer · wobble + chorus halo</p>
+<div class="preset-curated"><strong>Keiji Haino</strong> plays guitar like he's exorcising it — feedback-driven, dynamics from silence to absolute saturation, sometimes with vocal screams folded in. The preset captures the high-end shimmer rather than the violence: bandpass filter at high Q sweeping slowly, high voices on sine + triangle. Pair with chorus on max width for the stereo phasing that Haino's amplifiers produce naturally.</div>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sawtooth</td><td>D2 (73.42 Hz), centred</td><td>amp 0.55, drive 3.50×, LP 800 Hz Q 2.00</td></tr>
+<tr><td>OSC 2</td><td>sawtooth</td><td>A5 (880.00 Hz), L</td><td>amp 0.22, HP 600 Hz Q 3.00</td></tr>
+<tr><td>OSC 3</td><td>sawtooth</td><td>C♯6 (1108.73 Hz), R</td><td>amp 0.18, HP 700 Hz Q 3.00</td></tr>
+<tr><td>OSC 4</td><td>square</td><td>A3 (220.00 Hz), centred</td><td>amp 0.25, LP 1500 Hz Q 1.00</td></tr>
+</table>
+</article>
+<article id="preset-lydian-bloom" class="preset-entry">
+<h4>Lydian Bloom <span class="platform-badge platform-ios">ios</span></h4>
+<p class="preset-subtitle">Lydian intervals · triangle voices · v1.1 stereo glow</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>triangle</td><td>C3 (130.81 Hz), hard L</td><td>amp 0.40</td></tr>
+<tr><td>OSC 2</td><td>triangle</td><td>E3 (164.81 Hz), slight L</td><td>amp 0.35</td></tr>
+<tr><td>OSC 3</td><td>triangle</td><td>F♯3 (185.00 Hz), slight R</td><td>amp 0.30</td></tr>
+<tr><td>OSC 4</td><td>triangle</td><td>B3 (246.94 Hz), hard R</td><td>amp 0.30</td></tr>
+</table>
+</article>
+<article id="preset-microtonal-dance" class="preset-entry">
+<h4>Microtonal Dance <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Polyrhythmic drift · periods 30/60/120/240 s · aligns every 4 min</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>triangle</td><td>A3 (220.00 Hz), L</td><td>amp 0.40</td></tr>
+<tr><td>OSC 2</td><td>triangle</td><td>C♯4 (277.18 Hz), slight L</td><td>amp 0.40</td></tr>
+<tr><td>OSC 3</td><td>triangle</td><td>E4 (329.63 Hz), slight R</td><td>amp 0.40</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>A2 (110.00 Hz), centred</td><td>amp 0.35</td></tr>
+</table>
+</article>
+<article id="preset-niblock-granular-cluster" class="preset-entry">
+<h4>Niblock — Granular Cluster <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Niblock · 3-voice microtonal cluster · granular peppering on slow LFO</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sawtooth</td><td>A3 (220.00 Hz), L</td><td>amp 0.40</td></tr>
+<tr><td>OSC 2</td><td>sawtooth</td><td>A3+18¢ (222.30 Hz), centred</td><td>amp 0.40, start 30 s</td></tr>
+<tr><td>OSC 3</td><td>sawtooth</td><td>A3-15¢ (218.10 Hz), R</td><td>amp 0.40, start 60 s</td></tr>
+<tr><td>OSC 4</td><td>granular noise</td><td>centred</td><td>BP 1500 Hz Q 1.80, grain 28 ms @ 5.00/s, start 90 s</td></tr>
+</table>
+</article>
+<article id="preset-niblock-tight-cluster" class="preset-entry">
+<h4>Niblock — Tight Cluster <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Phill Niblock · 4-voice microtonal cluster · beating as harmony</p>
+<div class="preset-curated"><strong>Phill Niblock</strong> sustained microtonal clusters at fortissimo for hours, recording dozens of takes of single notes by trombonists or cellists and layering them until beat frequencies thickened into a single inhuman timbre. This preset packs four sawtooths within a ~50-cent band so their fundamentals beat against each other; the resulting AM rhythm is what Niblock called "the unison." Use HEADPHONES — speakers can't reproduce the in-ear interference patterns.</div>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sawtooth</td><td>A3 (220.00 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sawtooth</td><td>A3+20¢ (222.55 Hz), slight L</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sawtooth</td><td>A3-12¢ (218.45 Hz), slight R</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>sawtooth</td><td>A3+10¢ (221.25 Hz), hard R</td><td>—</td></tr>
+</table>
+</article>
+<article id="preset-nurse-with-wound-avant-tableau" class="preset-entry">
+<h4>Nurse With Wound — Avant Tableau <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">NWW · driven saw + S&amp;H square + white-noise bursts + ping-pong 1/4T</p>
+<div class="preset-curated"><strong>Nurse With Wound</strong> (Steven Stapleton) defined unclassifiable European avant — collages, noise, dada, surreal sound art. This preset throws white noise + sample-and-hold LFO on filter cutoff to produce the bell-tone clatter that NWW used as connective tissue across albums. Combine with the granular waveform on voice 2 for the full <em>Soliloquy for Lilith</em> insectile rustle.</div>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sawtooth</td><td>F2 (87.31 Hz), hard L</td><td>drive 3.00×, LP 900 Hz Q 1.00</td></tr>
+<tr><td>OSC 2</td><td>square</td><td>A♯3 (233.08 Hz), hard R</td><td>amp 0.35, drive 2.00×, HP 400 Hz Q 2.50</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>D♯4 (311.13 Hz), slight L</td><td>amp 0.30</td></tr>
+<tr><td>OSC 4</td><td>white noise</td><td>slight R</td><td>amp 0.30, BP 1200 Hz Q 4.00</td></tr>
+</table>
+</article>
+<article id="preset-nurse-with-wound-granular-tableau" class="preset-entry">
+<h4>Nurse With Wound — Granular Tableau <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">NWW · FM weirdness · two granular interference waves at 0:30 + 2:30</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>square</td><td>A2 (110.00 Hz), L</td><td>amp 0.40, drive 2.50×, LP 1800 Hz Q 2.00</td></tr>
+<tr><td>OSC 2</td><td>sawtooth</td><td>E3 (165.00 Hz), R</td><td>amp 0.35, BP 900 Hz Q 3.00</td></tr>
+<tr><td>OSC 3</td><td>granular noise</td><td>slight L</td><td>amp 0.40, HP 1800 Hz Q 1.50, grain 8 ms @ 35.00/s, start 30 s / play 90 s</td></tr>
+<tr><td>OSC 4</td><td>granular noise</td><td>slight R</td><td>amp 0.40, BP 2200 Hz Q 2.50, grain 15 ms @ 25.00/s, start 150 s / play 90 s</td></tr>
+</table>
+</article>
+<article id="preset-oliveros-deep-a-resonance" class="preset-entry">
+<h4>Oliveros — Deep A Resonance <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Pauline Oliveros · slow A drone · voices enter at 0 / 1 / 2 / 4 min</p>
+<div class="preset-curated"><strong>Pauline Oliveros</strong> founded Deep Listening — the practice of letting a single sustained tone teach you to hear. This preset stacks four sine voices on a low A across two octaves and stages them in 60-second arrivals, mirroring her accordion drones that built incrementally over a session. Listen for the beat patterns between voices 1 and 2; that's where the meditation actually lives.</div>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>A2 (110.00 Hz), L</td><td>amp 0.55, reverb 8.0s @ 0.40</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>A3 (220.12 Hz), R</td><td>reverb 8.0s @ 0.40, start 60 s</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>E4 (329.85 Hz), slight L</td><td>amp 0.42, reverb 8.0s @ 0.40, start 120 s</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>A4 (440.00 Hz), slight R</td><td>amp 0.38, reverb 8.0s @ 0.40, start 240 s</td></tr>
+</table>
+</article>
+<article id="preset-oliveros-sonic-meditation-granular" class="preset-entry">
+<h4>Oliveros — Sonic Meditation (Granular) <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Oliveros · A-drone pairs enter at 0 / 60 / 120 s · granular breath fades after 4 min</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>A2 (110.00 Hz), slight L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>A3 (220.00 Hz), slight R</td><td>start 60 s</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>A1 (55.00 Hz), centred</td><td>amp 0.40, start 120 s</td></tr>
+<tr><td>OSC 4</td><td>granular noise</td><td>centred</td><td>amp 0.30, BP 1200 Hz Q 1.50, grain 80 ms @ 6.00/s, play 240 s</td></tr>
+</table>
+</article>
+<article id="preset-palestine-granular-strumming" class="preset-entry">
+<h4>Palestine — Granular Strumming <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Palestine · just-D triangles · granular bell grains depart at 3:00</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>triangle</td><td>D2 (73.42 Hz), slight L</td><td>amp 0.55</td></tr>
+<tr><td>OSC 2</td><td>triangle</td><td>F♯2-14¢ (91.78 Hz), slight R</td><td>start 20 s</td></tr>
+<tr><td>OSC 3</td><td>triangle</td><td>D3 (146.83 Hz), centred</td><td>amp 0.40, start 50 s</td></tr>
+<tr><td>OSC 4</td><td>granular noise</td><td>centred</td><td>amp 0.30, HP 2500 Hz Q 2.00, grain 22 ms @ 10.00/s, play 180 s</td></tr>
+</table>
+</article>
+<article id="preset-palestine-strumming-overtones" class="preset-entry">
+<h4>Palestine — Strumming Overtones <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Charlemagne Palestine · just D + 5/4 F# · piano-sustain chorus wash</p>
+<div class="preset-curated"><strong>Charlemagne Palestine</strong> sat at a Bösendorfer Imperial for hours hammering a single chord, letting the strings' upper partials emerge as audible melodies — what he called <em>plus l'harmonie</em>. This preset uses triangle voices with high reverb mix + long decay, and chorus on a slow rate to suggest the keyboard's micro-detuning. The chord template stays whatever you pick; the magic is in not changing it for a while.</div>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>triangle</td><td>D2 (73.42 Hz), slight L</td><td>amp 0.60</td></tr>
+<tr><td>OSC 2</td><td>triangle</td><td>F♯2-14¢ (91.78 Hz), slight R</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sawtooth</td><td>A3 (220.00 Hz), L</td><td>amp 0.38, LP 2500 Hz Q 0.70</td></tr>
+<tr><td>OSC 4</td><td>sawtooth</td><td>D4 (293.66 Hz), R</td><td>amp 0.38, LP 2800 Hz Q 0.70</td></tr>
+</table>
+</article>
+<article id="preset-pendulum-dawn" class="preset-entry">
+<h4>Pendulum Dawn <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Voices swing wide L↔R while pitch breathes — Ocean + Pendulum</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>triangle</td><td>C3 (130.81 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>triangle</td><td>G3 (196.00 Hz), centred</td><td>amp 0.40</td></tr>
+<tr><td>OSC 3</td><td>triangle</td><td>C4 (261.63 Hz), centred</td><td>amp 0.35</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>G4 (392.00 Hz), centred</td><td>amp 0.25</td></tr>
+</table>
+</article>
+<article id="preset-pendulum-reverberation" class="preset-entry">
+<h4>Pendulum Reverberation <span class="platform-badge platform-ios">ios</span></h4>
+<p class="preset-subtitle">Drifting pans · stationary stereo room</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>triangle</td><td>D3 (146.83 Hz), centred</td><td>amp 0.35</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>A3 (220.00 Hz), centred</td><td>amp 0.32</td></tr>
+<tr><td>OSC 3</td><td>triangle</td><td>D4 (293.66 Hz), centred</td><td>amp 0.30</td></tr>
+<tr><td>OSC 4</td><td>—</td><td>—</td><td>silent</td></tr>
+</table>
+</article>
+<article id="preset-phrygian-stillness" class="preset-entry">
+<h4>Phrygian Stillness <span class="platform-badge platform-ios">ios</span></h4>
+<p class="preset-subtitle">Phrygian intervals · 60 s breath cycle × 3 · wide reverb</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>—</td><td>—</td><td>silent</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>C3 (130.81 Hz), L</td><td>amp 0.35, start 60 s / play 240 s / × 3 replay</td></tr>
+<tr><td>OSC 3</td><td>triangle</td><td>C♯3 (138.59 Hz), slight L</td><td>amp 0.32, start 80 s / play 240 s / × 3 replay</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>D♯3 (155.56 Hz), slight R</td><td>amp 0.30, start 100 s / play 240 s / × 3 replay</td></tr>
+</table>
+</article>
+<article id="preset-quantum-bells" class="preset-entry">
+<h4>Quantum Bells <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">4 voices · coprime S&amp;H rates · quantized arpeggio cloud</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>triangle</td><td>A3 (220.00 Hz), L</td><td>amp 0.32</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>C♯4 (277.18 Hz), slight L</td><td>amp 0.32</td></tr>
+<tr><td>OSC 3</td><td>triangle</td><td>E4 (329.63 Hz), slight R</td><td>amp 0.30</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>A4 (440.00 Hz), R</td><td>amp 0.28</td></tr>
+</table>
+</article>
+<article id="preset-quarter-tone-cluster" class="preset-entry">
+<h4>Quarter-Tone Cluster <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">4-voice sawtooth cluster · each voice wanders ±½ semi at its own tempo</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sawtooth</td><td>A3 (220.00 Hz), hard L</td><td>amp 0.40</td></tr>
+<tr><td>OSC 2</td><td>sawtooth</td><td>A3+18¢ (222.30 Hz), slight L</td><td>amp 0.40</td></tr>
+<tr><td>OSC 3</td><td>sawtooth</td><td>A3-15¢ (218.10 Hz), slight R</td><td>amp 0.40</td></tr>
+<tr><td>OSC 4</td><td>sawtooth</td><td>A3+11¢ (221.40 Hz), hard R</td><td>amp 0.40</td></tr>
+</table>
+</article>
+<article id="preset-radigue-le-granular" class="preset-entry">
+<h4>Radigue — Île Granular <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Radigue · 0.4 Hz binaural beat · granular clouds bloom 1:00–6:00</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>A4 (440.00 Hz), L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>A4 (440.40 Hz), R</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>A2 (110.00 Hz), centred</td><td>amp 0.35</td></tr>
+<tr><td>OSC 4</td><td>granular noise</td><td>centred</td><td>amp 0.40, LP 1500 Hz Q 1.00, grain 350 ms @ 0.80/s, start 60 s / play 300 s</td></tr>
+</table>
+</article>
+<article id="preset-radigue-le-re-sonante" class="preset-entry">
+<h4>Radigue — Île Re-Sonante <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Éliane Radigue · 4¢ + 0.3 Hz beating · static-seeming, ever-shifting</p>
+<div class="preset-curated"><strong>Éliane Radigue</strong> spent decades coaxing music from a single ARP 2500 synthesiser, building works where the only events are infinitesimally slow timbral shifts. This preset uses two sine voices a perfect fifth apart with very slow amplitude LFOs (around 0.05 Hz, one full cycle ≈ 20 s) and long stereo reverb — the voices breathe past each other without ever quite landing in phase. Best with eyes closed at low volume.</div>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>D2 (73.42 Hz), L</td><td>amp 0.62</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>D2+4¢ (73.59 Hz), R</td><td>amp 0.62</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>A3 (220.00 Hz), slight L</td><td>amp 0.38</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>A3 (220.30 Hz), slight R</td><td>amp 0.38</td></tr>
+</table>
+</article>
+<article id="preset-rain-shower-granular" class="preset-entry">
+<h4>Rain Shower (Granular) <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Granular · dense pattering · two stereo layers · airy reverb</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>triangle</td><td>A2 (110.00 Hz), centred</td><td>amp 0.25, LP 800 Hz Q 0.70</td></tr>
+<tr><td>OSC 2</td><td>granular noise</td><td>L</td><td>HP 1000 Hz Q 1.00, grain 25 ms @ 28.00/s</td></tr>
+<tr><td>OSC 3</td><td>granular noise</td><td>R</td><td>HP 1100 Hz Q 1.00, grain 22 ms @ 32.00/s</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>—, centred</td><td>amp 0.00</td></tr>
+</table>
+</article>
+<article id="preset-riley-granular-cascade" class="preset-entry">
+<h4>Riley — Granular Cascade <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Riley · triangle cascade · granular sparkle 0:30–4:00 · ping-pong delays</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>triangle</td><td>E3 (164.81 Hz), L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>triangle</td><td>B3 (246.94 Hz), R</td><td>amp 0.40, start 15 s</td></tr>
+<tr><td>OSC 3</td><td>triangle</td><td>E4 (329.63 Hz), slight L</td><td>amp 0.35, start 45 s</td></tr>
+<tr><td>OSC 4</td><td>granular noise</td><td>centred</td><td>amp 0.30, HP 2500 Hz Q 1.50, grain 18 ms @ 14.00/s, start 30 s / play 210 s</td></tr>
+</table>
+</article>
+<article id="preset-riley-rainbow-repetition" class="preset-entry">
+<h4>Riley — Rainbow Repetition <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Terry Riley · just C major cascade · voices enter at 0 / 15 / 45 / 90 s</p>
+<div class="preset-curated"><strong>Terry Riley</strong>'s <em>In C</em> (1964) introduced the cascade — same material entering at staggered times until the texture flowers. Four triangle voices in just-intonation C major enter at 0 / 15 / 45 / 90 s with ping-pong delay locked to eighth notes; the delay's 65% feedback turns each voice into a self-cascading echo within the larger cascade. Open the chord pill to swap to another root and the pattern still holds.</div>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>triangle</td><td>C3 (130.81 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>triangle</td><td>G3 (196.22 Hz), L</td><td>start 15 s</td></tr>
+<tr><td>OSC 3</td><td>triangle</td><td>C4 (261.63 Hz), R</td><td>start 45 s</td></tr>
+<tr><td>OSC 4</td><td>triangle</td><td>E4-14¢ (327.04 Hz), slight L</td><td>amp 0.42, start 90 s</td></tr>
+</table>
+</article>
+<article id="preset-scriabin-tape-decay" class="preset-entry">
+<h4>Scriabin — Tape Decay <span class="platform-badge platform-ios">ios</span></h4>
+<p class="preset-subtitle">Mystic piano sample · granular cloud · 8 s stereo decay</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sample: scriabin-mystic-piano (granular)</td><td>C4 (261.63 Hz), L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>C3 (130.81 Hz), R</td><td>amp 0.25</td></tr>
+<tr><td>OSC 3</td><td>—</td><td>—</td><td>silent</td></tr>
+<tr><td>OSC 4</td><td>—</td><td>—</td><td>silent</td></tr>
+</table>
+</article>
+<article id="preset-sparse-rain-granular" class="preset-entry">
+<h4>Sparse Rain (Granular) <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Granular · soft droplets · open-room reverb · ambient sub-bass</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>A1 (55.00 Hz), centred</td><td>amp 0.30, LP 600 Hz Q 0.70</td></tr>
+<tr><td>OSC 2</td><td>granular noise</td><td>L</td><td>BP 2000 Hz Q 2.50, grain 35 ms @ 4.00/s</td></tr>
+<tr><td>OSC 3</td><td>granular noise</td><td>R</td><td>amp 0.42, BP 2200 Hz Q 2.50, grain 40 ms @ 5.00/s, start 8 s</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>—, centred</td><td>amp 0.00</td></tr>
+</table>
+</article>
+<article id="preset-stars-of-the-lid-granular-halo" class="preset-entry">
+<h4>Stars of the Lid — Granular Halo <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">SOTL · orchestral pad · granular dust enters at 60 s and stays</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sawtooth</td><td>A3 (220.00 Hz), slight L</td><td>amp 0.40, LP 900 Hz Q 0.80</td></tr>
+<tr><td>OSC 2</td><td>sawtooth</td><td>E4 (329.63 Hz), slight R</td><td>amp 0.35, LP 900 Hz Q 0.80, start 30 s</td></tr>
+<tr><td>OSC 3</td><td>sawtooth</td><td>A4 (440.00 Hz), centred</td><td>amp 0.25, LP 900 Hz Q 0.80, start 90 s</td></tr>
+<tr><td>OSC 4</td><td>granular noise</td><td>centred</td><td>amp 0.25, HP 2000 Hz Q 1.00, grain 60 ms @ 18.00/s, start 60 s</td></tr>
+</table>
+</article>
+<article id="preset-stars-of-the-lid-orchestral-halo" class="preset-entry">
+<h4>Stars of the Lid — Orchestral Halo <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Stars of the Lid · A major halo · chord blooms 0 / 30 / 90 / 180 s</p>
+<div class="preset-curated"><strong>Stars of the Lid</strong> (Adam Wiltzie + Brian McBride) built ambient music from sampled orchestral strings stretched into haloed pads. This preset uses sawtooth voices low-passed hard, with long reverb and a chord that blooms over 3 minutes via Replay × N timing — voice 1 at 0 s, voice 2 at 30 s, voice 3 at 90 s, voice 4 at 180 s. The result is the harmonic content slowly accumulating without you noticing when each new note arrived.</div>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sawtooth</td><td>A2 (110.00 Hz), L</td><td>LP 800 Hz Q 1.50</td></tr>
+<tr><td>OSC 2</td><td>sawtooth</td><td>E3 (164.81 Hz), R</td><td>LP 900 Hz Q 1.50, start 30 s</td></tr>
+<tr><td>OSC 3</td><td>sawtooth</td><td>A3 (220.00 Hz), slight L</td><td>amp 0.40, LP 1100 Hz Q 1.50, start 90 s</td></tr>
+<tr><td>OSC 4</td><td>sawtooth</td><td>C♯4 (277.18 Hz), slight R</td><td>amp 0.35, LP 1300 Hz Q 1.50, start 180 s</td></tr>
+</table>
+</article>
+<article id="preset-stone-tape-granular" class="preset-entry">
+<h4>Stone Tape (Granular) <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Granular · rare low grains · long-tail reverb · sub-bass drone bed</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>E1 (41.20 Hz), centred</td><td>amp 0.35, LP 350 Hz Q 0.70</td></tr>
+<tr><td>OSC 2</td><td>granular noise</td><td>centred</td><td>amp 0.55, LP 800 Hz Q 1.50, grain 180 ms @ 0.70/s</td></tr>
+<tr><td>OSC 3</td><td>granular noise</td><td>centred</td><td>amp 0.30, LP 500 Hz Q 1.50, grain 240 ms @ 0.50/s, start 30 s</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>—, centred</td><td>amp 0.00</td></tr>
+</table>
+</article>
+<article id="preset-sunn-o-granular-tar-pit" class="preset-entry">
+<h4>Sunn O))) — Granular Tar Pit <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Sunn O))) · sub-bass + amp-decay granular crackle from 1:00 · drop master volume</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sawtooth</td><td>E1 (41.20 Hz), L</td><td>amp 0.75, drive 6.50×, LP 600 Hz Q 1.50</td></tr>
+<tr><td>OSC 2</td><td>square</td><td>E1+15¢ (41.55 Hz), R</td><td>amp 0.65, drive 5.50×, LP 700 Hz Q 1.50</td></tr>
+<tr><td>OSC 3</td><td>granular noise</td><td>centred</td><td>amp 0.40, HP 1500 Hz Q 1.20, grain 30 ms @ 8.00/s, start 60 s</td></tr>
+<tr><td>OSC 4</td><td>granular noise</td><td>centred</td><td>amp 0.35, BP 2500 Hz Q 2.00, grain 18 ms @ 22.00/s, start 180 s</td></tr>
+</table>
+</article>
+<article id="preset-sunn-o-onyx-tar" class="preset-entry">
+<h4>Sunn O))) — Onyx Tar <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Sunn O))) · sub-bass E + amp drive · square tremolo · drop master volume</p>
+<div class="preset-curated"><strong>Sunn O)))</strong> (pronounced "sun") plays metal at one note per minute, with maximum amplifier saturation. This preset drops the chord into the sub-bass register, cranks drive on every voice, and stacks the same root across three octaves. <strong>Drop master volume first</strong> — the drive on this patch will absolutely melt your speakers at default level. The fourth voice is a high overtone meant to suggest the bowed-cymbal partials that ride above their riffs.</div>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sawtooth</td><td>E1 (41.20 Hz), L</td><td>amp 0.75, drive 6.50×, LP 350 Hz Q 2.00</td></tr>
+<tr><td>OSC 2</td><td>square</td><td>E1+15¢ (41.55 Hz), R</td><td>amp 0.65, drive 5.50×, LP 400 Hz Q 1.80</td></tr>
+<tr><td>OSC 3</td><td>sawtooth</td><td>E2 (82.40 Hz), centred</td><td>amp 0.55, drive 4.00×, LP 500 Hz Q 1.50</td></tr>
+<tr><td>OSC 4</td><td>sawtooth</td><td>B2 (123.47 Hz), slight R</td><td>amp 0.40, drive 3.00×, LP 700 Hz Q 1.50</td></tr>
+</table>
+</article>
+<article id="preset-tibetan-bowl-cycle" class="preset-entry">
+<h4>Tibetan Bowl Cycle <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Bowl-like wobble · ±½ semi every 3 min · long-tail reverb</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>triangle</td><td>D3 (146.83 Hz), centred</td><td>amp 0.55, LP 1800 Hz Q 0.90</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>A3 (220.00 Hz), L</td><td>amp 0.40</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>D4 (293.66 Hz), R</td><td>amp 0.30, start 30 s</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>D5 (587.33 Hz), centred</td><td>amp 0.15, HP 400 Hz Q 0.70, start 60 s</td></tr>
+</table>
+</article>
+<article id="preset-tide-breath" class="preset-entry">
+<h4>Tide Breath <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Just-A chord · four voices breathe out of sync · Ocean drift</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>A2 (110.00 Hz), L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>E3 (164.81 Hz), slight L</td><td>amp 0.40</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>A3 (220.00 Hz), slight R</td><td>amp 0.40</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>C♯4 (277.18 Hz), R</td><td>amp 0.35</td></tr>
+</table>
+</article>
+<article id="preset-vowel-cloud" class="preset-entry">
+<h4>Vowel Cloud <span class="platform-badge platform-ios">ios</span></h4>
+<p class="preset-subtitle">Vox sample · long granular vowels · stereo cathedral</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sample: jg-vox-nothing-at-all (granular)</td><td>A3 (220.00 Hz), centred</td><td>amp 0.55</td></tr>
+<tr><td>OSC 2</td><td>—</td><td>—</td><td>silent</td></tr>
+<tr><td>OSC 3</td><td>—</td><td>—</td><td>silent</td></tr>
+<tr><td>OSC 4</td><td>—</td><td>—</td><td>silent</td></tr>
+</table>
+</article>
+<article id="preset-wada-bagpipe-drone" class="preset-entry">
+<h4>Wada — Bagpipe Drone <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Yoshi Wada · just A + 3/2 + 9/8 · reed wobble + multi-reed chorus</p>
+<div class="preset-curated"><strong>Yoshi Wada</strong> built giant sirens and resurrected the Highland-pipe tradition with new technology, finding the sweet spot between folk and minimalism. This preset stacks a fifth + octave drone on sawtooth voices with stereo chorus and a touch of drive — the pipe character comes from the upper voice running a slow LFO on pitch that suggests reed instability. Set OSC 4's frequency by ear to a true just 7th over the root for the most authentic pipe colour.</div>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sawtooth</td><td>A2 (110.00 Hz), centred</td><td>amp 0.65, LP 1800 Hz Q 1.00</td></tr>
+<tr><td>OSC 2</td><td>sawtooth</td><td>A3 (220.00 Hz), L</td><td>LP 2200 Hz Q 1.00</td></tr>
+<tr><td>OSC 3</td><td>sawtooth</td><td>E3 (165.00 Hz), R</td><td>amp 0.42, LP 2000 Hz Q 1.00</td></tr>
+<tr><td>OSC 4</td><td>sawtooth</td><td>B3+4¢ (247.50 Hz), slight L</td><td>amp 0.30, LP 2500 Hz Q 1.00</td></tr>
+</table>
+</article>
+<article id="preset-wada-granular-bagpipe-breath" class="preset-entry">
+<h4>Wada — Granular Bagpipe Breath <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Wada · just-intoned drone · granular wind enters 1:00, departs 5:00</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sawtooth</td><td>D3 (146.83 Hz), L</td><td>drive 2.00×, LP 1500 Hz Q 0.90</td></tr>
+<tr><td>OSC 2</td><td>sawtooth</td><td>A3 (220.00 Hz), R</td><td>drive 2.00×, LP 1500 Hz Q 0.90</td></tr>
+<tr><td>OSC 3</td><td>sawtooth</td><td>D4 (293.66 Hz), centred</td><td>amp 0.30, drive 1.80×, LP 1700 Hz Q 0.90, start 30 s</td></tr>
+<tr><td>OSC 4</td><td>granular noise</td><td>centred</td><td>amp 0.35, BP 1200 Hz Q 1.50, grain 100 ms @ 12.00/s, start 60 s / play 240 s</td></tr>
+</table>
+</article>
+<article id="preset-wide-cathedral" class="preset-entry">
+<h4>Wide Cathedral <span class="platform-badge platform-ios">ios</span></h4>
+<p class="preset-subtitle">Four sines · hard-panned · 9 s stereo reverb</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>A2 (110.00 Hz), hard L</td><td>amp 0.40</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>E3 (164.81 Hz), L</td><td>amp 0.35</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>A3 (220.00 Hz), R</td><td>amp 0.35</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>E4 (329.63 Hz), hard R</td><td>amp 0.30</td></tr>
+</table>
+</article>
+</section>
+<section><h2 id="cat-developer-patches">Developer Patches</h2>
+<article id="preset-jg-bloom-swell" class="preset-entry">
+<h4>JG Bloom Swell <span class="platform-badge platform-ios">ios</span></h4>
+<p class="preset-subtitle">Sparse 1/2 granular · 12 s FX Mix breath · vocal</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sample: JG Dub Wave (granular)</td><td>A3 (220.00 Hz), L</td><td>play 240 s / ∞ replay</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>A2 (110.00 Hz), centred</td><td>amp 0.40</td></tr>
+<tr><td>OSC 3</td><td>triangle</td><td>E4 (329.63 Hz), R</td><td>amp 0.26, start 45 s / play 180 s / ∞ replay</td></tr>
+<tr><td>OSC 4</td><td>—</td><td>—</td><td>silent</td></tr>
+</table>
+</article>
+<article id="preset-jg-dub-wave" class="preset-entry">
+<h4>JG Dub Wave <span class="platform-badge platform-ios">ios</span></h4>
+<p class="preset-subtitle">Author recording · dubwise low end · Replay × 5 motion</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sample: JG Dub Wave</td><td>E4 (329.66 Hz), hard L</td><td>amp 0.04, drive 2.10×, LP 959 Hz Q 1.84, reverb 1.1s @ 0.26, delay 0.52s fb 0.24 @ 0.41, grain 63 ms @ 9.90/s, start 15 s / play 180 s / × 2 replay</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>B1-13¢ (61.27 Hz), slight R</td><td>amp 0.59, drive 1.38×, reverb 4.7s @ 0.30, delay 0.30s fb 0.40 @ 0.14</td></tr>
+<tr><td>OSC 3</td><td>sample: JG Dub Wave-2</td><td>B2 (123.47 Hz), slight L</td><td>amp 0.99, drive 3.77×, reverb 4.8s @ 0.49, delay 0.70s fb 0.67 @ 0.66, start 30 s / play 180 s / × 3 replay</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>C♯3 (138.59 Hz), slight R</td><td>reverb 2.0s @ 0.66, start 120 s / play 60 s / × 5 replay</td></tr>
+</table>
+</article>
+<article id="preset-jg-gamelan-spiral" class="preset-entry">
+<h4>JG Gamelan Spiral <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Slendro-flavoured pentatonic · gamelan polyrhythm via mismatched replay</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sample: Bagpipe Drone (granular)</td><td>A2 (110.00 Hz), centred</td><td>amp 0.42, play 180 s / ∞ replay</td></tr>
+<tr><td>OSC 2</td><td>triangle</td><td>B2+41¢ (126.43 Hz), L</td><td>amp 0.30, start 12 s / play 22 s / ∞ replay</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>D3-26¢ (144.61 Hz), R</td><td>amp 0.28, start 18 s / play 31 s / ∞ replay</td></tr>
+<tr><td>OSC 4</td><td>sample: Bansuri C4 (granular)</td><td>C4 (261.63 Hz), slight R</td><td>start 8 s / play 45 s / ∞ replay</td></tr>
+</table>
+</article>
+<article id="preset-jg-interrupted" class="preset-entry">
+<h4>JG Interrupted <span class="platform-badge platform-ios">ios</span></h4>
+<p class="preset-subtitle">Vocal granular · high pos jitter · pulsing delay</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sample: JG Dub Wave (granular)</td><td>A4 (440.00 Hz), slight L</td><td>amp 0.44, drive 1.76×, LP 4060 Hz Q 2.09, reverb 3.6s @ 0.12, delay 0.09s fb 0.87 @ 0.96, grain 487 ms @ 6.38/s, start 15 s / play 60 s / × 2 replay</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>G♯2+33¢ (105.84 Hz), slight R</td><td>amp 0.13, drive 1.58×, delay 0.30s fb 0.64 @ 0.60, play 180 s / × 2 replay</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>A2+50¢ (113.22 Hz), slight L</td><td>amp 0.14, drive 1.18×, reverb 7.3s @ 0.52, delay 0.97s fb 0.72 @ 0.80, start 30 s / play 180 s / × 2 replay</td></tr>
+<tr><td>OSC 4</td><td>triangle</td><td>B2-17¢ (122.25 Hz), slight R</td><td>amp 0.29, drive 1.98×, HP 284 Hz Q 4.71, delay 0.72s fb 0.65 @ 0.29, start 60 s / play 60 s / × 2 replay</td></tr>
+</table>
+</article>
+<article id="preset-jg-jog" class="preset-entry">
+<h4>JG JoG <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Author recording · JoG sample-granular study</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sample: JG JoG (granular)</td><td>A2 (110.00 Hz), slight L</td><td>amp 0.89, drive 1.63×, LP 4277 Hz Q 3.98, reverb 4.5s @ 0.69, delay 0.19s fb 0.56 @ 0.34, grain 80 ms @ 2.67/s, start 30 s / play 180 s / × 3 replay</td></tr>
+<tr><td>OSC 2</td><td>sawtooth</td><td>C♯3 (138.59 Hz), slight R</td><td>amp 0.44, reverb 3.3s @ 0.30, delay 0.25s fb 0.47 @ 0.61, start 60 s / play 60 s / × 5 replay</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>F3 (174.61 Hz), slight L</td><td>drive 1.20×, LP 2002 Hz Q 1.52, reverb 5.7s @ 0.43, delay 0.30s fb 0.40 @ 0.22</td></tr>
+<tr><td>OSC 4</td><td>sawtooth</td><td>A♯1-43¢ (56.84 Hz), slight R</td><td>drive 2.10×, LP 471 Hz Q 3.21</td></tr>
+</table>
+</article>
+<article id="preset-jg-lydian-bloom-2" class="preset-entry">
+<h4>JG Lydian Bloom 2 <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Lydian · cosmic bed · randomized granular bloom · Replay × 4</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sample: JG Chords 2 (granular)</td><td>C4 (261.63 Hz), L</td><td>play 60 s / × 4 replay</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>F♯4 (369.99 Hz), R</td><td>amp 0.34, start 20 s / play 60 s / × 4 replay</td></tr>
+<tr><td>OSC 3</td><td>sample: Galactic-C2</td><td>C2 (65.41 Hz), centred</td><td>amp 0.42, play 240 s / ∞ replay</td></tr>
+<tr><td>OSC 4</td><td>triangle</td><td>A4 (440.00 Hz), centred</td><td>amp 0.22, start 40 s / play 60 s / × 4 replay</td></tr>
+</table>
+</article>
+<article id="preset-jg-microtonal-pulse" class="preset-entry">
+<h4>JG Microtonal Pulse <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Quartertone cluster · dense small-grain Clang · pulsing</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sample: Clang and Drone (granular)</td><td>A3 (220.00 Hz), L</td><td>amp 0.42, play 60 s / ∞ replay</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>A♯3-48¢ (226.70 Hz), slight L</td><td>amp 0.28</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>A♯3+3¢ (233.50 Hz), slight R</td><td>amp 0.28</td></tr>
+<tr><td>OSC 4</td><td>triangle</td><td>B3-46¢ (240.50 Hz), R</td><td>amp 0.26</td></tr>
+</table>
+</article>
+<article id="preset-jg-mystic-wash" class="preset-entry">
+<h4>JG Mystic Wash <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Scriabin mystic · Basinski-style granular piano cloud</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sample: scriabin-mystic-piano (granular)</td><td>C4 (261.63 Hz), L</td><td>play 90 s / × 3 replay</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>F♯4 (369.99 Hz), R</td><td>amp 0.28, start 15 s / play 90 s / × 3 replay</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>C3 (130.81 Hz), centred</td><td>amp 0.32, play 240 s / ∞ replay</td></tr>
+<tr><td>OSC 4</td><td>—</td><td>—</td><td>silent</td></tr>
+</table>
+</article>
+<article id="preset-jg-ocean-eigenstate" class="preset-entry">
+<h4>JG Ocean Eigenstate <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Tide × Calm Sea granular · Pythagorean 3:2 · ocean drift</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>A2 (110.00 Hz), centred</td><td>amp 0.38, play 240 s / ∞ replay</td></tr>
+<tr><td>OSC 2</td><td>sample: Tide (granular)</td><td>A3 (220.00 Hz), L</td><td>start 5 s / play 90 s / ∞ replay</td></tr>
+<tr><td>OSC 3</td><td>sample: Calm Sea (granular)</td><td>E3 (165.00 Hz), R</td><td>amp 0.42, start 25 s / play 110 s / ∞ replay</td></tr>
+<tr><td>OSC 4</td><td>—</td><td>—</td><td>silent</td></tr>
+</table>
+</article>
+<article id="preset-jg-ondulations" class="preset-entry">
+<h4>JG Ondulations <span class="platform-badge platform-ios">ios</span></h4>
+<p class="preset-subtitle">Author recording · undulating sample-granular cloud</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sample: JG Dub Wave (granular)</td><td>B3+32¢ (251.49 Hz), slight L</td><td>amp 0.32, drive 1.76×, LP 644 Hz Q 0.88, reverb 2.0s @ 0.24, delay 0.12s fb 0.02 @ 0.38, grain 213 ms @ 21.52/s, start 15 s / play 180 s / × 2 replay</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>B1-13¢ (61.27 Hz), slight R</td><td>amp 0.59, drive 1.38×, reverb 4.7s @ 0.30, delay 0.30s fb 0.40 @ 0.14</td></tr>
+<tr><td>OSC 3</td><td>sample: JG Dub Wave-2</td><td>B2 (123.47 Hz), slight L</td><td>amp 0.96, drive 2.73×, reverb 4.8s @ 0.37, delay 0.70s fb 0.67 @ 0.57, start 30 s / play 180 s / × 3 replay</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>C♯3 (138.59 Hz), slight R</td><td>reverb 2.0s @ 0.66, start 120 s / play 60 s / × 5 replay</td></tr>
+</table>
+</article>
+<article id="preset-jg-pearl-bloom" class="preset-entry">
+<h4>JG Pearl Bloom <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Genesis Soundhread granular pearl · just-intonation 4:5:6 · Replay × 3</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sample: Genesis Soundhread (granular)</td><td>C2 (65.41 Hz), centred</td><td>play 90 s / × 3 replay</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>E2-14¢ (81.76 Hz), L</td><td>amp 0.30, start 12 s / play 90 s / × 3 replay</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>G2 (98.12 Hz), R</td><td>amp 0.30, start 24 s / play 90 s / × 3 replay</td></tr>
+<tr><td>OSC 4</td><td>triangle</td><td>E3-14¢ (163.52 Hz), centred</td><td>amp 0.22, start 36 s / play 90 s / × 3 replay</td></tr>
+</table>
+</article>
+<article id="preset-jg-phrygian-procession" class="preset-entry">
+<h4>JG Phrygian Procession <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Phrygian dominant · sparse granular procession · Replay × 5</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sample: JG Chords 1 (granular)</td><td>E3 (164.81 Hz), L</td><td>amp 0.55, play 45 s / × 5 replay</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>F3 (174.61 Hz), R</td><td>amp 0.32, start 15 s / play 50 s / × 5 replay</td></tr>
+<tr><td>OSC 3</td><td>triangle</td><td>G♯3 (207.65 Hz), slight L</td><td>amp 0.28, start 30 s / play 40 s / × 5 replay</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>C4 (261.63 Hz), slight R</td><td>amp 0.24, start 60 s / play 55 s / × 5 replay</td></tr>
+</table>
+</article>
+<article id="preset-jg-pulse-lock" class="preset-entry">
+<h4>JG Pulse Lock <span class="platform-badge platform-ios">ios</span></h4>
+<p class="preset-subtitle">BPM-quantized grain (1/8) + FX Mix swell · vocal loop</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sample: JG Dub Wave-2 (granular)</td><td>A3 (220.00 Hz), centred</td><td>amp 0.55, play 240 s / ∞ replay</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>A2 (110.00 Hz), L</td><td>amp 0.32</td></tr>
+<tr><td>OSC 3</td><td>triangle</td><td>E3 (164.81 Hz), R</td><td>amp 0.24, start 30 s / play 180 s / ∞ replay</td></tr>
+<tr><td>OSC 4</td><td>—</td><td>—</td><td>silent</td></tr>
+</table>
+</article>
+<article id="preset-jg-small-steps" class="preset-entry">
+<h4>JG Small Steps <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Author recording · small-steps sample-granular</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>granular noise</td><td>L</td><td>amp 0.55, drive 1.29×, LP 4200 Hz Q 0.76, reverb 6.6s @ 0.86, delay 1.22s fb 0.90 @ 0.98, grain 23 ms @ 5.33/s, play 120 s / ∞ replay</td></tr>
+<tr><td>OSC 2</td><td>sample: JG Small Steps (granular)</td><td>F♯3-23¢ (182.57 Hz), R</td><td>amp 0.96, drive 1.77×, LP 2000 Hz Q 2.06, reverb 8.0s @ 0.55, delay 0.75s fb 0.56 @ 0.65, grain 130 ms @ 5.33/s, start 30 s / play 120 s / ∞ replay</td></tr>
+<tr><td>OSC 3</td><td>triangle</td><td>C♯3-43¢ (135.22 Hz), hard R</td><td>amp 0.20, reverb 9.3s @ 0.84, delay 0.53s fb 0.73 @ 0.86</td></tr>
+<tr><td>OSC 4</td><td>triangle</td><td>C5+40¢ (535.47 Hz), centred</td><td>amp 0.27, drive 1.41×, LP 3961 Hz Q 1.00, reverb 3.2s @ 0.22, delay 0.48s fb 0.28 @ 0.27</td></tr>
+</table>
+</article>
+<article id="preset-jg-storm-mantra" class="preset-entry">
+<h4>JG Storm Mantra <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Heavy Rain × Wind 1 granular · A Aeolian stack · ebb and flow</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sample: Heavy Rain (granular)</td><td>A3 (220.00 Hz), L</td><td>play 80 s / ∞ replay</td></tr>
+<tr><td>OSC 2</td><td>sample: Wind 1 (granular)</td><td>C4 (261.63 Hz), R</td><td>amp 0.40, start 30 s / play 100 s / ∞ replay</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>E4 (329.63 Hz), slight L</td><td>amp 0.26, start 50 s / play 60 s / ∞ replay</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>A2 (110.00 Hz), centred</td><td>amp 0.32</td></tr>
+</table>
+</article>
+<article id="preset-jg-tessellation" class="preset-entry">
+<h4>JG Tessellation <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Bansuri × Shakuhachi · Indian-just · granular tessellation</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sample: Bansuri B2 (granular)</td><td>B3 (246.94 Hz), L</td><td>amp 0.55, play 120 s / ∞ replay</td></tr>
+<tr><td>OSC 2</td><td>sample: Shakuhachi Chant 1 C4 (granular)</td><td>C4 (261.63 Hz), R</td><td>start 30 s / play 120 s / ∞ replay</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>B2 (123.47 Hz), centred</td><td>amp 0.28</td></tr>
+<tr><td>OSC 4</td><td>—</td><td>—</td><td>silent</td></tr>
+</table>
+</article>
+<article id="preset-jg-walk" class="preset-entry">
+<h4>JG WalK <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Author recording · slower JoG sample-granular</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sample: JG JoG (granular)</td><td>A2 (110.00 Hz), centred</td><td>amp 0.89, drive 1.63×, LP 4277 Hz Q 3.98, reverb 3.4s @ 0.56, grain 76 ms @ 1.33/s, start 30 s / play 180 s / × 3 replay</td></tr>
+<tr><td>OSC 2</td><td>sawtooth</td><td>C♯3 (138.59 Hz), slight R</td><td>amp 0.60, reverb 3.3s @ 0.30, delay 0.25s fb 0.47 @ 0.61, start 60 s / play 60 s / × 5 replay</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>F3 (174.61 Hz), centred</td><td>amp 0.55, reverb 4.4s @ 0.23, delay 0.30s fb 0.40 @ 0.26</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>A♯1-43¢ (56.84 Hz), slight R</td><td>amp 0.83, drive 1.51×, LP 6636 Hz Q 3.21</td></tr>
+</table>
+</article>
+<article id="preset-jg-whispered-forest" class="preset-entry">
+<h4>JG Whispered Forest <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Night-forest granular · C Locrian · Bansuri whisper · Replay ∞</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sample: Night forest with insects (granular)</td><td>C4 (261.63 Hz), L</td><td>play 100 s / ∞ replay</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>C♯4 (277.18 Hz), R</td><td>amp 0.28, start 25 s / play 80 s / ∞ replay</td></tr>
+<tr><td>OSC 3</td><td>sample: Bansuri C4 (granular)</td><td>F♯4 (369.99 Hz), centred</td><td>amp 0.40, start 10 s / play 130 s / ∞ replay</td></tr>
+<tr><td>OSC 4</td><td>triangle</td><td>A♯4 (466.16 Hz), centred</td><td>amp 0.20, start 50 s / play 60 s / ∞ replay</td></tr>
+</table>
+</article>
+<article id="preset-jg-whole-tone-wind" class="preset-entry">
+<h4>JG Whole Tone Wind <span class="platform-badge platform-ios">ios</span></h4>
+<p class="preset-subtitle">Whole-tone stack · sample granular wind · Replay × 5</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sample: JG Dub Wave (granular)</td><td>F4-42¢ (340.92 Hz), L</td><td>amp 0.37, drive 1.76×, LP 644 Hz Q 0.88, reverb 2.0s @ 0.24, delay 0.12s fb 0.02 @ 0.38, grain 213 ms @ 21.52/s, start 15 s / play 180 s / × 2 replay</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>A2 (110.00 Hz), slight R</td><td>drive 1.38×, reverb 4.7s @ 0.30, delay 0.30s fb 0.40 @ 0.14</td></tr>
+<tr><td>OSC 3</td><td>sample: JG Dub Wave-2</td><td>B2 (123.47 Hz), slight L</td><td>amp 0.75, drive 2.73×, reverb 4.8s @ 0.37, delay 0.70s fb 0.67 @ 0.57, start 30 s / play 180 s / × 3 replay</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>C♯3 (138.59 Hz), slight R</td><td>start 120 s / play 60 s / × 5 replay</td></tr>
+</table>
+</article>
+</section>
+<section><h2 id="cat-natural-resonance">Natural Resonance</h2>
+<article id="preset-c-jose-alex" class="preset-entry">
+<h4>C-φ (Jose/Alex) <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">266.67 Hz — the icon-generator frequency</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>C3+33¢ (133.33 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>C4+33¢ (266.67 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>C4+33¢ (266.67 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>C5+33¢ (533.33 Hz), hard R</td><td>—</td></tr>
+</table>
+</article>
+<article id="preset-earth-schumann-fundamental" class="preset-entry">
+<h4>Earth (Schumann fundamental) <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">7.83 Hz</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>G2+35¢ (100.00 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>A2-34¢ (107.83 Hz), hard R</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>G1+35¢ (50.00 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>—</td><td>—</td><td>silent</td></tr>
+</table>
+</article>
+<article id="preset-jose-alex-phi-augmented-chord" class="preset-entry">
+<h4>Jose &amp; Alex Phi Augmented Chord <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">C–E–G♯ tuned to 1 : √φ : φ — the Webb triangle</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>E3 (164.81 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>C4+33¢ (266.67 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>G♯3+16¢ (209.64 Hz), hard R</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>—</td><td>—</td><td>silent</td></tr>
+</table>
+</article>
+<article id="preset-moon-210-42-hz" class="preset-entry">
+<h4>Moon 210.42 Hz <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Cosmic-octave moon orbit</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>G♯3+23¢ (210.42 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>G♯2+23¢ (105.21 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>D♯4+25¢ (315.63 Hz), hard R</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>G♯4+23¢ (420.84 Hz), centred</td><td>—</td></tr>
+</table>
+</article>
+<article id="preset-om-136-1-hz" class="preset-entry">
+<h4>OM 136.1 Hz <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Tuned to Earth&#x27;s year</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>C♯3-31¢ (136.10 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>C♯4-31¢ (272.20 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>G♯3-29¢ (204.15 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>G♯3-29¢ (204.15 Hz), hard R</td><td>—</td></tr>
+</table>
+</article>
+<article id="preset-sable-s-chord" class="preset-entry">
+<h4>Sable&#x27;s Chord <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">φ-tuned C-E-G♯ on the φ-tuned C — 1 : √φ : φ</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>C4+33¢ (266.67 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>E4+50¢ (339.20 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>A4-34¢ (431.36 Hz), hard R</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>—</td><td>—</td><td>silent</td></tr>
+</table>
+</article>
+<article id="preset-sun-126-22-hz" class="preset-entry">
+<h4>Sun 126.22 Hz <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Cosmic-octave solar</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>B2+38¢ (126.22 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>B1+38¢ (63.11 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>F♯3+40¢ (189.33 Hz), hard R</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>B3+38¢ (252.44 Hz), centred</td><td>—</td></tr>
+</table>
+</article>
+</section>
+<section><h2 id="cat-cymatics">Cymatics</h2>
+<article id="preset-fibonacci-quartet" class="preset-entry">
+<h4>Fibonacci Quartet <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">100·162·262·424 Hz — φ-progression spiral patterns</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>G2+35¢ (100.00 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>E3-30¢ (162.00 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>C4 (262.00 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>G♯4+36¢ (424.00 Hz), hard R</td><td>—</td></tr>
+</table>
+</article>
+<article id="preset-harmonic-series-1-2-3-4" class="preset-entry">
+<h4>Harmonic Series 1:2:3:4 <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">100·200·300·400 Hz — clean orthogonal grid</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>G2+35¢ (100.00 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>G3+35¢ (200.00 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>D4+37¢ (300.00 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>G4+35¢ (400.00 Hz), hard R</td><td>—</td></tr>
+</table>
+</article>
+<article id="preset-hypogeum-111-hz" class="preset-entry">
+<h4>Hypogeum 111 Hz <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Maltese megalithic chamber — single-tone radial symmetry</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>A1+16¢ (55.50 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>A2+16¢ (111.00 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>A3+16¢ (222.00 Hz), hard R</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>—</td><td>—</td><td>silent</td></tr>
+</table>
+</article>
+<article id="preset-just-major-triad-4-5-6" class="preset-entry">
+<h4>Just Major Triad 4:5:6 <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">C-E-G+C in pure intonation — 5-fold floral pattern</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>C4+16¢ (264.00 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>E4 (330.00 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>G4+18¢ (396.00 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>C5+16¢ (528.00 Hz), hard R</td><td>—</td></tr>
+</table>
+</article>
+<article id="preset-octave-stack-1-2-4-8" class="preset-entry">
+<h4>Octave Stack 1:2:4:8 <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">75·150·300·600 Hz — pure-doubling lattice</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>D2+37¢ (75.00 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>D3+37¢ (150.00 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>D4+37¢ (300.00 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>D5+37¢ (600.00 Hz), hard R</td><td>—</td></tr>
+</table>
+</article>
+<article id="preset-perfect-fifths-2-3-9-2-27-4" class="preset-entry">
+<h4>Perfect Fifths 2:3:9/2:27/4 <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">100·150·225·337.5 Hz — recursive triangular symmetries</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>G2+35¢ (100.00 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>D3+37¢ (150.00 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>A3+39¢ (225.00 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>E4+41¢ (337.50 Hz), hard R</td><td>—</td></tr>
+</table>
+</article>
+</section>
+<section><h2 id="cat-solfeggio">Solfeggio</h2>
+<article id="preset-solfeggio-174-hz" class="preset-entry">
+<h4>Solfeggio 174 Hz <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Traditionally associated with grounding</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>F3-6¢ (174.00 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>F2-6¢ (87.00 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>F4-6¢ (348.00 Hz), hard R</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>—</td><td>—</td><td>silent</td></tr>
+</table>
+</article>
+<article id="preset-solfeggio-285-hz" class="preset-entry">
+<h4>Solfeggio 285 Hz <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Traditionally associated with body restoration</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>C♯4+48¢ (285.00 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>C♯3+48¢ (142.50 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>C♯5+48¢ (570.00 Hz), hard R</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>—</td><td>—</td><td>silent</td></tr>
+</table>
+</article>
+<article id="preset-solfeggio-396-hz" class="preset-entry">
+<h4>Solfeggio 396 Hz <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Traditionally associated with releasing fear &amp; guilt</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>G4+18¢ (396.00 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>G3+18¢ (198.00 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>D5+20¢ (594.00 Hz), hard R</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>—</td><td>—</td><td>silent</td></tr>
+</table>
+</article>
+<article id="preset-solfeggio-417-hz" class="preset-entry">
+<h4>Solfeggio 417 Hz <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Traditionally associated with breaking patterns</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>G♯4+7¢ (417.00 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>G♯3+7¢ (208.50 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>D♯5+9¢ (625.50 Hz), hard R</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>—</td><td>—</td><td>silent</td></tr>
+</table>
+</article>
+<article id="preset-solfeggio-432-hz-verdi" class="preset-entry">
+<h4>Solfeggio 432 Hz (Verdi) <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Alternative natural-tuning A</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>A4-32¢ (432.00 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>A3-32¢ (216.00 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>A5-32¢ (864.00 Hz), hard R</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>—</td><td>—</td><td>silent</td></tr>
+</table>
+</article>
+<article id="preset-solfeggio-528-hz" class="preset-entry">
+<h4>Solfeggio 528 Hz <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Traditionally called the \</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>C5+16¢ (528.00 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>C4+16¢ (264.00 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>G5+18¢ (792.00 Hz), hard R</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>—</td><td>—</td><td>silent</td></tr>
+</table>
+</article>
+<article id="preset-solfeggio-639-hz" class="preset-entry">
+<h4>Solfeggio 639 Hz <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Traditionally associated with relational harmony</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>D♯5+46¢ (639.00 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>D♯4+46¢ (319.50 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>A♯5+48¢ (958.50 Hz), hard R</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>—</td><td>—</td><td>silent</td></tr>
+</table>
+</article>
+<article id="preset-solfeggio-741-hz" class="preset-entry">
+<h4>Solfeggio 741 Hz <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Traditionally associated with insight</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>F♯5 (741.00 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>F♯4 (370.50 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>C♯6+4¢ (1111.50 Hz), hard R</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>—</td><td>—</td><td>silent</td></tr>
+</table>
+</article>
+<article id="preset-solfeggio-852-hz" class="preset-entry">
+<h4>Solfeggio 852 Hz <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Traditionally associated with restoring balance</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>G♯5+44¢ (852.00 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>G♯4+44¢ (426.00 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>D♯6+46¢ (1278.00 Hz), hard R</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>—</td><td>—</td><td>silent</td></tr>
+</table>
+</article>
+<article id="preset-solfeggio-96-hz" class="preset-entry">
+<h4>Solfeggio 96 Hz <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Sub-bass grounding tone</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>G2-36¢ (96.00 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>G1-36¢ (48.00 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>G3-36¢ (192.00 Hz), hard R</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>—</td><td>—</td><td>silent</td></tr>
+</table>
+</article>
+<article id="preset-solfeggio-963-hz" class="preset-entry">
+<h4>Solfeggio 963 Hz <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Traditionally associated with the crown chakra</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>B5-44¢ (963.00 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>B4-44¢ (481.50 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>B6-44¢ (1926.00 Hz), hard R</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>—</td><td>—</td><td>silent</td></tr>
+</table>
+</article>
+</section>
+<section><h2 id="cat-mystic-composers">Mystic &amp; Composers</h2>
+<article id="preset-ligeti-1-chromatic-cluster" class="preset-entry">
+<h4>Ligeti 1 — Chromatic Cluster <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">C-C♯-D-D♯ tight semitone wash (Atmosphères opening)</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>C3 (130.81 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>C♯3 (138.59 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>D3 (146.83 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>D♯3 (155.56 Hz), hard R</td><td>—</td></tr>
+</table>
+</article>
+<article id="preset-ligeti-2-whole-tone-cluster" class="preset-entry">
+<h4>Ligeti 2 — Whole-Tone Cluster <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">C-D-E-F♯ whole-tone fragment, shimmering</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>C3 (130.81 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>D3 (146.83 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>E3 (164.81 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>F♯3 (185.00 Hz), hard R</td><td>—</td></tr>
+</table>
+</article>
+<article id="preset-ligeti-3-microtone-cluster" class="preset-entry">
+<h4>Ligeti 3 — Microtone Cluster <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Quartertone cluster around A3 — 215·220·225·230 Hz</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>A3-40¢ (215.00 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>A3 (220.00 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>A3+39¢ (225.00 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>A♯3-23¢ (230.00 Hz), hard R</td><td>—</td></tr>
+</table>
+</article>
+<article id="preset-scriabin-1-mystic-core" class="preset-entry">
+<h4>Scriabin 1 — Mystic Core <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">C–F♯–B♭–E (lower 4 of the mystic chord)</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>C3 (130.81 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>F♯3 (185.00 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>A♯3 (233.08 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>E4 (329.63 Hz), hard R</td><td>—</td></tr>
+</table>
+</article>
+<article id="preset-scriabin-2-mystic-upper" class="preset-entry">
+<h4>Scriabin 2 — Mystic Upper <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">F♯–B♭–E–A (upper 4 of the mystic chord)</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>F♯3 (185.00 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>A♯3 (233.08 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>E4 (329.63 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>A4 (440.00 Hz), hard R</td><td>—</td></tr>
+</table>
+</article>
+<article id="preset-scriabin-3-wide-mystic" class="preset-entry">
+<h4>Scriabin 3 — Wide Mystic <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">C–B♭–A–D (spread voicing, dropped F♯/E)</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>C3 (130.81 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>A♯3 (233.08 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>A4 (440.00 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>D5 (587.33 Hz), hard R</td><td>—</td></tr>
+</table>
+</article>
+</section>
+<section><h2 id="cat-binaural2">binaural2</h2>
+<article id="preset-alpha-10-hz-relaxed-focus" class="preset-entry">
+<h4>Alpha 10 Hz (Relaxed Focus) <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">210 L / 220 R</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>G♯3+19¢ (210.00 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>A3 (220.00 Hz), hard R</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>—</td><td>—</td><td>silent</td></tr>
+<tr><td>OSC 4</td><td>—</td><td>—</td><td>silent</td></tr>
+</table>
+</article>
+<article id="preset-beta-18-hz-alert" class="preset-entry">
+<h4>Beta 18 Hz (Alert) <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">210 L / 228 R</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>G♯3+19¢ (210.00 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>A♯3-38¢ (228.00 Hz), hard R</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>—</td><td>—</td><td>silent</td></tr>
+<tr><td>OSC 4</td><td>—</td><td>—</td><td>silent</td></tr>
+</table>
+</article>
+<article id="preset-delta-4-hz-deep-sleep" class="preset-entry">
+<h4>Delta 4 Hz (Deep Sleep) <span class="platform-badge platform-ios">ios</span></h4>
+<p class="preset-subtitle">200 L / 204 R</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>G3+35¢ (200.00 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>G♯3-31¢ (204.00 Hz), hard R</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>—</td><td>—</td><td>silent</td></tr>
+<tr><td>OSC 4</td><td>—</td><td>—</td><td>silent</td></tr>
+</table>
+</article>
+<article id="preset-gamma-40-hz-insight" class="preset-entry">
+<h4>Gamma 40 Hz (Insight) <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">200 L / 240 R</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>G3+35¢ (200.00 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>B3-49¢ (240.00 Hz), hard R</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>—</td><td>—</td><td>silent</td></tr>
+<tr><td>OSC 4</td><td>—</td><td>—</td><td>silent</td></tr>
+</table>
+</article>
+<article id="preset-schumann-7-83-hz" class="preset-entry">
+<h4>Schumann 7.83 Hz <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">100 L / 107.83 R</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>G2+35¢ (100.00 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>A2-34¢ (107.83 Hz), hard R</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>—</td><td>—</td><td>silent</td></tr>
+<tr><td>OSC 4</td><td>—</td><td>—</td><td>silent</td></tr>
+</table>
+</article>
+<article id="preset-theta-6-hz-meditation" class="preset-entry">
+<h4>Theta 6 Hz (Meditation) <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">200 L / 206 R</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>G3+35¢ (200.00 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>G♯3-14¢ (206.00 Hz), hard R</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>—</td><td>—</td><td>silent</td></tr>
+<tr><td>OSC 4</td><td>—</td><td>—</td><td>silent</td></tr>
+</table>
+</article>
+</section>
+<section><h2 id="cat-binaural3">binaural3</h2>
+<article id="preset-alpha-5th" class="preset-entry">
+<h4>Alpha + 5th <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">10 Hz beat + perfect 5th drone</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>A3 (220.00 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>A♯3-23¢ (230.00 Hz), hard R</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>E4 (330.00 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>—</td><td>—</td><td>silent</td></tr>
+</table>
+</article>
+<article id="preset-gamma-layered" class="preset-entry">
+<h4>Gamma Layered <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">40 Hz with octave bedding</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>G3+35¢ (200.00 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>B3-49¢ (240.00 Hz), hard R</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>G2+35¢ (100.00 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>—</td><td>—</td><td>silent</td></tr>
+</table>
+</article>
+<article id="preset-theta-triad" class="preset-entry">
+<h4>Theta Triad <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Schumann + theta</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>G2+35¢ (100.00 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>A2-34¢ (107.83 Hz), hard R</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>G1+35¢ (50.00 Hz), centred</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>—</td><td>—</td><td>silent</td></tr>
+</table>
+</article>
+</section>
+<section><h2 id="cat-binaural4">binaural4</h2>
+<article id="preset-alpha-gamma" class="preset-entry">
+<h4>Alpha + Gamma <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">10 Hz and 40 Hz coexisting</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>A3 (220.00 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>A♯3-23¢ (230.00 Hz), hard R</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>D4+37¢ (300.00 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>F4-46¢ (340.00 Hz), hard R</td><td>—</td></tr>
+</table>
+</article>
+<article id="preset-complex-schumann" class="preset-entry">
+<h4>Complex Schumann <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">7.83 + 14.3 + 20.8 layers</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>G2+35¢ (100.00 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>A2-34¢ (107.83 Hz), hard R</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>G3+35¢ (200.00 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>A3-45¢ (214.30 Hz), hard R</td><td>—</td></tr>
+</table>
+</article>
+<article id="preset-dual-theta" class="preset-entry">
+<h4>Dual Theta <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">6 Hz + 4 Hz cross-beat</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>G3+35¢ (200.00 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>G♯3-14¢ (206.00 Hz), hard R</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>E4 (330.00 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>E4+23¢ (334.00 Hz), hard R</td><td>—</td></tr>
+</table>
+</article>
+<article id="preset-phi-tuned-field" class="preset-entry">
+<h4>Phi-Tuned Field <span class="platform-badge platform-ios">ios</span> <span class="platform-badge platform-web">web</span></h4>
+<p class="preset-subtitle">Golden-ratio carriers, theta beat</p>
+<table class="preset-voices">
+<tr><th>OSC</th><th>Source</th><th>Note / Pan</th><th>Highlights</th></tr>
+<tr><td>OSC 1</td><td>sine</td><td>C3+16¢ (132.00 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 2</td><td>sine</td><td>C♯3-7¢ (138.00 Hz), hard R</td><td>—</td></tr>
+<tr><td>OSC 3</td><td>sine</td><td>G♯3+48¢ (213.50 Hz), hard L</td><td>—</td></tr>
+<tr><td>OSC 4</td><td>sine</td><td>A3-4¢ (219.50 Hz), hard R</td><td>—</td></tr>
+</table>
+</article>
+</section>
+<a href="./manual.html" class="back-link">← Back to manual</a>
+</body>
+</html>
