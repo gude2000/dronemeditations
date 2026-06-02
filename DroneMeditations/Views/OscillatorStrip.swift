@@ -1165,15 +1165,69 @@ struct OscillatorStrip: View {
     @ViewBuilder
     private func lfoRateColumn(lfo: LfoState, lfoIndex: Int) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(rateLabel(lfo.rateHz))
-                .font(.system(size: isPad ? 12 : 9, weight: .bold))
-                .foregroundStyle(.secondary)
-            LfoRateSlider(
-                rateHz: Binding(
-                    get: { lfo.rateHz },
-                    set: { vm.setLfoRate($0, for: index, lfoIndex: lfoIndex) }
+            HStack(spacing: 4) {
+                Text(lfo.resolvedRateSyncEnabled
+                     ? "RATE · sync"
+                     : rateLabel(lfo.rateHz))
+                    .font(.system(size: isPad ? 12 : 9, weight: .bold))
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+                // v1: BPM-sync menu. "Free" = slider takes over;
+                // a denomination locks the LFO cycle to BPM ×
+                // denomination so 1/16 at 160 BPM cycles 10.67×/sec.
+                // Pairs with BPM-quantized grain density to make
+                // S&H + granular tempo-locked.
+                Menu {
+                    Button {
+                        vm.setLfoRateSync(false, for: index, lfoIndex: lfoIndex)
+                    } label: {
+                        Label("Free (Hz)",
+                              systemImage: lfo.resolvedRateSyncEnabled ? "" : "checkmark")
+                    }
+                    Divider()
+                    ForEach(GrainDenomination.allCases) { d in
+                        Button {
+                            vm.setLfoRateSync(true, for: index, lfoIndex: lfoIndex)
+                            vm.setLfoRateDenomination(d, for: index, lfoIndex: lfoIndex)
+                        } label: {
+                            Label(
+                                d.label,
+                                systemImage: (lfo.resolvedRateSyncEnabled && lfo.resolvedRateDenomination == d)
+                                    ? "checkmark" : ""
+                            )
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 2) {
+                        Text(lfo.resolvedRateSyncEnabled
+                             ? lfo.resolvedRateDenomination.label
+                             : "Free")
+                            .font(.system(size: isPad ? 11 : 9, weight: .bold))
+                            .monospacedDigit()
+                            .foregroundStyle(Color(red: 0.81, green: 0.71, blue: 0.92))
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: isPad ? 8 : 6, weight: .semibold))
+                            .foregroundStyle(Color(red: 0.81, green: 0.71, blue: 0.92).opacity(0.7))
+                    }
+                }
+            }
+            // Slider only when in Free mode. In Sync mode the rate
+            // is computed from BPM × denomination — exposing a slider
+            // would mislead (its value is ignored).
+            if !lfo.resolvedRateSyncEnabled {
+                LfoRateSlider(
+                    rateHz: Binding(
+                        get: { lfo.rateHz },
+                        set: { vm.setLfoRate($0, for: index, lfoIndex: lfoIndex) }
+                    )
                 )
-            )
+            } else {
+                // Spacer to keep the column's height consistent with
+                // free mode so the strip layout doesn't jump on toggle.
+                Rectangle()
+                    .fill(Color.clear)
+                    .frame(height: isPad ? 24 : 20)
+            }
         }
     }
 

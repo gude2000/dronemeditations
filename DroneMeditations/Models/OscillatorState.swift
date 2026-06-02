@@ -54,6 +54,21 @@ struct LfoState: Equatable, Codable {
     var targets: Set<Target>
     var rateHz: Double  // 0.02..8 (log slider)
     var depth: Double   // 0..1
+    /// v1: BPM-sync the LFO rate so one full cycle equals the chosen
+    /// musical subdivision (1/2 .. 1/32T). When on, `rateHz` is
+    /// ignored and the engine computes effective Hz from project BPM ×
+    /// denomination. Pairs especially well with S&H targeting pitch +
+    /// BPM-quantized granular density — every grain gets a new
+    /// pitched note locked to the same musical clock.
+    /// Optional for backward compat — old saves (nil) default to off.
+    var rateSyncEnabled: Bool? = nil
+    /// v1: denomination used when rate sync is enabled. Mirrors the
+    /// GrainDenomination set used by grain density sync.
+    var rateDenomination: GrainDenomination? = nil
+    /// Resolved accessors so old presets get the historical free-rate
+    /// behavior without nil-checks scattered through the engine code.
+    var resolvedRateSyncEnabled: Bool { rateSyncEnabled ?? false }
+    var resolvedRateDenomination: GrainDenomination { rateDenomination ?? .sixteenth }
 
     /// Convenience accessor for code that still wants a "primary"
     /// target — returns the first target in a stable sorted order,
@@ -93,14 +108,17 @@ struct LfoState: Equatable, Codable {
     // belt + suspenders for any other tools that touch the JSON).
 
     enum CodingKeys: String, CodingKey {
-        case shape, targets, target, rateHz, depth
+        case shape, targets, target, rateHz, depth, rateSyncEnabled, rateDenomination
     }
 
-    init(shape: Shape, targets: Set<Target>, rateHz: Double, depth: Double) {
+    init(shape: Shape, targets: Set<Target>, rateHz: Double, depth: Double,
+         rateSyncEnabled: Bool? = nil, rateDenomination: GrainDenomination? = nil) {
         self.shape = shape
         self.targets = targets
         self.rateHz = rateHz
         self.depth = depth
+        self.rateSyncEnabled = rateSyncEnabled
+        self.rateDenomination = rateDenomination
     }
 
     init(from decoder: Decoder) throws {
@@ -115,6 +133,9 @@ struct LfoState: Equatable, Codable {
         } else {
             self.targets = []
         }
+        // Optional v1 sync fields — old presets omit them.
+        self.rateSyncEnabled = try c.decodeIfPresent(Bool.self, forKey: .rateSyncEnabled)
+        self.rateDenomination = try c.decodeIfPresent(GrainDenomination.self, forKey: .rateDenomination)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -128,6 +149,10 @@ struct LfoState: Equatable, Codable {
         if let primary = primaryTarget {
             try c.encode(primary, forKey: .target)
         }
+        // Only write the v1 sync fields when explicitly opted-in,
+        // keeping default-shape JSON tidy + identical to v1.0.
+        if let s = rateSyncEnabled { try c.encode(s, forKey: .rateSyncEnabled) }
+        if let d = rateDenomination { try c.encode(d, forKey: .rateDenomination) }
     }
 }
 

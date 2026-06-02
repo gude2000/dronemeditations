@@ -9,12 +9,12 @@ import {
   CHORDS, CHORD_CATEGORIES, PRESETS, PRESET_CATEGORIES,
   JOURNEYS, journeyTotalSeconds,
   FREQ_MIN, FREQ_MAX, frequencyHue
-} from "./music.js?v=27";
-import { startListening, stopListening, freqToNote, listInputDevices, switchInputDevice } from "./pitch-detect.js?v=27";
-import { initMIDI, midiToKeyOctave } from "./midi.js?v=27";
+} from "./music.js?v=28";
+import { startListening, stopListening, freqToNote, listInputDevices, switchInputDevice } from "./pitch-detect.js?v=28";
+import { initMIDI, midiToKeyOctave } from "./midi.js?v=28";
 import {
   loadSnapshotMeta, saveSnapshotMeta, getSnapshotBlob, deleteSnapshotBlob
-} from "./storage.js?v=27";
+} from "./storage.js?v=28";
 
 const WAVEFORM_SVG = {
   sine:     '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12c3-7 7-7 10 0s7 7 10 0"/></svg>',
@@ -843,7 +843,23 @@ function buildStrip(index) {
           </div>
           <div class="mini-control">
             <span class="mini-label" data-role="lfo-rate-label">RATE</span>
-            <input type="range" min="0" max="1" step="0.0001" data-role="lfo-rate" />
+            <input type="range" min="0" max="1" step="0.0001" data-role="lfo-rate" title="LFO rate (Hz, log scale). Hidden when Sync is on." />
+            <!-- v1 per-LFO BPM rate sync. Mirrors the grain density
+                 chip. One full LFO cycle equals the chosen subdivision.
+                 Pairs especially well with S&H + BPM-quantized grain
+                 to lock S&H pitch hops to grain triggers. -->
+            <select data-role="lfo-rate-sync" title="Free Hz or BPM-synced subdivision">
+              <option value="free">Free</option>
+              <option value="half">1/2</option>
+              <option value="quarter">1/4</option>
+              <option value="quarterT">1/4T</option>
+              <option value="eighth">1/8</option>
+              <option value="eighthT">1/8T</option>
+              <option value="sixteenth">1/16</option>
+              <option value="sixteenthT">1/16T</option>
+              <option value="thirtySecond">1/32</option>
+              <option value="thirtySecondT">1/32T</option>
+            </select>
           </div>
           <div class="mini-control">
             <span class="mini-label" data-role="lfo-depth-label">DEPTH</span>
@@ -903,6 +919,20 @@ function buildStrip(index) {
       const hz = Math.pow(2, Math.log2(LFO_RATE_MIN) + t * (Math.log2(LFO_RATE_MAX) - Math.log2(LFO_RATE_MIN)));
       dispatch.setLfoRate(index, lfoIdx, hz);
     });
+    // v1 BPM rate sync. "free" sets sync off; any denomination
+    // sets sync on + denomination. Same pattern as grain density.
+    const lfoSyncSelect = section.querySelector('[data-role="lfo-rate-sync"]');
+    if (lfoSyncSelect) {
+      lfoSyncSelect.addEventListener("change", (e) => {
+        const v = e.target.value;
+        if (v === "free") {
+          dispatch.setLfoRateSync(index, lfoIdx, false);
+        } else {
+          dispatch.setLfoRateDenomination(index, lfoIdx, v);
+          dispatch.setLfoRateSync(index, lfoIdx, true);
+        }
+      });
+    }
     section.querySelector('[data-role="lfo-depth"]').addEventListener("input", (e) => {
       dispatch.setLfoDepth(index, lfoIdx, parseFloat(e.target.value));
     });
@@ -1451,7 +1481,19 @@ function syncStrip(index, root) {
     rateSlider.style.setProperty("--fill", `${Math.round(t * 100)}%`);
     depthSlider.style.setProperty("--fill", `${Math.round(lfo.depth * 100)}%`);
     section.querySelector('[data-role="lfo-rate-label"]').textContent =
-      `RATE ${lfo.rateHz < 1 ? lfo.rateHz.toFixed(2) : lfo.rateHz.toFixed(1)}Hz`;
+      lfo.rateSyncEnabled
+        ? `RATE · sync`
+        : `RATE ${lfo.rateHz < 1 ? lfo.rateHz.toFixed(2) : lfo.rateHz.toFixed(1)}Hz`;
+    // v1: BPM rate sync — reflect into the dropdown + hide slider
+    // when sync is on (its value would be ignored).
+    const lfoSyncSel = section.querySelector('[data-role="lfo-rate-sync"]');
+    if (lfoSyncSel) {
+      const wantVal = lfo.rateSyncEnabled
+        ? (lfo.rateDenomination || "sixteenth")
+        : "free";
+      if (lfoSyncSel.value !== wantVal) lfoSyncSel.value = wantVal;
+    }
+    rateSlider.style.display = lfo.rateSyncEnabled ? "none" : "";
     section.querySelector('[data-role="lfo-depth-label"]').textContent =
       `DEPTH ${Math.round(lfo.depth * 100)}`;
     section.classList.toggle("active", lfo.depth > 0.001);

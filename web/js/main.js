@@ -9,20 +9,20 @@
 import {
   CHORDS, PRESETS, WAVEFORMS, JOURNEYS, journeyTotalSeconds, PITCH_CLASSES, TUNING_SYSTEMS,
   pitchToFrequency, chordFrequencies, FREQ_MIN, FREQ_MAX
-} from "./music.js?v=27";
-import { AudioEngine } from "./audio.js?v=27";
-import { initUI, renderAll } from "./ui.js?v=27";
+} from "./music.js?v=28";
+import { AudioEngine } from "./audio.js?v=28";
+import { initUI, renderAll } from "./ui.js?v=28";
 import {
   exportUserPresetDownload, importUserPresetFromFile
-} from "./preset-sharing.js?v=27";
-import { initVisualizations, setChladniVisible, setSpectrumVisible } from "./visualizations.js?v=27";
+} from "./preset-sharing.js?v=28";
+import { initVisualizations, setChladniVisible, setSpectrumVisible } from "./visualizations.js?v=28";
 import {
   loadUserPresets, saveUserPresets, newPresetId, newSampleId,
   loadVoicePresets, saveVoicePresets, newVoicePresetId,
   loadUserJourneys, saveUserJourneys, newUserJourneyId,
   loadLibrarySamples, saveLibrarySamples,
   putSample, getSample, deleteSample
-} from "./storage.js?v=27";
+} from "./storage.js?v=28";
 
 // ──────────────────────────────────────────────────
 // State.
@@ -45,6 +45,9 @@ function guessMimeFromName(name = "") {
   }[ext] || "audio/*";
 }
 
+/// v1: each LFO can opt into BPM rate sync. Optional fields default
+/// off when missing so old presets are unchanged. Mirrors the iOS
+/// LfoState.rateSyncEnabled / rateDenomination.
 const defaultLfos = () => ([
   // v1.1 multi-target: targets is a SET (array) of destinations.
   { shape: "sine", targets: ["pan"],    rateHz: 0.25, depth: 0 },
@@ -125,6 +128,27 @@ function pushEffectiveGrainDensity(oscIndex) {
     hz = Math.max(0.5, Math.min(50, o.grain.densityHz || 8));
   }
   engine.setGrainDensity(oscIndex, hz);
+}
+
+/// v1: per-LFO BPM rate-sync push. Mirrors pushEffectiveGrainDensity.
+/// Reads rateSyncEnabled + rateDenomination from the LFO state and
+/// pushes the resolved Hz to the engine. Called whenever anything
+/// that can change the effective rate moves (slider, toggle,
+/// denomination pick, BPM change, preset load).
+function pushEffectiveLfoRate(oscIndex, lfoIndex) {
+  const o = state.oscillators[oscIndex];
+  if (!o || !o.lfos || !o.lfos[lfoIndex]) return;
+  const lfo = o.lfos[lfoIndex];
+  let hz;
+  if (lfo.rateSyncEnabled) {
+    // grainSyncHz returns the trigger-rate Hz for a given musical
+    // subdivision at BPM. For LFOs the same math applies — one full
+    // cycle equals the chosen subdivision.
+    hz = grainSyncHz(state.bpm, lfo.rateDenomination || "sixteenth");
+  } else {
+    hz = Math.max(0.02, Math.min(8, lfo.rateHz || 0.5));
+  }
+  engine.setLfoRate(oscIndex, lfoIndex, hz);
 }
 
 const defaultDelay  = () => ({
@@ -448,7 +472,10 @@ const actions = {
           state.oscillators[i].lfos[k] = merged;
           engine.setLfoShape(i, k, merged.shape);
           engine.setLfoTarget(i, k, merged.target);
-          engine.setLfoRate(i, k, merged.rateHz);
+          // v1: sync-aware. The merged LFO carries rateSyncEnabled +
+          // rateDenomination if the preset set them; the helper picks
+          // the right effective Hz.
+          pushEffectiveLfoRate(i, k);
           engine.setLfoDepth(i, k, merged.depth);
         }
       }
@@ -706,7 +733,24 @@ const actions = {
 
   setLfoRate(oscIndex, lfoIndex, hz) {
     state.oscillators[oscIndex].lfos[lfoIndex].rateHz = Math.max(0.02, Math.min(8, hz));
-    engine.setLfoRate(oscIndex, lfoIndex, state.oscillators[oscIndex].lfos[lfoIndex].rateHz);
+    // When sync is on, the slider just updates the "free fallback"
+    // value and the engine stays on BPM-derived rate. When sync is
+    // off, push the new rate live.
+    pushEffectiveLfoRate(oscIndex, lfoIndex);
+    renderAll();
+  },
+  /// v1: per-LFO BPM rate-sync setters. Mirrors the grain-density
+  /// sync pattern. When sync is on, effective Hz = BPM × denomination.
+  setLfoRateSync(oscIndex, lfoIndex, on) {
+    state.oscillators[oscIndex].lfos[lfoIndex].rateSyncEnabled = !!on;
+    pushEffectiveLfoRate(oscIndex, lfoIndex);
+    renderAll();
+  },
+  setLfoRateDenomination(oscIndex, lfoIndex, denomId) {
+    state.oscillators[oscIndex].lfos[lfoIndex].rateDenomination = denomId;
+    if (state.oscillators[oscIndex].lfos[lfoIndex].rateSyncEnabled) {
+      pushEffectiveLfoRate(oscIndex, lfoIndex);
+    }
     renderAll();
   },
   setLfoDepth(oscIndex, lfoIndex, depth) {
@@ -1188,6 +1232,13 @@ const actions = {
       if (state.oscillators[i].grain && state.oscillators[i].grain.densitySyncEnabled) {
         pushEffectiveGrainDensity(i);
       }
+      // v1: BPM-synced LFO rates — same recompute story per LFO.
+      const lfos = state.oscillators[i].lfos || [];
+      for (let k = 0; k < lfos.length; k++) {
+        if (lfos[k] && lfos[k].rateSyncEnabled) {
+          pushEffectiveLfoRate(i, k);
+        }
+      }
     }
     // v1: keep the metronome locked to the user's tempo. Already-
     // scheduled clicks fire at their old times (no jarring re-anchor)
@@ -1408,6 +1459,15 @@ const actions = {
           for (const t of targetsToApply) {
             actions.toggleLfoTarget(i, k, t);
           }
+        }
+        // v1: restore sync flags BEFORE setLfoRate so the rate
+        // helper picks up the right path. Old saves without these
+        // fields leave them undefined (treated as off).
+        if (lfos[k].rateSyncEnabled !== undefined) {
+          state.oscillators[i].lfos[k].rateSyncEnabled = !!lfos[k].rateSyncEnabled;
+        }
+        if (lfos[k].rateDenomination !== undefined) {
+          state.oscillators[i].lfos[k].rateDenomination = lfos[k].rateDenomination;
         }
         actions.setLfoRate(i, k, lfos[k].rateHz);
         actions.setLfoDepth(i, k, lfos[k].depth);

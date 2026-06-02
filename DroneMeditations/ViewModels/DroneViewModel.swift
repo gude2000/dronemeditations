@@ -359,7 +359,43 @@ final class DroneViewModel: ObservableObject {
               oscillators[index].lfos.indices.contains(lfoIndex) else { return }
         let clamped = max(LfoState.rateMin, min(LfoState.rateMax, hz))
         oscillators[index].lfos[lfoIndex].rateHz = clamped
-        audioEngine.setLfoRate(clamped, for: index, lfoIndex: lfoIndex)
+        // When sync is on, the slider just updates the saved "free-mode
+        // fallback" rate. The engine stays on the BPM-derived rate.
+        // When sync is off, push the new rate live.
+        pushEffectiveLfoRate(for: index, lfoIndex: lfoIndex)
+    }
+    /// v1: per-LFO rate-sync setters. When sync is on, the engine reads
+    /// effective Hz from project BPM × denomination instead of rateHz.
+    /// Mirrors the grain-density sync pattern.
+    func setLfoRateSync(_ on: Bool, for index: Int, lfoIndex: Int) {
+        guard oscillators.indices.contains(index),
+              oscillators[index].lfos.indices.contains(lfoIndex) else { return }
+        oscillators[index].lfos[lfoIndex].rateSyncEnabled = on
+        pushEffectiveLfoRate(for: index, lfoIndex: lfoIndex)
+    }
+    func setLfoRateDenomination(_ d: GrainDenomination, for index: Int, lfoIndex: Int) {
+        guard oscillators.indices.contains(index),
+              oscillators[index].lfos.indices.contains(lfoIndex) else { return }
+        oscillators[index].lfos[lfoIndex].rateDenomination = d
+        if oscillators[index].lfos[lfoIndex].resolvedRateSyncEnabled {
+            pushEffectiveLfoRate(for: index, lfoIndex: lfoIndex)
+        }
+    }
+    /// Resolve LFO rate from sync state + denomination + BPM (or free
+    /// slider value) and push it to the audio engine. Called from any
+    /// path that can change the effective rate: slider drag, sync
+    /// toggle, denomination pick, BPM change, preset load.
+    private func pushEffectiveLfoRate(for index: Int, lfoIndex: Int) {
+        guard oscillators.indices.contains(index),
+              oscillators[index].lfos.indices.contains(lfoIndex) else { return }
+        let lfo = oscillators[index].lfos[lfoIndex]
+        let hz: Double
+        if lfo.resolvedRateSyncEnabled {
+            hz = lfo.resolvedRateDenomination.hz(bpm: bpm)
+        } else {
+            hz = max(LfoState.rateMin, min(LfoState.rateMax, lfo.rateHz))
+        }
+        audioEngine.setLfoRate(hz, for: index, lfoIndex: lfoIndex)
     }
 
     func setLfoDepth(_ depth: Double, for index: Int, lfoIndex: Int) {
@@ -640,6 +676,13 @@ final class DroneViewModel: ObservableObject {
             if oscillators[i].grain.resolvedSyncEnabled {
                 pushEffectiveGrainDensity(for: i)
             }
+            // v1: BPM-synced LFO rate. Same recompute story per LFO
+            // — when sync is on, the new BPM determines the rate.
+            for k in oscillators[i].lfos.indices {
+                if oscillators[i].lfos[k].resolvedRateSyncEnabled {
+                    pushEffectiveLfoRate(for: i, lfoIndex: k)
+                }
+            }
         }
         // v1: keep the metronome locked to the user's tempo. Already-
         // scheduled samples count down with the old value; subsequent
@@ -827,6 +870,11 @@ final class DroneViewModel: ObservableObject {
             for (k, l) in loadedLfos.enumerated() where k < 4 {
                 setLfoShape(l.shape, for: i, lfoIndex: k)
                 setLfoTarget(l.target, for: i, lfoIndex: k)
+                // v1: restore sync flags BEFORE setLfoRate so the
+                // helper routes to the right effective Hz path. Old
+                // saves without these fields default to off (nil).
+                oscillators[i].lfos[k].rateSyncEnabled = l.rateSyncEnabled
+                oscillators[i].lfos[k].rateDenomination = l.rateDenomination
                 setLfoRate(l.rateHz, for: i, lfoIndex: k)
                 setLfoDepth(l.depth, for: i, lfoIndex: k)
             }
@@ -1294,7 +1342,11 @@ final class DroneViewModel: ObservableObject {
                     oscillators[i].lfos[k] = lfo
                     audioEngine.setLfoShape(lfo.shape, for: i, lfoIndex: k)
                     audioEngine.setLfoTarget(lfo.target, for: i, lfoIndex: k)
-                    audioEngine.setLfoRate(lfo.rateHz, for: i, lfoIndex: k)
+                    // v1: route the rate push through the sync-aware
+                    // helper so a preset that saved rateSyncEnabled=true
+                    // lands at BPM × denomination instead of the raw
+                    // rateHz slider value.
+                    pushEffectiveLfoRate(for: i, lfoIndex: k)
                     audioEngine.setLfoDepth(lfo.depth, for: i, lfoIndex: k)
                 }
             }
@@ -1419,7 +1471,12 @@ final class DroneViewModel: ObservableObject {
         for (i, lfo) in v.lfos.enumerated() {
             audioEngine.setLfoShape(lfo.shape, for: index, lfoIndex: i)
             audioEngine.setLfoTarget(lfo.target, for: index, lfoIndex: i)
-            audioEngine.setLfoRate(lfo.rateHz, for: index, lfoIndex: i)
+            // v1: route through the sync-aware helper so a per-voice
+            // preset that saved rateSyncEnabled=true lands at
+            // BPM × denomination instead of the raw rateHz value.
+            oscillators[index].lfos[i].rateSyncEnabled = lfo.rateSyncEnabled
+            oscillators[index].lfos[i].rateDenomination = lfo.rateDenomination
+            pushEffectiveLfoRate(for: index, lfoIndex: i)
             audioEngine.setLfoDepth(lfo.depth, for: index, lfoIndex: i)
         }
         // Drift may have flipped from static to active.
@@ -1854,7 +1911,9 @@ final class DroneViewModel: ObservableObject {
             for (i, lfo) in osc.lfos.enumerated() {
                 audioEngine.setLfoShape(lfo.shape, for: osc.id, lfoIndex: i)
                 audioEngine.setLfoTarget(lfo.target, for: osc.id, lfoIndex: i)
-                audioEngine.setLfoRate(lfo.rateHz, for: osc.id, lfoIndex: i)
+                // v1: sync-aware — read sync flags from the oscillator
+                // state and push the effective Hz to the engine.
+                pushEffectiveLfoRate(for: osc.id, lfoIndex: i)
                 audioEngine.setLfoDepth(lfo.depth, for: osc.id, lfoIndex: i)
             }
         }
@@ -2030,7 +2089,10 @@ final class DroneViewModel: ObservableObject {
         for k in 0..<o.lfos.count {
             audioEngine.setLfoShape(o.lfos[k].shape, for: index, lfoIndex: k)
             audioEngine.setLfoTarget(o.lfos[k].target, for: index, lfoIndex: k)
-            audioEngine.setLfoRate(o.lfos[k].rateHz, for: index, lfoIndex: k)
+            // v1: sync-aware. The snapshot already lives in
+            // oscillators[index].lfos[k]; the helper reads sync flags
+            // from there and pushes the right effective Hz.
+            pushEffectiveLfoRate(for: index, lfoIndex: k)
             audioEngine.setLfoDepth(o.lfos[k].depth, for: index, lfoIndex: k)
         }
         audioEngine.voices[index].pitchQuantizeToScale = o.drift.quantizeToScale
