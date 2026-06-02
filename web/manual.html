@@ -405,7 +405,7 @@
 
 <main>
 
-<!-- ───────────────── What's new in v1.1 ───────────────── -->
+<!-- ───────────────── What's new ───────────────── -->
 <section id="whats-new" style="margin-bottom: 40px;">
   <div style="background: linear-gradient(135deg, rgba(143,185,217,0.10), rgba(207,182,234,0.08));
               border: 1px solid rgba(143,185,217,0.30);
@@ -415,14 +415,23 @@
                 text-transform: uppercase;
                 letter-spacing: 0.16em;
                 font-size: 12px;
-                margin-bottom: 10px;">What's new in v1.1</div>
-    <p style="margin: 8px 0; color: var(--ink);">Five additions since the v1.0 launch — each documented in detail below in its own section, linked here for jump-to-feature:</p>
+                margin-bottom: 10px;">What's new in v1.0</div>
+    <p style="margin: 8px 0; color: var(--ink);">Final feature pass before App Store launch — each item is documented in detail below in its own section, linked here for jump-to-feature:</p>
     <ul style="margin: 12px 0 4px 0;">
-      <li><strong>Replay × N timing envelope</strong> — voice cycles repeat 2/3/5/10/∞ times. See <a href="#pills">§11 → ⏱ Timing</a>.</li>
-      <li><strong>Modal chord templates</strong> — Ionian, Dorian, Phrygian, Lydian, Mixolydian, Aeolian, Locrian, Harmonic Minor, Melodic Minor in a new <em>Modal</em> chord category. See <a href="#chord">§4</a>.</li>
-      <li><strong>Granular sampling (iOS)</strong> — apply the grain scheduler to any loaded sample. See <a href="#samples">§10 → Granular sampling</a>.</li>
-      <li><strong>Haptics intensity (iOS)</strong> — Off / Light / Heavy cycle, persisted across launches. See <a href="#ios">§17</a>.</li>
+      <li><strong>Per-oscillator Tune to Room (👂)</strong> — every strip now has an ear icon that opens a mic-pitch sheet and snaps <em>just that voice's</em> frequency to whatever you sing or play. See <a href="#oscillators">§3</a>.</li>
+      <li><strong>Per-oscillator Record sample (🎙)</strong> — capture a sample directly from the mic into a voice without ever opening Files; reference-pitch is the voice's current frequency at record time. See <a href="#oscillators">§3</a>.</li>
+      <li><strong>BPM-quantized grain density</strong> — sync the grain scheduler to the global BPM at musical subdivisions (½ → 1/32T). Locks granular textures to your tempo. See <a href="#waveforms">§7 → Granular synthesis</a>.</li>
+      <li><strong>FX Mix LFO target</strong> — a single LFO target ("FX") biases reverb / delay / chorus mix together for breathing wet/dry swells. See <a href="#lfos">§9</a>.</li>
+      <li><strong>Modal chord templates</strong> — Ionian, Dorian, Phrygian, Lydian, Mixolydian, Aeolian, Locrian, Harmonic Minor, Melodic Minor as a dedicated <em>Modal</em> chord category. See <a href="#chord">§4</a>.</li>
+      <li><strong>Multi-target LFOs</strong> — each LFO can drive several destinations at once (tap multiple target chips). See <a href="#lfos">§9</a>.</li>
+      <li><strong>Quantize-to-scale drift</strong> — per-voice toggle in the 🌀 menu that snaps continuous pitch motion to the current chord's notes — arpeggios instead of smears. See <a href="#pills">§11 → DRIFT</a>.</li>
+      <li><strong>Replay × N timing envelope</strong> — voice cycles repeat 2/3/5/10/∞ times. See <a href="#oscillators">§3 → ⏱ Timing</a>.</li>
+      <li><strong>Granular sampling (web + iOS)</strong> — apply the grain scheduler to any loaded sample. See <a href="#samples">§10 → Granular sampling</a>.</li>
+      <li><strong>Sand particles in Perform mode</strong> — drifting sand grains follow nodal lines while the cymatic pattern fills the screen. See <a href="#pills">§11 → PERFORM</a>.</li>
+      <li><strong>Cross-device preset sharing</strong> — every saved preset (incl. inline sample audio) exports as a <code>.dronepreset</code> file that round-trips between web, iPhone, and iPad. See <a href="#presets">§6</a>.</li>
+      <li><strong>INIT preset + Developer Patches category</strong> — a neutral "INIT" patch pinned to the top of every preset list (a clean starting state), plus 16 character-rich <em>Developer Patches</em> showcasing the new tools. See <a href="#presets">§6</a>.</li>
       <li><strong>Global BPM + delay sync</strong> — drives every voice's delay-time when its timing is set to a musical division. See <a href="#fx">§8 → Delay</a>.</li>
+      <li><strong>Haptics intensity (iOS)</strong> — Off / Light / Heavy cycle, persisted across launches. See <a href="#ios">§17</a>.</li>
     </ul>
   </div>
 </section>
@@ -498,8 +507,10 @@
     <tr><td>🎲 Randomize (per strip)</td><td>Re-rolls just <em>this</em> oscillator. Everything <em>except level</em> changes: waveform, freq, filter, all 4 LFOs, reverb, delay, drift. One tap = a new world.</td></tr>
     <tr><td>🎲 Randomize all (top OSC bar)</td><td>The dice button at the end of the OSC 1·2·3·4 pill row rolls <em>all four voices at once</em>, then picks a fresh chord — without disturbing your master volumes. The faint <strong>↶ undo</strong> button next to it restores the exact state you had before the last randomize, so you can A/B between "the patch you had" and "the patch the dice gave you."</td></tr>
     <tr><td>⭐ Voice presets</td><td>Save / load / delete <em>just this oscillator</em>'s settings. Great for keeping a favorite bass + cycling through pads above.</td></tr>
+    <tr><td>👂 Tune to Room (per voice)</td><td>Opens a mic-pitch sheet scoped to <em>just this voice</em>. Sing or play a steady tone — the YIN detector locks on, and tapping <em>Set as Freq</em> snaps the voice's frequency to whatever pitch you held. Each voice can be tuned independently (so OSC 1 to a singing bowl, OSC 2 to your voice, OSC 3 to a tuning fork). Unlike the global <a href="#pills">LISTEN</a> pill which retunes the chord <em>root</em>, this only touches the freq slider on the strip you tapped — leaving the others alone.</td></tr>
+    <tr><td>🎙 Record sample (per voice)</td><td>Captures audio from the mic <em>directly into this oscillator's sample slot</em> — no Files-app round-trip, no upload dialog. Tap to arm, mic-permission prompts the first time, then tap again to stop. The recording is normalized to a consistent loudness, saved into the in-app sample library under a "Recorded Samples" group, and loaded into this voice with the WINDOW row revealed for trim+fade. The voice's frequency at the moment you tapped Record becomes the <em>reference pitch</em>, so resampling pitch later matches what you sang. Stack this with Per-voice Tune to Room and you can sing a chord into the synth voice-by-voice.</td></tr>
     <tr><td>🌀 Drift</td><td>Per-voice pitch &amp; pan drift (off, glacial up/down, octave up/down, slow pan, deep vibrato, etc.).</td></tr>
-    <tr><td>⏱ Timing</td><td>Stagger when this voice enters the mix: <em>Start after</em> (Now / 15 s / 30 s / 1 / 2 / 5 / 10 min — silent then 8 s fade-in) and <em>Play duration</em> (Forever / 1 / 3 / 5 / 10 / 15 / 20 min — 8 s fade-out at the end). Lets you introduce drones gradually during long meditations, then let them recede. Several Drone Artists presets use this — Stars of the Lid blooms its chord at 0 / 30 / 90 / 180 s; Basinski's pink-noise hiss enters at 90 s; Riley's cascade enters at 0 / 15 / 45 / 90 s. <strong>v1.1:</strong> a third chip row sets <em>Replay</em> to Once / × 2 / × 3 / × 5 / × 10 / ∞ — the [silent <em>Start after</em> → fade-in → <em>Play duration</em> → fade-out] cycle repeats N times before going silent forever.</td></tr>
+    <tr><td>⏱ Timing</td><td>Stagger when this voice enters the mix: <em>Start after</em> (Now / 15 s / 30 s / 1 / 2 / 5 / 10 min — silent then 8 s fade-in) and <em>Play duration</em> (Forever / 1 / 3 / 5 / 10 / 15 / 20 min — 8 s fade-out at the end). Lets you introduce drones gradually during long meditations, then let them recede. Several Drone Artists presets use this — Stars of the Lid blooms its chord at 0 / 30 / 90 / 180 s; Basinski's pink-noise hiss enters at 90 s; Riley's cascade enters at 0 / 15 / 45 / 90 s. A third chip row sets <em>Replay</em> to Once / × 2 / × 3 / × 5 / × 10 / ∞ — the [silent <em>Start after</em> → fade-in → <em>Play duration</em> → fade-out] cycle repeats N times before going silent forever. Each subsequent cycle uses a shorter 4 s fade-in (vs. 8 s on the first) and a per-cycle reverb-bloom fade-out so the seam between repetitions feels like the same dissolve-into-the-room that the global Stop button uses, only voice-local.</td></tr>
     <tr><td>Pan</td><td>−1 (full left) to +1 (full right). 0 = center.</td></tr>
   </table>
 
@@ -516,7 +527,7 @@
   <ul>
     <li><strong>Common</strong> — Major, Minor, Sus2, Sus4, dim, aug, Maj7, m7, 7, 9, …</li>
     <li><strong>Extended</strong> — 11, 13, add6, m9, maj9, mMaj7, 7♭9, 7♯11, …</li>
-    <li><strong>Modal</strong> (v1.1) — characteristic 4-note slices of each diatonic / harmonic / melodic mode: Ionian, Dorian, Phrygian, Lydian, Mixolydian, Aeolian, Locrian, Harmonic Minor, Melodic Minor. Each entry captures the mode's most identifying degrees (e.g. Phrygian = 1 / ♭2 / ♭3 / ♭7). When <strong>Quantize to scale</strong> is on, the snap cache fills with those notes so a pitch-LFO arpeggiates <em>inside the mode</em> instead of wandering chromatically.</li>
+    <li><strong>Modal</strong> — characteristic 4-note slices of each diatonic / harmonic / melodic mode: Ionian, Dorian, Phrygian, Lydian, Mixolydian, Aeolian, Locrian, Harmonic Minor, Melodic Minor. Each entry captures the mode's most identifying degrees (e.g. Phrygian = 1 / ♭2 / ♭3 / ♭7). When <strong>Quantize to scale</strong> is on, the snap cache fills with those notes so a pitch-LFO arpeggiates <em>inside the mode</em> instead of wandering chromatically.</li>
     <li><strong>Cymatic</strong> — Tetrachord 4:5:6:7, 3:4:5:7, harmonic 6:8:10:13, etc. Chosen to give visually striking nodal patterns.</li>
     <li><strong>Spectral</strong> — Sable's chord (Vingt Regards), Scriabin Mystic, Ligeti Lontano, …</li>
   </ul>
@@ -557,7 +568,9 @@
     <figcaption>Preset picker — each category groups dozens of named factory presets. User-saved presets appear in a "Your presets" section above the factory list.</figcaption>
   </figure>
   <ul>
-    <li><strong>Drone Artists</strong> — 38 character-rich presets that capture each artist's signature waveforms + FX + LFOs, not just their pitches: Pauline Oliveros, Terry Riley, Éliane Radigue, Stars of the Lid, Sunn O))) (drop master volume first), William Basinski, Phill Niblock, Charlemagne Palestine, Yoshi Wada, Harold Budd, Alice Coltrane, Earth, Nurse With Wound, Keiji Haino — most appear twice, once as the original tribute and again as a <em>(Granular)</em> or <em>(Fading)</em> variant that exploits the new granular waveform and per-loop sample fades. A final <strong>Drift Showcase</strong> sub-set (Tide Breath, Detune Choir, Quarter-Tone Cluster, Pendulum Dawn, Tibetan Bowl Cycle, Microtonal Dance) demos the new per-voice drift amount / period overrides — each preset uses a different drift shape so you can hear what the Ocean / Wave / configurable-period modes actually do.</li>
+    <li><strong>INIT</strong> (pinned to the top) — a neutral starting patch. Four sine voices at A2 / E3 / A3 / C♯4, modest pan spread, all FX zeroed, all LFOs off. Identical to the state the app boots into on first launch. Use it as a blank canvas when you want to build a sound from nothing instead of editing a character preset.</li>
+    <li><strong>Drone Artists</strong> — 38 character-rich presets that capture each artist's signature waveforms + FX + LFOs, not just their pitches: Pauline Oliveros, Terry Riley, Éliane Radigue, Stars of the Lid, Sunn O))) (drop master volume first), William Basinski, Phill Niblock, Charlemagne Palestine, Yoshi Wada, Harold Budd, Alice Coltrane, Earth, Nurse With Wound, Keiji Haino — most appear twice, once as the original tribute and again as a <em>(Granular)</em> or <em>(Fading)</em> variant that exploits the new granular waveform and per-loop sample fades. A final <strong>Drift Showcase</strong> sub-set (Tide Breath, Detune Choir, Quarter-Tone Cluster, Pendulum Dawn, Tibetan Bowl Cycle, Microtonal Dance) demos the per-voice drift amount / period overrides — each preset uses a different drift shape so you can hear what the Ocean / Wave / configurable-period modes actually do.</li>
+    <li><strong>Developer Patches</strong> — 16 patches showcasing the granular sampler, BPM-quantized grain density, FX Mix LFO, modal chords, and per-voice timing envelopes. Includes four named JG patches converted from a personal collection (<em>Ondulations</em>, <em>Dub Wave</em>, <em>Freedom Did Not Lose</em>, <em>Piano Repetition</em>), 10 procedural patches in the same vein (built around unusual scales, modal tunings, granular sampling, and staggered start delays), and two showcase patches (<em>Pulse Lock</em>, <em>Bloom Swell</em>) that lean specifically on BPM grain sync + FX Mix LFO swells. Treat this section as the demo-reel for "what the new tools can do."</li>
     <li><strong>Binaural</strong> — Theta, Alpha, Beta and Gamma beat presets (paired carriers ~7, 10, 17, 40 Hz apart).</li>
     <li><strong>Natural Resonance</strong> — Earth, OM 136.1, Sun 126.22, Moon 210.42, Phi-augmented chord, Sable's chord.</li>
     <li><strong>Cymatics</strong> — chords chosen to produce especially symmetric Chladni patterns.</li>
@@ -613,7 +626,7 @@
   <p>When you pick <strong>Granular</strong> as the waveform, a <strong>GRAIN</strong> row appears under the picker with four sliders:</p>
   <ul>
     <li><strong>SIZE</strong> — grain length, <strong>5–500 ms</strong> (log). Short grains read as <em>clicks</em>; medium grains (~25–80 ms) sound like <em>raindrops</em>; long grains (~200–500 ms) bleed into soft <em>clouds</em>.</li>
-    <li><strong>DENSITY</strong> — average grains per second, <strong>0.5–50/s</strong> (log). Below 1/s the readout flips to <em>N/min</em> for the geiger-counter range. Combine sparse density + short grains for "rare events," or dense + medium for a downpour.</li>
+    <li><strong>DENSITY</strong> — average grains per second, <strong>0.5–50/s</strong> (log). Below 1/s the readout flips to <em>N/min</em> for the geiger-counter range. Combine sparse density + short grains for "rare events," or dense + medium for a downpour. <strong>BPM-quantized density</strong>: tap the small denomination chip next to the slider (it cycles <em>off → ½ → ¼ → ¼t → ⅛ → ⅛t → 1/16 → 1/16t → 1/32 → 1/32t</em>) to lock grain spacing to a musical division of the global BPM. The slider then becomes a visual indicator only — the actual density follows tempo. Change the BPM and every quantized voice retimes instantly. Combine 1/16t grains on one voice with ¼ grains on another for polyrhythmic clouds that still feel locked.</li>
     <li><strong>JITTER</strong> — randomness in inter-grain timing, <strong>0–100 %</strong>. 0 = perfectly clocked; 100 = pure Poisson scatter (each grain feels independent).</li>
     <li><strong>SPREAD</strong> — random per-grain stereo placement, <strong>0–100 %</strong>. Acts on top of the voice's main pan slider, so you can offset the grain field while keeping its center.</li>
   </ul>
@@ -652,7 +665,7 @@
     </div>
     <div class="card">
       <h4>Delay — timing</h4>
-      <p>Either a manual <strong>time</strong> (20 ms – 2 s) <em>or</em> a musical division: 1/2, 1/3, 1/3t, 1/4, 1/4t, 1/8, 1/8t, 1/16, 1/16t. Musical timings sync to the <strong>global BPM</strong>. <strong>v1.1:</strong> the BPM is now user-editable (default 80, range 30–240). Tap the monospaced "80" pill in the master row (iOS) or the BPM segment of the header subtitle (web) to pick a new tempo — every sync'd delay across all four voices recomputes instantly. <em>Free</em>-timing delays are unaffected by BPM changes; they keep whatever absolute ms value you dialed.</p>
+      <p>Either a manual <strong>time</strong> (20 ms – 2 s) <em>or</em> a musical division: 1/2, 1/3, 1/3t, 1/4, 1/4t, 1/8, 1/8t, 1/16, 1/16t. Musical timings sync to the <strong>global BPM</strong> (default 80, range 30–240). Tap the monospaced "80" pill in the master row (iOS) or the BPM segment of the header subtitle (web) to pick a new tempo — every sync'd delay across all four voices recomputes instantly, and so does every <a href="#waveforms">BPM-quantized grain density</a>. <em>Free</em>-timing delays are unaffected by BPM changes; they keep whatever absolute ms value you dialed.</p>
     </div>
   </div>
   <p>The <strong>feedback</strong> slider controls how many echoes you get. Above ~0.85 it starts feeding into itself — use sparingly.</p>
@@ -674,7 +687,7 @@
   <p>For each LFO you control:</p>
   <ul>
     <li><strong>Shape</strong> — Sine, Triangle, Sawtooth, Ramp, Square, Sample &amp; Hold.</li>
-    <li><strong>Target(s)</strong> — Amplitude (VOL), Pan, Filter cutoff (CUT), Filter Q (resonance), Pitch, or FM index. Target buttons are toggleable: <strong>one LFO can drive multiple targets at once</strong> — tap PAN and CUT on the same LFO and a single triangle wave will sweep both stereo position and cutoff in lock-step.</li>
+    <li><strong>Target(s)</strong> — Amplitude (VOL), Pan, Filter cutoff (CUT), Filter Q (resonance), Pitch, FM index, or <strong>FX Mix (FX)</strong>. Target buttons are toggleable: <strong>one LFO can drive multiple targets at once</strong> — tap PAN and CUT on the same LFO and a single triangle wave will sweep both stereo position and cutoff in lock-step. The <strong>FX</strong> target is a macro: it biases the voice's reverb, delay, and chorus mix amounts <em>together</em> (±0.5 around their base values), so a slow sine on FX produces a single coordinated wet/dry breathing swell across the whole effects rack — much more cohesive than independently modulating each wet-mix slider. Pair with a fast pitch-LFO or grain texture for dub-style "let it ring out, pull it back" gestures.</li>
     <li><strong>Rate</strong> — 0.02 – 8 Hz (log).</li>
     <li><strong>Depth</strong> — how strongly it modulates the target.</li>
   </ul>
@@ -693,6 +706,7 @@
   </figure>
 
   <p>The <strong>Bundled ▾</strong> button on each oscillator strip opens a small picker of audio files shipped with the app. Tap one and it loads instantly — no upload dialog, no Files-app round-trip. Web sources files from <code>web/samples/</code> via a manifest (<code>web/samples/index.json</code>); iOS sources from a <code>Samples</code> folder inside the app bundle. Both folders have a README explaining how to drop in your own audio. The picker groups entries by an optional category (e.g. "Acoustic", "Cosmic", "Field", "Instruments").</p>
+  <p>Anything you capture with the per-voice <strong>🎙 Record sample</strong> button (see <a href="#oscillators">§3</a>) automatically appears at the top of the picker under a <strong>Recorded Samples</strong> group, so you can drop your own recordings into other voices without re-recording. Recorded samples persist across launches.</p>
 
   <h3>Adding to the bundled list <span class="lede" style="font-size:14px;font-weight:500;">— for maintainers + contributors</span></h3>
   <p>iOS and web are kept in sync by a small Python script. New samples land on iOS first (where they auto-include in the next Xcode build), then a one-line command mirrors them to web and regenerates the picker manifest.</p>
@@ -759,15 +773,14 @@
     <strong>Storage.</strong> Browsers cap IndexedDB at a few hundred MB per origin. iOS shares the app's container with everything else you've saved. Long uncompressed WAVs add up fast — convert to OGG/MP3/M4A for archival.
   </div>
 
-  <h3>Granular sampling (iOS, v1.1)</h3>
+  <h3>Granular sampling <span class="lede" style="font-size:14px;font-weight:500;">— web + iOS</span></h3>
   <p>A <strong>GRAINY</strong> toggle button appears under the WINDOW row whenever a sample is loaded. When on, continuous playback is replaced by a Hann-windowed grain scheduler that reads slices around a user-set position. Combined with the existing <a href="#waveforms">GRAIN row</a> (size / density / jitter / spread) plus two new sliders, this is full granular sampling:</p>
   <ul>
     <li><strong>pos</strong> (0–100%) — centre position in the sample. Grains are pulled from around this offset. 0 = start of file, 100 = end. A slow drift on <em>pos</em> via a pitch-LFO target gives you scanning-over-time textures.</li>
     <li><strong>scan</strong> (0–100%) — per-grain position jitter. 0 = freeze on the exact offset (the most static, cymatic result). 100 = pull grains from anywhere in the sample (most chaotic). Mid-range gives a softly-rumbling cloud.</li>
   </ul>
-  <p>The grain scheduler is the same one used by the granular pink-noise waveform, so size / density / jitter / pan-spread behave identically. Only the source changes: a recognizable sample instead of pink noise.</p>
-  <p>What you can build with this: a Tibetan bowl strike frozen on its sustain forever, shimmering. The first second of a vocal vowel held indefinitely. A long ambient field recording chopped into rain-like fragments. A piano sustain decaying into a glittering cloud. Basinski-style tape-decay drones from any source.</p>
-  <p class="note"><strong>iOS only in v1.1.</strong> Web granular sampling needs an audio-engine rework and ships in v1.2.</p>
+  <p>The grain scheduler is the same one used by the granular pink-noise waveform, so size / density / jitter / pan-spread behave identically — including the new BPM-quantized density chip, so you can lock sample-grain timing to a musical division. The only thing that changes between sample-granular and noise-granular is the source: a recognizable sample instead of pink noise.</p>
+  <p>What you can build with this: a Tibetan bowl strike frozen on its sustain forever, shimmering. The first second of a vocal vowel held indefinitely. A long ambient field recording chopped into rain-like fragments. A piano sustain decaying into a glittering cloud. Basinski-style tape-decay drones from any source. The <em>Developer Patches</em> presets (§6) lean heavily on this — most use 1/8t or 1/16 BPM-quantized grain density over a slow scan to produce intricate rhythmic patterns from a single sustained sample.</p>
 </section>
 
 <!-- ───────────────── Pills ───────────────── -->
@@ -831,9 +844,11 @@
   <p>Pop the sheet, grant mic access, and play a sustained note from any instrument (voice, tuning fork, singing bowl). The app runs <strong>YIN pitch detection</strong> (de Cheveigné &amp; Kawahara) in real time, displays the nearest note + cents offset + Hz + live audio level, and a "Set as Root" button snaps the chord generator's root key to match.</p>
   <p>The displayed pitch is <strong>held on screen</strong> until you tap <em>Reset</em> or sing a new stable pitch — you don't have to race the readout to hit Set as Root. A subtle "HELD" badge appears when the value is sticky (mic went quiet). The status line reads "Held — tap Set as Root, or sing a new note".</p>
   <p>On web there's a <strong>source picker</strong> dropdown — switch to a USB mic / interface input mid-session. iOS uses the system audio input.</p>
+  <p class="note"><strong>Per-voice equivalent.</strong> If you want to tune only <em>one</em> oscillator (e.g. dial OSC 2 to whatever you're humming without retuning the others), use the 👂 ear icon on that strip instead — see <a href="#oscillators">§3 → 👂 Tune to Room</a>. The global LISTEN pill on this page retunes the chord <em>root</em>, which means all four voices move together.</p>
 
   <h3>PERFORM — cymatics fullscreen</h3>
   <p>Hides every control element, leaving only the live Chladni pattern (with sand particles + zoom). A tiny "Exit" pill stays in the top-left; on iOS it auto-dims after 3 s but never disappears, and tapping anywhere wakes it back to full brightness. <kbd>Esc</kbd> exits on web.</p>
+  <p><strong>Sand particles.</strong> Hundreds of drifting grains (~3000 on web, ~1500 on iOS) ride the cymatic gradient toward nodal lines while the Chladni pattern fills the screen — the same particle simulation as the pop-out window, now native to fullscreen. The grains physically migrate to new positions when frequency changes, so a slow pitch-LFO produces visibly sweeping sand currents. Turn the grains off with the <em>sand</em> toggle if you want a pure shader-only image.</p>
 
   <h3>JOURNEY — scripted meditations</h3>
 
@@ -1034,7 +1049,7 @@
   <p>While playing, iOS shows Drone Meditations on the Lock Screen and Control Center with play / pause controls. Plays through silent mode (the audio session uses the <code>.playback</code> category) and supports background audio so you can lock the screen mid-session.</p>
 
   <h3>Haptics</h3>
-  <p>Optional. The haptic button in the master row cycles through three states on tap: <strong>Off → Light → Heavy → Off</strong>. The device taps in sync with the slowest active LFO across all voices; depth determines per-tap intensity, and the mode scales it: <em>Light</em> halves the intensity for a barely-there pulse, <em>Heavy</em> uses the full computed scale. Most noticeable with a 0.5–1 Hz amplitude LFO. <strong>v1.1:</strong> the choice persists across launches (UserDefaults).</p>
+  <p>Optional. The haptic button in the master row cycles through three states on tap: <strong>Off → Light → Heavy → Off</strong>. The device taps in sync with the slowest active LFO across all voices; depth determines per-tap intensity, and the mode scales it: <em>Light</em> halves the intensity for a barely-there pulse, <em>Heavy</em> uses the full computed scale. Most noticeable with a 0.5–1 Hz amplitude LFO. The choice persists across launches.</p>
 
   <h3>Photos library snapshot</h3>
   <p>The 📷 camera button renders a 1500×1500 frame of the current Chladni state and saves it directly to your Photos library (add-only permission — the app never reads your existing photos). First save prompts for permission; subsequent saves are silent. A "Saved to Photos" toast confirms.</p>
