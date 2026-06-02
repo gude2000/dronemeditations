@@ -9,20 +9,20 @@
 import {
   CHORDS, PRESETS, WAVEFORMS, JOURNEYS, journeyTotalSeconds, PITCH_CLASSES, TUNING_SYSTEMS,
   pitchToFrequency, chordFrequencies, FREQ_MIN, FREQ_MAX
-} from "./music.js?v=25";
-import { AudioEngine } from "./audio.js?v=25";
-import { initUI, renderAll } from "./ui.js?v=25";
+} from "./music.js?v=26";
+import { AudioEngine } from "./audio.js?v=26";
+import { initUI, renderAll } from "./ui.js?v=26";
 import {
   exportUserPresetDownload, importUserPresetFromFile
-} from "./preset-sharing.js?v=25";
-import { initVisualizations, setChladniVisible, setSpectrumVisible } from "./visualizations.js?v=25";
+} from "./preset-sharing.js?v=26";
+import { initVisualizations, setChladniVisible, setSpectrumVisible } from "./visualizations.js?v=26";
 import {
   loadUserPresets, saveUserPresets, newPresetId, newSampleId,
   loadVoicePresets, saveVoicePresets, newVoicePresetId,
   loadUserJourneys, saveUserJourneys, newUserJourneyId,
   loadLibrarySamples, saveLibrarySamples,
   putSample, getSample, deleteSample
-} from "./storage.js?v=25";
+} from "./storage.js?v=26";
 
 // ──────────────────────────────────────────────────
 // State.
@@ -79,7 +79,13 @@ const defaultGrain  = () => ({
   // v1 BPM sync. When true the engine reads from BPM × denomination
   // instead of densityHz. Mirrors the iOS GrainState fields.
   densitySyncEnabled: false,
-  densityDenomination: "sixteenth"   // "half" .. "thirtySecondT"
+  densityDenomination: "sixteenth",  // "half" .. "thirtySecondT"
+  // v1 grain overlap toggle. When false (default), the scheduler
+  // clamps the inter-grain gap up to grain length — one grain
+  // finishes before the next starts. When true, big grains overlap
+  // themselves and the trigger rate honors the density / BPM
+  // division literally. Mirrors iOS GrainState.allowOverlap.
+  allowOverlap: false
 });
 // v1: musical subdivisions for BPM-synced grain density. Beat counts
 // match iOS GrainDenomination.beats so the two platforms compute
@@ -425,6 +431,7 @@ const actions = {
         pushEffectiveGrainDensity(i);
         engine.setGrainJitter(i, gr.jitter);
         engine.setGrainPanSpread(i, gr.panSpread);
+        engine.setGrainAllowOverlap(i, !!gr.allowOverlap);
       }
       if (Array.isArray(v.lfos)) {
         // The preset may supply nulls for "leave this LFO alone" — only
@@ -824,6 +831,19 @@ const actions = {
     if (!state.oscillators[oscIndex].grain) state.oscillators[oscIndex].grain = defaultGrain();
     state.oscillators[oscIndex].grain.panSpread = clamped;
     engine.setGrainPanSpread(oscIndex, clamped);
+    renderAll();
+  },
+  /// v1: per-voice grain overlap toggle. Off (default) = scheduler
+  /// clamps gap to grain length so one grain finishes before the
+  /// next. On = honor the requested density gap literally, so big
+  /// grains will overlap themselves at the requested rate.
+  setGrainAllowOverlap(oscIndex, on) {
+    if (!state.oscillators[oscIndex].grain) state.oscillators[oscIndex].grain = defaultGrain();
+    state.oscillators[oscIndex].grain.allowOverlap = !!on;
+    // Push to engine params.grain so the scheduler picks it up even
+    // when state.grain has been reassigned (e.g. after a built-in
+    // preset apply replaces the whole grain object reference).
+    engine.setGrainAllowOverlap(oscIndex, !!on);
     renderAll();
   },
 
@@ -1406,6 +1426,12 @@ const actions = {
         actions.setGrainDensity(i, o.grain.densityHz);
         actions.setGrainJitter(i, o.grain.jitter);
         actions.setGrainPanSpread(i, o.grain.panSpread);
+        // v1: restore allowOverlap if the preset specified it. Old
+        // presets without this field default to false (the historical
+        // clamping behavior), which is what they had at save time.
+        if (o.grain.allowOverlap != null) {
+          actions.setGrainAllowOverlap(i, !!o.grain.allowOverlap);
+        }
       }
       if (o.sampleGranular != null) {
         actions.setSampleGranular(i, !!o.sampleGranular);

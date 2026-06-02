@@ -139,6 +139,12 @@ final class Voice {
     var grainDensityHz: Double   = 8
     var grainJitter: Double      = 0.6
     var grainPanSpread: Double   = 0.5
+    /// When true, the grain scheduler honors the requested density gap
+    /// literally — large grains overlap themselves instead of slowing
+    /// the trigger rate down. When false (default + historical
+    /// behavior), the gap is clamped up to grain length so one grain
+    /// finishes before the next starts. See GrainState.allowOverlap.
+    var grainAllowOverlap: Bool  = false
     /// When `true` AND the active waveform is `.sample`, the grain
     /// scheduler reads slices of the loaded sample (instead of from the
     /// running pink-noise stream) and windows them with a Hann envelope.
@@ -837,7 +843,15 @@ final class Voice {
                     let hi = 1.0 + grainJitter * 1.5
                     let r01 = nextRandomBipolar() * 0.5 + 0.5
                     let gap = meanGap * (lo + (hi - lo) * r01)
-                    grainSamplesUntilNext = max(lenSamples + 8, Int(gap))
+                    // When overlap is allowed, honor the gap literally —
+                    // 500 ms grains at 8 Hz density will trigger 4 copies
+                    // overlapping at all times. Otherwise clamp the gap
+                    // up to grain length so one grain finishes before the
+                    // next starts (legible rhythm at the cost of slowing
+                    // the effective trigger rate when grains are large).
+                    grainSamplesUntilNext = grainAllowOverlap
+                        ? max(8, Int(gap))
+                        : max(lenSamples + 8, Int(gap))
                 }
                 if grainCurrentPos < grainCurrentLength {
                     // Hann window via shared 1024-entry LUT.
@@ -949,10 +963,14 @@ final class Voice {
                             // Random in [lo, hi]: (nextRandomBipolar*0.5+0.5) ∈ [0,1].
                             let r01 = nextRandomBipolar() * 0.5 + 0.5
                             let gap = meanGap * (lo + (hi - lo) * r01)
-                            // Don't schedule next grain to start before the
-                            // current one finishes (avoid overlap pile-up at
-                            // sparse density + long grains).
-                            grainSamplesUntilNext = max(lenSamples + 8, Int(gap))
+                            // grainAllowOverlap = true honors the requested
+                            // gap literally — large grains will overlap
+                            // themselves instead of slowing the trigger
+                            // rate. Default (false) clamps gap to grain
+                            // length so one grain finishes before the next.
+                            grainSamplesUntilNext = grainAllowOverlap
+                                ? max(8, Int(gap))
+                                : max(lenSamples + 8, Int(gap))
                         }
                         if grainCurrentPos < grainCurrentLength {
                             // Hann window via 1024-entry LUT (replaces a

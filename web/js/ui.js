@@ -9,12 +9,12 @@ import {
   CHORDS, CHORD_CATEGORIES, PRESETS, PRESET_CATEGORIES,
   JOURNEYS, journeyTotalSeconds,
   FREQ_MIN, FREQ_MAX, frequencyHue
-} from "./music.js?v=25";
-import { startListening, stopListening, freqToNote, listInputDevices, switchInputDevice } from "./pitch-detect.js?v=25";
-import { initMIDI, midiToKeyOctave } from "./midi.js?v=25";
+} from "./music.js?v=26";
+import { startListening, stopListening, freqToNote, listInputDevices, switchInputDevice } from "./pitch-detect.js?v=26";
+import { initMIDI, midiToKeyOctave } from "./midi.js?v=26";
 import {
   loadSnapshotMeta, saveSnapshotMeta, getSnapshotBlob, deleteSnapshotBlob
-} from "./storage.js?v=25";
+} from "./storage.js?v=26";
 
 const WAVEFORM_SVG = {
   sine:     '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12c3-7 7-7 10 0s7 7 10 0"/></svg>',
@@ -707,6 +707,12 @@ function buildStrip(index) {
           <option value="thirtySecond">1/32</option>
           <option value="thirtySecondT">1/32T</option>
         </select>
+        <!-- v1 per-voice grain-overlap toggle. Off (default) clamps the
+             inter-grain gap up to grain length so one grain finishes
+             before the next. On honors the requested density gap
+             literally — large grains overlap themselves and the trigger
+             rate stays locked to BPM. -->
+        <button type="button" class="sample-button" data-role="grain-overlap" title="Allow grain overlap — when on, big grains stack on top of each other instead of slowing the trigger rate. Useful for thick clouds at BPM-locked subdivisions.">OVL</button>
       </div>
       <div class="mini-control">
         <span class="mini-label" data-role="grain-jitter-label">JITTER</span>
@@ -979,6 +985,15 @@ function buildStrip(index) {
         dispatch.setGrainDensityDenomination(index, v);
         dispatch.setGrainDensitySync(index, true);
       }
+    });
+  }
+  // v1 per-voice grain overlap toggle. Cycles on/off; visual state
+  // mirrored in updateStripFromState via the .selected class.
+  const grainOverlapBtn = root.querySelector('[data-role="grain-overlap"]');
+  if (grainOverlapBtn) {
+    grainOverlapBtn.addEventListener("click", () => {
+      const cur = !!(state.oscillators[index].grain && state.oscillators[index].grain.allowOverlap);
+      dispatch.setGrainAllowOverlap(index, !cur);
     });
   }
   root.querySelector('[data-role="grain-jitter"]').addEventListener("input", (e) => {
@@ -1264,6 +1279,11 @@ function syncStrip(index, root) {
     }
     if (densSlider) {
       densSlider.style.display = g.densitySyncEnabled ? "none" : "";
+    }
+    // v1: grain overlap toggle visual state.
+    const overlapBtn = root.querySelector('[data-role="grain-overlap"]');
+    if (overlapBtn) {
+      overlapBtn.classList.toggle("selected", !!g.allowOverlap);
     }
     // Jitter (linear)
     const jitSlider = root.querySelector('[data-role="grain-jitter"]');

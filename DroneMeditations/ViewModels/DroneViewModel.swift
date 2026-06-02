@@ -500,6 +500,13 @@ final class DroneViewModel: ObservableObject {
         oscillators[index].grain.panSpread = clamped
         audioEngine.setGrainPanSpread(clamped, for: index)
     }
+    /// Per-voice grain overlap toggle. See AudioEngine.setGrainAllowOverlap
+    /// and GrainState.allowOverlap.
+    func setGrainAllowOverlap(_ on: Bool, for index: Int) {
+        guard oscillators.indices.contains(index) else { return }
+        oscillators[index].grain.allowOverlap = on
+        audioEngine.setGrainAllowOverlap(on, for: index)
+    }
 
     // Per-voice sample play-window setters. Audible only when the voice's
     // waveform is .sample. (start, end) is a 0..1 fraction of the loaded
@@ -863,6 +870,7 @@ final class DroneViewModel: ObservableObject {
                 pushEffectiveGrainDensity(for: i)
                 audioEngine.setGrainJitter(gr.jitter, for: i)
                 audioEngine.setGrainPanSpread(gr.panSpread, for: i)
+                audioEngine.setGrainAllowOverlap(gr.resolvedAllowOverlap, for: i)
             }
             if let sg = v.sampleGranular {
                 setSampleGranular(sg, for: i)
@@ -1245,6 +1253,7 @@ final class DroneViewModel: ObservableObject {
                 pushEffectiveGrainDensity(for: i)
                 audioEngine.setGrainJitter(gr.jitter, for: i)
                 audioEngine.setGrainPanSpread(gr.panSpread, for: i)
+                audioEngine.setGrainAllowOverlap(gr.resolvedAllowOverlap, for: i)
             }
             // v1.1: bundled-sample auto-load + granular-sample config.
             // When the preset names a bundled sample (matched by the
@@ -1391,6 +1400,7 @@ final class DroneViewModel: ObservableObject {
         pushEffectiveGrainDensity(for: index)
         audioEngine.setGrainJitter(loadedGrain.jitter, for: index)
         audioEngine.setGrainPanSpread(loadedGrain.panSpread, for: index)
+        audioEngine.setGrainAllowOverlap(loadedGrain.resolvedAllowOverlap, for: index)
         for (i, lfo) in v.lfos.enumerated() {
             audioEngine.setLfoShape(lfo.shape, for: index, lfoIndex: i)
             audioEngine.setLfoTarget(lfo.target, for: index, lfoIndex: i)
@@ -1766,6 +1776,12 @@ final class DroneViewModel: ObservableObject {
             setGrainDensity(logLerp(aG.densityHz, bG.densityHz), for: i)
             setGrainJitter(lerp(aG.jitter, bG.jitter), for: i)
             setGrainPanSpread(lerp(aG.panSpread, bG.panSpread), for: i)
+            // allowOverlap is a boolean — swap at midpoint like the
+            // other discrete grain fields (denomination, waveform).
+            let wantOverlap = pick(aG.resolvedAllowOverlap, bG.resolvedAllowOverlap)
+            if o.grain.resolvedAllowOverlap != wantOverlap {
+                setGrainAllowOverlap(wantOverlap, for: i)
+            }
 
             // LFOs — interpolate rate (log) + depth (linear); discrete
             // shape + target swap at midpoint.

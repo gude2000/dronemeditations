@@ -269,11 +269,22 @@ struct GrainState: Equatable, Codable {
     /// v1: denomination used when sync is enabled (1/2 … 1/32T).
     /// Optional for backward compat — old saves (nil) default to 1/16.
     var densityDenomination: GrainDenomination? = nil
+    /// v1: when true, the grain scheduler does NOT enforce that the
+    /// inter-grain gap is at least as long as the grain itself — so
+    /// a 500 ms grain at 8 Hz density will trigger 4 overlapping
+    /// copies at all times. When false (default), grain length
+    /// clamps the gap, guaranteeing one grain at a time and keeping
+    /// rhythm legible. Optional for backward compat — old saves
+    /// (nil) get the historical clamp-on behavior.
+    var allowOverlap: Bool? = nil
     /// Resolved sync state — nil = off. Always use this from UI / engine
     /// rather than the raw optional so old presets get the historical
     /// behavior (free-running density).
     var resolvedSyncEnabled: Bool { densitySyncEnabled ?? false }
     var resolvedDenomination: GrainDenomination { densityDenomination ?? .sixteenth }
+    /// Resolved overlap — defaults to `false` so existing presets are
+    /// unchanged. Read this rather than the raw optional from engine code.
+    var resolvedAllowOverlap: Bool { allowOverlap ?? false }
 
     static let sizeMinMs: Double = 5
     static let sizeMaxMs: Double = 500

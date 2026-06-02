@@ -883,6 +883,14 @@ final class AudioEngine {
         guard voices.indices.contains(voiceIndex) else { return }
         voices[voiceIndex].grainPanSpread = max(0, min(1, s))
     }
+    /// Per-voice grain overlap toggle. When true, the scheduler honors
+    /// the requested inter-grain gap literally — large grains overlap
+    /// themselves rather than slowing the trigger rate. Default false
+    /// (historical clamping behavior).
+    func setGrainAllowOverlap(_ on: Bool, for voiceIndex: Int) {
+        guard voices.indices.contains(voiceIndex) else { return }
+        voices[voiceIndex].grainAllowOverlap = on
+    }
 
     // MARK: - Sample play-window (only audible when waveform == .sample)
     func setSampleStart(_ frac: Double, for voiceIndex: Int) {

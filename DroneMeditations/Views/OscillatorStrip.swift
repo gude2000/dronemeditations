@@ -544,6 +544,22 @@ struct OscillatorStrip: View {
                                 )
                             }
                         }
+                        Divider()
+                        // Allow grain overlap — when off (default), the
+                        // scheduler clamps the inter-grain gap up to the
+                        // grain length so one finishes before the next.
+                        // When on, big grains overlap themselves and the
+                        // trigger rate stays locked to the requested
+                        // density / BPM division. Useful for thick clouds
+                        // at sync'd subdivisions with long grains.
+                        Button {
+                            vm.setGrainAllowOverlap(!g.resolvedAllowOverlap, for: index)
+                        } label: {
+                            Label(
+                                "Allow grain overlap",
+                                systemImage: g.resolvedAllowOverlap ? "checkmark" : ""
+                            )
+                        }
                     } label: {
                         HStack(spacing: 2) {
                             Text(g.resolvedSyncEnabled

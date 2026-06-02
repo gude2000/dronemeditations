@@ -614,8 +614,15 @@ export class AudioEngine {
       const lo = Math.max(0.05, 1 - jit * 0.7);
       const hi = 1 + jit * 1.5;
       const gap = meanGap * (lo + Math.random() * (hi - lo));
-      // Don't allow the next grain to start before this one finishes.
-      v._nextGrainTime = startT + Math.max(lenSec + 0.005, gap);
+      // When overlap is allowed, honor the gap literally — big grains
+      // will trigger overlapping copies at the requested rate. Default
+      // (false) clamps the gap to grain length so one grain finishes
+      // before the next starts (legible rhythm at the cost of slowing
+      // the effective trigger rate when grains are large).
+      const allowOverlap = !!g.allowOverlap;
+      v._nextGrainTime = startT + (allowOverlap
+        ? Math.max(0.001, gap)
+        : Math.max(lenSec + 0.005, gap));
     }
   }
 
@@ -639,6 +646,13 @@ export class AudioEngine {
     const v = this.voices[index]; if (!v) return;
     if (!v.params.grain) v.params.grain = { sizeMs: 80, densityHz: 8, jitter: 0.6, panSpread: 0.5 };
     v.params.grain.panSpread = Math.max(0, Math.min(1, s));
+  }
+  /// v1: per-voice grain overlap toggle. See main.js
+  /// actions.setGrainAllowOverlap and the scheduler scheduleGrains.
+  setGrainAllowOverlap(index, on) {
+    const v = this.voices[index]; if (!v) return;
+    if (!v.params.grain) v.params.grain = { sizeMs: 80, densityHz: 8, jitter: 0.6, panSpread: 0.5 };
+    v.params.grain.allowOverlap = !!on;
   }
 
   // v1: granular SAMPLING setters. Active only when waveform === "sample".
