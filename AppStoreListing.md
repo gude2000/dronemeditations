@@ -28,7 +28,7 @@ Drone synth + live cymatics
 Drones · meditation · cymatics      (30 — broadest)
 Deep drone synth + cymatics         (28 — emphasizes depth)
 Drones for ambient & meditation     (31 ✗ too long)
-Drone synth · meditation tool       (29 — explicit “tool”)
+Drone synth · meditation tool       (29 — explicit "tool")
 ```
 
 ---
@@ -36,9 +36,9 @@ Drone synth · meditation tool       (29 — explicit “tool”)
 ## 3. Promotional Text (170 char max — editable without re-submission)
 
 ```
-A deep four-oscillator drone synthesizer for meditation, sound healing, and ambient composition. 80+ presets, live cymatics, six tuning systems. Web version free.
+A deep four-oscillator drone synthesizer for meditation, sound healing, and ambient composition. 80+ presets, live cymatics, granular sampling, six tuning systems.
 ```
-(165 chars.)
+(166 chars.)
 
 ---
 
@@ -51,7 +51,7 @@ Stars of the Lid, William Basinski, and the long-form drone tradition.
 Real synthesis, real tuning systems, real cymatics — designed for
 listeners who want to go deep.
 
-Most “drone apps” give you a few sliders and call it ambient.
+Most "drone apps" give you a few sliders and call it ambient.
 Drone Meditations gives you a real instrument.
 
 ═══════════════════════════════════════
@@ -62,58 +62,83 @@ SOUNDS YOU CAN SIT WITH FOR HOURS
   loaded sample)
 • Per-voice filter (low-pass, high-pass, band-pass), drive saturation,
   cross-oscillator FM, stereo chorus, three-mode delay with musical
-  timing, and reverb
-• Four LFOs per oscillator with selectable shape and modulation target
-  (pan, amplitude, filter cutoff, pitch)
+  timing, and stereo reverb
+• Four multi-target LFOs per oscillator — each can drive amplitude,
+  pan, filter cutoff, Q, pitch, FM index, or the FX-Mix macro all at
+  once. Sixteen modulators per patch.
 • Per-voice timing envelopes — fade voices in over minutes, fade them
-  out later, build slowly evolving sessions
+  out later, repeat N times (or forever). Build sessions that rotate
+  harmonically across 20 minutes without touching a slider.
 • Six tuning systems: 12-TET, just intonation, Pythagorean, Lou
   Harrison, Wendy Carlos α/β/γ, Harry Partch 43-tone
 
 ═══════════════════════════════════════
 DESIGNED FOR THE DRONE TRADITION
 
-• 80+ presets across Drone Artists, Solfeggio, Binaural Beats,
-  Natural Resonance, Cymatics, and Mystic & Composers categories
-• 28 Drone Artists tributes that capture each artist’s signature
-  waveforms, FX, and tuning — not just their pitches
+• 80+ presets across Drone Artists, Developer Patches, Solfeggio,
+  Natural Resonance, Cymatics, and Mystic & Composers categories —
+  plus an INIT preset pinned at the top for a blank-canvas start
+• 48 Drone Artists tributes that capture each artist's signature
+  waveforms, FX, and tuning — not just their pitches: Oliveros,
+  Riley, Radigue, Stars of the Lid, Sunn O))), Basinski, Niblock,
+  Palestine, Wada, Budd, Coltrane, Earth, Haino, NWW + more
+• 16 Developer Patches showcasing granular sampling, BPM-locked
+  grain density, and FX-Mix LFO swells
+• Modal chord category — Ionian, Dorian, Phrygian, Lydian,
+  Mixolydian, Aeolian, Locrian, Harmonic Minor, Melodic Minor —
+  with drift quantize-to-scale so modulation stays inside the mode
 • Auto-morph between any two presets over 30 seconds to 60 minutes,
   with optional ping-pong looping
-• 12+ scripted meditation journeys with timed multi-stage sessions
-• Tune-to-room: use your microphone to detect the ambient pitch of
-  your space and snap the synth to it
+• 25 scripted meditation journeys with timed multi-stage sessions
+• Tune to Room: use your mic to detect a pitch in your space and
+  snap the chord — or just one voice — to it. Per-strip ear icon
+  for per-voice tuning, global LISTEN pill for the chord root.
 
 ═══════════════════════════════════════
 LIVE CYMATICS THAT BREATHE WITH THE AUDIO
 
-• Physically-calibrated Chladni mode patterns that respond to the
-  actual playing frequency in real time
-• Pinch to zoom, tap to enter fullscreen Performance mode
+• Physically-calibrated Chladni mode patterns fit from 17 frames of
+  real plate-vibration footage. The renderer crossfades between the
+  two adjacent eigenmodes that bracket each voice's live frequency,
+  so vibrato breathes between physical modes — not stylized animation.
+• Pinch to zoom, tap to enter fullscreen Performance mode with a
+  drifting sand-particle simulation that follows nodal lines
 • Cymatic snapshot gallery — save the patterns you love as PNG
 • Spectrum analyzer alternative for harmonic visualization
 
 ═══════════════════════════════════════
-GRANULAR SYNTHESIS
+GRANULAR — NOISE AND SAMPLES, BPM-LOCKED
 
-• True granular noise mode with controls for grain size (5–500 ms),
-  density (0.5–50 grains/sec), timing jitter, and stereo spread
-• Geiger-counter sparseness, rain-shower density, stone-tape decay —
-  preset library included
+• Granular waveform: pink noise chopped into Hann-windowed grains
+  with controls for size (5–500 ms), density (0.5–50 grains/sec),
+  timing jitter, and stereo spread
+• Granular sampling: apply the same grain scheduler to any loaded
+  sample with position + scan controls. Freeze a bansuri sustain
+  forever, or smear a Scriabin chord into a tape-decay cloud.
+• BPM-quantized density (½ → 1/32T) locks grain spacing to the
+  global tempo. Change the BPM and every quantized voice retimes
+  instantly — polyrhythmic textures from a single sample.
 
 ═══════════════════════════════════════
 RECORD, SHARE, AND COMPOSE
 
-• Record sessions to mastered .m4a files with automatic loudness
-  normalization, fade-in/out, and embedded metadata
-• 41 bundled high-quality field recordings: rain, ocean, wind, fire,
-  cosmic, instruments, atmospheric textures — drop any into an
-  oscillator slot
+• Record sessions as 24-bit WAV + AAC M4A sidecar with loudness
+  normalization, automatic fade-in/out, and embedded metadata
+• Per-voice mic record (🎙 strip icon) captures audio directly into
+  a voice's sample slot — normalized, granular-ready, with the
+  voice's current frequency as the sample's reference pitch
+• 50+ bundled high-quality samples: bansuri, organ, piano, storm,
+  tide, forest, urban, cosmic textures — drop any into a voice
+• Cross-device preset sharing via .dronepreset files. AirDrop a
+  patch from web → iPhone → iPad and the same sound lands on each
+  device, samples embedded inline. iCloud auto-sync also available
+  for samples-free presets.
 • Save your own presets, voice presets, and journeys
 
 ═══════════════════════════════════════
 FOR SOUND HEALERS, COMPOSERS, AND LISTENERS
 
-Whether you’re running a sound bath, scoring a film, supporting your
+Whether you're running a sound bath, scoring a film, supporting your
 own meditation practice, or just love the form, Drone Meditations
 gives you the instrument to do it.
 
@@ -122,8 +147,7 @@ One-time purchase. No subscription. No accounts. No tracking.
 Free web version: dronemeditations.com
 ```
 
-(About 2,400 chars — well under the 4000 limit, leaves room to add
-notes about specific presets / future updates without truncation.)
+(About 3,950 chars — just under the 4000 limit.)
 
 ---
 
@@ -133,34 +157,69 @@ notes about specific presets / future updates without truncation.)
 drone,ambient,meditation,healing,binaural,solfeggio,synth,cymatics,sleep,focus,bath,chladni,tuning
 ```
 (98 chars. Single words give the broadest search coverage. Avoid
-phrases like “sound bath” — Apple matches partial words anyway and
+phrases like "sound bath" — Apple matches partial words anyway and
 phrases waste characters.)
 
-**Do NOT use** these even though they’re tempting:
+**Do NOT use** these even though they're tempting:
 - Artist names (Oliveros, Basinski, etc.) — risk Apple rejection for
   unauthorized use of names
-- “Calm”, “Headspace” — explicit competitor names; Apple rejects this
+- "Calm", "Headspace" — explicit competitor names; Apple rejects this
 - Trademarked instrument names
 
 ---
 
-## 6. What’s New in This Version (4000 char max)
+## 6. What's New in This Version (4000 char max)
 
-For 1.0:
+For 1.0 (initial release):
 ```
-Initial release.
+Welcome to Drone Meditations.
 
-Welcome to Drone Meditations. Four oscillators, six tuning systems,
-80+ presets, live cymatics, granular synthesis, auto-morph between
-presets, mic-input tune-to-room, 41 bundled field recordings, mastered
-.m4a session export.
+A four-voice drone synthesizer with physically-calibrated cymatics,
+built for sound healers, ambient composers, meditation teachers, and
+anyone who loves to sit with a single sustained note for an hour.
 
-Built for sound healers, ambient composers, meditation teachers, and
-anyone who loves to sit with a single sustained note.
+What's in the box:
 
-Web version is free at dronemeditations.com — iOS adds offline use,
-journeys, samples, and recording.
+• Four oscillators with real synthesis (sine through pink noise,
+  plus granular + loaded samples) and full per-voice FX — filter,
+  drive, FM, chorus, three-mode delay, stereo reverb.
+• Sixteen multi-target LFOs across the four voices. Each LFO can
+  drive amplitude, pan, filter cutoff, Q, pitch, FM index, or the
+  FX-Mix macro — all at once.
+• 80+ presets: Drone Artists tributes, Modal chords, Developer
+  Patches, Solfeggio, Natural Resonance, Cymatics, Mystic & Composers
+  — plus an INIT preset pinned at the top for building from scratch.
+• 25 scripted meditation journeys (Deep Listening Lineage, Heavy
+  Resonance, Minimalist Arc, Spiritual Path, plus 21 more), each a
+  multi-stage timed sequence.
+• Granular sampling — slice any sample into Hann-windowed grains
+  with size, density, jitter, position, and scan. Density optionally
+  locks to a musical subdivision of the global BPM.
+• Per-voice timing envelopes — fade voices in over minutes, fade out
+  later, repeat N times or forever. Patches rotate harmonically over
+  20-minute sessions without touching a slider.
+• Per-voice Tune to Room (ear icon) + per-voice mic record (mic
+  icon) on every strip — sing into a voice, capture and granularize
+  immediately, or snap one oscillator to a singing-bowl pitch.
+• Cross-device preset sharing via .dronepreset files. AirDrop a
+  patch (with its samples embedded) between iPhone, iPad, and the
+  web app at dronemeditations.com.
+• Physically-calibrated Chladni cymatics that breathe with the
+  audio — vibrato moves between real plate eigenmodes, with a
+  drifting sand-particle simulation in fullscreen Performance mode.
+• Mastered session recording: 24-bit WAV plus AAC M4A sidecar with
+  loudness normalization and 2/4 s fades.
+• Six tuning systems including Lou Harrison, Wendy Carlos α/β/γ,
+  and Harry Partch's 43-tone scale.
+
+Free web version at dronemeditations.com — iOS adds offline use,
+journeys, recording, mic capture, iCloud preset sync, and Now
+Playing / Lock Screen controls.
+
+Thanks for listening.
 ```
+
+(~2,200 chars.)
 
 ---
 
@@ -169,29 +228,10 @@ journeys, samples, and recording.
 | Field | Value |
 |---|---|
 | Marketing URL | https://dronemeditations.com |
-| Support URL | https://dronemeditations.com/support (TO BUILD) |
-| Privacy Policy URL | https://dronemeditations.com/privacy (TO BUILD — REQUIRED) |
+| Support URL | https://dronemeditations.com/support |
+| Privacy Policy URL | https://dronemeditations.com/privacy |
 
-**The Privacy URL is mandatory**. Even a one-page static HTML works
-fine. Skeleton:
-
-> **Drone Meditations — Privacy Policy**
->
-> Drone Meditations does not collect, transmit, or share any personal
-> data. The app stores preset configurations, journey definitions, and
-> snapshot images locally on your device. It does not communicate with
-> any servers.
->
-> The app requests microphone access only when you use the “Listen
-> (tune to room)” feature. Audio is analyzed entirely on-device and
-> never recorded or transmitted. It requests Photos library access
-> only when you save a cymatic snapshot — only the image you choose
-> to save is added.
->
-> No third-party SDKs, no analytics, no tracking, no advertising
-> identifiers.
->
-> Contact: support@dronemeditations.com
+Both Support and Privacy pages are live in the web repo.
 
 ---
 
@@ -202,16 +242,16 @@ fine. Skeleton:
 | Primary | **Music** |
 | Secondary | Health & Fitness |
 
-**Why Music as primary**: smaller, more defensible pond. As a “music
-app” you compete with synths where uniqueness wins. As “Health &
-Fitness” you drown in Calm/Headspace marketing budgets and disappoint
+**Why Music as primary**: smaller, more defensible pond. As a "music
+app" you compete with synths where uniqueness wins. As "Health &
+Fitness" you drown in Calm/Headspace marketing budgets and disappoint
 casual meditators with the synth learning curve.
 
 ---
 
 ## 9. Age Rating
 
-**4+** — no objectionable content. Mic + photo access don’t affect
+**4+** — no objectionable content. Mic + photo access don't affect
 rating.
 
 ---
@@ -222,10 +262,13 @@ When prompted in App Store Connect:
 
 - ❌ **Data Used to Track You**: None
 - ❌ **Data Linked to You**: None
-- ❌ **Data Not Linked to You**: None (app doesn’t collect anything)
+- ❌ **Data Not Linked to You**: None (app doesn't collect anything)
 
-The Listen feature uses the mic locally only. The Snapshot feature
-adds an image you choose to save. Neither leaves the device.
+The Listen feature uses the mic locally only. The per-voice mic
+record feature captures audio that stays on-device unless you
+explicitly share a .dronepreset file containing it. The Snapshot
+feature adds an image you choose to save. None of this leaves the
+device unless you intentionally share it.
 
 ---
 
@@ -247,25 +290,27 @@ Apple requires screenshots for the **6.5" iPhone** (1284×2778) and
 Use the iPhone 17 Pro Max simulator + iPad Pro 13" simulator to grab
 these — both shipped clean in our last build.
 
-Shoot 6–8 per device family. First 3 are visible without scrolling
+Shoot 6–10 per device family. First 3 are visible without scrolling
 on the App Store listing — those are the most important.
 
 ### Recommended sequence (both iPhone + iPad versions of each)
 
 | # | Screen state | Overlay text suggestion |
 |---|---|---|
-| 1 | Fullscreen Chladni in Performance mode, controls hidden | "A drone synthesizer with live cymatics" |
+| 1 | Fullscreen Chladni in Performance mode with sand particles, controls hidden | "A drone synthesizer with live cymatics" |
 | 2 | Main UI showing 4 osc strips + scrolling pill row + Preset highlighted | "80+ presets — pick your starting point" |
-| 3 | Preset picker open on the Drone Artists category, "Basinski — Tape Decay Cycle" highlighted | "Tributes to Oliveros, Radigue, Basinski, Sunn O)))" |
-| 4 | Morph sheet with Auto-morph 5:00 chip selected, slider mid-travel | "Morph between any two presets over time" |
-| 5 | Oscillator strip with Granular waveform selected, GRAIN row visible | "Granular synthesis · 4 LFOs · cross-osc FM" |
-| 6 | Listen sheet showing pitch detection on a real tone | "Tune the synth to your room" |
-| 7 | Journey picker showing 10+ scripted journeys | "Scripted meditation journeys" |
-| 8 | Sample picker open showing 41 bundled samples grouped by category | "41 bundled field recordings" |
+| 3 | Preset picker open showing INIT at top + Developer Patches section visible | "JG Developer Patches — granular + BPM-locked" |
+| 4 | Oscillator strip with Granular Sample + BPM-quantized DENSITY chip selected | "BPM-quantized granular sampling" |
+| 5 | LFO row with FX target selected, sweeping a swell | "FX-Mix macro LFO — one knob, breathing reverb+delay+chorus" |
+| 6 | Per-voice Tune to Room sheet open on one strip | "Tune each voice to a sung pitch" |
+| 7 | Morph sheet with Auto-morph 5:00 chip selected, slider mid-travel | "Morph between any two presets over time" |
+| 8 | Journey picker showing Drone-Artist arcs | "Scripted meditation journeys" |
+| 9 | Sample picker showing Recorded Samples section above the bundled list | "Record straight into a voice" |
+| 10 | Cross-device share — .dronepreset file in iOS share sheet | "Share presets across iPhone, iPad, and web" |
 
 ### Production tips
 
-- **Don’t use Apple’s text-on-screenshot template**. Use a simple
+- **Don't use Apple's text-on-screenshot template**. Use a simple
   full-bleed screenshot with a single line of overlay text in the
   upper third — this performs better in user testing.
 - Use a tool like [Screenshots.pro](https://screenshots.pro) or
@@ -273,16 +318,17 @@ on the App Store listing — those are the most important.
   (rounded SF font, white on dark).
 - Status bar should be clean (9:41 AM, full signal, full battery).
   Use the `xcrun simctl status_bar` command to enforce this.
-- Take all 8 in landscape on iPad. On iPhone, take in portrait.
+- Take all 10 in landscape on iPad. On iPhone, take in portrait.
 
 ### App Preview Video (optional, but powerful)
 
 Up to 30 seconds. Massive lift for unknowns. Shot list:
 1. Open app → preset picker → tap "Basinski Tape Decay Cycle" (3s)
-2. Hit play, controls fade away, Chladni morphs into view (5s)
-3. Tap MORPH pill, set duration 5:00, pick "Oliveros" as From, hit Play (8s)
-4. Speed-up to 4× as cymatics evolve through the morph (10s)
-5. End card: "Drone Meditations · dronemeditations.com · $14.99" (4s)
+2. Hit play, controls fade away, Chladni morphs into view with sand (5s)
+3. Open per-osc mic icon, sing a tone into OSC 2, watch it capture (5s)
+4. Tap MORPH pill, set duration 5:00, pick "Oliveros" as From, hit Play (7s)
+5. Speed-up to 4× as cymatics evolve through the morph (6s)
+6. End card: "Drone Meditations · dronemeditations.com · $14.99" (4s)
 
 ---
 
@@ -290,19 +336,30 @@ Up to 30 seconds. Massive lift for unknowns. Shot list:
 
 Things to verify in the build right before you submit:
 
-- [ ] Bundle version + version number bumped (1.0 / 1)
+- [ ] Bundle version + version number set to 1.0 / 9
+  (build 9 — see CHANGELOG; previous TestFlight builds were 1.0(1)
+  through 1.0(8))
 - [ ] App icon at all required sizes (1024×1024 marketing, all device sizes)
 - [ ] LaunchScreen looks clean (current LaunchScreen.storyboard or SwiftUI scene)
-- [ ] Info.plist `NSMicrophoneUsageDescription` is meaningful: "Used to detect the ambient pitch of your room when you tap Listen, so the synth can tune to it. Audio is never recorded or transmitted."
-- [ ] Info.plist `NSPhotoLibraryAddUsageDescription`: "Used to save cymatic snapshots you create to your Photos."
+- [ ] Info.plist `NSMicrophoneUsageDescription` is meaningful: "Used to
+      detect the ambient pitch of your room when you tap Listen, and
+      to record samples directly into oscillator voices when you tap
+      the per-strip mic icon. Audio is never transmitted off your device."
+- [ ] Info.plist `NSPhotoLibraryAddUsageDescription`: "Used to save
+      cymatic snapshots you create to your Photos."
 - [ ] `UIRequiredDeviceCapabilities` does NOT include `armv7` (legacy)
 - [ ] `UISupportedInterfaceOrientations` includes all four for iPad
 - [ ] Test on actual hardware (iPhone + iPad), not just simulator
 - [ ] Test TestFlight build with at least 2 external testers before public release
 - [ ] First-launch onboarding shows correctly on a fresh install
 - [ ] Mastered recording produces a valid .m4a that plays in Music.app
-- [ ] All 41 bundled samples appear in the Bundled ▾ picker
+- [ ] All bundled samples appear in the Bundled ▾ picker
 - [ ] Mic + Photos permissions prompts use friendly text from Info.plist
+- [ ] Per-osc Tune to Room (ear) + Record sample (mic) icons work on
+      every strip and don't trap the engine after Listen
+- [ ] .dronepreset round-trip iPhone → iPad → web → iPhone restores
+      identical audio (including granular state + window + drift)
+- [ ] INIT preset loads cleanly with no leftover state
 
 ---
 

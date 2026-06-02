@@ -4,103 +4,57 @@ Release notes are a running record of what's shipped in each version. Each secti
 
 ---
 
-## v1.1 — in progress
+## v1.0 (build 9) — launch
 
-Features built after the v1.0 App Store submission was sent for review. This list is the working draft of the v1.1 "What's New" copy.
-
-### New features
-
-- **Replay × N timing envelope** — every voice's `Start after` / `Play duration` cycle can now repeat: Once (default) / × 2 / × 3 / × 5 / × 10 / ∞. The voice plays its [silent delay → fade-in → audible → fade-out] cycle the chosen number of times, then goes silent forever. Perfect for layered intro/outro patterns where one voice should bloom and recede repeatedly across a long meditation. (commit `70cc44f`)
-
-- **Modal chord templates** — new **Modal** category in the chord picker with 9 entries: Ionian, Dorian, Phrygian, Lydian, Mixolydian, Aeolian, Locrian, Harmonic Minor, Melodic Minor. Each captures the mode's four most identifying degrees. When **Quantize to scale** is on, the snap cache fills with those same notes — so a pitch LFO arpeggiates *inside the mode* instead of wandering chromatically. (commit `346aa9d`)
-
-- **Granular sampling** — Sample-waveform voices gain a **GRAINY** toggle. When on, continuous playback is replaced by a Hann-windowed grain scheduler that reads slices around a user-set position. Combined with the existing GRAIN row (size / density / jitter / pan spread) plus the new `pos` + `scan` sliders, this is full granular sampling: frozen Tibetan bowls shimmering forever, Basinski-style tape-decay clouds from any source, vowel sustains held without rhythm, geiger-counter ticks from a field recording. (commit `1d743fa`)
-
-- **Haptics intensity** — the haptic-feedback toggle becomes a three-state cycle: **Off → Light → Heavy → Off**. Light halves the per-tap intensity for a barely-there pulse; Heavy is the original v1.0 scale. Persisted across launches. iOS only — Light = `0.5×`, Heavy = `1.0×` on the computed LFO-depth-derived intensity. (commit `2f690ae`)
-
-- **Global BPM with delay sync** — a tempo field drives every voice's delay-time when that voice's timing is set to a musical division (½, ¼, ⅛, etc.). Default 80 BPM (resting-heart-rate territory, meditative without being sluggish). Changing the tempo recomputes every sync'd delay; Free-mode delays are left alone. iOS picker lives in the master row; web exposes it via tap-the-subtitle. (commits `2f690ae`, `ed09ca9`)
-
-- **Stereo reverb** — the Schroeder JCRev now runs two independent chains (L + R) with slightly different comb and allpass lengths so the wet tail decorrelates naturally. The chorus's already-stereo output feeds the L/R chains directly. Wet output bypasses the dry-signal equal-power pan and goes straight to L/R — a hard-panned voice still spreads its reverb tail across both channels, the standard "the room you're in is always stereo" routing. (commit `5e0468f`)
-
-- **Audio-thread CPU optimization** — per-sample reverb math is now skipped entirely when reverb mix is at 0, and per-sample delay math is skipped when both delay mix and feedback are negligible. Crackling on parameter drags during busy presets was largely caused by reverb running at full cost on voices that had it muted. On a typical preset with reverb active on 1-2 voices and muted on the rest, this saves ~9M ops/sec net — easily covering the extra cost of stereo reverb, plus some. (commit `5e0468f`)
-
-- **Eight new showcase presets** in the Drone Artists category:
-  - *Bansuri — Frozen Shimmer* — granular sampling on a Bansuri C4 sustain, position frozen at 35 % with low jitter
-  - *Scriabin — Tape Decay* — granular sampling on the bundled mystic-piano sample, high scan jitter for Basinski-style cloud
-  - *Vowel Cloud* — JG vocal sample held into a 300-ms-grain vowel cloud with ocean drift
-  - *Galactic Dust* — tiny 40-ms grains of a cosmic synth sample at 28/s density, hard-panned
-  - *Wide Cathedral* — four pure sines hard-panned with 9 s stereo reverb; the most obvious v1.1 stereo-reverb demo
-  - *Lydian Bloom* — Lydian modal intervals + stereo reverb
-  - *Pendulum Reverberation* — three voices on Wave/Sweep pan drift; stereo reverb keeps the room stationary while sources move
-  - *Phrygian Stillness* — Phrygian modal + Replay × 3 × 4 voices × 60-s breath cycle = 18-min meditation built from the chord pill
-
-  Presets gain four new optional voice fields — `bundledSampleName`, `sampleGranular`, `grainSamplePosFrac`, `grainSamplePosJitter` — so built-in presets can auto-load samples and configure granular settings. Old presets work unchanged. (commit `b83ce79`)
-
-- **SwiftUI per-voice observation** — each `OscillatorStrip` now subscribes to its own `OscillatorVoice` `ObservableObject` instead of pulling state from the global view-model. Result: dragging a slider on OSC 1 no longer triggers `body` recomputation on OSC 2 / 3 / 4 — **~4× less SwiftUI work per slider frame** on a typical four-voice patch. Combined with the audio-thread bypass guards above, this should largely resolve the "crackling during parameter drags" symptom that came up after the v1.1 features piled on. (commit `f405d2c`)
-
-- **Cycle-end reverb bloom** — the fade-out at the end of each timing cycle (one-shot ending, or every cycle when Replay × N > 1) goes from a flat 8-second linear ramp to a 10-second smoothstep with a trapezoidal wet-reverb bloom: wet ramps to 1.5× over the first 3 s, plateaus for 1.5 s, then settles back to 0.3× over the remaining 5.5 s while the gain envelope smoothstep-fades to 0. Every replay cycle now ends with the same "atmospheric stop bloom" character the global transport Stop produces — but per voice, per cycle. (commit `f3f4ff0`)
-
-- **Faster fade-in on replay cycles** — the **first** cycle keeps the 8-second slow build (the meditative onset that sets the session mood); cycles **2+** use a 4-second fade-in so the rhythmic feel of Replay × N is preserved without the slow re-introduction repeating every time after a bloom-and-return. (commit `2de7c23`)
-
-- **Gain-stage slider crackle fix** — reverb mix, delay mix, delay feedback, and chorus mix were read once per buffer (every 5 ms on iOS) and used as constants in the per-sample signal math. Dragging any of those sliders meant the gain stage stepped by whatever the slider moved in those 5 ms, which buzzed audibly. All four are now slewed per sample at the same ~15 ms time constant the LFO→filter mod uses; the bypass guards now check both target and slewed values so a drag back to 0 doesn't pop. (commit `e75134a`)
-
-- **Delay-time + chorus-depth slider crackle fix** — `delayTapSamples` (Int) and `chSwing` (depth × maxSwing) were also per-buffer constants. Dragging the delay TIME slider jumped the read index by N samples per buffer; dragging the chorus DEPTH slider stepped the LFO swing range. Now both slew per sample: delay tap on a slower 200 ms time constant (slewing tap position IS a small Doppler shift, faster slew = louder pitch glide during drag), with linear-interpolation fractional reads from the buffer; chorus depth on the same 15 ms gain-stage constant. (commit `6956c47`)
-
-- **Drive + FM index slider crackle fix** — both were per-buffer constants too. Dragging DRIVE stepped the tanh saturation curve; dragging FM INDEX stepped the per-sample carrier phase increment by hundreds of Hz (the loudest possible audio click). Now slewed per sample at the gain-stage 15 ms constant. (commit `f437717`)
-
-- **Fade-out gain envelope back to linear** — the 10-second smoothstep fade introduced with the cycle-bloom landed felt abrupt because smoothstep stays at almost full gain for the first 30 % of the fade. Linear fade brings back the v1.0 perceived-continuous taper. Bloom shape softened too: peak 1.3 instead of 1.5, tail 0.5 instead of 0.3 — feels like a tail extension rather than a swell now. (commit `f437717`)
-
-- **Removed run-loop hop from per-voice sync** — the Combine sink that mirrors `$oscillators` into the per-voice `OscillatorVoice` boxes was scheduled `.receive(on: RunLoop.main)`. Slider drags fire @Published 60+ times per second, queuing a run-loop hop per tick measurably backed up the main thread. The sink work is cheap and runs on the same main-actor that publishes, so it's now synchronous — faster and correct. (commit `f437717`)
-
-- **User-preset save now captures drift** — saving a user preset (a full-session ⭐ save) was dropping the per-voice drift config: pitch mode, pan mode, amount, period, and the **Quantize to scale** toggle. (Voice presets — the per-strip ⭐ saves — were already saving drift correctly.) Fixed: `UserPreset.Voice` gains an optional `drift` field, the save site passes `o.drift`, the load site restores both drift state AND pushes `pitchQuantizeToScale` into the audio engine + recomputes the quantize cache so the snap takes effect immediately. Old saves load fine — they get the per-voice default (no drift, quantize off) which is what they had at save time. Morph apply path also forwards drift now, so morphing between a preset with quantize-on and one with it off behaves correctly. (commit `2e5bb46`)
-
-- **Replay × N fade-out actually plays** — when Replay count was > 1, the cycle length was set to `startDelay + playDuration` — exactly when the fade-out should start. The cycle wrapped at the start of the fade-out window, so the fade-out never played on any replay. Cycle length now includes the 10-s fade-out lobe, so each replay properly tapers + blooms before the next cycle begins. (commit `92d8fa4`)
-
-- **`oscillators` is a computed property over voiceBoxes** — the single biggest CPU win since v1.0 was submitted. `@Published var oscillators` republished on every slider tick, invalidating all 14+ views that observe the view-model directly (controls overlay, Chladni, blob background, spectrum, transport, every open sheet). Even with runloop coalescing, the body-recomputation pressure was enough to spike past the audio buffer deadline. `oscillators` is now a computed property over `voiceBoxes` (the per-voice ObservableObjects); legacy mutation sites compile unchanged, but writes only fire ONE box's `@Published` — the VM's own `objectWillChange` never fires for slider drags. (commit `ae84715`)
-
-- **Save-preset typing no longer stutters audio** — both save-preset sheets bound their text field's `@State` to the parent view, so per-keystroke updates re-evaluated the parent's full body (a ForEach over every preset in `PresetPickerView`, or the entire slider + LFO tree in `OscillatorStrip`). The typed name now lives in the sheet's own `@State` and is emitted via callback only when the user taps Save. (commit `7977320`)
-
-### Cross-device preset sharing — `.dronepreset` files
-
-- **Share a saved preset** — every entry in **Your Presets** gets a Share button that packs the preset (plus any audio sample it references) into a single `.dronepreset` JSON file and opens the iOS share sheet: **AirDrop**, **Save to Files**, **Mail**, **Messages**, **iCloud Drive**, anything. The file is the full envelope — when you open it on another device, the audio bytes ride along inside. (commit `faaede6`)
-- **Import a preset** — top-right toolbar button in the Presets sheet opens the Files picker filtered to `.dronepreset` (and plain `.json` as a fallback for transports that strip type metadata). Imported presets get a fresh id so importing the same file twice creates two distinct entries instead of overwriting an existing one.
-- **Tap-to-open** — a `.dronepreset` shared via AirDrop / opened in Files / tapped in Mail hands directly to Drone Meditations and imports automatically. The custom `com.gude2000.dronemeditations.preset` UTI is registered in Info.plist as a Document Type so iOS knows which app owns the extension.
-- **Same on web** — share-as-download + import-from-file mirrored in the browser app. (See web app parity below.)
-- **Existing local samples never clobbered** — if an incoming preset references a sample filename you already have on disk (presumably owned by another preset), the local file stays untouched. Files-app URL handles are properly bracketed with `startAccessingSecurityScopedResource`.
-
-### Web app parity
-
-- v1.0 features now run on the web app too: Replay × N in the ⏱ Timing menu, Randomize-all dice + Undo at the end of the OSC nav row, modal chord templates in the chord picker, global BPM with delay sync. (commits `67e5e6d`, `346aa9d`, `ed09ca9`)
-
-### Deferred to v1.2
-
-- **Granular sampling on web** — the iOS feature reads grains from a loaded sample. The web grain scheduler uses native WebAudio AudioParam ramps on a pre-recorded pink-noise buffer; switching it to read from a user-loaded sample requires an architecture rework that doesn't fit a quick parity port.
-- **LFO rate sync** — per-LFO `Sync` toggle that locks rate to a BPM division (½, ¼, ⅛…). Useful but unproven need for a drone synth; revisit if users ask.
-
----
-
-## v1.0 — submitted to App Store on 2026-05-28
-
-The first public release. Submitted as build 8 of the marketing 1.0 line (TestFlight history: 1.0 builds 1–6 → 1.1 builds 7–8 → relabeled back to 1.0 for launch).
+The public v1.0 release. Build 9 is the App Store launch build, consolidating everything from the previous TestFlight history (1.0 builds 1–6 → relabeled 1.1 builds 7–8 → folded back to 1.0 build 9 for launch) plus the final feature pass below.
 
 ### Synth architecture
 
-- Four oscillator voices, each with its own signal chain: waveform (sine / triangle / sawtooth / square / white-noise / pink-noise / granular-pink / loaded sample), state-variable filter (LP / HP / BP), drive (tanh saturation), four LFOs, FM, stereo chorus, mono / stereo / ping-pong delay, Schroeder reverb.
-- **Multi-target LFOs**: each LFO can drive pan + amplitude + cutoff + Q + pitch + FM-index simultaneously.
-- **Quantize to scale**: per-voice toggle that snaps the post-modulation pitch to chord notes.
-- **80+ curated presets** including artist tributes (Pauline Oliveros, Éliane Radigue, Stars of the Lid, Sunn O))), William Basinski, Phill Niblock, Harold Budd, Alice Coltrane, Charlemagne Palestine, Keiji Haino, Earth, Nurse With Wound) plus binaural / cymatic / spectral / drift-showcase categories.
+- Four oscillator voices, each with its own signal chain: waveform (sine / triangle / sawtooth / square / white-noise / pink-noise / granular-pink / loaded sample), state-variable filter (LP / HP / BP), drive (tanh saturation), four LFOs, FM, stereo chorus, mono / stereo / ping-pong delay, stereo Schroeder reverb.
+- **Multi-target LFOs**: each LFO can drive pan + amplitude + cutoff + Q + pitch + FM-index + the new **FX-Mix macro** simultaneously. Sixteen multi-target modulators per patch.
+- **FX-Mix LFO target** — a single LFO biases the voice's reverb, delay, and chorus wet mix together (±0.5 around the base values), producing one coordinated wet/dry breathing swell across the entire effects rack instead of riding three sliders. Great for dub-style "let it ring out, pull it back" gestures.
+- **Quantize to scale** — per-voice toggle in the 🌀 drift menu that snaps the post-modulation pitch to chord notes (~2 octaves around base). Continuous drift becomes mode-correct arpeggios.
+- **Modal chord templates** — Modal category in the chord picker with 9 entries: Ionian, Dorian, Phrygian, Lydian, Mixolydian, Aeolian, Locrian, Harmonic Minor, Melodic Minor. Each captures the mode's four most identifying degrees. Quantize-to-scale snaps to those notes so pitch LFOs arpeggiate *inside the mode* instead of wandering chromatically.
+- **80+ curated presets** in seven categories — INIT (a neutral starting patch, pinned top), Drone Artists (48 tributes incl. (Granular) and (Fading) variants, plus a Drift Showcase set), Developer Patches (16 patches built around granular sampling + BPM-locked grain + FX-Mix LFO), Solfeggio, Natural Resonance, Cymatics, Mystic & Composers.
+
+### Granular — noise and samples, BPM-locked
+
+- **Granular waveform** — pink noise chopped into Hann-windowed grains with controls for size (5–500 ms), density (0.5–50/s), timing jitter, and stereo spread.
+- **Granular sampling** — Sample-waveform voices gain a **GRAINY** toggle. When on, continuous playback is replaced by a Hann-windowed grain scheduler that reads slices around a user-set position (`pos`) with a per-grain offset jitter (`scan`). Same grain controls as the noise scheduler. Frozen Tibetan bowls shimmering forever, Basinski-style tape-decay clouds from any source, vowel sustains held without rhythm. Web + iOS.
+- **BPM-quantized grain density** — a denomination chip next to the DENSITY slider cycles through musical subdivisions (½ → 1/32T) of the global BPM. Once quantized, the density follows tempo automatically — change BPM and every quantized voice retimes instantly. Polyrhythmic textures from a single sample.
+- **Granular CPU optimization** — per-sample `cos` replaced by a 1024-entry Hann LUT; `Double.random` replaced by per-voice xorshift64* PRNG. ~10× faster grain windowing, ~20× faster RNG.
 
 ### Tunings
 
-- 12-TET, 24-TET, 72-TET, whole-tone, just intonation, Pythagorean, Harrison JI, Partch 43-tone, Wendy Carlos α / β / γ, φ-tuned (13-step golden octave). Every chord template snaps to the active tuning.
+- 12-TET, just intonation, Pythagorean, Verdi (432 Hz), Lou Harrison Free JI, Wendy Carlos α/β/γ, Harry Partch 43-tone. Every chord template snaps to the active tuning.
 
-### Tune to Room
+### Per-voice mic capture and tuning
 
-- Live microphone pitch detection (YIN algorithm) detects a sustained acoustic tone — singing bowl, voice, tuning fork — and snaps the chord generator's root to that exact frequency. The last detected pitch is held on screen so users don't race the readout.
+- **Per-voice Tune to Room (👂)** — every oscillator strip has an ear icon that opens a YIN pitch-detection sheet scoped to *just that voice*. Sing or play a tone; tap "Set as Freq" and only the strip you tapped snaps. Independent of the global LISTEN pill (which retunes the chord root). Stack across strips to sing a chord into the synth one voice at a time.
+- **Per-voice Record sample (🎙)** — captures mic audio directly into a voice's sample slot. Normalized to consistent loudness, saved into the "Recorded Samples" group of the Bundled ▾ picker for reuse elsewhere, and loaded into the voice with the WINDOW row revealed for trim+fade. The voice's frequency at record-time becomes the sample's reference pitch — resampling later matches what you played.
+- **Global Tune to Room (LISTEN pill)** — YIN pitch detection from the mic, snap the chord generator's *root* to whatever you sing or play. The last detected pitch is held on screen so you don't race the readout.
+
+### Cross-device preset sharing — `.dronepreset` files
+
+- **Share a saved preset** — every entry in **Your Presets** has a Share button that packs the preset (plus any audio sample it references) into a single `.dronepreset` JSON envelope and opens the iOS share sheet: AirDrop / Save to Files / Mail / Messages / iCloud Drive. Sample audio rides inline as 16-bit WAV so it's platform-universal.
+- **Import a preset** — top-right toolbar button in the Presets sheet opens a Files picker filtered to `.dronepreset` (plus `.json` fallback). Imported presets get a fresh id so importing the same file twice creates two distinct entries.
+- **Tap-to-open** — a `.dronepreset` shared via AirDrop / opened in Files / tapped in Mail hands directly to Drone Meditations and imports automatically. Custom `com.gude2000.dronemeditations.preset` UTI registered in Info.plist.
+- **Same on web** — share-as-download + import-from-file mirrored in the browser app. iPhone → iPad → web round-trip preserves identical audio (including granular state + window + drift).
+- **iCloud auto-sync** — saved presets (without inline samples) sync between your iPhone and iPad automatically via NSUbiquitousKeyValueStore. Samples still travel via `.dronepreset` files.
+- **Existing local samples never clobbered** — incoming preset references that name a sample you already have on disk leave the local file untouched.
+
+### Timing — per-voice envelopes + global BPM
+
+- **Per-voice timing envelope** — every voice gets *Start after* (Now / 15 s / 30 s / 1 / 2 / 5 / 10 min) and *Play duration* (Forever / 1 / 3 / 5 / 10 / 15 / 20 min) chips. Voices fade in over 8 s and fade out over 10 s at each boundary. Several Drone Artists presets use this to bloom voices in at different times.
+- **Replay × N** — a third chip row sets each voice's [silent delay → fade-in → audible → fade-out] cycle to repeat Once / × 2 / × 3 / × 5 / × 10 / ∞. Subsequent cycles use a 4 s fade-in (vs. 8 s on the first) and a per-cycle reverb-bloom fade-out so each repetition dissolves into the room before the next one starts.
+- **Global BPM + delay sync** — a tempo field drives every voice's delay-time when that voice's timing is set to a musical division (½, ¼, ¼t, ⅛, ⅛t, 1/16, 1/16t). Default 80 BPM (resting-heart-rate territory, meditative without being sluggish), range 30–240. iOS picker in the master row; web exposes it via tap-the-subtitle. Same BPM also drives BPM-quantized grain density.
 
 ### Cymatics
 
-- Physically-calibrated Chladni-plate renderer, fit from 17 frames of brusspup demo footage. Patterns respond to every voice's live pitch including LFO modulation. Pop-out window + fullscreen Perform mode for installations.
+- Physically-calibrated Chladni-plate renderer, fit from 17 frames of brusspup demo footage: `f(m,n) ≈ 18.6·(m²+n²)`. The renderer crossfades between the two adjacent eigenmodes that bracket each voice's live pitch — so vibrato breathes between physical modes, not stylized animation.
+- **Sand particles in Perform** — fullscreen Performance mode now includes a drifting sand-particle simulation (~3000 on web, ~1500 on iOS) that rides the cymatic gradient toward nodal lines. Grains physically migrate when frequency changes. Available on both web and iOS, on top of the same simulation that already ran in the web pop-out.
+- Pop-out window (web) + fullscreen Perform mode for installations. Pinch / scroll zoom. Performance exit pill never disappears (dims to 45 % after 3 s, taps anywhere wake it).
+- **Chladni CPU optimization** — 4 per-mode cos arrays of size `grid` precomputed once per frame; inner cell loop becomes 4 array reads + 2 multiplies + 1 subtract. ~140× fewer `cos` calls per frame (~15M/s → ~107k/s).
 
 ### Visualizers
 
@@ -108,35 +62,57 @@ The first public release. Submitted as build 8 of the marketing 1.0 line (TestFl
 
 ### Meditation Journeys
 
-- 20+ scripted multi-stage sessions that auto-advance presets + drift over a fixed duration: Sundown, Awakening, Floating, Crystal Cave, Spiral Descent, Tibetan Bowl, more. Each fades gently at the end.
+- 25 scripted multi-stage sessions that auto-advance presets + drift over a fixed duration: 15 general (Sundown, Awakening, Floating, Body Scan, Cathedral, Mountain Climb, Vespers, Crystal Cave, Phi Spiral, Quartz, Lullaby, Tibetan Bowl, Storm Front, Centering, Spiral Descent) + 10 Drone Artist arcs (Deep Listening Lineage, Heavy Resonance, Minimalist Arc, Spiritual Path, Sonic Cathedral, Black Mass, Slow Bloom, Tape & Tar, Awakening Drone, Microtonal Garden). Each fades gently at the end. Compose your own from the "＋ Create your own journey" button.
 
 ### Drift
 
-- Per-voice slow generative motion. Pitch modes: Static / Up / Down / Up-Down / Down-Up / Wave / Ocean (±¼-semi / 90 s) / Glacial. Pan modes parallel. Amount + Period overrides per voice.
+- Per-voice slow generative motion. Pitch modes: Static / Up / Down / Up-Down / Down-Up / Wave / Ocean (±¼-semi / 90 s) / Glacial. Pan modes parallel. Amount + Period overrides per voice (so a 20-min glacial bass can sit under a 30-s wave on a pad).
+- Quantize-to-scale toggle (described above) makes drift step through chord notes instead of smearing chromatically.
 
 ### Morph
 
-- Pick two presets, drag the slider to crossfade between them — every per-voice parameter interpolates. Auto-morph timer: 30 s to 60 min.
+- Pick two presets, drag the slider to crossfade between them — every per-voice parameter interpolates (log on frequencies / filter / decay / delay / chorus rate / FM index; linear on mix / depth / pan / drive / feedback / width; discrete swap at midpoint on waveform / filter type / delay mode / FM source / LFO shape + target). Auto-morph timer: 30 s to 60 min, optional ping-pong loop.
 
 ### Recording
 
 - Master output → **24-bit WAV** (DAW-ready, bit-perfect) **+ AAC M4A sidecar** (~10× smaller for sharing). Both files mastered with -16 dBFS RMS gain + 2 s fade-in / 4 s fade-out + metadata, saved to `Drone Meditations/Recordings/` in the Files app.
 
-### Polish
+### Stereo reverb + audio-thread CPU optimization
 
-- Click-free pause and stop with atmospheric reverb-bloom fades on iOS hardware.
-- 5-card first-launch onboarding tour.
+- **Stereo reverb** — the Schroeder JCRev now runs two independent chains (L + R) with slightly different comb and allpass lengths so the wet tail decorrelates naturally. The chorus's already-stereo output feeds the L/R chains directly. Hard-panned voices still spread their reverb tail across both channels.
+- **Bypass guards** — per-sample reverb / delay math is skipped when the relevant mix is at 0, saving ~9M ops/sec on a typical preset.
+- **Per-sample slew** on every gain-stage slider (reverb mix, delay mix, delay feedback, chorus mix, delay time, chorus depth, drive, FM index) — kills the audible crackle on parameter drags. Time constants tuned to balance smoothness with responsiveness.
+- **Per-voice ObservableObject** — each `OscillatorStrip` subscribes to its own `OscillatorVoice` box instead of the global view-model. Slider drag on OSC 1 no longer triggers `body` recomputation on OSC 2/3/4 — ~4× less SwiftUI work per frame on a four-voice patch.
+- **Computed `oscillators` property** — the VM's `@Published var oscillators` is now derived from voiceBoxes, so writes don't fire the VM's own `objectWillChange`. Eliminates the body-recomputation storm that was spiking past the audio buffer deadline.
+- **LFO → filter mod** — per-sample slew with 15-ms time constant + biquad coefficients recomputed every 16 samples. Eliminates the click on square / S&H / ramp LFO shapes targeting cutoff or Q.
+
+### Web app parity
+
+Every feature above runs on the web app (dronemeditations.com) too, including: per-osc Tune + Record icons, granular sampling, BPM-quantized grain density, FX-Mix LFO target, modal chord templates, multi-target LFOs, drift quantize-to-scale, Replay × N, .dronepreset share/import, sand particles in Perform, and all 80+ presets. Web-specific extras: pop-out Chladni window with BroadcastChannel sync, scroll-wheel Chladni zoom, Web MIDI input.
+
+### Polish & first-launch experience
+
+- Click-free pause and stop with atmospheric reverb-bloom fades — 8 s logarithmic on Stop, 1.4 s gentle "lift then settle" on Pause. Each voice's wet mix + decay bloom upward then descend back as the master fades, so the sound dissolves into the room rather than disappearing.
+- 5-card first-launch onboarding tour (re-openable from the ? button).
 - Per-voice ⭐ preset library + per-voice 🎲 randomize.
 - Global 🎲 Randomize-all + ↶ Undo at the end of the OSC pill row.
-- Sample play-window + per-loop fade-in / fade-out.
+- Sample play-window (start / end / fade-in / fade-out) for trim + per-loop fades.
 - iPad single-row transport with 56-pt play button.
-
-### Performance
-
-- Granular: per-sample `cos` replaced by 1024-entry Hann LUT; `Double.random` replaced by per-voice xorshift64* PRNG. ~10× faster grain windowing, ~20× faster RNG.
-- Chladni: 4 per-mode cos arrays of size `grid` precomputed once per frame; inner cell loop becomes 4 array reads + 2 multiplies + 1 subtract. ~140× fewer `cos` calls per frame (~15M/s → ~107k/s on the main thread).
-- LFO → filter modulation: per-sample slew with 15-ms time constant + biquad coefficients recomputed every 16 samples. Eliminates the click on square / S&H / ramp LFO shapes targeting cutoff or Q.
+- Haptics intensity (iOS) — Off / Light / Heavy cycle, persisted across launches.
+- Auto-play start when selecting a new preset is gated behind the `isAudible` engine flag — selecting a preset never triggers playback, and Stop is always tappable.
 
 ### Privacy
 
-- Zero data collection. No accounts. No network. No tracking. Microphone is processed live for Tune to Room only, never recorded or transmitted.
+- Zero data collection. No accounts. No network. No analytics. Microphone is processed live for Tune to Room and per-voice Record only; recorded audio stays on-device unless you explicitly share a `.dronepreset` containing it.
+
+---
+
+## v1.1 — planned post-launch
+
+Features not in v1.0 build 9; first candidates for v1.1:
+
+- **LFO rate sync** — per-LFO `Sync` toggle that locks rate to a BPM division (½, ¼, ⅛…). Useful but unproven need for a drone synth; revisit if users ask.
+- **Native sample library expansion** — more bundled samples, especially long-form field recordings and vocal sustains for the sampler.
+- **Additional Drone Artists presets** — community-suggested tributes.
+
+Anything beyond is open. Reviewer feedback will shape the v1.1 backlog.
