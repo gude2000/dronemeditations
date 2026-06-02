@@ -20,7 +20,7 @@
 import {
   loadUserPresets, saveUserPresets, newPresetId, newSampleId,
   putSample, getSample
-} from "./storage.js?v=33";
+} from "./storage.js?v=34";
 
 const CURRENT_VERSION = 1;
 const FILE_EXTENSION = "dronepreset";

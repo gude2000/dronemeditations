@@ -9,20 +9,20 @@
 import {
   CHORDS, PRESETS, WAVEFORMS, JOURNEYS, journeyTotalSeconds, PITCH_CLASSES, TUNING_SYSTEMS,
   pitchToFrequency, chordFrequencies, FREQ_MIN, FREQ_MAX
-} from "./music.js?v=33";
-import { AudioEngine } from "./audio.js?v=33";
-import { initUI, renderAll } from "./ui.js?v=33";
+} from "./music.js?v=34";
+import { AudioEngine } from "./audio.js?v=34";
+import { initUI, renderAll } from "./ui.js?v=34";
 import {
   exportUserPresetDownload, importUserPresetFromFile
-} from "./preset-sharing.js?v=33";
-import { initVisualizations, setChladniVisible, setSpectrumVisible } from "./visualizations.js?v=33";
+} from "./preset-sharing.js?v=34";
+import { initVisualizations, setChladniVisible, setSpectrumVisible } from "./visualizations.js?v=34";
 import {
   loadUserPresets, saveUserPresets, newPresetId, newSampleId,
   loadVoicePresets, saveVoicePresets, newVoicePresetId,
   loadUserJourneys, saveUserJourneys, newUserJourneyId,
   loadLibrarySamples, saveLibrarySamples,
   putSample, getSample, deleteSample
-} from "./storage.js?v=33";
+} from "./storage.js?v=34";
 
 // ──────────────────────────────────────────────────
 // State.
@@ -647,6 +647,20 @@ const actions = {
       // granular texture started together, locked, downbeat aligned."
       if (engine.resetMetronomePhase) engine.resetMetronomePhase();
       if (engine.resetGrainPhases) engine.resetGrainPhases();
+      // v1 fix (Jun 2026): engine.stop() clears this.voices entirely on
+      // teardown, so every Play that follows a Stop creates BRAND NEW
+      // voice objects whose pitchQuantizeToScale field is undefined
+      // (falsy). The UI still reports the user's drift.quantizeToScale
+      // as on because that lives in state.oscillators, but the audio
+      // thread sees the new flag as false and stops snapping. Re-push
+      // the flag for every voice + recompute the scale cache on every
+      // Play to recover. Same trick handles the post-loadUserPreset
+      // case where the load path doesn't restore drift either.
+      for (let i = 0; i < state.oscillators.length && engine.voices && i < engine.voices.length; i++) {
+        const qts = !!(state.oscillators[i].drift && state.oscillators[i].drift.quantizeToScale);
+        if (engine.voices[i]) engine.voices[i].pitchQuantizeToScale = qts;
+      }
+      if (typeof recomputeQuantizeScale === "function") recomputeQuantizeScale();
       state.transportState = "playing";
       startTicker();
     }
@@ -1555,6 +1569,24 @@ const actions = {
       if (o.sampleEndFrac != null)   actions.setSampleEnd(i, o.sampleEndFrac);
       if (o.sampleFadeInSec != null) actions.setSampleFadeIn(i, o.sampleFadeInSec);
       if (o.sampleFadeOutSec != null) actions.setSampleFadeOut(i, o.sampleFadeOutSec);
+      // v1 fix (Jun 2026): restore drift state including quantizeToScale.
+      // Previously the load path completely skipped drift, so the
+      // toggle's checkbox showed whatever was already on screen rather
+      // than the saved preset's intent, AND the audio engine voice's
+      // pitchQuantizeToScale flag was left at whatever it was before
+      // (or undefined when engine.stop had cleared the voices). User
+      // symptom: load a preset saved with quantize on, see the
+      // checkbox checked, hear no snap — until untick+retick.
+      // Routes through the public setter when present so the scale
+      // cache is recomputed and the engine flag is pushed coherently.
+      if (o.drift) {
+        const dr = { ...defaultDrift(), ...o.drift };
+        // Preserve other drift fields (mode, amount, period) directly;
+        // route the boolean through the public setter which both
+        // writes the engine flag AND recomputes scaleNotesHz.
+        state.oscillators[i].drift = { ...dr, quantizeToScale: false };
+        actions.setVoiceQuantizeToScale(i, !!dr.quantizeToScale);
+      }
       // v1 restore: sample unity-pitch baseline. Accept either the
       // web key or the iOS alias so a .dronepreset round-trips
       // either direction. Old saves without either field default to
