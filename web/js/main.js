@@ -9,20 +9,20 @@
 import {
   CHORDS, PRESETS, WAVEFORMS, JOURNEYS, journeyTotalSeconds, PITCH_CLASSES, TUNING_SYSTEMS,
   pitchToFrequency, chordFrequencies, FREQ_MIN, FREQ_MAX
-} from "./music.js?v=28";
-import { AudioEngine } from "./audio.js?v=28";
-import { initUI, renderAll } from "./ui.js?v=28";
+} from "./music.js?v=29";
+import { AudioEngine } from "./audio.js?v=29";
+import { initUI, renderAll } from "./ui.js?v=29";
 import {
   exportUserPresetDownload, importUserPresetFromFile
-} from "./preset-sharing.js?v=28";
-import { initVisualizations, setChladniVisible, setSpectrumVisible } from "./visualizations.js?v=28";
+} from "./preset-sharing.js?v=29";
+import { initVisualizations, setChladniVisible, setSpectrumVisible } from "./visualizations.js?v=29";
 import {
   loadUserPresets, saveUserPresets, newPresetId, newSampleId,
   loadVoicePresets, saveVoicePresets, newVoicePresetId,
   loadUserJourneys, saveUserJourneys, newUserJourneyId,
   loadLibrarySamples, saveLibrarySamples,
   putSample, getSample, deleteSample
-} from "./storage.js?v=28";
+} from "./storage.js?v=29";
 
 // ──────────────────────────────────────────────────
 // State.
@@ -641,6 +641,12 @@ const actions = {
       // NaN until the first transport tick fires ~250 ms later, and any
       // voice with startDelaySec == 0 would briefly silence then jump up).
       engine.transportElapsed = state.elapsed;
+      // v1: anchor metronome + grain phases to the Play moment so beat 1
+      // of the click and grain 1 of every BPM-quantized voice land on the
+      // same audio sample. The user perceives "the metronome and the
+      // granular texture started together, locked, downbeat aligned."
+      if (engine.resetMetronomePhase) engine.resetMetronomePhase();
+      if (engine.resetGrainPhases) engine.resetGrainPhases();
       state.transportState = "playing";
       startTicker();
     }
@@ -649,6 +655,12 @@ const actions = {
 
   async stop() {
     if (state.transportState === "stopped") return;
+    // v1: Stop also kills the metronome so the click doesn't keep
+    // ticking through the fade-out into stopped silence.
+    if (state.metronomeOn) {
+      state.metronomeOn = false;
+      if (engine && engine.setMetronomeOn) engine.setMetronomeOn(false);
+    }
     // Update UI state immediately; audio fades over 8s, then tears down.
     state.transportState = "stopped";
     state.elapsed = 0;
@@ -1251,6 +1263,15 @@ const actions = {
   /// master volume. Verifies BPM sync by ear.
   setMetronomeOn(on) {
     state.metronomeOn = !!on;
+    if (on && engine && engine.ensureStarted) {
+      // Pre-Play case: the audio context may not exist yet (browser
+      // policy: AudioContext is created/resumed by a user gesture).
+      // The toggle click IS the gesture, so ensureStarted here both
+      // creates the ctx and resumes it. Voices stay silent because
+      // master gain is 0; the metronome bus connects to ctx.destination
+      // directly so the click plays anyway.
+      engine.ensureStarted(state.oscillators);
+    }
     if (engine && engine.setMetronomeOn) {
       // Make sure the BPM is in sync the first time it starts.
       if (engine.setMetronomeBPM) engine.setMetronomeBPM(state.bpm);

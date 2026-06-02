@@ -202,6 +202,16 @@ final class AudioEngine {
                     v.render(frameCount: n, left: left, right: right)
                 }
             }
+            // ───── Voice-silence guard ─────
+            // When the transport is NOT in an audible state (stopped /
+            // mid-Pause-fade-out), we still let the source node run so
+            // that the metronome can render — but the voices must be
+            // silent so toggling the metronome before Play doesn't
+            // bleed voice audio through.
+            if !self.isAudible {
+                for i in 0..<n { left[i] = 0; right[i] = 0 }
+            }
+
             // ───── Metronome render ─────
             // Sample-accurate quarter-note click summed into the
             // source output BEFORE the soft-limit. Two-pitch (accent
@@ -989,6 +999,27 @@ final class AudioEngine {
         // Already-scheduled samplesUntilNext keeps its current
         // countdown; subsequent beats pick up the new BPM. No
         // jarring re-anchor — fine for a verify-by-ear tool.
+    }
+    /// Reset metronome phase so the very next render block fires
+    /// beat 1 (the accent click) at sample 0. Used by transport
+    /// Play to anchor the metronome beat clock to the same moment
+    /// the granular scheduler starts firing — no relative phase
+    /// drift between them.
+    func resetMetronomePhase() {
+        metronomeBeatCounter = 0
+        metronomeSamplesUntilNext = 0
+        metronomeClickRemaining = 0
+        metronomeClickPhase = 0
+    }
+    /// Reset every voice's grain scheduler so the next render block
+    /// triggers grain 1 at sample 0. Combined with
+    /// `resetMetronomePhase()` from the transport Play moment,
+    /// the metronome's beat 1 and the first grain on every
+    /// BPM-quantized voice land on the same audio sample.
+    func resetGrainPhases() {
+        for v in voices {
+            v.grainSamplesUntilNext = 0
+        }
     }
 
     // MARK: - Sample play-window (only audible when waveform == .sample)

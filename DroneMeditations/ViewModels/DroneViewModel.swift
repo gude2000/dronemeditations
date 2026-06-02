@@ -292,6 +292,16 @@ final class DroneViewModel: ObservableObject {
         controller.$sessionDuration.sink { [weak self] _ in
             Task { @MainActor in self?.nowPlaying.refresh() }
         }.store(in: &cancellables)
+        // v1: mirror DroneController's metronome state into the VM so
+        // the icon updates when Stop auto-disables the click. Controller
+        // is the source of truth (it manages mainMixer + engine on the
+        // transport boundaries); VM just reflects.
+        controller.$metronomeOn.sink { [weak self] newOn in
+            Task { @MainActor in
+                guard let self else { return }
+                if self.metronomeOn != newOn { self.metronomeOn = newOn }
+            }
+        }.store(in: &cancellables)
         $activePresetName.sink { [weak self] _ in
             Task { @MainActor in self?.nowPlaying.refresh() }
         }.store(in: &cancellables)
@@ -698,7 +708,13 @@ final class DroneViewModel: ObservableObject {
     func setMetronomeOn(_ on: Bool) {
         metronomeOn = on
         audioEngine.setMetronomeBPM(bpm)
-        audioEngine.setMetronomeOn(on)
+        // Route through DroneController so transport state is
+        // respected: pre-Play it brings up the engine + bumps
+        // mainMixer so the click is audible; Stop turns it off
+        // automatically (so the @Published flag here may get reset
+        // out from under us on Stop — handled by the Combine sink
+        // below).
+        controller.setMetronomeOn(on)
     }
 
     // ── Chorus ───────────────────────────────────────────

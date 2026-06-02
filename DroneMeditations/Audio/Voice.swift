@@ -167,7 +167,9 @@ final class Voice {
     // Scheduler state — samples until the next grain fires; the currently
     // active grain's length + position; per-grain pan offset added to the
     // smoothed `p` only for the equal-power pan calc (slew untouched).
-    private var grainSamplesUntilNext: Int = 0
+    /// Was private; exposed so AudioEngine.resetGrainPhases() can
+    /// anchor the grain scheduler to transport Play.
+    var grainSamplesUntilNext: Int = 0
     private var grainCurrentLength: Int    = 0
     private var grainCurrentPos: Int       = 0
     private var grainCurrentPanOffset: Float = 0

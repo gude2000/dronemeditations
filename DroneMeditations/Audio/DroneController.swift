@@ -39,8 +39,54 @@ final class DroneController: ObservableObject {
         5 * 60, 10 * 60, 15 * 60, 20 * 60, 30 * 60, 45 * 60, 60 * 60, 0
     ]
 
+    /// v1 metronome — separate state from engine.metronomeOn because
+    /// the controller needs to know whether the user wants the click
+    /// to keep ticking when transport is stopped (so we can override
+    /// the mainMixer gate to make it audible pre-Play). engine flag is
+    /// the live render-loop trigger; this is the user-intent flag.
+    @Published private(set) var metronomeOn: Bool = false
+    /// Master mainMixer volume saved when we bumped it for the metronome
+    /// pre-Play override, so we can restore it on metronome off / Play.
+    private var savedMainMixerVolumeBeforeMetronome: Float? = nil
+
     init(engine: AudioEngine) {
         self.engine = engine
+    }
+
+    /// Toggle the metronome. Works regardless of transport state — if
+    /// stopped, we bring the engine up + bump mainMixer.outputVolume so
+    /// the click is audible during the pre-Play tempo preview. Voices
+    /// stay silent thanks to the isAudible-gated zero in the source
+    /// node closure.
+    func setMetronomeOn(_ on: Bool) {
+        if on && !metronomeOn {
+            // Make sure the engine is running so the source node
+            // closure can render the click. Cheap no-op if already up.
+            do { try engine.start() } catch {
+                #if DEBUG
+                print("setMetronomeOn: engine.start failed: \(error)")
+                #endif
+                return
+            }
+            // If the transport is stopped, mainMixer.outputVolume is
+            // 0. Bump it to a fixed preview level (0.6) so the click
+            // is audible. Save the prior value so we can restore on
+            // metronome-off or Play. Voices stay silent via the
+            // !isAudible zeroing in the render block.
+            if !engine.isAudible {
+                savedMainMixerVolumeBeforeMetronome = engine.engine.mainMixerNode.outputVolume
+                engine.engine.mainMixerNode.outputVolume = 0.6
+            }
+            engine.setMetronomeOn(true)
+        } else if !on && metronomeOn {
+            engine.setMetronomeOn(false)
+            // Restore the master volume override if we bumped it.
+            if let saved = savedMainMixerVolumeBeforeMetronome, !engine.isAudible {
+                engine.engine.mainMixerNode.outputVolume = saved
+            }
+            savedMainMixerVolumeBeforeMetronome = nil
+        }
+        metronomeOn = on
     }
 
     func play() {
@@ -100,6 +146,16 @@ final class DroneController: ObservableObject {
             // exactly as Play is tapped) goes through to live output
             // instead of being staged.
             engine.isAudible = true
+            // v1: clear the pre-Play metronome override now that
+            // fadeInMaster is taking over the mainMixer volume.
+            savedMainMixerVolumeBeforeMetronome = nil
+            // v1: anchor metronome + grain phases to the Play moment
+            // so beat 1 of the click and grain 1 of every quantized
+            // voice land on the same audio sample. The user
+            // perceives this as "the metronome and the granular
+            // texture started together, locked, downbeat aligned."
+            engine.resetMetronomePhase()
+            engine.resetGrainPhases()
             engine.fadeInMaster(seconds: fadeDuration)
             engine.transportElapsed = elapsed
             lastTickDate = Date()
@@ -187,6 +243,14 @@ final class DroneController: ObservableObject {
         // .disabled(state == .stopped); the audio bled out anyway and
         // user had to tap pause first to break the deadlock).
         engine.isAudible = false
+        // v1: Stop also turns the metronome off (audibly + via the
+        // @Published flag the UI mirrors). User feedback: clicks
+        // continuing through the stop felt broken.
+        if metronomeOn {
+            engine.setMetronomeOn(false)
+            metronomeOn = false
+            savedMainMixerVolumeBeforeMetronome = nil
+        }
         // If recording is active, finalize the file first so the captured
         // fade-out is part of the export. finalizeRecording() runs the
         // mastering pipeline async; the finished .m4a URL appears in

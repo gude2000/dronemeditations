@@ -709,6 +709,32 @@ export class AudioEngine {
     // times; subsequent beats use the new bpm. That's the right
     // feel — no jarring re-anchor — for a verify-by-ear tool.
   }
+  /// v1: anchor metronome phase to the next render frame so beat 1
+  /// (the accent) lands at currentTime + tiny head-room. Combined
+  /// with resetGrainPhases() this means beat 1 of the click and
+  /// grain 1 of every BPM-quantized voice land on the same audio
+  /// sample. The user perceives this as "the metronome and the
+  /// granular texture started together, locked, downbeat aligned."
+  resetMetronomePhase() {
+    if (!this.ctx || !this.metronome) return;
+    const now = this.ctx.currentTime;
+    this.metronome.beatCounter = 0;
+    // 30 ms head-room so WebAudio can schedule the first click in
+    // time. _metronomeTick will pick this up on its next interval.
+    this.metronome.nextBeatTime = now + 0.03;
+  }
+  /// v1: anchor every voice's grain phase so the next grain fires
+  /// immediately at the same anchor moment as resetMetronomePhase().
+  /// Phase-locks BPM-quantized grains to metronome beat 1.
+  resetGrainPhases() {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    const t = now + 0.03;
+    for (const v of this.voices) {
+      if (!v) continue;
+      v._nextGrainTime = t;
+    }
+  }
   _metronomeTick() {
     if (!this.ctx || !this.metronome.enabled) return;
     const ctx = this.ctx;
