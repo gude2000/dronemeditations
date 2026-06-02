@@ -351,6 +351,127 @@
                 )
                ]),
 
+        Preset("JG Low Intensity", .developerPatches,
+               subtitle: "Quiet pad floor · gentle motion · low-amp meditative bed", [
+                Voice(
+                    hz: 110.00,
+                    pan: 0,
+                    wave: .triangle,
+                    amp: 0.38,
+                    drive: 1.96,
+                    startDelaySec: 15,
+                    playDurationSec: 180,
+                    replayCount: 5,
+                    filter: FilterState(type: .lowpass, cutoffHz: 2889, q: 9.37),
+                    reverb: ReverbState(decaySec: 8.62, mix: 0.04),
+                    delay: DelayState(timeSec: 0.67, feedback: 0.90, mix: 0.15),
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.12),
+                    grain: GrainState(sizeMs: 34, densityHz: 8, jitter: 0.60, panSpread: 0.50),
+                    lfos: [
+                    LfoState(shape: .sine,
+                         targets: [.pan],
+                         rateHz: 0.11,
+                         depth: 0.73),
+                    LfoState(shape: .sine,
+                         targets: [.amplitude, .filterQ, .cutoff, .fmIndex, .fxMix],
+                         rateHz: 0.18,
+                         depth: 0.61),
+                    nil,
+                    LfoState(shape: .sampleAndHold,
+                         targets: [.pitch],
+                         rateHz: 0.14,
+                         depth: 1,
+                         rateSyncEnabled: true,
+                         rateDenomination: .thirtySecond)
+                ],
+                    drift: DriftVoiceConfig(pitchMode: .up, panMode: .static, quantizeToScale: true)
+                ),
+                Voice(
+                    hz: 220.64,
+                    pan: 0.01,
+                    wave: .granular,
+                    amp: 0.48,
+                    playDurationSec: 180,
+                    replayCount: 5,
+                    filter: FilterState(type: .lowpass, cutoffHz: 2400, q: 0.40),
+                    reverb: ReverbState(decaySec: 7, mix: 0.27),
+                    delay: DelayState(timeSec: 0.40, feedback: 0.40, mix: 0.20),
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0),
+                    grain: GrainState(sizeMs: 46, densityHz: 6.67, jitter: 0, panSpread: 1),
+                    lfos: [
+                    nil,
+                    nil,
+                    LfoState(shape: .sine,
+                         targets: [.cutoff, .filterQ],
+                         rateHz: 0.08,
+                         depth: 0.29),
+                    LfoState(shape: .sine,
+                         targets: [.pitch, .fmIndex],
+                         rateHz: 0.47,
+                         depth: 0.39)
+                ],
+                    drift: DriftVoiceConfig(pitchMode: .down, panMode: .static)
+                ),
+                Voice(
+                    hz: 220.80,
+                    pan: 0.50,
+                    wave: .granular,
+                    amp: 0.31,
+                    playDurationSec: 180,
+                    replayCount: 5,
+                    filter: FilterState(type: .lowpass, cutoffHz: 2417, q: 0.40),
+                    reverb: ReverbState(decaySec: 9.47, mix: 0.27),
+                    delay: DelayState(timeSec: 0.40, feedback: 0.40, mix: 0.20),
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0),
+                    grain: GrainState(sizeMs: 58, densityHz: 3.33, jitter: 0.61, panSpread: 0.85),
+                    lfos: [
+                    nil,
+                    nil,
+                    LfoState(shape: .sine,
+                         targets: [.cutoff, .filterQ],
+                         rateHz: 0.08,
+                         depth: 0.18),
+                    nil
+                ],
+                    drift: DriftVoiceConfig(pitchMode: .up, panMode: .static)
+                ),
+                Voice(
+                    hz: 159.16,
+                    pan: 0.03,
+                    wave: .sawtooth,
+                    amp: 0.49,
+                    drive: 2.42,
+                    startDelaySec: 60,
+                    playDurationSec: 180,
+                    replayCount: 5,
+                    filter: FilterState(type: .lowpass, cutoffHz: 509, q: 1.93),
+                    reverb: ReverbState(decaySec: 6.98, mix: 0.43),
+                    delay: DelayState(timeSec: 0.60, feedback: 0.67, mix: 0.78),
+                    chorus: ChorusState(rateHz: 2.03, depth: 0.54, width: 0.47, mix: 0.22),
+                    lfos: [
+                    LfoState(shape: .sine,
+                         targets: [.pan, .fxMix],
+                         rateHz: 0.23,
+                         depth: 0.73),
+                    LfoState(shape: .sine,
+                         targets: [.fmIndex],
+                         rateHz: 0.24,
+                         depth: 0.14),
+                    LfoState(shape: .triangle,
+                         targets: [.cutoff],
+                         rateHz: 0.91,
+                         depth: 0.40),
+                    LfoState(shape: .sampleAndHold,
+                         targets: [.pitch, .filterQ],
+                         rateHz: 0.49,
+                         depth: 1,
+                         rateSyncEnabled: true,
+                         rateDenomination: .sixteenth)
+                ],
+                    drift: DriftVoiceConfig(pitchMode: .static, pitchAmount: 1.28, pitchPhase: 0.17, panMode: .glacial, panAmount: 0.81, panPhase: 0.85, quantizeToScale: true)
+                )
+               ]),
+
         Preset("JG Maybe Three", .developerPatches,
                subtitle: "G♯ Lydian S&H pitch · 7-note mode quantize showcase", [
                 Voice(
@@ -707,7 +828,7 @@
                          rateHz: 0.41,
                          depth: 0.19)
                 ],
-                    drift: DriftVoiceConfig(pitchMode: .static, panMode: .static, pitchAmount: 0.61, pitchPhase: 0.11, panAmount: 0.94, panPhase: 0.43, quantizeToScale: true)
+                    drift: DriftVoiceConfig(pitchMode: .static, pitchAmount: 0.61, pitchPhase: 0.11, panMode: .static, panAmount: 0.94, panPhase: 0.43, quantizeToScale: true)
                 )
                ]),
 

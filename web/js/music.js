@@ -1564,6 +1564,70 @@ export const PRESETS = [
           drift: { quantizeToScale: true } })
     ] },
 
+  // JG Low Intensity — quiet pad floor (110 Hz triangle + two
+  // granular voices around A3) with a deep low sawtooth drone at
+  // 159 Hz that fades in at 60 s. S&H pitch on the bass voice
+  // syncs to 1/16 at preset BPM; quantize-to-scale keeps the
+  // sample-and-hold steps inside the active mode. Low master amps
+  // (0.31–0.49) keep the meditative bed below conversation volume.
+  { id: "jg_low_intensity", name: "JG Low Intensity", category: "Developer Patches",
+    sub: "Quiet pad floor · gentle motion · low-amp meditative bed",
+    voices: [
+      V({ hz: 110.00, pan: 0, wave: "triangle", amp: 0.38, drive: 1.96,
+          startDelaySec: 15, playDurationSec: 180, replayCount: 5,
+          filter: { type: "lowpass", cutoffHz: 2889, q: 9.37 },
+          reverb: { decaySec: 8.62, mix: 0.04 },
+          delay: { timeSec: 0.67, feedback: 0.90, mix: 0.15 },
+          chorus: { rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.12 },
+          grain: { sizeMs: 34, densityHz: 8, jitter: 0.60, panSpread: 0.50 },
+          lfos: [
+            { shape: "sine", targets: ["pan"], rateHz: 0.11, depth: 0.73 },
+            { shape: "sine", targets: ["amp", "q", "cutoff", "fm", "fxMix"], rateHz: 0.18, depth: 0.61 },
+            null,
+            { shape: "sh", targets: ["pitch"], rateHz: 0.14, depth: 1, rateSyncEnabled: true, rateDenomination: "thirtySecond" }
+          ],
+          drift: { quantizeToScale: true } }),
+      V({ hz: 220.64, pan: 0.01, wave: "granular", amp: 0.48,
+          playDurationSec: 180, replayCount: 5,
+          filter: { type: "lowpass", cutoffHz: 2400, q: 0.40 },
+          reverb: { decaySec: 7, mix: 0.27 },
+          delay: { timeSec: 0.40, feedback: 0.40, mix: 0.20 },
+          chorus: { rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0 },
+          grain: { sizeMs: 46, densityHz: 6.67, jitter: 0, panSpread: 1 },
+          lfos: [
+            null,
+            null,
+            { shape: "sine", targets: ["cutoff", "q"], rateHz: 0.08, depth: 0.29 },
+            { shape: "sine", targets: ["pitch", "fm"], rateHz: 0.47, depth: 0.39 }
+          ] }),
+      V({ hz: 220.80, pan: 0.50, wave: "granular", amp: 0.31,
+          playDurationSec: 180, replayCount: 5,
+          filter: { type: "lowpass", cutoffHz: 2417, q: 0.40 },
+          reverb: { decaySec: 9.47, mix: 0.27 },
+          delay: { timeSec: 0.40, feedback: 0.40, mix: 0.20 },
+          chorus: { rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0 },
+          grain: { sizeMs: 58, densityHz: 3.33, jitter: 0.61, panSpread: 0.85 },
+          lfos: [
+            null,
+            null,
+            { shape: "sine", targets: ["cutoff", "q"], rateHz: 0.08, depth: 0.18 },
+            null
+          ] }),
+      V({ hz: 159.16, pan: 0.03, wave: "sawtooth", amp: 0.49, drive: 2.42,
+          startDelaySec: 60, playDurationSec: 180, replayCount: 5,
+          filter: { type: "lowpass", cutoffHz: 509, q: 1.93 },
+          reverb: { decaySec: 6.98, mix: 0.43 },
+          delay: { timeSec: 0.60, feedback: 0.67, mix: 0.78 },
+          chorus: { rateHz: 2.03, depth: 0.54, width: 0.47, mix: 0.22 },
+          lfos: [
+            { shape: "sine", targets: ["pan", "fxMix"], rateHz: 0.23, depth: 0.73 },
+            { shape: "sine", targets: ["fm"], rateHz: 0.24, depth: 0.14 },
+            { shape: "triangle", targets: ["cutoff"], rateHz: 0.91, depth: 0.40 },
+            { shape: "sh", targets: ["pitch", "q"], rateHz: 0.49, depth: 1, rateSyncEnabled: true, rateDenomination: "sixteenth" }
+          ],
+          drift: { quantizeToScale: true } })
+    ] },
+
   // JG Small Steps — wide-pan duet of granular noise (OSC 1, A3
   // hard-left) against a sample-granular voice (OSC 2, F#3
   // hard-right). iOS plays the bundled JG Small Steps.wav on OSC 2;

@@ -21,7 +21,7 @@ OUT_JS = ROOT / "JGPresets" / "_generated_presets.js"
 # (Scriabin Rain 24+15 MB, Underwater 24 MB) we'll handle after a
 # conversation about trim/downsample. JG JoG is the latest add
 # (Jun 2026); ~9.5 MB sample, ships under Developer Patches.
-INCLUDE = {"JG Dub Wave", "JG Interrupted", "JG Ondulations", "JG Whole Tone Wind", "JG JoG", "JG WalK", "JG Small Steps", "JG Maybe Three"}
+INCLUDE = {"JG Dub Wave", "JG Interrupted", "JG Ondulations", "JG Whole Tone Wind", "JG JoG", "JG WalK", "JG Small Steps", "JG Maybe Three", "JG Low Intensity"}
 
 # Per-preset subtitle (curated, not auto-generated).
 SUBTITLES = {
@@ -33,6 +33,7 @@ SUBTITLES = {
     "JG WalK":             "Author recording · slower JoG sample-granular",
     "JG Small Steps":      "Author recording · small-steps sample-granular",
     "JG Maybe Three":      "G♯ Lydian S&H pitch · 7-note mode quantize showcase",
+    "JG Low Intensity":    "Quiet pad floor · gentle motion · low-amp meditative bed",
 }
 
 def fmt(x, places=2):
@@ -147,11 +148,16 @@ def drift_part(dr):
                   and not quant)
     if is_default:
         return None
-    fields = [f"pitchMode: .{pitch_mode}", f"panMode: .{pan_mode}"]
+    # IMPORTANT: order must match DriftVoiceConfig's stored property order
+    # (pitchMode, pitchAmount, pitchPhase, panMode, panAmount, panPhase,
+    #  pitchSemitones, pitchPeriodSec, quantizeToScale). Memberwise init
+    # uses that order — emitting out of order is a compile error.
+    fields = [f"pitchMode: .{pitch_mode}"]
     if p_amt is not None and abs(p_amt - 1.0) > 1e-3:
         fields.append(f"pitchAmount: {fmt(p_amt)}")
     if p_ph is not None and abs(p_ph) > 1e-3:
         fields.append(f"pitchPhase: {fmt(p_ph)}")
+    fields.append(f"panMode: .{pan_mode}")
     if n_amt is not None and abs(n_amt - 1.0) > 1e-3:
         fields.append(f"panAmount: {fmt(n_amt)}")
     if n_ph is not None and abs(n_ph) > 1e-3:

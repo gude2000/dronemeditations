@@ -1,0 +1,421 @@
+{
+  "version": 1,
+  "preset": {
+    "id": "preset-mpwhrri3-n0r0wj",
+    "name": "JG Low Intensity",
+    "createdAt": "2026-06-02T10:25:34.971Z",
+    "keyId": 9,
+    "octave": 3,
+    "chordId": "phi_ratio",
+    "tuningId": "carlosAlpha",
+    "masterVolume": 0.3,
+    "oscillators": [
+      {
+        "frequencyHz": 110.00000000000001,
+        "waveform": "triangle",
+        "amplitude": 0.38,
+        "pan": 0,
+        "isMuted": false,
+        "isSoloed": false,
+        "filter": {
+          "type": "lowpass",
+          "cutoffHz": 2888.9484236847325,
+          "q": 9.371615627964955
+        },
+        "drive": 1.96,
+        "fm": {
+          "sourceIndex": 1,
+          "index": 184.31956035392145
+        },
+        "chorus": {
+          "rateHz": 0.5,
+          "depth": 0.4,
+          "width": 0.7,
+          "mix": 0.123
+        },
+        "reverb": {
+          "decaySec": 8.617871220404128,
+          "mix": 0.045
+        },
+        "delay": {
+          "timeSec": 0.6656255679193052,
+          "feedback": 0.899,
+          "mix": 0.15,
+          "mode": "mono",
+          "timing": "free"
+        },
+        "lfos": [
+          {
+            "shape": "sine",
+            "targets": [
+              "pan"
+            ],
+            "rateHz": 0.10641546160611007,
+            "depth": 0.727
+          },
+          {
+            "shape": "sine",
+            "targets": [
+              "amp",
+              "q",
+              "cutoff",
+              "fm",
+              "fxMix"
+            ],
+            "rateHz": 0.1752896728630215,
+            "depth": 0.614
+          },
+          {
+            "shape": "sine",
+            "targets": [
+              "cutoff"
+            ],
+            "rateHz": 0.3,
+            "depth": 0
+          },
+          {
+            "shape": "sh",
+            "targets": [
+              "pitch"
+            ],
+            "rateHz": 0.13621019193074718,
+            "depth": 1,
+            "rateSyncEnabled": true,
+            "rateDenomination": "thirtySecond"
+          }
+        ],
+        "startDelaySec": 15,
+        "playDurationSec": 180,
+        "replayCount": 5,
+        "grain": {
+          "sizeMs": 34.00713178019282,
+          "densityHz": 8,
+          "jitter": 0.6,
+          "panSpread": 0.5,
+          "densitySyncEnabled": false,
+          "densityDenomination": "sixteenth",
+          "allowOverlap": false
+        },
+        "sampleGranular": false,
+        "grainSamplePosFrac": 0.5,
+        "grainSamplePosJitter": 0.2,
+        "drift": {
+          "pitchMode": "up",
+          "pitchAmount": 1,
+          "pitchPhase": 0,
+          "panMode": "static",
+          "panAmount": 1,
+          "panPhase": 0,
+          "quantizeToScale": true
+        },
+        "sampleStartFrac": 0,
+        "sampleEndFrac": 1,
+        "sampleFadeInSec": 0,
+        "sampleFadeOutSec": 0,
+        "sampleRef": null
+      },
+      {
+        "frequencyHz": 220.63912247471586,
+        "waveform": "granular",
+        "amplitude": 0.48,
+        "pan": 0.013980669153879228,
+        "isMuted": false,
+        "isSoloed": false,
+        "filter": {
+          "type": "lowpass",
+          "cutoffHz": 2400,
+          "q": 0.4
+        },
+        "drive": 1,
+        "fm": {
+          "sourceIndex": 0,
+          "index": 15.528797321086666
+        },
+        "chorus": {
+          "rateHz": 0.5,
+          "depth": 0.4,
+          "width": 0.7,
+          "mix": 0
+        },
+        "reverb": {
+          "decaySec": 7,
+          "mix": 0.265
+        },
+        "delay": {
+          "timeSec": 0.4,
+          "feedback": 0.4,
+          "mix": 0.196,
+          "mode": "pingPong",
+          "timing": "1/8t"
+        },
+        "lfos": [
+          {
+            "shape": "sine",
+            "targets": [
+              "pan"
+            ],
+            "rateHz": 0.25,
+            "depth": 0
+          },
+          {
+            "shape": "sh",
+            "targets": [
+              "amp"
+            ],
+            "rateHz": 0.5,
+            "depth": 0
+          },
+          {
+            "shape": "sine",
+            "targets": [
+              "cutoff",
+              "q"
+            ],
+            "rateHz": 0.08444330400751102,
+            "depth": 0.293
+          },
+          {
+            "shape": "sine",
+            "targets": [
+              "pitch",
+              "fm"
+            ],
+            "rateHz": 0.4741966647803453,
+            "depth": 0.39
+          }
+        ],
+        "startDelaySec": 0,
+        "playDurationSec": 180,
+        "replayCount": 5,
+        "grain": {
+          "sizeMs": 45.93778008330312,
+          "densityHz": 6.666666666666667,
+          "jitter": 0,
+          "panSpread": 1,
+          "densitySyncEnabled": true,
+          "densityDenomination": "thirtySecond",
+          "allowOverlap": false
+        },
+        "sampleGranular": false,
+        "grainSamplePosFrac": 0.5,
+        "grainSamplePosJitter": 0.2,
+        "drift": {
+          "pitchMode": "down",
+          "pitchAmount": 1,
+          "pitchPhase": 0,
+          "panMode": "static",
+          "panAmount": 1,
+          "panPhase": 0,
+          "quantizeToScale": false
+        },
+        "sampleStartFrac": 0,
+        "sampleEndFrac": 1,
+        "sampleFadeInSec": 0,
+        "sampleFadeOutSec": 0,
+        "sampleRef": null
+      },
+      {
+        "frequencyHz": 220.7993540964551,
+        "waveform": "granular",
+        "amplitude": 0.309,
+        "pan": 0.5,
+        "isMuted": false,
+        "isSoloed": false,
+        "filter": {
+          "type": "lowpass",
+          "cutoffHz": 2416.5645524996376,
+          "q": 0.3956551661280771
+        },
+        "drive": 1,
+        "fm": {
+          "sourceIndex": 0,
+          "index": 16.250952974003656
+        },
+        "chorus": {
+          "rateHz": 0.5,
+          "depth": 0.4,
+          "width": 0.7,
+          "mix": 0
+        },
+        "reverb": {
+          "decaySec": 9.471090794701604,
+          "mix": 0.272
+        },
+        "delay": {
+          "timeSec": 0.4,
+          "feedback": 0.399,
+          "mix": 0.202,
+          "mode": "pingPong",
+          "timing": "1/8t"
+        },
+        "lfos": [
+          {
+            "shape": "sine",
+            "targets": [
+              "pan"
+            ],
+            "rateHz": 0.25,
+            "depth": 0
+          },
+          {
+            "shape": "sh",
+            "targets": [
+              "amp"
+            ],
+            "rateHz": 0.5,
+            "depth": 0
+          },
+          {
+            "shape": "sine",
+            "targets": [
+              "cutoff",
+              "q"
+            ],
+            "rateHz": 0.0760833056962275,
+            "depth": 0.181
+          },
+          {
+            "shape": "sine",
+            "targets": [
+              "pitch"
+            ],
+            "rateHz": 0.3,
+            "depth": 0
+          }
+        ],
+        "startDelaySec": 0,
+        "playDurationSec": 180,
+        "replayCount": 5,
+        "grain": {
+          "sizeMs": 57.77899777010644,
+          "densityHz": 3.3333333333333335,
+          "jitter": 0.609,
+          "panSpread": 0.85,
+          "densitySyncEnabled": true,
+          "densityDenomination": "sixteenth",
+          "allowOverlap": false
+        },
+        "sampleGranular": false,
+        "grainSamplePosFrac": 0.5,
+        "grainSamplePosJitter": 0.2,
+        "drift": {
+          "pitchMode": "up",
+          "pitchAmount": 1,
+          "pitchPhase": 0,
+          "panMode": "static",
+          "panAmount": 1,
+          "panPhase": 0,
+          "quantizeToScale": false
+        },
+        "sampleStartFrac": 0,
+        "sampleEndFrac": 1,
+        "sampleFadeInSec": 0,
+        "sampleFadeOutSec": 0,
+        "sampleRef": null
+      },
+      {
+        "frequencyHz": 159.15855797941853,
+        "waveform": "sawtooth",
+        "amplitude": 0.493,
+        "pan": 0.030083490583558244,
+        "isMuted": false,
+        "isSoloed": false,
+        "filter": {
+          "type": "lowpass",
+          "cutoffHz": 508.93556740225824,
+          "q": 1.9320785604333721
+        },
+        "drive": 2.42,
+        "fm": {
+          "sourceIndex": 1,
+          "index": 5.659410987483843
+        },
+        "chorus": {
+          "rateHz": 2.0320509008677874,
+          "depth": 0.5430543885651795,
+          "width": 0.47215065497345343,
+          "mix": 0.21778379756963862
+        },
+        "reverb": {
+          "decaySec": 6.982324040771712,
+          "mix": 0.4343308270522572
+        },
+        "delay": {
+          "timeSec": 0.6,
+          "feedback": 0.673,
+          "mix": 0.776,
+          "mode": "pingPong",
+          "timing": "1/8"
+        },
+        "lfos": [
+          {
+            "shape": "sine",
+            "targets": [
+              "pan",
+              "fxMix"
+            ],
+            "rateHz": 0.23244133233434677,
+            "depth": 0.73
+          },
+          {
+            "shape": "sine",
+            "targets": [
+              "fm"
+            ],
+            "rateHz": 0.23816977807466233,
+            "depth": 0.143
+          },
+          {
+            "shape": "triangle",
+            "targets": [
+              "cutoff"
+            ],
+            "rateHz": 0.9144169550792923,
+            "depth": 0.4
+          },
+          {
+            "shape": "sh",
+            "targets": [
+              "pitch",
+              "q"
+            ],
+            "rateHz": 0.49029775467020853,
+            "depth": 1,
+            "rateSyncEnabled": true,
+            "rateDenomination": "sixteenth"
+          }
+        ],
+        "startDelaySec": 60,
+        "playDurationSec": 180,
+        "replayCount": 5,
+        "grain": {
+          "sizeMs": 80,
+          "densityHz": 8,
+          "jitter": 0.6,
+          "panSpread": 0.5,
+          "densitySyncEnabled": false,
+          "densityDenomination": "sixteenth",
+          "allowOverlap": false
+        },
+        "sampleGranular": false,
+        "grainSamplePosFrac": 0.5,
+        "grainSamplePosJitter": 0.2,
+        "drift": {
+          "pitchMode": "static",
+          "pitchAmount": 1.2819667848125615,
+          "pitchPhase": 0.1700811732740637,
+          "panMode": "glacial",
+          "panAmount": 0.8116687480055413,
+          "panPhase": 0.8546385575341625,
+          "quantizeToScale": true
+        },
+        "sampleStartFrac": 0,
+        "sampleEndFrac": 1,
+        "sampleFadeInSec": 0,
+        "sampleFadeOutSec": 0,
+        "sampleRef": null
+      }
+    ]
+  },
+  "samples": []
+}
