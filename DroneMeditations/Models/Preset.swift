@@ -1775,6 +1775,92 @@ extension Preset {
                 )
                ]),
 
+        // JG Maybe Three — pick the Modal "Lydian" chord (or any
+        // modal scale) to hear the S&H+pitch+quantize voices walk
+        // through the full 7-note mode. Voices 2/3/4 have
+        // quantize-to-scale on so their S&H pitch LFOs arpeggiate
+        // inside whatever mode you pick. Voice 4's bass S&H at
+        // 1/8 with deep filter resonance gives a moving low end;
+        // voices 2 and 3 fill higher registers at 1/4 and 1/16.
+        Preset("JG Maybe Three", .developerPatches,
+               subtitle: "G♯ Lydian S&H pitch · 7-note mode quantize showcase",
+               {
+                   let quant = DriftVoiceConfig(
+                       pitchMode: .static, panMode: .static,
+                       quantizeToScale: true)
+                   return [
+                    Voice(
+                        hz: 207.65, pan: 0.01, wave: .granular, amp: 0.47,
+                        drive: 1.51,
+                        playDurationSec: 180, replayCount: 3,
+                        filter: FilterState(type: .lowpass, cutoffHz: 3200, q: 0.70),
+                        reverb: ReverbState(decaySec: 9, mix: 0.50),
+                        delay: DelayState(timeSec: 0.19, feedback: 0.82, mix: 0.61),
+                        chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0),
+                        grain: GrainState(sizeMs: 89, densityHz: 1.33, jitter: 0, panSpread: 0.95),
+                        lfos: [
+                            LfoState(shape: .sine, targets: [.pan], rateHz: 0.13, depth: 0.53),
+                            nil, nil, nil
+                        ]
+                    ),
+                    Voice(
+                        hz: 261.63, pan: 0.50, wave: .sine, amp: 0.39,
+                        startDelaySec: 15, playDurationSec: 180, replayCount: 5,
+                        filter: FilterState(type: .lowpass, cutoffHz: 3200, q: 0.70),
+                        reverb: ReverbState(decaySec: 9, mix: 0.72),
+                        delay: DelayState(timeSec: 0.76, feedback: 0.82, mix: 0.58),
+                        chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0),
+                        lfos: [
+                            nil, nil, nil,
+                            LfoState(shape: .sampleAndHold, targets: [.pitch],
+                                     rateHz: 1.33, depth: 1.0,
+                                     rateSyncEnabled: true, rateDenomination: .quarter)
+                        ],
+                        drift: quant
+                    ),
+                    Voice(
+                        hz: 293.66, pan: -0.20, wave: .triangle, amp: 0.35,
+                        drive: 2.95,
+                        playDurationSec: 60, replayCount: 5,
+                        filter: FilterState(type: .lowpass, cutoffHz: 534, q: 2.42),
+                        reverb: ReverbState(decaySec: 9, mix: 0.82),
+                        delay: DelayState(timeSec: 0.73, feedback: 0.63, mix: 0.68),
+                        chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.17),
+                        lfos: [
+                            LfoState(shape: .sine, targets: [.pan], rateHz: 0.39, depth: 0.54),
+                            nil,
+                            LfoState(shape: .sine, targets: [.cutoff, .filterQ, .fmIndex],
+                                     rateHz: 0.45, depth: 0.67),
+                            LfoState(shape: .sampleAndHold, targets: [.pitch],
+                                     rateHz: 5.33, depth: 1.0,
+                                     rateSyncEnabled: true, rateDenomination: .sixteenth)
+                        ],
+                        drift: quant
+                    ),
+                    Voice(
+                        hz: 71.49, pan: 0.00, wave: .sawtooth, amp: 0.34,
+                        drive: 1.44,
+                        startDelaySec: 60, playDurationSec: 180, replayCount: 3,
+                        filter: FilterState(type: .lowpass, cutoffHz: 767, q: 1.28),
+                        reverb: ReverbState(decaySec: 9, mix: 0.61),
+                        delay: DelayState(timeSec: 0.30, feedback: 0.58, mix: 0.38),
+                        chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.15),
+                        lfos: [
+                            LfoState(shape: .sine, targets: [.pan], rateHz: 0.07, depth: 0.28),
+                            LfoState(shape: .sine, targets: [.amplitude, .fxMix, .fmIndex],
+                                     rateHz: 0.67, depth: 0.35,
+                                     rateSyncEnabled: true, rateDenomination: .half),
+                            LfoState(shape: .sine, targets: [.cutoff, .filterQ],
+                                     rateHz: 0.21, depth: 0.61),
+                            LfoState(shape: .sampleAndHold, targets: [.pitch],
+                                     rateHz: 2.67, depth: 1.0,
+                                     rateSyncEnabled: true, rateDenomination: .eighth)
+                        ],
+                        drift: quant
+                    )
+                   ]
+               }()),
+
         Preset("JG Small Steps", .developerPatches,
                subtitle: "Author recording · small-steps sample-granular", [
                 Voice(

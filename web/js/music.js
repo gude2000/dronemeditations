@@ -1496,6 +1496,74 @@ export const PRESETS = [
           chorus: { rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.16 } }),
     ] },
 
+  // JG Maybe Three — pick the Modal "Lydian" entry from the chord
+  // pill to hear the S&H+pitch+quantize voices walk through the
+  // full 7-note mode (or any other modal scale for different colour).
+  // Voices 2/3/4 have drift.quantizeToScale on, so their S&H pitch
+  // LFOs at sync 1/4, 1/16, 1/8 arpeggiate inside whatever mode
+  // you pick. Voice 1 is a slow granular pad bed; voice 4 carries
+  // the low S&H bass with deep resonant filter.
+  { id: "jg_maybe_three", name: "JG Maybe Three", category: "Developer Patches",
+    sub: "G♯ Lydian S&H pitch · 7-note mode quantize showcase",
+    voices: [
+      V({ hz: 207.65, pan: 0.01, wave: "granular", amp: 0.47, drive: 1.51,
+          startDelaySec: 0, playDurationSec: 180, replayCount: 3,
+          filter: { type: "lowpass", cutoffHz: 3200, q: 0.70 },
+          reverb: { decaySec: 9, mix: 0.50 },
+          delay: { timeSec: 0.19, feedback: 0.82, mix: 0.61 },
+          chorus: { rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0 },
+          grain: { sizeMs: 89, densityHz: 1.33, jitter: 0, panSpread: 0.95 },
+          lfos: [
+            { shape: "sine", targets: ["pan"], rateHz: 0.13, depth: 0.53 },
+            { shape: "sh", targets: ["amp"], rateHz: 0.50, depth: 0 },
+            { shape: "sine", targets: ["cutoff"], rateHz: 0.30, depth: 0 },
+            { shape: "sine", targets: ["pitch"], rateHz: 0.30, depth: 0 }
+          ] }),
+      V({ hz: 261.63, pan: 0.50, wave: "sine", amp: 0.39,
+          startDelaySec: 15, playDurationSec: 180, replayCount: 5,
+          filter: { type: "lowpass", cutoffHz: 3200, q: 0.70 },
+          reverb: { decaySec: 9, mix: 0.72 },
+          delay: { timeSec: 0.76, feedback: 0.82, mix: 0.58 },
+          chorus: { rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0 },
+          lfos: [
+            { shape: "sine", targets: ["pan"], rateHz: 0.25, depth: 0 },
+            { shape: "sh", targets: ["amp"], rateHz: 0.50, depth: 0 },
+            { shape: "sine", targets: ["cutoff"], rateHz: 0.30, depth: 0 },
+            { shape: "sh", targets: ["pitch"], rateHz: 1.33, depth: 1.0,
+              rateSyncEnabled: true, rateDenomination: "quarter" }
+          ],
+          drift: { quantizeToScale: true } }),
+      V({ hz: 293.66, pan: -0.20, wave: "triangle", amp: 0.35, drive: 2.95,
+          startDelaySec: 0, playDurationSec: 60, replayCount: 5,
+          filter: { type: "lowpass", cutoffHz: 534, q: 2.42 },
+          reverb: { decaySec: 9, mix: 0.82 },
+          delay: { timeSec: 0.73, feedback: 0.63, mix: 0.68 },
+          chorus: { rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.17 },
+          lfos: [
+            { shape: "sine", targets: ["pan"], rateHz: 0.39, depth: 0.54 },
+            { shape: "sh", targets: ["amp"], rateHz: 0.50, depth: 0 },
+            { shape: "sine", targets: ["cutoff", "q", "fm"], rateHz: 0.45, depth: 0.67 },
+            { shape: "sh", targets: ["pitch"], rateHz: 5.33, depth: 1.0,
+              rateSyncEnabled: true, rateDenomination: "sixteenth" }
+          ],
+          drift: { quantizeToScale: true } }),
+      V({ hz: 71.49, pan: 0.00, wave: "sawtooth", amp: 0.34, drive: 1.44,
+          startDelaySec: 60, playDurationSec: 180, replayCount: 3,
+          filter: { type: "lowpass", cutoffHz: 767, q: 1.28 },
+          reverb: { decaySec: 9, mix: 0.61 },
+          delay: { timeSec: 0.30, feedback: 0.58, mix: 0.38 },
+          chorus: { rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.15 },
+          lfos: [
+            { shape: "sine", targets: ["pan"], rateHz: 0.07, depth: 0.28 },
+            { shape: "sine", targets: ["amp", "fxMix", "fm"], rateHz: 0.67, depth: 0.35,
+              rateSyncEnabled: true, rateDenomination: "half" },
+            { shape: "sine", targets: ["cutoff", "q"], rateHz: 0.21, depth: 0.61 },
+            { shape: "sh", targets: ["pitch"], rateHz: 2.67, depth: 1.0,
+              rateSyncEnabled: true, rateDenomination: "eighth" }
+          ],
+          drift: { quantizeToScale: true } })
+    ] },
+
   // JG Small Steps — wide-pan duet of granular noise (OSC 1, A3
   // hard-left) against a sample-granular voice (OSC 2, F#3
   // hard-right). iOS plays the bundled JG Small Steps.wav on OSC 2;

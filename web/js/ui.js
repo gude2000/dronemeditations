@@ -9,12 +9,12 @@ import {
   CHORDS, CHORD_CATEGORIES, PRESETS, PRESET_CATEGORIES,
   JOURNEYS, journeyTotalSeconds,
   FREQ_MIN, FREQ_MAX, frequencyHue
-} from "./music.js?v=36";
-import { startListening, stopListening, freqToNote, listInputDevices, switchInputDevice } from "./pitch-detect.js?v=36";
-import { initMIDI, midiToKeyOctave } from "./midi.js?v=36";
+} from "./music.js?v=37";
+import { startListening, stopListening, freqToNote, listInputDevices, switchInputDevice } from "./pitch-detect.js?v=37";
+import { initMIDI, midiToKeyOctave } from "./midi.js?v=37";
 import {
   loadSnapshotMeta, saveSnapshotMeta, getSnapshotBlob, deleteSnapshotBlob
-} from "./storage.js?v=36";
+} from "./storage.js?v=37";
 
 const WAVEFORM_SVG = {
   sine:     '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12c3-7 7-7 10 0s7 7 10 0"/></svg>',

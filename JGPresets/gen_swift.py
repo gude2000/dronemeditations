@@ -20,7 +20,7 @@ OUT = ROOT / "JGPresets" / "_generated_presets.swift"
 # (Scriabin Rain 24+15 MB, Underwater 24 MB) we'll handle after a
 # conversation about trim/downsample. JG JoG is the latest add
 # (Jun 2026); ~9.5 MB sample, ships under Developer Patches.
-INCLUDE = {"JG Dub Wave", "JG Interrupted", "JG Ondulations", "JG Whole Tone Wind", "JG JoG", "JG WalK", "JG Small Steps"}
+INCLUDE = {"JG Dub Wave", "JG Interrupted", "JG Ondulations", "JG Whole Tone Wind", "JG JoG", "JG WalK", "JG Small Steps", "JG Maybe Three"}
 
 # Per-preset subtitle (curated, not auto-generated).
 SUBTITLES = {
@@ -31,6 +31,7 @@ SUBTITLES = {
     "JG JoG":              "Author recording · JoG sample-granular study",
     "JG WalK":             "Author recording · slower JoG sample-granular",
     "JG Small Steps":      "Author recording · small-steps sample-granular",
+    "JG Maybe Three":      "G♯ Lydian S&H pitch · 7-note mode quantize showcase",
 }
 
 def fmt(x, places=2):
