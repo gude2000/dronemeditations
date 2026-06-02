@@ -1672,6 +1672,59 @@ extension Preset {
                 )
                ]),
 
+        Preset("JG JoG", .developerPatches,
+               subtitle: "Author recording · JoG sample-granular study", [
+                Voice(
+                    hz: 110,
+                    pan: -0.30,
+                    wave: .sample,
+                    amp: 0.89,
+                    drive: 1.63,
+                    startDelaySec: 30,
+                    playDurationSec: 180,
+                    replayCount: 3,
+                    filter: FilterState(type: .lowpass, cutoffHz: 4277, q: 3.98),
+                    reverb: ReverbState(decaySec: 4.49, mix: 0.69),
+                    delay: DelayState(timeSec: 0.19, feedback: 0.56, mix: 0.34),
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0),
+                    grain: GrainState(sizeMs: 80, densityHz: 2.67, jitter: 0, panSpread: 0.50),
+                    bundledSampleName: "JG JoG",
+                    sampleGranular: true
+                ),
+                Voice(
+                    hz: 138.59,
+                    pan: 0.10,
+                    wave: .sawtooth,
+                    amp: 0.44,
+                    startDelaySec: 60,
+                    playDurationSec: 60,
+                    replayCount: 5,
+                    reverb: ReverbState(decaySec: 3.26, mix: 0.30),
+                    delay: DelayState(timeSec: 0.25, feedback: 0.47, mix: 0.61),
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.08)
+                ),
+                Voice(
+                    hz: 174.61,
+                    pan: -0.10,
+                    wave: .sine,
+                    amp: 0.47,
+                    drive: 1.20,
+                    filter: FilterState(type: .lowpass, cutoffHz: 2002, q: 1.52),
+                    reverb: ReverbState(decaySec: 5.73, mix: 0.43),
+                    delay: DelayState(timeSec: 0.30, feedback: 0.40, mix: 0.22),
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.19)
+                ),
+                Voice(
+                    hz: 56.84,
+                    pan: 0.30,
+                    wave: .sawtooth,
+                    amp: 0.50,
+                    drive: 2.10,
+                    filter: FilterState(type: .lowpass, cutoffHz: 471, q: 3.21),
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.16)
+                )
+               ]),
+
         Preset("JG Ondulations", .developerPatches,
                subtitle: "Author recording · undulating sample-granular cloud", [
                 Voice(

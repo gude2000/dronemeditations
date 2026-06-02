@@ -18,8 +18,9 @@ OUT = ROOT / "JGPresets" / "_generated_presets.swift"
 
 # Preset names we want to bundle this turn. The two huge ones
 # (Scriabin Rain 24+15 MB, Underwater 24 MB) we'll handle after a
-# conversation about trim/downsample.
-INCLUDE = {"JG Dub Wave", "JG Interrupted", "JG Ondulations", "JG Whole Tone Wind"}
+# conversation about trim/downsample. JG JoG is the latest add
+# (Jun 2026); ~9.5 MB sample, ships under Developer Patches.
+INCLUDE = {"JG Dub Wave", "JG Interrupted", "JG Ondulations", "JG Whole Tone Wind", "JG JoG"}
 
 # Per-preset subtitle (curated, not auto-generated).
 SUBTITLES = {
@@ -27,6 +28,7 @@ SUBTITLES = {
     "JG Interrupted":      "Vocal granular at high pos jitter · pulsing delay · Aeolian",
     "JG Ondulations":      "Author recording · undulating sample-granular cloud",
     "JG Whole Tone Wind":  "Whole-tone stack · sample granular wind · Replay × 5",
+    "JG JoG":              "Author recording · JoG sample-granular study",
 }
 
 def fmt(x, places=2):
