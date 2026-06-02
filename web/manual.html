@@ -739,6 +739,50 @@
     <strong>Categories naming.</strong> The category folder name is the picker section header verbatim. Title Case singular nouns work best ("Drones" not "drone-loops"). New categories show up automatically next time the script runs.
   </div>
 
+  <h3>Converting a <code>.dronepreset</code> into a built-in preset <span class="lede" style="font-size:14px;font-weight:500;">— for maintainers + contributors</span></h3>
+  <p>Saving a preset on iOS or web gives you a <code>.dronepreset</code> file you can AirDrop or import elsewhere. Promoting one of those personal saves into a <em>built-in</em> preset (the kind that ships in the app's Developer Patches / Drone Artists / etc. categories) needs a two-script pipeline that extracts the embedded audio and generates the matching Swift code. Just dropping a <code>.dronepreset</code> into a folder does <strong>not</strong> auto-pick-up on the next launch.</p>
+
+  <ol>
+    <li>
+      <strong>Drop the <code>.dronepreset</code> into the staging folder.</strong> Put the file in <code>JGPresets/</code> (named for the original "JG…" patches but used as the staging area for any incoming preset envelope, regardless of who authored it).
+    </li>
+    <li>
+      <strong>Extract the embedded sample(s).</strong>
+      <pre><code>python3 JGPresets/extract.py</code></pre>
+      <p style="margin-top:6px">Walks every <code>.dronepreset</code> in the staging folder, pulls the inline-encoded WAV bytes out of each envelope, and writes them into <code>DroneMeditations/Samples/Developer/&lt;canonical-name&gt;.wav</code>. Samples are content-hash-deduped — if two presets share a sample, the second one is matched against the first by SHA-256 and not re-written. The script also refreshes <code>JGPresets/_summary.json</code> with the preset metadata + which canonical sample names each voice references. Pass <code>--max-mb 60</code> (default) to skip envelopes whose embedded audio is larger than the cap.</p>
+    </li>
+    <li>
+      <strong>Tell the Swift generator to include the new preset.</strong> Edit <code>JGPresets/gen_swift.py</code> and add the preset's name to the <code>INCLUDE</code> set, plus a one-line subtitle to <code>SUBTITLES</code>:
+      <pre><code>INCLUDE = {"JG Dub Wave", "JG Ondulations", "JG JoG", ...}
+
+SUBTITLES = {
+  ...
+  "JG JoG": "Author recording · JoG sample-granular study",
+}</code></pre>
+      <p style="margin-top:6px">Names that aren't in <code>INCLUDE</code> are silently ignored — useful for staging presets you haven't curated subtitles for yet, or that have huge samples you want to trim before bundling.</p>
+    </li>
+    <li>
+      <strong>Generate the Swift block.</strong>
+      <pre><code>python3 JGPresets/gen_swift.py</code></pre>
+      <p style="margin-top:6px">Writes <code>JGPresets/_generated_presets.swift</code> — a paste-ready list of Swift <code>Preset(…)</code> initializers, one per included preset. Each block translates the JSON envelope into typed Swift fields (<code>Voice</code>, <code>FilterState</code>, <code>ReverbState</code>, etc.) so it reads naturally inside <code>Preset.swift</code>.</p>
+    </li>
+    <li>
+      <strong>Paste the block into <code>Preset.swift</code>.</strong> Open <code>DroneMeditations/Models/Preset.swift</code>, scroll to the Developer Patches section (look for the comment "Generated from JG <code>.dronepreset</code> files…"), and paste the newly-generated block in alphabetical order. The Xcode <code>Samples/</code> folder is a folder reference, so the new WAV ships in the app bundle on the next build with no project.pbxproj edit needed.
+    </li>
+    <li>
+      <strong>Mirror the new sample to web.</strong>
+      <pre><code>python3 web/samples/mirror_from_ios.py</code></pre>
+      <p style="margin-top:6px">Same script used for the bundled-samples sync above. Copies the new <code>.wav</code> from the iOS folder into <code>web/samples/Developer/</code> so it appears in the Bundled ▾ picker on web. (Web built-in presets don't yet auto-load bundled samples; for parity, the easiest path is to add a synth-only mirror entry to <code>web/js/music.js</code> in the same Developer Patches section.)</p>
+    </li>
+    <li>
+      <strong>Commit + push.</strong> One commit covers all four touched areas: <code>JGPresets/&lt;name&gt;.dronepreset</code>, <code>DroneMeditations/Samples/Developer/&lt;name&gt;.wav</code>, the regenerated <code>_summary.json</code> / <code>_generated_presets.swift</code>, and the <code>Preset.swift</code> paste.
+    </li>
+  </ol>
+
+  <div class="callout note">
+    <strong>Why this isn't automatic.</strong> A <code>.dronepreset</code> file is a JSON envelope with base64-encoded audio inline — fine for user-to-user sharing where the receiving app can decode at runtime, but inefficient as a built-in: every launch would re-decode the same bytes. The pipeline above extracts the audio once into a real <code>.wav</code> that ships in the app bundle, and emits Swift code that references it by name. Net result: app launches are fast and the preset reads with the same syntax as every other curated patch.
+  </div>
+
   <h3>Upload your own</h3>
   <ul>
     <li>Click <strong>Load file…</strong> on any oscillator's sample row.</li>
