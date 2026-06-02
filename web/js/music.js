@@ -1448,6 +1448,35 @@ export const PRESETS = [
           chorus: { rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.16 } }),
     ] },
 
+  // JG WalK — slower companion to JG JoG. Same sample on iOS
+  // (dedupe hit against JG JoG.wav); on web OSC 1 is the granular
+  // pink-noise approximation just like JoG, with slower density
+  // (1.33 Hz vs 2.67), shorter reverb decay (3.35 s vs 4.49), no
+  // delay on the granular voice, and pan ~0 instead of -0.30.
+  // Supporting voices match iOS verbatim.
+  { id: "jg_walk", name: "JG WalK", category: "Developer Patches",
+    sub: "Slower JoG sample-granular (web: granular synth approx)",
+    voices: [
+      V({ hz: 110, pan: 0.01, wave: "granular", amp: 0.89, drive: 1.63,
+          startDelaySec: 30, playDurationSec: 180, replayCount: 3,
+          filter: { type: "lowpass", cutoffHz: 4277, q: 3.98 },
+          reverb: { decaySec: 3.35, mix: 0.56 },
+          chorus: { rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0 },
+          grain: { sizeMs: 76, densityHz: 1.33, jitter: 0, panSpread: 0.50 } }),
+      V({ hz: 138.59, pan: 0.10, wave: "sawtooth", amp: 0.60,
+          startDelaySec: 60, playDurationSec: 60, replayCount: 5,
+          reverb: { decaySec: 3.26, mix: 0.30 },
+          delay: { timeSec: 0.25, feedback: 0.47, mix: 0.61 },
+          chorus: { rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.08 } }),
+      V({ hz: 174.61, pan: 0, wave: "sine", amp: 0.55,
+          reverb: { decaySec: 4.37, mix: 0.23 },
+          delay: { timeSec: 0.30, feedback: 0.40, mix: 0.26 },
+          chorus: { rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.13 } }),
+      V({ hz: 56.84, pan: 0.30, wave: "sine", amp: 0.83, drive: 1.51,
+          filter: { type: "lowpass", cutoffHz: 6636, q: 3.21 },
+          chorus: { rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.16 } }),
+    ] },
+
   { id: "jg_tessellation", name: "JG Tessellation", category: "Developer Patches",
     sub: "Indian-just shadja stack · granular tessellation",
     voices: [

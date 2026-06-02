@@ -225,6 +225,56 @@
                 )
                ]),
 
+        Preset("JG WalK", .developerPatches,
+               subtitle: "Author recording · slower JoG sample-granular", [
+                Voice(
+                    hz: 110,
+                    pan: 0.01,
+                    wave: .sample,
+                    amp: 0.89,
+                    drive: 1.63,
+                    startDelaySec: 30,
+                    playDurationSec: 180,
+                    replayCount: 3,
+                    filter: FilterState(type: .lowpass, cutoffHz: 4277, q: 3.98),
+                    reverb: ReverbState(decaySec: 3.35, mix: 0.56),
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0),
+                    grain: GrainState(sizeMs: 76, densityHz: 1.33, jitter: 0, panSpread: 0.50),
+                    bundledSampleName: "JG JoG",
+                    sampleGranular: true
+                ),
+                Voice(
+                    hz: 138.59,
+                    pan: 0.10,
+                    wave: .sawtooth,
+                    amp: 0.60,
+                    startDelaySec: 60,
+                    playDurationSec: 60,
+                    replayCount: 5,
+                    reverb: ReverbState(decaySec: 3.26, mix: 0.30),
+                    delay: DelayState(timeSec: 0.25, feedback: 0.47, mix: 0.61),
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.08)
+                ),
+                Voice(
+                    hz: 174.61,
+                    pan: 0,
+                    wave: .sine,
+                    amp: 0.55,
+                    reverb: ReverbState(decaySec: 4.37, mix: 0.23),
+                    delay: DelayState(timeSec: 0.30, feedback: 0.40, mix: 0.26),
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.13)
+                ),
+                Voice(
+                    hz: 56.84,
+                    pan: 0.30,
+                    wave: .sine,
+                    amp: 0.83,
+                    drive: 1.51,
+                    filter: FilterState(type: .lowpass, cutoffHz: 6636, q: 3.21),
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.16)
+                )
+               ]),
+
         Preset("JG Whole Tone Wind", .developerPatches,
                subtitle: "Whole-tone stack · sample granular wind · Replay × 5", [
                 Voice(
