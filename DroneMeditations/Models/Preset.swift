@@ -1775,6 +1775,63 @@ extension Preset {
                 )
                ]),
 
+        Preset("JG Small Steps", .developerPatches,
+               subtitle: "Author recording · small-steps sample-granular", [
+                Voice(
+                    hz: 220,
+                    pan: -0.40,
+                    wave: .granular,
+                    amp: 0.55,
+                    drive: 1.29,
+                    playDurationSec: 120,
+                    replayCount: 0,
+                    filter: FilterState(type: .lowpass, cutoffHz: 4200, q: 0.76),
+                    reverb: ReverbState(decaySec: 6.58, mix: 0.86),
+                    delay: DelayState(timeSec: 1.22, feedback: 0.90, mix: 0.98),
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.09),
+                    grain: GrainState(sizeMs: 23, densityHz: 5.33, jitter: 0, panSpread: 0.99),
+                    grainSamplePosJitter: 0.37
+                ),
+                Voice(
+                    hz: 182.57,
+                    pan: 0.40,
+                    wave: .sample,
+                    amp: 0.96,
+                    drive: 1.77,
+                    startDelaySec: 30,
+                    playDurationSec: 120,
+                    replayCount: 0,
+                    filter: FilterState(type: .lowpass, cutoffHz: 2000, q: 2.06),
+                    reverb: ReverbState(decaySec: 8, mix: 0.55),
+                    delay: DelayState(timeSec: 0.75, feedback: 0.56, mix: 0.65),
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.04),
+                    grain: GrainState(sizeMs: 130, densityHz: 5.33, jitter: 0, panSpread: 0.85),
+                    bundledSampleName: "JG Small Steps",
+                    sampleGranular: true,
+                    grainSamplePosJitter: 0.35
+                ),
+                Voice(
+                    hz: 135.22,
+                    pan: 0.90,
+                    wave: .triangle,
+                    amp: 0.20,
+                    reverb: ReverbState(decaySec: 9.29, mix: 0.84),
+                    delay: DelayState(timeSec: 0.53, feedback: 0.73, mix: 0.86),
+                    chorus: ChorusState(rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.10)
+                ),
+                Voice(
+                    hz: 535.47,
+                    pan: -0.00,
+                    wave: .triangle,
+                    amp: 0.27,
+                    drive: 1.41,
+                    filter: FilterState(type: .lowpass, cutoffHz: 3961, q: 1.00),
+                    reverb: ReverbState(decaySec: 3.19, mix: 0.22),
+                    delay: DelayState(timeSec: 0.48, feedback: 0.28, mix: 0.27),
+                    chorus: ChorusState(rateHz: 1.82, depth: 0.31, width: 0.88, mix: 0.19)
+                )
+               ]),
+
         Preset("JG Ondulations", .developerPatches,
                subtitle: "Author recording · undulating sample-granular cloud", [
                 Voice(

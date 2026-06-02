@@ -1477,6 +1477,41 @@ export const PRESETS = [
           chorus: { rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.16 } }),
     ] },
 
+  // JG Small Steps — wide-pan duet of granular noise (OSC 1, A3
+  // hard-left) against a sample-granular voice (OSC 2, F#3
+  // hard-right). iOS plays the bundled JG Small Steps.wav on OSC 2;
+  // on web both granular voices use the pink-noise scheduler. The
+  // two pad voices (low triangle hard-right, high triangle center)
+  // match iOS verbatim. Heavy delay feedback (0.90 on OSC 1) +
+  // long reverb (6.58 s) for a sustained walking-bass character.
+  { id: "jg_small_steps", name: "JG Small Steps", category: "Developer Patches",
+    sub: "Small-steps sample-granular (web: granular synth approx)",
+    voices: [
+      V({ hz: 220, pan: -0.40, wave: "granular", amp: 0.55, drive: 1.29,
+          startDelaySec: 0, playDurationSec: 120, replayCount: 0,
+          filter: { type: "lowpass", cutoffHz: 4200, q: 0.76 },
+          reverb: { decaySec: 6.58, mix: 0.86 },
+          delay: { timeSec: 1.22, feedback: 0.90, mix: 0.98 },
+          chorus: { rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.09 },
+          grain: { sizeMs: 23, densityHz: 5.33, jitter: 0, panSpread: 0.99 } }),
+      V({ hz: 182.57, pan: 0.40, wave: "granular", amp: 0.96, drive: 1.77,
+          startDelaySec: 30, playDurationSec: 120, replayCount: 0,
+          filter: { type: "lowpass", cutoffHz: 2000, q: 2.06 },
+          reverb: { decaySec: 8.0, mix: 0.55 },
+          delay: { timeSec: 0.75, feedback: 0.56, mix: 0.65 },
+          chorus: { rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.04 },
+          grain: { sizeMs: 130, densityHz: 5.33, jitter: 0, panSpread: 0.85 } }),
+      V({ hz: 135.22, pan: 0.90, wave: "triangle", amp: 0.20,
+          reverb: { decaySec: 9.29, mix: 0.84 },
+          delay: { timeSec: 0.53, feedback: 0.73, mix: 0.86 },
+          chorus: { rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.10 } }),
+      V({ hz: 535.47, pan: 0, wave: "triangle", amp: 0.27, drive: 1.41,
+          filter: { type: "lowpass", cutoffHz: 3961, q: 1.00 },
+          reverb: { decaySec: 3.19, mix: 0.22 },
+          delay: { timeSec: 0.48, feedback: 0.28, mix: 0.27 },
+          chorus: { rateHz: 1.82, depth: 0.31, width: 0.88, mix: 0.19 } }),
+    ] },
+
   { id: "jg_tessellation", name: "JG Tessellation", category: "Developer Patches",
     sub: "Indian-just shadja stack · granular tessellation",
     voices: [
