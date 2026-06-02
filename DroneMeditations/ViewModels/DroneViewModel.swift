@@ -284,6 +284,17 @@ final class DroneViewModel: ObservableObject {
                 if newState == .stopped, self?.activeJourneyId != nil {
                     self?.stopJourney()
                 }
+                // v1 fix (Jun 2026): re-push quantize-to-scale state
+                // to the engine on every play transition. Symptom we
+                // were fixing: after Stop, the engine voices kept
+                // their pitchQuantizeToScale=true flag but the audio
+                // thread stopped snapping to scale — turns out the
+                // scaleNotesHz cache went stale across the fade-out
+                // teardown. Re-pushing both flag + cache here is
+                // cheap and idempotent.
+                if newState == .playing {
+                    self?.refreshQuantizeStateOnEngine()
+                }
             }
         }.store(in: &cancellables)
         controller.$elapsed.sink { [weak self] _ in
@@ -913,9 +924,26 @@ final class DroneViewModel: ObservableObject {
             // presets saved before this field existed have v.drift == nil
             // — fall through to the per-voice default so they behave as
             // they did at save time (no drift, no quantize).
+            //
+            // v1 fix (Jun 2026): the direct write to
+            // `audioEngine.voices[i].pitchQuantizeToScale` after
+            // replacing the entire `drift` struct via the computed-
+            // property setter was racing with SwiftUI's state diff —
+            // the audio thread occasionally observed the engine flag
+            // as false even though the UI checkbox was visibly checked.
+            // Routing through the public setVoiceQuantizeToScale()
+            // setter — the same one the manual toggle uses — pushes
+            // the flag, recomputes the scale cache, and emits
+            // objectWillChange in a single coherent transaction, which
+            // makes the audio thread observe both flag + cache
+            // populated on the next render block. Symptom: user had to
+            // untick + retick the quantize-to-scale toggle after
+            // loading a saved preset for it to actually engage.
             if let dr = v.drift {
-                oscillators[i].drift = dr
-                audioEngine.voices[i].pitchQuantizeToScale = dr.quantizeToScale
+                var drCopy = dr
+                drCopy.quantizeToScale = false   // setVoiceQuantizeToScale writes the bool itself
+                oscillators[i].drift = drCopy
+                setVoiceQuantizeToScale(dr.quantizeToScale, for: i)
             }
             // v1 restore: the sample's unity-pitch baseline. Old saves
             // without this field fall through to the 220 default (which
@@ -1237,6 +1265,21 @@ final class DroneViewModel: ObservableObject {
         for i in 0..<audioEngine.voices.count {
             audioEngine.voices[i].scaleNotesHz = sorted
         }
+    }
+
+    /// v1 fix (Jun 2026): re-push every voice's quantize state from
+    /// the source-of-truth `oscillators[i].drift.quantizeToScale`
+    /// into the audio engine, plus recompute the scale cache. Called
+    /// from the Combine sink that watches DroneController.$state so
+    /// the post-Stop case (engine voices keep their flags but the
+    /// audio thread sometimes saw a stale scaleNotesHz cache after
+    /// the fade-out) recovers cleanly on the next Play. Idempotent.
+    func refreshQuantizeStateOnEngine() {
+        for i in 0..<min(oscillators.count, audioEngine.voices.count) {
+            audioEngine.voices[i].pitchQuantizeToScale =
+                oscillators[i].drift.quantizeToScale
+        }
+        recomputeQuantizeScale()
     }
 
     /// Per-voice toggle for quantize-to-scale. Mirrors the flag in
