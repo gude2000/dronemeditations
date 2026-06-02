@@ -69,6 +69,27 @@ export class AudioEngine {
     this.master.connect(this.limiter);
     this.limiter.connect(this.ctx.destination);
 
+    // Metronome — a dedicated bus that taps the destination *bypassing*
+    // master volume, so the click stays audible at a steady level even
+    // when the user drops master to silence. Clicks are short sine
+    // pings (1500 Hz accent on beat 1, 1000 Hz on 2/3/4) scheduled
+    // sample-accurate from the current BPM. See _metronomeTick.
+    this.metronome = {
+      enabled: false,
+      bpm: 80,
+      bus: this.ctx.createGain(),
+      // Volume kept moderate so it doesn't drown the synth; users
+      // toggle on for verification, not for performance.
+      level: 0.35,
+      nextBeatTime: 0,
+      beatCounter: 0,        // 0..3, accent on 0
+      timer: null,
+      lookahead: 0.12,       // schedule ~120 ms ahead
+      tickIntervalMs: 25     // wake every 25 ms to schedule new beats
+    };
+    this.metronome.bus.gain.value = this.metronome.level;
+    this.metronome.bus.connect(this.ctx.destination);
+
     // Spectrum-analysis tap — AnalyserNode reads the post-limiter signal.
     // Visualizations.js polls getByteFrequencyData() to draw the bars.
     this.spectrumAnalyser = this.ctx.createAnalyser();
@@ -653,6 +674,69 @@ export class AudioEngine {
     const v = this.voices[index]; if (!v) return;
     if (!v.params.grain) v.params.grain = { sizeMs: 80, densityHz: 8, jitter: 0.6, panSpread: 0.5 };
     v.params.grain.allowOverlap = !!on;
+  }
+
+  // ───── Metronome ─────
+  // Toggle a sample-accurate quarter-note click locked to the current
+  // BPM, routed post-master so it stays audible regardless of master
+  // volume. Useful for verifying BPM-quantized grain density and
+  // delay-time sync by ear.
+  setMetronomeOn(on) {
+    if (!this.ctx) return;
+    const m = this.metronome;
+    if (!m) return;
+    if (on && !m.enabled) {
+      m.enabled = true;
+      m.beatCounter = 0;
+      // Small head-room so the first click doesn't land at the same
+      // sample as the toggle — gives WebAudio time to schedule.
+      m.nextBeatTime = this.ctx.currentTime + 0.08;
+      // Keep the scheduler simple: a setInterval pumps the look-ahead
+      // window every tickIntervalMs. Inside the window we schedule
+      // all due beats via WebAudio's sample-accurate `start(t)`. This
+      // is the canonical "two-clock" pattern from the WebAudio book.
+      m.timer = setInterval(() => this._metronomeTick(), m.tickIntervalMs);
+    } else if (!on && m.enabled) {
+      m.enabled = false;
+      if (m.timer) { clearInterval(m.timer); m.timer = null; }
+    }
+  }
+  setMetronomeBPM(bpm) {
+    if (!this.metronome) return;
+    const clamped = Math.max(30, Math.min(240, bpm));
+    this.metronome.bpm = clamped;
+    // Note: existing already-scheduled clicks fire at their old
+    // times; subsequent beats use the new bpm. That's the right
+    // feel — no jarring re-anchor — for a verify-by-ear tool.
+  }
+  _metronomeTick() {
+    if (!this.ctx || !this.metronome.enabled) return;
+    const ctx = this.ctx;
+    const m = this.metronome;
+    const beatLen = 60 / Math.max(30, m.bpm);
+    while (m.nextBeatTime < ctx.currentTime + m.lookahead) {
+      this._scheduleMetronomeClick(m.nextBeatTime, m.beatCounter === 0);
+      m.nextBeatTime += beatLen;
+      m.beatCounter = (m.beatCounter + 1) % 4;
+    }
+  }
+  _scheduleMetronomeClick(t, accent) {
+    const ctx = this.ctx;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    // Accent on beat 1: brighter pitch, ~3 dB louder. Off-beats a
+    // perfect fourth lower for a clean two-tone metronome cadence.
+    osc.frequency.value = accent ? 1500 : 1000;
+    const peak = accent ? 1.0 : 0.7;
+    // Short envelope: 2 ms attack, ~55 ms exp decay. Just enough to
+    // read as a "tick" without ringing into the next subdivision.
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(peak, t + 0.002);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.055);
+    osc.connect(gain).connect(this.metronome.bus);
+    osc.start(t);
+    osc.stop(t + 0.08);
   }
 
   // v1: granular SAMPLING setters. Active only when waveform === "sample".

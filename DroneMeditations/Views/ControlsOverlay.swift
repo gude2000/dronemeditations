@@ -680,6 +680,25 @@ struct ControlsOverlay: View {
             .menuStyle(.borderlessButton)
             .accessibilityLabel("Tempo: \(Int(vm.bpm)) BPM")
 
+            // v1 metronome toggle. Sample-accurate quarter-note click
+            // at the current BPM with an accent on beat 1 of 4. Useful
+            // for verifying BPM-quantized grain density + delay sync
+            // by ear. Lights up while active.
+            Button {
+                vm.setMetronomeOn(!vm.metronomeOn)
+            } label: {
+                Image(systemName: vm.metronomeOn ? "metronome.fill" : "metronome")
+                    .font(.system(size: 13, weight: .semibold))
+                    .frame(width: 28, height: 28)
+                    .background(
+                        Circle().fill(vm.metronomeOn
+                            ? Color(red: 0.81, green: 0.71, blue: 0.92).opacity(0.85)
+                            : Color.white.opacity(0.10))
+                    )
+                    .foregroundStyle(vm.metronomeOn ? Color.black : Color.white)
+            }
+            .accessibilityLabel(vm.metronomeOn ? "Metronome on" : "Metronome off")
+
             // Haptics intensity cycle — Off → Light → Heavy → Off. Each
             // tap rotates to the next mode. Taps fire in time with the
             // slowest active LFO across all voices; Light halves the

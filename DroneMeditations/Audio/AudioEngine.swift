@@ -65,6 +65,23 @@ final class AudioEngine {
     /// (startDelaySec + playDurationSec) can shape volume. NaN = stopped.
     var transportElapsed: Double = .nan
 
+    // ───── Metronome ─────
+    // Sample-accurate quarter-note click rendered directly inside the
+    // source node closure (same convention as the granular scheduler).
+    // Accents beat 1 of 4 with a brighter pitch + ~3 dB louder click.
+    // Follows master volume (the click is summed into the same source
+    // output that mainMixer fades); on a synth-tuning aid that's fine —
+    // the user will be testing at audible levels anyway.
+    var metronomeOn: Bool = false
+    var metronomeBPM: Double = 80
+    var metronomeBeatCounter: Int = 0          // 0..3, 0 = accent
+    var metronomeSamplesUntilNext: Int = 0     // countdown to next beat
+    var metronomeClickRemaining: Int = 0       // samples left in current click
+    var metronomeClickTotal: Int = 0           // total samples of the current click (for envelope shape)
+    var metronomeClickFreq: Double = 1500
+    var metronomeClickPhase: Double = 0
+    var metronomeClickPeak: Float = 0          // peak amp for the current click
+
     private var sourceNode: AVAudioSourceNode!
     private var isSessionConfigured = false
 
@@ -185,6 +202,64 @@ final class AudioEngine {
                     v.render(frameCount: n, left: left, right: right)
                 }
             }
+            // ───── Metronome render ─────
+            // Sample-accurate quarter-note click summed into the
+            // source output BEFORE the soft-limit. Two-pitch (accent
+            // 1500 Hz on beat 1, off-beat 1000 Hz on 2/3/4), short
+            // sine ping with an exponential decay envelope. Read state
+            // off self once per buffer so the render doesn't fight a
+            // BPM change mid-buffer (the change kicks in next buffer).
+            if self.metronomeOn {
+                let sr = self.sampleRate
+                let twoPi = 2.0 * Double.pi
+                var samplesUntilNext = self.metronomeSamplesUntilNext
+                var clickRemaining   = self.metronomeClickRemaining
+                var clickTotal       = self.metronomeClickTotal
+                var clickFreq        = self.metronomeClickFreq
+                var clickPhase       = self.metronomeClickPhase
+                var clickPeak        = self.metronomeClickPeak
+                var beatCounter      = self.metronomeBeatCounter
+                let bpm              = self.metronomeBPM
+                for i in 0..<n {
+                    if samplesUntilNext <= 0 {
+                        let accent = (beatCounter == 0)
+                        clickFreq = accent ? 1500.0 : 1000.0
+                        // 55 ms click — long enough to read as a tick,
+                        // short enough not to ring into the next 1/16.
+                        clickTotal = Int(sr * 0.055)
+                        clickRemaining = clickTotal
+                        clickPhase = 0
+                        clickPeak = accent ? 0.50 : 0.35
+                        // Next beat in (60/bpm) seconds.
+                        samplesUntilNext = Int(60.0 / max(30.0, bpm) * sr)
+                        beatCounter = (beatCounter + 1) % 4
+                    }
+                    if clickRemaining > 0 && clickTotal > 0 {
+                        // Exponential decay env: full peak at the
+                        // click start, ~e⁻⁶ ≈ 0.0025 by the end.
+                        let progress = 1.0 - Double(clickRemaining) / Double(clickTotal)
+                        let env = exp(-progress * 6.0)
+                        let s = Float(sin(clickPhase) * env) * clickPeak
+                        left[i]  += s
+                        right[i] += s
+                        clickPhase += twoPi * clickFreq / sr
+                        clickRemaining -= 1
+                    }
+                    samplesUntilNext -= 1
+                }
+                // Persist the per-sample state back to self for the
+                // next render block. Mid-buffer reads of these by the
+                // main thread (e.g. mid-buffer toggle) are tolerated —
+                // worst case the click is one buffer late.
+                self.metronomeSamplesUntilNext = samplesUntilNext
+                self.metronomeClickRemaining   = clickRemaining
+                self.metronomeClickTotal       = clickTotal
+                self.metronomeClickFreq        = clickFreq
+                self.metronomeClickPhase       = clickPhase
+                self.metronomeClickPeak        = clickPeak
+                self.metronomeBeatCounter      = beatCounter
+            }
+
             // Soft-limit summed output at -0.1 dB ceiling (≈ 0.989) via tanh saturation.
             // Keeps peaks bounded without the brutality of hard clipping.
             let ceiling: Float = 0.989
@@ -890,6 +965,30 @@ final class AudioEngine {
     func setGrainAllowOverlap(_ on: Bool, for voiceIndex: Int) {
         guard voices.indices.contains(voiceIndex) else { return }
         voices[voiceIndex].grainAllowOverlap = on
+    }
+
+    /// Metronome toggle. Sample-accurate quarter-note click anchored
+    /// to `metronomeBPM`, accent on beat 1 of 4. Renders inside the
+    /// source node so timing is rock-solid and frees us from
+    /// AVAudioPlayerNode lifecycle hazards. See the render block in
+    /// attachSourceNode for the per-sample math.
+    func setMetronomeOn(_ on: Bool) {
+        if on && !metronomeOn {
+            // Reset the beat counter + small head-room so the first
+            // click lands a few ms in, not on the same sample as the
+            // toggle (avoids a fraction-of-a-tick rendering quirk).
+            metronomeBeatCounter = 0
+            metronomeSamplesUntilNext = Int(sampleRate * 0.05)
+            metronomeClickRemaining = 0
+            metronomeClickPhase = 0
+        }
+        metronomeOn = on
+    }
+    func setMetronomeBPM(_ bpm: Double) {
+        metronomeBPM = max(30, min(240, bpm))
+        // Already-scheduled samplesUntilNext keeps its current
+        // countdown; subsequent beats pick up the new BPM. No
+        // jarring re-anchor — fine for a verify-by-ear tool.
     }
 
     // MARK: - Sample play-window (only audible when waveform == .sample)

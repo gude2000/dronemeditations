@@ -9,20 +9,20 @@
 import {
   CHORDS, PRESETS, WAVEFORMS, JOURNEYS, journeyTotalSeconds, PITCH_CLASSES, TUNING_SYSTEMS,
   pitchToFrequency, chordFrequencies, FREQ_MIN, FREQ_MAX
-} from "./music.js?v=26";
-import { AudioEngine } from "./audio.js?v=26";
-import { initUI, renderAll } from "./ui.js?v=26";
+} from "./music.js?v=27";
+import { AudioEngine } from "./audio.js?v=27";
+import { initUI, renderAll } from "./ui.js?v=27";
 import {
   exportUserPresetDownload, importUserPresetFromFile
-} from "./preset-sharing.js?v=26";
-import { initVisualizations, setChladniVisible, setSpectrumVisible } from "./visualizations.js?v=26";
+} from "./preset-sharing.js?v=27";
+import { initVisualizations, setChladniVisible, setSpectrumVisible } from "./visualizations.js?v=27";
 import {
   loadUserPresets, saveUserPresets, newPresetId, newSampleId,
   loadVoicePresets, saveVoicePresets, newVoicePresetId,
   loadUserJourneys, saveUserJourneys, newUserJourneyId,
   loadLibrarySamples, saveLibrarySamples,
   putSample, getSample, deleteSample
-} from "./storage.js?v=26";
+} from "./storage.js?v=27";
 
 // ──────────────────────────────────────────────────
 // State.
@@ -209,6 +209,11 @@ const state = {
   // timing is sync'd to a musical division. 80 BPM = resting-heart-
   // rate territory, meditative without being sluggish.
   bpm: DEFAULT_BPM,
+
+  // v1: metronome click toggle. Audible verification of BPM-quantized
+  // grain density + delay-time sync. Routed post-master so the click
+  // stays at a steady level regardless of master volume.
+  metronomeOn: false,
 
   // Transport
   transportState: "stopped",  // "stopped" | "playing" | "paused"
@@ -1183,6 +1188,22 @@ const actions = {
       if (state.oscillators[i].grain && state.oscillators[i].grain.densitySyncEnabled) {
         pushEffectiveGrainDensity(i);
       }
+    }
+    // v1: keep the metronome locked to the user's tempo. Already-
+    // scheduled clicks fire at their old times (no jarring re-anchor)
+    // and subsequent beats use the new value.
+    if (engine && engine.setMetronomeBPM) engine.setMetronomeBPM(clamped);
+    renderAll();
+  },
+  /// v1: metronome click — short sine ping on every quarter, accent
+  /// on beat 1 of 4, post-master so it stays audible regardless of
+  /// master volume. Verifies BPM sync by ear.
+  setMetronomeOn(on) {
+    state.metronomeOn = !!on;
+    if (engine && engine.setMetronomeOn) {
+      // Make sure the BPM is in sync the first time it starts.
+      if (engine.setMetronomeBPM) engine.setMetronomeBPM(state.bpm);
+      engine.setMetronomeOn(!!on);
     }
     renderAll();
   },

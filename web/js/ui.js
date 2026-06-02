@@ -9,12 +9,12 @@ import {
   CHORDS, CHORD_CATEGORIES, PRESETS, PRESET_CATEGORIES,
   JOURNEYS, journeyTotalSeconds,
   FREQ_MIN, FREQ_MAX, frequencyHue
-} from "./music.js?v=26";
-import { startListening, stopListening, freqToNote, listInputDevices, switchInputDevice } from "./pitch-detect.js?v=26";
-import { initMIDI, midiToKeyOctave } from "./midi.js?v=26";
+} from "./music.js?v=27";
+import { startListening, stopListening, freqToNote, listInputDevices, switchInputDevice } from "./pitch-detect.js?v=27";
+import { initMIDI, midiToKeyOctave } from "./midi.js?v=27";
 import {
   loadSnapshotMeta, saveSnapshotMeta, getSnapshotBlob, deleteSnapshotBlob
-} from "./storage.js?v=26";
+} from "./storage.js?v=27";
 
 const WAVEFORM_SVG = {
   sine:     '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12c3-7 7-7 10 0s7 7 10 0"/></svg>',
@@ -128,6 +128,17 @@ export function initUI(state, actions) {
     });
   }
 
+  // v1 metronome toggle. Lives inline next to the BPM display in the
+  // subtitle row. Click = toggle the post-master quarter-note click.
+  const metronomeBtn = document.getElementById("metronome-toggle");
+  if (metronomeBtn) {
+    metronomeBtn.addEventListener("click", (e) => {
+      // Don't fall through to the subtitle's BPM prompt.
+      e.stopPropagation();
+      dispatch.setMetronomeOn(!getState().metronomeOn);
+    });
+  }
+
   // Wire static event handlers.
   document.getElementById("chord-pill").addEventListener("click", () => openSheet("chord-sheet"));
   document.getElementById("preset-pill").addEventListener("click", () => openSheet("preset-sheet"));
@@ -223,6 +234,11 @@ export function renderAll() {
   // visible (drives delay sync when timings aren't Free).
   document.getElementById("header-subtitle").textContent =
     `${TUNING_SYSTEMS.find((t) => t.id === s.tuningId).name} · Oct ${s.octave} · ${Math.round(s.bpm)} BPM`;
+  // v1: metronome toggle visual state.
+  const metronomeBtn = document.getElementById("metronome-toggle");
+  if (metronomeBtn) {
+    metronomeBtn.classList.toggle("active", !!s.metronomeOn);
+  }
   document.getElementById("chord-pill-value").textContent =
     `${PITCH_CLASSES[s.keyId].name} ${CHORDS.find((c) => c.id === s.chordId).name}`;
   document.getElementById("preset-pill-value").textContent = s.activePresetName || "—";

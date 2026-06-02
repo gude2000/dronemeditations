@@ -641,6 +641,21 @@ final class DroneViewModel: ObservableObject {
                 pushEffectiveGrainDensity(for: i)
             }
         }
+        // v1: keep the metronome locked to the user's tempo. Already-
+        // scheduled samples count down with the old value; subsequent
+        // beats pick up the new value.
+        audioEngine.setMetronomeBPM(clamped)
+    }
+
+    /// v1: metronome toggle. Sample-accurate quarter-note click, accent
+    /// on beat 1 of 4. See AudioEngine.setMetronomeOn for the render
+    /// math. Useful for verifying BPM-quantized grain density + delay
+    /// sync by ear.
+    @Published var metronomeOn: Bool = false
+    func setMetronomeOn(_ on: Bool) {
+        metronomeOn = on
+        audioEngine.setMetronomeBPM(bpm)
+        audioEngine.setMetronomeOn(on)
     }
 
     // ── Chorus ───────────────────────────────────────────
