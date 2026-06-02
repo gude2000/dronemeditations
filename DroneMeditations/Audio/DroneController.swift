@@ -68,6 +68,17 @@ final class DroneController: ObservableObject {
                 #endif
                 return
             }
+            // v1: cancel any in-flight stop/pause fade-out so it
+            // can't keep writing to mainMixer.outputVolume after we
+            // bump it for the metronome preview. Without this, the
+            // ramp's continued execution races our 0.6 back down to
+            // 0 and the click goes silent after the first beat.
+            pendingFadeOutTask?.cancel()
+            pendingFadeOutTask = nil
+            // Restore reverb to user values if a stop-bloom was in
+            // flight (otherwise the click rides over a still-bloomed
+            // reverb tail — minor but worth fixing while we're here).
+            engine.cancelStopBloom()
             // If the transport is stopped, mainMixer.outputVolume is
             // 0. Bump it to a fixed preview level (0.6) so the click
             // is audible. Save the prior value so we can restore on

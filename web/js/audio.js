@@ -51,6 +51,15 @@ export class AudioEngine {
 
     const AC = window.AudioContext || window.webkitAudioContext;
     this.ctx = new AC({ latencyHint: "interactive" });
+    // Some browsers create the ctx in "suspended" state until a
+    // user gesture explicitly resumes it. ensureStarted() is always
+    // called from a user-gesture-driven action (Play tap or
+    // metronome toggle), so resume() here will succeed. Without
+    // this, a fresh ctx stays suspended and the metronome's first
+    // scheduled click never renders.
+    if (this.ctx.state === "suspended") {
+      this.ctx.resume().catch(() => {});
+    }
 
     this.master = this.ctx.createGain();
     // Start silent; fade-in handled by ensureStartedWithFade below so play
@@ -686,6 +695,15 @@ export class AudioEngine {
     const m = this.metronome;
     if (!m) return;
     if (on && !m.enabled) {
+      // Browsers (Safari especially) hold a freshly-created
+      // AudioContext in "suspended" state until a user gesture
+      // resumes it, and may re-suspend after periods of silence.
+      // Resume here AND inside the tick so the metronome stays
+      // alive both on the very first toggle and across the
+      // browser's auto-suspend windows.
+      if (this.ctx.state === "suspended") {
+        this.ctx.resume().catch(() => {});
+      }
       m.enabled = true;
       m.beatCounter = 0;
       // Small head-room so the first click doesn't land at the same
@@ -738,6 +756,17 @@ export class AudioEngine {
   _metronomeTick() {
     if (!this.ctx || !this.metronome.enabled) return;
     const ctx = this.ctx;
+    // If the browser silently auto-suspended the ctx (Safari does
+    // this aggressively when there's no significant audio activity),
+    // currentTime freezes and the schedule-ahead window would never
+    // advance. Bailing this tick after a resume() call wakes the
+    // ctx up and the next tick (25 ms later) schedules normally.
+    // Without this guard, the metronome clicks once or twice and
+    // then goes silent forever.
+    if (ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+      return;
+    }
     const m = this.metronome;
     const beatLen = 60 / Math.max(30, m.bpm);
     while (m.nextBeatTime < ctx.currentTime + m.lookahead) {

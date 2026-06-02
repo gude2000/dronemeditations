@@ -9,20 +9,20 @@
 import {
   CHORDS, PRESETS, WAVEFORMS, JOURNEYS, journeyTotalSeconds, PITCH_CLASSES, TUNING_SYSTEMS,
   pitchToFrequency, chordFrequencies, FREQ_MIN, FREQ_MAX
-} from "./music.js?v=29";
-import { AudioEngine } from "./audio.js?v=29";
-import { initUI, renderAll } from "./ui.js?v=29";
+} from "./music.js?v=30";
+import { AudioEngine } from "./audio.js?v=30";
+import { initUI, renderAll } from "./ui.js?v=30";
 import {
   exportUserPresetDownload, importUserPresetFromFile
-} from "./preset-sharing.js?v=29";
-import { initVisualizations, setChladniVisible, setSpectrumVisible } from "./visualizations.js?v=29";
+} from "./preset-sharing.js?v=30";
+import { initVisualizations, setChladniVisible, setSpectrumVisible } from "./visualizations.js?v=30";
 import {
   loadUserPresets, saveUserPresets, newPresetId, newSampleId,
   loadVoicePresets, saveVoicePresets, newVoicePresetId,
   loadUserJourneys, saveUserJourneys, newUserJourneyId,
   loadLibrarySamples, saveLibrarySamples,
   putSample, getSample, deleteSample
-} from "./storage.js?v=29";
+} from "./storage.js?v=30";
 
 // ──────────────────────────────────────────────────
 // State.
@@ -679,7 +679,14 @@ const actions = {
       await actions.toggleRecord();
     }
     await engine.fadeOutMaster(8.0);
-    await engine.stop();
+    // v1: if the user re-engaged the metronome during the 8 s
+    // fade-out, keep the AudioContext alive so the click can keep
+    // ticking. Closing the ctx here used to be the bug: metronome
+    // clicked for a few seconds then went silent forever when this
+    // teardown ran behind the user's back.
+    if (!state.metronomeOn) {
+      await engine.stop();
+    }
   },
 
   /// Toggles session recording. On start: spins up the MediaRecorder and
