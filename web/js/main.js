@@ -9,20 +9,20 @@
 import {
   CHORDS, PRESETS, WAVEFORMS, JOURNEYS, journeyTotalSeconds, PITCH_CLASSES, TUNING_SYSTEMS,
   pitchToFrequency, chordFrequencies, FREQ_MIN, FREQ_MAX
-} from "./music.js?v=34";
-import { AudioEngine } from "./audio.js?v=34";
-import { initUI, renderAll } from "./ui.js?v=34";
+} from "./music.js?v=35";
+import { AudioEngine } from "./audio.js?v=35";
+import { initUI, renderAll } from "./ui.js?v=35";
 import {
   exportUserPresetDownload, importUserPresetFromFile
-} from "./preset-sharing.js?v=34";
-import { initVisualizations, setChladniVisible, setSpectrumVisible } from "./visualizations.js?v=34";
+} from "./preset-sharing.js?v=35";
+import { initVisualizations, setChladniVisible, setSpectrumVisible } from "./visualizations.js?v=35";
 import {
   loadUserPresets, saveUserPresets, newPresetId, newSampleId,
   loadVoicePresets, saveVoicePresets, newVoicePresetId,
   loadUserJourneys, saveUserJourneys, newUserJourneyId,
   loadLibrarySamples, saveLibrarySamples,
   putSample, getSample, deleteSample
-} from "./storage.js?v=34";
+} from "./storage.js?v=35";
 
 // ──────────────────────────────────────────────────
 // State.
@@ -649,16 +649,34 @@ const actions = {
       if (engine.resetGrainPhases) engine.resetGrainPhases();
       // v1 fix (Jun 2026): engine.stop() clears this.voices entirely on
       // teardown, so every Play that follows a Stop creates BRAND NEW
-      // voice objects whose pitchQuantizeToScale field is undefined
-      // (falsy). The UI still reports the user's drift.quantizeToScale
-      // as on because that lives in state.oscillators, but the audio
-      // thread sees the new flag as false and stops snapping. Re-push
-      // the flag for every voice + recompute the scale cache on every
-      // Play to recover. Same trick handles the post-loadUserPreset
-      // case where the load path doesn't restore drift either.
+      // voice objects in ensureStarted(). Those new objects are
+      // populated from state.oscillators[i] at construction time,
+      // which carries the "free fallback" values for rate-sync'd
+      // LFOs / grain density — NOT the BPM-derived effective values
+      // the sync helpers would push. As a result, every fresh-voice
+      // scenario silently loses sync: LFOs run at the slider Hz, not
+      // at the requested musical subdivision; grain density runs at
+      // the slider Hz, not the BPM denomination. The user's pitch
+      // S&H at "1/4" would tick at ~0.5 Hz (the default fallback)
+      // instead of the ~1.33 Hz a 1/4 at 80 BPM should produce.
+      // Same root cause as the quantize-to-scale fix above; re-push
+      // every per-voice piece of "derived" state on every Play.
       for (let i = 0; i < state.oscillators.length && engine.voices && i < engine.voices.length; i++) {
+        if (!engine.voices[i]) continue;
+        // Quantize-to-scale flag + scale cache (covered already).
         const qts = !!(state.oscillators[i].drift && state.oscillators[i].drift.quantizeToScale);
-        if (engine.voices[i]) engine.voices[i].pitchQuantizeToScale = qts;
+        engine.voices[i].pitchQuantizeToScale = qts;
+        // LFO rate-sync. Every LFO that has sync on needs to push
+        // the BPM-derived Hz; LFOs without sync just re-write the
+        // slider Hz (no-op if nothing changed). Both are cheap.
+        const lfos = state.oscillators[i].lfos || [];
+        for (let k = 0; k < lfos.length; k++) {
+          pushEffectiveLfoRate(i, k);
+        }
+        // Grain density sync — same story for granular voices.
+        if (state.oscillators[i].grain && state.oscillators[i].grain.densitySyncEnabled) {
+          pushEffectiveGrainDensity(i);
+        }
       }
       if (typeof recomputeQuantizeScale === "function") recomputeQuantizeScale();
       state.transportState = "playing";
