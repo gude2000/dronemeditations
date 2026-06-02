@@ -1413,6 +1413,41 @@ export const PRESETS = [
   // JGPresets/README.md at the project root.
   // ──────────────────────────────────────────────────────────
 
+  // JG JoG — web mirror of the iOS sample-granular study.
+  // Web built-in presets don't auto-load bundled samples (no
+  // bundledSampleName plumbing on the apply path), so OSC 1 here
+  // uses the granular pink-noise scheduler instead of the iOS
+  // sample-granular path. The 3 supporting voices (saw / sine / saw)
+  // are preserved verbatim from the iOS Preset.swift entry —
+  // frequencies, drives, filters, FX, and timing envelopes match
+  // exactly. The character is "JoG-shaped" rather than literally
+  // JoG-sourced; to hear the actual sample on web, manually load
+  // Developer / JG JoG.wav from the Bundled ▾ picker on any strip.
+  { id: "jg_jog", name: "JG JoG", category: "Developer Patches",
+    sub: "JoG sample-granular study (web: granular synth approx)",
+    voices: [
+      V({ hz: 110, pan: -0.30, wave: "granular", amp: 0.89, drive: 1.63,
+          startDelaySec: 30, playDurationSec: 180, replayCount: 3,
+          filter: { type: "lowpass", cutoffHz: 4277, q: 3.98 },
+          reverb: { decaySec: 4.49, mix: 0.69 },
+          delay: { timeSec: 0.19, feedback: 0.56, mix: 0.34 },
+          chorus: { rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0 },
+          grain: { sizeMs: 80, densityHz: 2.67, jitter: 0, panSpread: 0.50 } }),
+      V({ hz: 138.59, pan: 0.10, wave: "sawtooth", amp: 0.44,
+          startDelaySec: 60, playDurationSec: 60, replayCount: 5,
+          reverb: { decaySec: 3.26, mix: 0.30 },
+          delay: { timeSec: 0.25, feedback: 0.47, mix: 0.61 },
+          chorus: { rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.08 } }),
+      V({ hz: 174.61, pan: -0.10, wave: "sine", amp: 0.47, drive: 1.20,
+          filter: { type: "lowpass", cutoffHz: 2002, q: 1.52 },
+          reverb: { decaySec: 5.73, mix: 0.43 },
+          delay: { timeSec: 0.30, feedback: 0.40, mix: 0.22 },
+          chorus: { rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.19 } }),
+      V({ hz: 56.84, pan: 0.30, wave: "sawtooth", amp: 0.50, drive: 2.10,
+          filter: { type: "lowpass", cutoffHz: 471, q: 3.21 },
+          chorus: { rateHz: 0.50, depth: 0.40, width: 0.70, mix: 0.16 } }),
+    ] },
+
   { id: "jg_tessellation", name: "JG Tessellation", category: "Developer Patches",
     sub: "Indian-just shadja stack · granular tessellation",
     voices: [
