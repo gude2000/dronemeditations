@@ -175,15 +175,34 @@ export const CHORDS = [
   // most identifying degrees AND, with Quantize-to-scale on, fills the
   // quantize cache with these same notes so pitch-LFO modulation
   // arpeggiates *inside the mode* instead of wandering chromatically.
-  { id: "ionian",     name: "Ionian",         category: "Modal", cents: [semis(0), semis(4),  semis(7),  semis(11)] }, // 1 3 5 7
-  { id: "dorian",     name: "Dorian",         category: "Modal", cents: [semis(0), semis(3),  semis(9),  semis(10)] }, // 1 ♭3 6 ♭7
-  { id: "phrygian",   name: "Phrygian",       category: "Modal", cents: [semis(0), semis(1),  semis(3),  semis(10)] }, // 1 ♭2 ♭3 ♭7
-  { id: "lydian",     name: "Lydian",         category: "Modal", cents: [semis(0), semis(4),  semis(6),  semis(11)] }, // 1 3 ♯4 7
-  { id: "mixolydian", name: "Mixolydian",     category: "Modal", cents: [semis(0), semis(4),  semis(7),  semis(10)] }, // 1 3 5 ♭7
-  { id: "aeolian",    name: "Aeolian",        category: "Modal", cents: [semis(0), semis(3),  semis(8),  semis(10)] }, // 1 ♭3 ♭6 ♭7
-  { id: "locrian",    name: "Locrian",        category: "Modal", cents: [semis(0), semis(1),  semis(6),  semis(10)] }, // 1 ♭2 ♭5 ♭7
-  { id: "harmMin",    name: "Harmonic Minor", category: "Modal", cents: [semis(0), semis(3),  semis(8),  semis(11)] }, // 1 ♭3 ♭6 7
-  { id: "melMin",     name: "Melodic Minor",  category: "Modal", cents: [semis(0), semis(3),  semis(9),  semis(11)] }, // 1 ♭3 6 7
+  // v1 (Jun 2026): each Modal entry now also carries `scale` — the
+  // full 7-note mode in semitones from the root. The 4-note `cents`
+  // is what the CHORD pill produces (4 voice frequencies, one per
+  // characteristic degree); the 7-note `scale` is what quantize-to-
+  // scale uses to populate scaleNotesHz. Without this split, the
+  // S&H+pitch+quantize combo at high depth would snap mostly to the
+  // root because the 4-note chord has big gaps (e.g. Lydian: 5
+  // semitones between the 5 and the next octave's root). The full
+  // mode fills those gaps so the LFO actually steps through ~7
+  // unique notes per octave instead of 3-4.
+  { id: "ionian",     name: "Ionian",         category: "Modal", cents: [semis(0), semis(4),  semis(7),  semis(11)],
+    scale: [semis(0), semis(2), semis(4), semis(5), semis(7), semis(9), semis(11)] }, // major
+  { id: "dorian",     name: "Dorian",         category: "Modal", cents: [semis(0), semis(3),  semis(9),  semis(10)],
+    scale: [semis(0), semis(2), semis(3), semis(5), semis(7), semis(9), semis(10)] },
+  { id: "phrygian",   name: "Phrygian",       category: "Modal", cents: [semis(0), semis(1),  semis(3),  semis(10)],
+    scale: [semis(0), semis(1), semis(3), semis(5), semis(7), semis(8), semis(10)] },
+  { id: "lydian",     name: "Lydian",         category: "Modal", cents: [semis(0), semis(4),  semis(6),  semis(11)],
+    scale: [semis(0), semis(2), semis(4), semis(6), semis(7), semis(9), semis(11)] },
+  { id: "mixolydian", name: "Mixolydian",     category: "Modal", cents: [semis(0), semis(4),  semis(7),  semis(10)],
+    scale: [semis(0), semis(2), semis(4), semis(5), semis(7), semis(9), semis(10)] },
+  { id: "aeolian",    name: "Aeolian",        category: "Modal", cents: [semis(0), semis(3),  semis(8),  semis(10)],
+    scale: [semis(0), semis(2), semis(3), semis(5), semis(7), semis(8), semis(10)] }, // natural minor
+  { id: "locrian",    name: "Locrian",        category: "Modal", cents: [semis(0), semis(1),  semis(6),  semis(10)],
+    scale: [semis(0), semis(1), semis(3), semis(5), semis(6), semis(8), semis(10)] },
+  { id: "harmMin",    name: "Harmonic Minor", category: "Modal", cents: [semis(0), semis(3),  semis(8),  semis(11)],
+    scale: [semis(0), semis(2), semis(3), semis(5), semis(7), semis(8), semis(11)] },
+  { id: "melMin",     name: "Melodic Minor",  category: "Modal", cents: [semis(0), semis(3),  semis(9),  semis(11)],
+    scale: [semis(0), semis(2), semis(3), semis(5), semis(7), semis(9), semis(11)] }, // ascending
 
   // Symmetric
   { id: "wt",      name: "Whole-Tone",       category: "Symmetric",     cents: [semis(0), semis(2),  semis(4),  semis(6)]  },

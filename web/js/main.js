@@ -9,20 +9,20 @@
 import {
   CHORDS, PRESETS, WAVEFORMS, JOURNEYS, journeyTotalSeconds, PITCH_CLASSES, TUNING_SYSTEMS,
   pitchToFrequency, chordFrequencies, FREQ_MIN, FREQ_MAX
-} from "./music.js?v=35";
-import { AudioEngine } from "./audio.js?v=35";
-import { initUI, renderAll } from "./ui.js?v=35";
+} from "./music.js?v=36";
+import { AudioEngine } from "./audio.js?v=36";
+import { initUI, renderAll } from "./ui.js?v=36";
 import {
   exportUserPresetDownload, importUserPresetFromFile
-} from "./preset-sharing.js?v=35";
-import { initVisualizations, setChladniVisible, setSpectrumVisible } from "./visualizations.js?v=35";
+} from "./preset-sharing.js?v=36";
+import { initVisualizations, setChladniVisible, setSpectrumVisible } from "./visualizations.js?v=36";
 import {
   loadUserPresets, saveUserPresets, newPresetId, newSampleId,
   loadVoicePresets, saveVoicePresets, newVoicePresetId,
   loadUserJourneys, saveUserJourneys, newUserJourneyId,
   loadLibrarySamples, saveLibrarySamples,
   putSample, getSample, deleteSample
-} from "./storage.js?v=35";
+} from "./storage.js?v=36";
 
 // ──────────────────────────────────────────────────
 // State.
@@ -2398,7 +2398,23 @@ function recomputeQuantizeScale() {
   const chord = CHORDS.find((c) => c.id === state.chordId);
   if (!chord) return;
   const rootHz = pitchToFrequency(state.keyId, state.octave);
-  const freqs = chordFrequencies(chord, rootHz, state.tuningId);
+  // v1 (Jun 2026): if the chord carries a `scale` (the full 7-note
+  // mode for Modal entries), use that for snapping instead of the
+  // 4-note chord intervals. The 4-note version produces very sparse
+  // pitch variety with S&H+pitch+quantize at high depth (Lydian's
+  // 5-semi gap from 5 to next root made ~58% of S&H values snap to
+  // the root). The full mode fills those gaps so a high-depth LFO
+  // steps through ~7 unique notes per octave. Non-modal chords
+  // (Common / Extended / Cymatic / Solfeggio / etc.) have no
+  // `scale` field and fall through to the chord-tone snap, which
+  // is the right behaviour for harmonic patches (a Maj7 chord
+  // should snap to its 4 chord tones, not a scale).
+  let freqs;
+  if (Array.isArray(chord.scale)) {
+    freqs = chord.scale.map((c) => rootHz * Math.pow(2, c / 1200));
+  } else {
+    freqs = chordFrequencies(chord, rootHz, state.tuningId);
+  }
   const set = new Set();
   for (const n of freqs) {
     if (n > 0) {
