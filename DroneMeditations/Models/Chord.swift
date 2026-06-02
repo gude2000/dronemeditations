@@ -8,6 +8,13 @@ struct ChordType: Identifiable, Hashable, Codable {
     let category: Category
     /// Four interval offsets from the root, in cents. Must be exactly 4 entries.
     let intervalsCents: [Double]
+    /// v1 (Jun 2026): optional full scale, in cents from root. When
+    /// present, Quantize-to-scale snaps to these notes instead of the
+    /// 4-note `intervalsCents`. Set on Modal chords so a pitch LFO
+    /// with quantize on can step through all 7 mode degrees instead
+    /// of clustering on 3-4 chord tones. nil = fall back to chord
+    /// tones (right behaviour for harmonic chord patches).
+    let scaleCents: [Double]?
 
     enum Category: String, CaseIterable, Codable {
         case triadic = "Triads & 7ths"
@@ -18,11 +25,12 @@ struct ChordType: Identifiable, Hashable, Codable {
         case microtonal = "Microtonal"
     }
 
-    init(_ name: String, _ category: Category, _ intervalsCents: [Double]) {
+    init(_ name: String, _ category: Category, _ intervalsCents: [Double], scaleCents: [Double]? = nil) {
         precondition(intervalsCents.count == 4, "ChordType requires exactly 4 voices")
         self.name = name
         self.category = category
         self.intervalsCents = intervalsCents
+        self.scaleCents = scaleCents
     }
 }
 
@@ -61,19 +69,29 @@ extension ChordType {
         // harmonic / melodic mode. Picking one of these does two
         // things at once: (1) it sets the four voice pitches to the
         // mode's most identifying degrees, and (2) when Quantize-to-scale
-        // is on, the quantize cache fills with these same notes so
-        // pitch-LFO modulation arpeggiates *inside the mode* instead of
-        // wandering chromatically. Ionian shows up as "Major (mode)"
-        // since the maj7 chord already covers the same notes.
-        ChordType("Ionian",         .modal, [semis(0),  semis(4),  semis(7),  semis(11)]), // 1 3 5 7
-        ChordType("Dorian",         .modal, [semis(0),  semis(3),  semis(9),  semis(10)]), // 1 ♭3 6 ♭7
-        ChordType("Phrygian",       .modal, [semis(0),  semis(1),  semis(3),  semis(10)]), // 1 ♭2 ♭3 ♭7
-        ChordType("Lydian",         .modal, [semis(0),  semis(4),  semis(6),  semis(11)]), // 1 3 ♯4 7
-        ChordType("Mixolydian",     .modal, [semis(0),  semis(4),  semis(7),  semis(10)]), // 1 3 5 ♭7
-        ChordType("Aeolian",        .modal, [semis(0),  semis(3),  semis(8),  semis(10)]), // 1 ♭3 ♭6 ♭7
-        ChordType("Locrian",        .modal, [semis(0),  semis(1),  semis(6),  semis(10)]), // 1 ♭2 ♭5 ♭7
-        ChordType("Harmonic Minor", .modal, [semis(0),  semis(3),  semis(8),  semis(11)]), // 1 ♭3 ♭6 7
-        ChordType("Melodic Minor",  .modal, [semis(0),  semis(3),  semis(9),  semis(11)]), // 1 ♭3 6 7
+        // is on, the quantize cache fills with the full 7-note scale
+        // (see scaleCents:) so pitch-LFO modulation arpeggiates *inside
+        // the mode* with all 7 degrees, not just the 3-4 chord tones.
+        // The 4-note voicing stays as the chord; the 7-note scale only
+        // affects quantize-to-scale snapping.
+        ChordType("Ionian",         .modal, [semis(0),  semis(4),  semis(7),  semis(11)],   // 1 3 5 7
+                  scaleCents: [semis(0), semis(2), semis(4), semis(5), semis(7), semis(9), semis(11)]),  // major
+        ChordType("Dorian",         .modal, [semis(0),  semis(3),  semis(9),  semis(10)],   // 1 ♭3 6 ♭7
+                  scaleCents: [semis(0), semis(2), semis(3), semis(5), semis(7), semis(9), semis(10)]),
+        ChordType("Phrygian",       .modal, [semis(0),  semis(1),  semis(3),  semis(10)],   // 1 ♭2 ♭3 ♭7
+                  scaleCents: [semis(0), semis(1), semis(3), semis(5), semis(7), semis(8), semis(10)]),
+        ChordType("Lydian",         .modal, [semis(0),  semis(4),  semis(6),  semis(11)],   // 1 3 ♯4 7
+                  scaleCents: [semis(0), semis(2), semis(4), semis(6), semis(7), semis(9), semis(11)]),
+        ChordType("Mixolydian",     .modal, [semis(0),  semis(4),  semis(7),  semis(10)],   // 1 3 5 ♭7
+                  scaleCents: [semis(0), semis(2), semis(4), semis(5), semis(7), semis(9), semis(10)]),
+        ChordType("Aeolian",        .modal, [semis(0),  semis(3),  semis(8),  semis(10)],   // 1 ♭3 ♭6 ♭7
+                  scaleCents: [semis(0), semis(2), semis(3), semis(5), semis(7), semis(8), semis(10)]),  // natural minor
+        ChordType("Locrian",        .modal, [semis(0),  semis(1),  semis(6),  semis(10)],   // 1 ♭2 ♭5 ♭7
+                  scaleCents: [semis(0), semis(1), semis(3), semis(5), semis(6), semis(8), semis(10)]),
+        ChordType("Harmonic Minor", .modal, [semis(0),  semis(3),  semis(8),  semis(11)],   // 1 ♭3 ♭6 7
+                  scaleCents: [semis(0), semis(2), semis(3), semis(5), semis(7), semis(8), semis(11)]),
+        ChordType("Melodic Minor",  .modal, [semis(0),  semis(3),  semis(9),  semis(11)],   // 1 ♭3 6 7
+                  scaleCents: [semis(0), semis(2), semis(3), semis(5), semis(7), semis(9), semis(11)]),  // ascending
 
         // MARK: Symmetric (each step is the same interval — drone-friendly)
         ChordType("Whole-Tone",     .symmetric, [semis(0), semis(2),  semis(4),  semis(6)]),

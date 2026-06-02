@@ -1251,15 +1251,32 @@ final class DroneViewModel: ObservableObject {
     /// chord notes to snap to.
     private func recomputeQuantizeScale() {
         let rootHz = Pitch(currentKey, octave: currentOctave).frequencyEqual12()
-        let chordNotes = currentChord.frequencies(rootHz: rootHz, tuning: currentTuning)
-        // For each chord tone, add that tone -1, 0, +1, +2 octaves.
-        // De-dup via Set (root is often already an octave duplicate).
+        // v1 (Jun 2026): if the chord carries a `scaleCents` (the full
+        // 7-note mode on Modal chords), snap to those notes instead of
+        // the 4-note chord intervals. The 4-note version produces very
+        // sparse pitch variety with S&H+pitch+quantize at high depth
+        // (e.g. Lydian's 5-semi gap from 5 to next root makes ~58% of
+        // S&H values snap to the root). The full mode fills those gaps
+        // so a high-depth LFO steps through ~7 unique notes per octave.
+        // Non-modal chords (Common / Extensions / Symmetric / etc.)
+        // have nil scaleCents and fall through to chord-tone snap,
+        // which is the right behaviour for harmonic chord patches.
+        let baseNotes: [Double]
+        if let scaleCents = currentChord.scaleCents {
+            baseNotes = scaleCents.map { currentTuning.frequency(rootHz: rootHz, cents: $0) }
+        } else {
+            baseNotes = currentChord.frequencies(rootHz: rootHz, tuning: currentTuning)
+        }
+        // For each note, add it -1, 0, +1, +2 octaves so the LFO swing
+        // (which spans ±1 octave at quantize-on full depth) always
+        // finds a target at either extreme. De-dup via Set since the
+        // root often coincides with octave duplicates.
         var unique: Set<Double> = []
-        for n in chordNotes where n > 0 {
-            unique.insert(n / 2)   // -1 oct
-            unique.insert(n)       // root
-            unique.insert(n * 2)   // +1 oct
-            unique.insert(n * 4)   // +2 oct
+        for n in baseNotes where n > 0 {
+            unique.insert(n / 2)
+            unique.insert(n)
+            unique.insert(n * 2)
+            unique.insert(n * 4)
         }
         let sorted = Array(unique).sorted()
         for i in 0..<audioEngine.voices.count {
