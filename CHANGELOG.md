@@ -4,6 +4,28 @@ Release notes are a running record of what's shipped in each version. Each secti
 
 ---
 
+## v1.0 (build 10) — post-launch polish
+
+Bug fixes from public testing of build 9, plus two more Developer Patches. No new public-facing features.
+
+### Bug fixes
+
+- **Quantize-to-scale now engages reliably on preset load and on Play.** Was intermittent on the web: when a preset with quantize-to-scale on was loaded, or when transport stopped and played again, the quantize flag could end up off on freshly-rebuilt voices. Now defensively re-pushed on every preset load and on every Play, on both iOS and web.
+- **Modal chords now arpeggiate across the full 7-note scale when quantize-to-scale is on.** Was snapping pitch-LFO output to only the 4 chord tones, which clustered S&H steps onto the root. Modal entries (Ionian / Dorian / Phrygian / Lydian / Mixolydian / Aeolian / Locrian + Harmonic & Melodic Minor) now carry their full 7-note mode and quantize uses all 7 degrees. Other chord categories (Triads, Extensions, Symmetric, Quartal, Microtonal) still quantize to chord tones — right behaviour for harmonic patches.
+- **LFO rate sync + grain density sync survive transport stop.** Web only: when Stop wiped the voice list, fresh voices came back without the LFO denomination → rate or grain denomination → density bindings that had been pushed when the preset loaded. Both now re-applied on every Play.
+
+### Presets
+
+- **JG Maybe Three** (Developer Patches) — quiet hybrid pad with all four voices feeding the chorus mix, S&H pitch with quantize on the lead, glacial drift on OSC 4.
+- **JG Low Intensity** (Developer Patches) — quiet meditative bed: 110 Hz triangle pad + two A3 granular voices + a 159 Hz sawtooth low drone that fades in at 60 s. S&H pitch syncs to 1/16 at preset BPM; quantize-to-scale keeps the steps inside the active mode.
+
+### Under the hood
+
+- **gen_swift automation** — the JG-preset generator now emits both the Swift preset block (for `Preset.swift`) and the web JS entry (for `music.js`) in one pass, including LFO configs and drift configs. New presets go from `.dronepreset` file to bundled Swift + JS in one script run.
+- **RecordingSetup.md** — screen-recording workflow doc capturing what works for App Store previews (physical iPhone + QuickTime), what works for landing-page videos (OBS + ScreenCaptureKit on the web app), and what doesn't (iOS Simulator audio is silently dropped by both `simctl recordVideo` and ScreenCaptureKit).
+
+---
+
 ## v1.0 (build 9) — launch
 
 The public v1.0 release. Build 9 is the App Store launch build, consolidating everything from the previous TestFlight history (1.0 builds 1–6 → relabeled 1.1 builds 7–8 → folded back to 1.0 build 9 for launch) plus the final feature pass below.
