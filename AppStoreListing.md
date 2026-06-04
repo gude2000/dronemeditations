@@ -95,7 +95,7 @@ LIVE CYMATICS THAT BREATHE WITH THE AUDIO
 • Physically-calibrated Chladni patterns fit from real plate-
   vibration footage. The renderer crossfades between the two
   adjacent eigenmodes bracketing each voice's live frequency —
-  vibrato breathes between physical modes, not stylized animation.
+  vibrato breathes between physical modes, not styled animation.
 • Pinch to zoom; tap to enter fullscreen Performance mode with
   a drifting sand-particle simulation along the nodal lines
 • Cymatic snapshot gallery + spectrum-analyzer alternative
@@ -118,10 +118,10 @@ RECORD, SHARE, AND COMPOSE
   the sample's reference pitch
 • 50+ bundled samples: bansuri, organ, piano, storm, tide,
   forest, urban, cosmic
-• Cross-device preset sharing via .dronepreset files. AirDrop a
-  patch from web to iPhone to iPad and the same sound lands on
-  each device, samples embedded inline. iCloud auto-syncs
-  samples-free presets between your iPhone and iPad.
+• Cross-device preset sharing via .dronepreset files. AirDrop
+  a patch between web, iPhone, and iPad — same sound on each,
+  samples embedded inline. iCloud auto-syncs samples-free
+  presets between your iPhone and iPad.
 
 One-time purchase. No subscription, no accounts, no tracking.
 Free web version: dronemeditations.com
