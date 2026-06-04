@@ -54,100 +54,80 @@ listeners who want to go deep.
 Most "drone apps" give you a few sliders and call it ambient.
 Drone Meditations gives you a real instrument.
 
-═══════════════════════════════════════
 SOUNDS YOU CAN SIT WITH FOR HOURS
-
-• Four independent oscillators, each with its own waveform (sine,
-  triangle, sawtooth, square, white noise, pink noise, granular, or
-  loaded sample)
-• Per-voice filter (low-pass, high-pass, band-pass), drive saturation,
-  cross-oscillator FM, stereo chorus, three-mode delay with musical
-  timing, and stereo reverb
-• Four multi-target LFOs per oscillator — each can drive amplitude,
-  pan, filter cutoff, Q, pitch, FM index, or the FX-Mix macro all at
-  once. Sixteen modulators per patch.
-• Per-voice timing envelopes — fade voices in over minutes, fade them
-  out later, repeat N times (or forever). Build sessions that rotate
-  harmonically across 20 minutes without touching a slider.
+• Four oscillators per patch — sine, triangle, sawtooth, square,
+  white / pink noise, granular pink, or loaded sample
+• Per-voice filter (LP / HP / BP), drive, cross-osc FM, stereo
+  chorus, three-mode delay with musical timing, stereo Schroeder
+  reverb
+• Sixteen multi-target LFOs per patch (four per voice). Each LFO
+  drives amplitude, pan, cutoff, Q, pitch, FM index, and the
+  FX-Mix macro simultaneously. Each can lock its rate to a musical
+  subdivision of the global tempo.
+• Per-voice timing envelopes — fade in over minutes, fade out
+  later, repeat N times or forever. Rotate harmonically across
+  20 minutes without touching a slider.
 • Six tuning systems: 12-TET, just intonation, Pythagorean, Lou
-  Harrison, Wendy Carlos α/β/γ, Harry Partch 43-tone
+  Harrison Free JI, Wendy Carlos α/β/γ, Harry Partch 43-tone
 
-═══════════════════════════════════════
 DESIGNED FOR THE DRONE TRADITION
-
-• 80+ presets across Drone Artists, Developer Patches, Solfeggio,
-  Natural Resonance, Cymatics, and Mystic & Composers categories —
-  plus an INIT preset pinned at the top for a blank-canvas start
-• 48 Drone Artists tributes that capture each artist's signature
-  waveforms, FX, and tuning — not just their pitches: Oliveros,
-  Riley, Radigue, Stars of the Lid, Sunn O))), Basinski, Niblock,
+• 110+ presets across Drone Artists, Developer Patches, Solfeggio,
+  Natural Resonance, Cymatics, Mystic & Composers, and Binaural
+  categories — plus an INIT preset pinned at the top
+• 48 Drone Artists tributes capturing each artist's waveforms,
+  FX, and tuning — not just their pitches: Oliveros, Riley,
+  Radigue, Stars of the Lid, Sunn O))), Basinski, Niblock,
   Palestine, Wada, Budd, Coltrane, Earth, Haino, NWW + more
-• 16 Developer Patches showcasing granular sampling, BPM-locked
-  grain density, and FX-Mix LFO swells
+• 21 Developer Patches showcasing granular sampling, BPM-locked
+  grain density, FX-Mix LFO swells, and the JG hybrid pad/groove
+  series
 • Modal chord category — Ionian, Dorian, Phrygian, Lydian,
   Mixolydian, Aeolian, Locrian, Harmonic Minor, Melodic Minor —
-  with drift quantize-to-scale so modulation stays inside the mode
-• Auto-morph between any two presets over 30 seconds to 60 minutes,
-  with optional ping-pong looping
-• 25 scripted meditation journeys with timed multi-stage sessions
-• Tune to Room: use your mic to detect a pitch in your space and
-  snap the chord — or just one voice — to it. Per-strip ear icon
-  for per-voice tuning, global LISTEN pill for the chord root.
+  with quantize-to-scale so pitch-modulated voices arpeggiate
+  across all 7 mode degrees
+• Auto-morph between any two presets over 30 s to 60 min
+• 25 scripted meditation journeys (Deep Listening Lineage,
+  Heavy Resonance, Minimalist Arc + 22 more)
+• Tune to Room — global LISTEN snaps the chord root to a pitch
+  from the mic; per-strip ear icon snaps just one voice
 
-═══════════════════════════════════════
 LIVE CYMATICS THAT BREATHE WITH THE AUDIO
+• Physically-calibrated Chladni patterns fit from real plate-
+  vibration footage. The renderer crossfades between the two
+  adjacent eigenmodes bracketing each voice's live frequency —
+  vibrato breathes between physical modes, not stylized animation.
+• Pinch to zoom; tap to enter fullscreen Performance mode with
+  a drifting sand-particle simulation along the nodal lines
+• Cymatic snapshot gallery + spectrum-analyzer alternative
 
-• Physically-calibrated Chladni mode patterns fit from 17 frames of
-  real plate-vibration footage. The renderer crossfades between the
-  two adjacent eigenmodes that bracket each voice's live frequency,
-  so vibrato breathes between physical modes — not stylized animation.
-• Pinch to zoom, tap to enter fullscreen Performance mode with a
-  drifting sand-particle simulation that follows nodal lines
-• Cymatic snapshot gallery — save the patterns you love as PNG
-• Spectrum analyzer alternative for harmonic visualization
-
-═══════════════════════════════════════
-GRANULAR — NOISE AND SAMPLES, BPM-LOCKED
-
+GRANULAR + TEMPO
 • Granular waveform: pink noise chopped into Hann-windowed grains
-  with controls for size (5–500 ms), density (0.5–50 grains/sec),
-  timing jitter, and stereo spread
-• Granular sampling: apply the same grain scheduler to any loaded
-  sample with position + scan controls. Freeze a bansuri sustain
-  forever, or smear a Scriabin chord into a tape-decay cloud.
+  with size, density, jitter, stereo spread, per-voice overlap
+• Granular sampling: same scheduler applied to any loaded sample
+  — freeze a bansuri sustain forever, smear a Scriabin chord into
+  a tape-decay cloud
 • BPM-quantized density (½ → 1/32T) locks grain spacing to the
-  global tempo. Change the BPM and every quantized voice retimes
-  instantly — polyrhythmic textures from a single sample.
+  global tempo. Per-LFO rate sync extends musical subdivisions
+  to LFO speed. Metronome click toggle for an audible reference.
 
-═══════════════════════════════════════
 RECORD, SHARE, AND COMPOSE
-
-• Record sessions as 24-bit WAV + AAC M4A sidecar with loudness
-  normalization, automatic fade-in/out, and embedded metadata
-• Per-voice mic record (🎙 strip icon) captures audio directly into
-  a voice's sample slot — normalized, granular-ready, with the
-  voice's current frequency as the sample's reference pitch
-• 50+ bundled high-quality samples: bansuri, organ, piano, storm,
-  tide, forest, urban, cosmic textures — drop any into a voice
+• Mastered session recording: 24-bit WAV + AAC M4A sidecar with
+  loudness normalization, automatic fades, embedded metadata
+• Per-voice mic record (🎙) captures into a voice's sample slot
+  — normalized, granular-ready, with the current frequency as
+  the sample's reference pitch
+• 50+ bundled samples: bansuri, organ, piano, storm, tide,
+  forest, urban, cosmic
 • Cross-device preset sharing via .dronepreset files. AirDrop a
-  patch from web → iPhone → iPad and the same sound lands on each
-  device, samples embedded inline. iCloud auto-sync also available
-  for samples-free presets.
-• Save your own presets, voice presets, and journeys
+  patch from web to iPhone to iPad and the same sound lands on
+  each device, samples embedded inline. iCloud auto-syncs
+  samples-free presets between your iPhone and iPad.
 
-═══════════════════════════════════════
-FOR SOUND HEALERS, COMPOSERS, AND LISTENERS
-
-Whether you're running a sound bath, scoring a film, supporting your
-own meditation practice, or just love the form, Drone Meditations
-gives you the instrument to do it.
-
-One-time purchase. No subscription. No accounts. No tracking.
-
+One-time purchase. No subscription, no accounts, no tracking.
 Free web version: dronemeditations.com
 ```
 
-(About 3,950 chars — just under the 4000 limit.)
+(About 3,950 chars — just under the 4,000 limit.)
 
 ---
 
