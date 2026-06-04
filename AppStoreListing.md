@@ -93,7 +93,7 @@ DESIGNED FOR THE DRONE TRADITION
 
 LIVE CYMATICS THAT BREATHE WITH THE AUDIO
 • Physically-calibrated Chladni patterns fit from real plate-
-  vibration footage. The renderer crossfades between the two
+  vibration footage. The renderer crossfades between two
   adjacent eigenmodes bracketing each voice's live frequency —
   vibrato breathes between physical modes, not styled animation.
 • Pinch to zoom; tap to enter fullscreen Performance mode with
