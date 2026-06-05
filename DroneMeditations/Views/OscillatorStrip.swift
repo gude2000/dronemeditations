@@ -1159,56 +1159,64 @@ struct OscillatorStrip: View {
     }
 
     @ViewBuilder
-    private func lfoTargetPills(lfo: LfoState, lfoIndex: Int) -> some View {
-        // v1.1: LFOs 1-4 show the 7 core targets (pan / amp / cutoff /
-        // pitch / Q / FM / FX-mix) on a single row. LFO 5 shows its
-        // dedicated 9-target set split into TWO rows so every chip is
-        // visible without horizontal scrolling — grain targets on top,
-        // delay+reverb targets on bottom:
-        //
-        //   Row 1: gSize · gDens · gJit · gSpr           (4 grain)
-        //   Row 2: dTime · dFB · dMix · rDec · rMix      (5 fx)
-        //
-        // The DSP layer treats all targets uniformly — the gating here
-        // and the visual split are purely UI affordances.
-        let isLfo5 = (lfoIndex == 4)
-        let chip: (LfoState.Target) -> AnyView = { t in
-            let isOn = lfo.targets.contains(t)
-            return AnyView(
-                Button {
-                    vm.toggleLfoTarget(t, for: index, lfoIndex: lfoIndex)
-                } label: {
-                    Text(t.shortLabel)
-                        .font(.system(size: isPad ? 13 : 9, weight: .semibold))
-                        .lineLimit(1)
-                        .fixedSize(horizontal: true, vertical: false)
-                        .padding(.horizontal, isPad ? 8 : 4)
-                        .padding(.vertical, isPad ? 7 : 3)
-                        .background(
-                            RoundedRectangle(cornerRadius: isPad ? 6 : 4)
-                                .fill(isOn ? Color.accentColor : Color.white.opacity(0.10))
-                        )
-                        .foregroundStyle(isOn ? .white : .white.opacity(0.75))
-                }
-                .buttonStyle(.plain)
-            )
+    /// One LFO target chip. Factored out so the row-builder below
+    /// stays pure SwiftUI ViewBuilder (no `return` statements, no
+    /// AnyView erasure — both of which triggered Xcode warnings).
+    private func lfoTargetChip(_ t: LfoState.Target, lfo: LfoState, lfoIndex: Int) -> some View {
+        // isOn is read twice (background + foreground), but inlining
+        // both avoids the `let` + `return` pattern that triggers the
+        // "ViewBuilder disabled by explicit return" warning. The two
+        // contains-checks compile to the same thing as a let-binding
+        // at -O — neglible.
+        Button {
+            vm.toggleLfoTarget(t, for: index, lfoIndex: lfoIndex)
+        } label: {
+            Text(t.shortLabel)
+                .font(.system(size: isPad ? 13 : 9, weight: .semibold))
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+                .padding(.horizontal, isPad ? 8 : 4)
+                .padding(.vertical, isPad ? 7 : 3)
+                .background(
+                    RoundedRectangle(cornerRadius: isPad ? 6 : 4)
+                        .fill(lfo.targets.contains(t) ? Color.accentColor : Color.white.opacity(0.10))
+                )
+                .foregroundStyle(lfo.targets.contains(t) ? .white : .white.opacity(0.75))
         }
-        return Group {
-            if isLfo5 {
-                // 4+5 split — grain row on top, fx row on bottom.
-                let grainTargets: [LfoState.Target] = [.grainSize, .grainDensity, .grainJitter, .grainSpread]
-                let fxTargets:    [LfoState.Target] = [.delayTime, .delayFeedback, .delayMix, .reverbDecay, .reverbMix]
-                VStack(alignment: .leading, spacing: isPad ? 4 : 2) {
-                    HStack(spacing: isPad ? 5 : 3) {
-                        ForEach(grainTargets) { t in chip(t) }
-                    }
-                    HStack(spacing: isPad ? 5 : 3) {
-                        ForEach(fxTargets) { t in chip(t) }
+        .buttonStyle(.plain)
+    }
+
+    /// v1.1: LFOs 1-4 show the 7 core targets (pan / amp / cutoff /
+    /// pitch / Q / FM / FX-mix) on a single row. LFO 5 shows its
+    /// dedicated 9-target set split into TWO rows so every chip is
+    /// visible without horizontal scrolling — grain targets on top,
+    /// delay+reverb targets on bottom:
+    ///
+    ///   Row 1: gSize · gDens · gJit · gSpr           (4 grain)
+    ///   Row 2: dTime · dFB · dMix · rDec · rMix      (5 fx)
+    ///
+    /// The DSP layer treats all targets uniformly — the gating here
+    /// and the visual split are purely UI affordances.
+    @ViewBuilder
+    private func lfoTargetPills(lfo: LfoState, lfoIndex: Int) -> some View {
+        if lfoIndex == 4 {
+            // 4+5 split — grain row on top, fx row on bottom.
+            VStack(alignment: .leading, spacing: isPad ? 4 : 2) {
+                HStack(spacing: isPad ? 5 : 3) {
+                    ForEach([LfoState.Target.grainSize, .grainDensity, .grainJitter, .grainSpread]) { t in
+                        lfoTargetChip(t, lfo: lfo, lfoIndex: lfoIndex)
                     }
                 }
-            } else {
                 HStack(spacing: isPad ? 5 : 3) {
-                    ForEach(LfoState.Target.coreTargets) { t in chip(t) }
+                    ForEach([LfoState.Target.delayTime, .delayFeedback, .delayMix, .reverbDecay, .reverbMix]) { t in
+                        lfoTargetChip(t, lfo: lfo, lfoIndex: lfoIndex)
+                    }
+                }
+            }
+        } else {
+            HStack(spacing: isPad ? 5 : 3) {
+                ForEach(LfoState.Target.coreTargets) { t in
+                    lfoTargetChip(t, lfo: lfo, lfoIndex: lfoIndex)
                 }
             }
         }
