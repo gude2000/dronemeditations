@@ -315,11 +315,18 @@ final class DroneController: ObservableObject {
             // but doesn't dominate.
             await engineRef.stopWithReverbBloom(
                 fadeDuration: 10.0,
-                peakAt: 0.30,
-                peakMix: 0.30,
+                peakAt: 0.40,
+                peakMix: 0.20,
                 peakDecay: 7.0,
-                plateauWidth: 0.15
+                plateauWidth: 0.05
             )
+            // Softening pass per user request: peakMix 0.30 → 0.20 (less
+            // wet wash at peak), peakAt 0.30 → 0.40 (slower, gentler
+            // ramp-in into the wash), plateauWidth 0.15 → 0.05 (briefer
+            // peak — drift in, hold a moment, drift out). Curve in
+            // AudioEngine.startStopBloom upgraded to smootherstep, which
+            // also softens the endpoint approach independently. Together,
+            // the bloom now feels like a slow breath rather than a swell.
             // If the user re-pressed Play during the fade, state is no
             // longer .stopped — exit cleanly. (Play also calls
             // cancelStopBloom() so reverb is restored even if the fade

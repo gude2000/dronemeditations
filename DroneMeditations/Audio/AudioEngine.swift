@@ -600,21 +600,30 @@ final class AudioEngine {
             let tLin = min(1.0, elapsed / totalDuration)
 
             // Trapezoidal envelope:
-            //   [0, peakAt]            ramp UP   (smoothstep)
+            //   [0, peakAt]            ramp UP   (smootherstep)
             //   [peakAt, plateauEnd]   hold at 1 (plateau — wet wash)
-            //   [plateauEnd, 1]        ramp DOWN (smoothstep)
+            //   [plateauEnd, 1]        ramp DOWN (smootherstep)
             // With plateauWidth=0, plateauEnd == peakAt → collapses to
             // the original triangular shape (no behaviour change for
             // pauseWithReverbBloom which doesn't pass plateauWidth).
+            //
+            // Curve is Ken Perlin's smootherstep 6p⁵ − 15p⁴ + 10p³.
+            // Vs the classic smoothstep 3p² − 2p³, this has zero first
+            // AND second derivatives at both endpoints, giving a much
+            // gentler onset/offset — the wet wash drifts in instead of
+            // sliding in. User-requested softening of the stop bloom.
+            func smootherstep(_ p: Double) -> Double {
+                return p * p * p * (p * (p * 6 - 15) + 10)
+            }
             let raw: Double
             if tLin <= clampedPeakAt {
                 let phase = tLin / clampedPeakAt   // 0 → 1
-                raw = phase * phase * (3 - 2 * phase)
+                raw = smootherstep(phase)
             } else if tLin <= plateauEnd {
                 raw = 1.0
             } else {
                 let phase = (1 - tLin) / max(0.0001, 1 - plateauEnd)   // 1 → 0
-                raw = phase * phase * (3 - 2 * phase)
+                raw = smootherstep(phase)
             }
             let t = Float(raw)
             let tD = raw
