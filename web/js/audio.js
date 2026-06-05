@@ -1212,9 +1212,15 @@ export class AudioEngine {
     // v1.1 LFO 5 — delay time direct AudioParam ramp. Per-buffer slew
     // is short enough to track moderate-rate LFOs but smooth enough to
     // avoid Doppler chirps. Same pattern as the chorus delayTime AudioParam.
+    // Buffer-rate smoothing on the factor itself breaks up S&H/square
+    // LFO steps so the tap doesn't jump hard between buffers — the
+    // AudioParam ramp finishes the smoothing into chorus-y shimmer.
     if (anyDelayTime || v._lfo5DelayTimeWasActive) {
+      if (v._smoothLfoDelayTimeFactor == null) v._smoothLfoDelayTimeFactor = 1;
+      const targetFactor = anyDelayTime ? delayTimeFactor : 1;
+      v._smoothLfoDelayTimeFactor += (targetFactor - v._smoothLfoDelayTimeFactor) * 0.10;
       const baseDly = Math.max(0.001, v.params.delay.timeSec || 0.3);
-      const effDly = Math.max(0.001, Math.min(2.0, baseDly * (anyDelayTime ? delayTimeFactor : 1)));
+      const effDly = Math.max(0.001, Math.min(2.0, baseDly * v._smoothLfoDelayTimeFactor));
       if (v.delayL && v.delayL.delayTime) {
         v.delayL.delayTime.cancelScheduledValues(now);
         v.delayL.delayTime.setValueAtTime(v.delayL.delayTime.value, now);
@@ -1231,8 +1237,11 @@ export class AudioEngine {
     // both are active (LFO 5 can fade JUST reverb while another LFO
     // sweeps the whole bus).
     if (anyReverbMix || v._lfo5ReverbMixWasActive) {
+      if (v._smoothLfoReverbMixMod == null) v._smoothLfoReverbMixMod = 0;
+      const targetMod = anyReverbMix ? reverbMixMod : 0;
+      v._smoothLfoReverbMixMod += (targetMod - v._smoothLfoReverbMixMod) * 0.10;
       const baseRev = v.params.reverb.mix || 0;
-      const effRev = Math.max(0, Math.min(1, baseRev + (anyReverbMix ? reverbMixMod : 0)));
+      const effRev = Math.max(0, Math.min(1, baseRev + v._smoothLfoReverbMixMod));
       v.reverbWet.gain.cancelScheduledValues(now);
       v.reverbWet.gain.setValueAtTime(v.reverbWet.gain.value, now);
       v.reverbWet.gain.linearRampToValueAtTime(effRev, now + LFO_SMOOTH);

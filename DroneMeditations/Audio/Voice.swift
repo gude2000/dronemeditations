@@ -219,6 +219,19 @@ final class Voice {
     /// effectively a small Doppler shift; faster slew = more audible
     /// pitch glide during a drag. 200 ms keeps the glide subtle.
     private var currentDelayTapSamples: Double = -1   // -1 = uninitialized
+    /// v1.1 LFO 5 — buffer-rate smoothing on the LFO mod accumulators
+    /// for the three delay/reverb targets that ride recursive gain
+    /// stages. The existing 15 ms per-sample slew on currentDelay*
+    /// can't fully smooth instant S&H/square LFO jumps, which click
+    /// through the feedback loop. We low-pass the mod values across
+    /// buffers (~50-100 ms convergence) BEFORE they hit dlyFb / etc.,
+    /// turning instant LFO steps into smooth ramps that the existing
+    /// per-sample slew finishes off cleanly.
+    private var smoothLfoDelayFbMod: Double = 0
+    private var smoothLfoDelayTimeFactor: Double = 1.0
+    private var smoothLfoDelayMixMod: Double = 0
+    private var smoothLfoReverbDecayFactor: Double = 1.0
+    private var smoothLfoReverbMixMod: Double = 0
     /// Slewed chorus depth so chSwing (depth × maxSwing) varies smoothly
     /// per sample instead of stepping per buffer when the user drags the
     /// chorus DEPTH slider. Uses the same ~15 ms modSlew as the gain
@@ -599,6 +612,21 @@ final class Voice {
         let biquadChunk = 16
         var biquadCountdown = 0
 
+        // ── v1.1 LFO 5 buffer-rate mod smoothing. Roll each of the
+        // five recursive-gain-stage mod accumulators 10% toward the
+        // newly-computed buffer value. At a typical 256-sample buffer
+        // (5.3 ms at 48k), this is a ~50-60 ms exponential time
+        // constant — long enough to break up instant S&H/square LFO
+        // steps so they ramp into the per-sample slew below cleanly,
+        // short enough that smooth LFO shapes (sine/triangle) track
+        // the mod target with imperceptible phase lag.
+        let bufLfoSmooth = 0.10
+        smoothLfoDelayFbMod         += (delayFbMod         - smoothLfoDelayFbMod)         * bufLfoSmooth
+        smoothLfoDelayTimeFactor    += (delayTimeFactor    - smoothLfoDelayTimeFactor)    * bufLfoSmooth
+        smoothLfoDelayMixMod        += (delayMixMod        - smoothLfoDelayMixMod)        * bufLfoSmooth
+        smoothLfoReverbDecayFactor  += (reverbDecayFactor  - smoothLfoReverbDecayFactor)  * bufLfoSmooth
+        smoothLfoReverbMixMod       += (reverbMixMod       - smoothLfoReverbMixMod)       * bufLfoSmooth
+
         // ── Recompute reverb comb feedbacks (cheap, once per buffer).
         // L and R have different comb lengths so the feedback rates differ
         // by a fraction of a percent — the stereo width comes from the
@@ -607,7 +635,7 @@ final class Voice {
         // v1.1: LFO 5 .reverbDecay target multiplies the effective decay
         // seconds. Clamped to the valid 0.1..10 range so wild factors
         // can't push us out of musical territory.
-        let effReverbDecaySec = max(0.1, min(10.0, reverbDecaySec * reverbDecayFactor))
+        let effReverbDecaySec = max(0.1, min(10.0, reverbDecaySec * smoothLfoReverbDecayFactor))
         let decayDenom = sampleRate * effReverbDecaySec
         for k in 0..<4 {
             combFb[k]  = exp(-ln10x3 * Double(Voice.combLengths[k])  / decayDenom)
@@ -618,7 +646,9 @@ final class Voice {
         // v1.1: LFO 5 .delayTime target multiplies the effective tap
         // length. The 200 ms per-sample slew below smooths any fast LFO
         // moves into chorus-like pitch shimmer rather than Doppler chirps.
-        let effDelayTimeSec = max(0.001, delayTimeSec * delayTimeFactor)
+        // Use the buffer-smoothed factor (above) so S&H steps roll in
+        // gradually rather than as instant tap jumps.
+        let effDelayTimeSec = max(0.001, delayTimeSec * smoothLfoDelayTimeFactor)
         let delayTapSamplesTarget = max(1.0,
             min(Double(delayBufferSize - 1), effDelayTimeSec * sampleRate))
         if currentDelayTapSamples < 0 {
@@ -637,12 +667,14 @@ final class Voice {
         let fxMixBias = Float(fxMixMod)
         // v1.1: LFO 5 .reverbMix / .delayMix bias adds to fxMixBias.
         // Each is independent — LFO 5 can fade JUST reverb in while
-        // an LFO targeting fxMix sweeps the whole bus.
-        let revMix = max(0.0, min(1.0, reverbMix + fxMixBias + Float(reverbMixMod)))
-        let dlyMix = max(0.0, min(1.0, delayMix + fxMixBias + Float(delayMixMod)))
+        // an LFO targeting fxMix sweeps the whole bus. Use the
+        // buffer-smoothed mod values (see above) so S&H/square LFOs
+        // don't step the gain stage hard between buffers.
+        let revMix = max(0.0, min(1.0, reverbMix + fxMixBias + Float(smoothLfoReverbMixMod)))
+        let dlyMix = max(0.0, min(1.0, delayMix + fxMixBias + Float(smoothLfoDelayMixMod)))
         // v1.1: LFO 5 .delayFeedback bias. Hard upper limit at 0.95 to
-        // prevent runaway feedback.
-        let dlyFb = max(0.0, min(0.95, delayFeedback + Float(delayFbMod)))
+        // prevent runaway feedback. Buffer-smoothed (see above).
+        let dlyFb = max(0.0, min(0.95, delayFeedback + Float(smoothLfoDelayFbMod)))
         // v1.1: LFO 5 granular targets. Effective values are stable
         // across one buffer (LFO sampled once per buffer for grain
         // params, same as for delay/reverb above). Clamped at the
