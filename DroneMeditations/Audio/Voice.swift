@@ -448,6 +448,21 @@ final class Voice {
         var delayMixMod: Double        = 0
         var reverbDecayFactor: Double  = 1.0
         var reverbMixMod: Double       = 0
+        // v1.1 LFO 5 — track per-target "did any LFO actually modulate
+        // this FX path THIS buffer?" so we can bypass the smoothing
+        // pipeline entirely when nothing is active. The smoothing was
+        // introducing a click on pause/stop because the comb-filter
+        // recompute (Voice.swift line ~553) reads decay via the
+        // smoothed factor — any drift from 1.0 changes the feedback
+        // coefficients per buffer, audible as a click during the
+        // master fade. When nothing's modulating an FX target,
+        // snapping its smoothed value to identity gives bit-identical
+        // v1.0 behavior for that path.
+        var lfo5ActiveReverbDecay = false
+        var lfo5ActiveReverbMix   = false
+        var lfo5ActiveDelayTime   = false
+        var lfo5ActiveDelayFb     = false
+        var lfo5ActiveDelayMix    = false
         for k in 0..<5 {
             let depth = lfoDepths[k]
             if depth < 0.001 { continue }
@@ -545,6 +560,7 @@ final class Voice {
                     // slew and produce audible Doppler chirps. ±15%
                     // keeps the chorus-like shimmer without artifacts.
                     delayTimeFactor *= (1.0 + 0.15 * depth * value)
+                    lfo5ActiveDelayTime = true
                 case .delayFeedback:
                     // Additive ±0.10 on feedback (range 0..0.95).
                     // Smaller swing intentional — feedback rides a
@@ -553,10 +569,12 @@ final class Voice {
                     // even with S&H shapes; stack two LFO5 targets if
                     // you need more drama.
                     delayFbMod += 0.10 * depth * value
+                    lfo5ActiveDelayFb = true
                 case .delayMix:
                     // Additive ±0.5 on the delay wet mix. Stacks with
                     // the FX-Mix macro if both target FX simultaneously.
                     delayMixMod += 0.5 * depth * value
+                    lfo5ActiveDelayMix = true
                 case .reverbDecay:
                     // Multiplicative ±25% on reverb decay seconds —
                     // also intentionally moderate. Reverb comb gains
@@ -564,9 +582,11 @@ final class Voice {
                     // audible breathing artifacts. ±25% is plenty for
                     // the "breathing room" gesture without artifacts.
                     reverbDecayFactor *= (1.0 + 0.25 * depth * value)
+                    lfo5ActiveReverbDecay = true
                 case .reverbMix:
                     // Additive ±0.5 on the reverb wet mix.
                     reverbMixMod += 0.5 * depth * value
+                    lfo5ActiveReverbMix = true
                 }
             }
         }
@@ -621,11 +641,41 @@ final class Voice {
         // short enough that smooth LFO shapes (sine/triangle) track
         // the mod target with imperceptible phase lag.
         let bufLfoSmooth = 0.10
-        smoothLfoDelayFbMod         += (delayFbMod         - smoothLfoDelayFbMod)         * bufLfoSmooth
-        smoothLfoDelayTimeFactor    += (delayTimeFactor    - smoothLfoDelayTimeFactor)    * bufLfoSmooth
-        smoothLfoDelayMixMod        += (delayMixMod        - smoothLfoDelayMixMod)        * bufLfoSmooth
-        smoothLfoReverbDecayFactor  += (reverbDecayFactor  - smoothLfoReverbDecayFactor)  * bufLfoSmooth
-        smoothLfoReverbMixMod       += (reverbMixMod       - smoothLfoReverbMixMod)       * bufLfoSmooth
+        // Per FX target: only run the buffer-rate smoothing when an LFO 5
+        // target actually fired this buffer. When inactive, hard-snap the
+        // smoothed value to identity (1.0 for factors, 0.0 for additive
+        // mods). This is the click-fix for pause/stop: any drift of the
+        // smoothed reverbDecay factor from 1.0 changes the comb feedback
+        // recompute per buffer, which is audible as a click during the
+        // master fade (see AudioEngine.startStopBloom comment). Snapping
+        // when inactive guarantees effReverbDecaySec == reverbDecaySec
+        // bit-identically, so the comb-filter coefficients are constant
+        // across buffers — no click, full natural reverb tail.
+        if lfo5ActiveDelayFb {
+            smoothLfoDelayFbMod += (delayFbMod - smoothLfoDelayFbMod) * bufLfoSmooth
+        } else {
+            smoothLfoDelayFbMod = 0
+        }
+        if lfo5ActiveDelayTime {
+            smoothLfoDelayTimeFactor += (delayTimeFactor - smoothLfoDelayTimeFactor) * bufLfoSmooth
+        } else {
+            smoothLfoDelayTimeFactor = 1.0
+        }
+        if lfo5ActiveDelayMix {
+            smoothLfoDelayMixMod += (delayMixMod - smoothLfoDelayMixMod) * bufLfoSmooth
+        } else {
+            smoothLfoDelayMixMod = 0
+        }
+        if lfo5ActiveReverbDecay {
+            smoothLfoReverbDecayFactor += (reverbDecayFactor - smoothLfoReverbDecayFactor) * bufLfoSmooth
+        } else {
+            smoothLfoReverbDecayFactor = 1.0
+        }
+        if lfo5ActiveReverbMix {
+            smoothLfoReverbMixMod += (reverbMixMod - smoothLfoReverbMixMod) * bufLfoSmooth
+        } else {
+            smoothLfoReverbMixMod = 0
+        }
 
         // ── Recompute reverb comb feedbacks (cheap, once per buffer).
         // L and R have different comb lengths so the feedback rates differ

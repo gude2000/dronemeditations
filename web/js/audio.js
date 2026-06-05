@@ -1217,8 +1217,15 @@ export class AudioEngine {
     // AudioParam ramp finishes the smoothing into chorus-y shimmer.
     if (anyDelayTime || v._lfo5DelayTimeWasActive) {
       if (v._smoothLfoDelayTimeFactor == null) v._smoothLfoDelayTimeFactor = 1;
-      const targetFactor = anyDelayTime ? delayTimeFactor : 1;
-      v._smoothLfoDelayTimeFactor += (targetFactor - v._smoothLfoDelayTimeFactor) * 0.10;
+      if (anyDelayTime) {
+        v._smoothLfoDelayTimeFactor += (delayTimeFactor - v._smoothLfoDelayTimeFactor) * 0.10;
+      } else {
+        // Hard-snap to identity when LFO 5 stops modulating — same fix
+        // as iOS Voice.swift. Asymptotic smoothing toward 1 in a single
+        // buffer left a residual offset on the delay tap; snapping
+        // guarantees the AudioParam returns to base exactly.
+        v._smoothLfoDelayTimeFactor = 1;
+      }
       const baseDly = Math.max(0.001, v.params.delay.timeSec || 0.3);
       const effDly = Math.max(0.001, Math.min(2.0, baseDly * v._smoothLfoDelayTimeFactor));
       if (v.delayL && v.delayL.delayTime) {
@@ -1238,8 +1245,12 @@ export class AudioEngine {
     // sweeps the whole bus).
     if (anyReverbMix || v._lfo5ReverbMixWasActive) {
       if (v._smoothLfoReverbMixMod == null) v._smoothLfoReverbMixMod = 0;
-      const targetMod = anyReverbMix ? reverbMixMod : 0;
-      v._smoothLfoReverbMixMod += (targetMod - v._smoothLfoReverbMixMod) * 0.10;
+      if (anyReverbMix) {
+        v._smoothLfoReverbMixMod += (reverbMixMod - v._smoothLfoReverbMixMod) * 0.10;
+      } else {
+        // Hard-snap to 0 — see delayTime block above.
+        v._smoothLfoReverbMixMod = 0;
+      }
       const baseRev = v.params.reverb.mix || 0;
       const effRev = Math.max(0, Math.min(1, baseRev + v._smoothLfoReverbMixMod));
       v.reverbWet.gain.cancelScheduledValues(now);
