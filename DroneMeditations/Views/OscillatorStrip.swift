@@ -1114,8 +1114,18 @@ struct OscillatorStrip: View {
                     .foregroundStyle(active ? Color.accentColor : .secondary)
                     .frame(width: 36, alignment: .leading)
                 lfoShapeButtons(lfo: lfo, lfoIndex: lfoIndex)
-                lfoTargetPills(lfo: lfo, lfoIndex: lfoIndex)
-                    .layoutPriority(1)
+                // v1.1: LFOs 1-4's 7-chip row gets layoutPriority(1)
+                // so it claims its full content width over the rate /
+                // depth columns. LFO 5's 9-chip row is too wide for that
+                // — instead we let it flex (drop the priority) so rate
+                // and depth stay full-width; the row's internal
+                // ScrollView (see lfoTargetPills) handles overflow.
+                if lfoIndex == 4 {
+                    lfoTargetPills(lfo: lfo, lfoIndex: lfoIndex)
+                } else {
+                    lfoTargetPills(lfo: lfo, lfoIndex: lfoIndex)
+                        .layoutPriority(1)
+                }
                 lfoRateColumn(lfo: lfo, lfoIndex: lfoIndex)
                 lfoDepthColumn(lfo: lfo, lfoIndex: lfoIndex)
             }
@@ -1189,9 +1199,19 @@ struct OscillatorStrip: View {
         }
         return Group {
             if isLfo5 {
+                // Constrain the ScrollView to available horizontal space.
+                // Without an explicit frame the ScrollView reports its
+                // intrinsic size (= sum of fixed-size chips), which on
+                // landscape lets the chip row squeeze the rate/depth
+                // columns to vertical-text width. .frame(maxWidth:
+                // .infinity) tells the parent HStack the ScrollView is
+                // flexible; combined with .layoutPriority on the chip
+                // row (set at the call site), it gets the remaining
+                // space the other columns don't claim.
                 ScrollView(.horizontal, showsIndicators: false) {
                     pillRow
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 pillRow
             }
