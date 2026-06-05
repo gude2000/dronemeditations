@@ -237,6 +237,48 @@ struct ControlsOverlay: View {
                         .foregroundStyle(.white.opacity(0.7))
                 }
                 Spacer()
+                // BPM picker — lifted into the header so it's always visible
+                // without scrolling to the bottom of the controls panel.
+                // Drives every voice's delay-time when set to a musical
+                // subdivision + every LFO's rate-sync.
+                Menu {
+                    Section("Tempo") {
+                        ForEach(DroneViewModel.bpmChoices, id: \.self) { val in
+                            Button {
+                                vm.setBPM(val)
+                            } label: {
+                                if abs(vm.bpm - val) < 0.5 {
+                                    Label("\(Int(val)) BPM", systemImage: "checkmark")
+                                } else {
+                                    Text("\(Int(val)) BPM")
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    Text("\(Int(vm.bpm))")
+                        .font(.system(size: 13, weight: .heavy, design: .monospaced))
+                        .frame(width: 38, height: 34)
+                        .background(Capsule().fill(Color.white.opacity(0.10)))
+                        .foregroundStyle(.white)
+                }
+                .menuStyle(.borderlessButton)
+                .accessibilityLabel("Tempo: \(Int(vm.bpm)) BPM")
+                // Metronome toggle — sample-accurate quarter-note click,
+                // accent on beat 1 of 4, audible before Play. Lights purple.
+                Button {
+                    vm.setMetronomeOn(!vm.metronomeOn)
+                } label: {
+                    Image(systemName: vm.metronomeOn ? "metronome.fill" : "metronome")
+                        .font(.system(size: 14, weight: .semibold))
+                        .frame(width: 34, height: 34)
+                        .background(Circle().fill(vm.metronomeOn
+                            ? Color(red: 0.81, green: 0.71, blue: 0.92).opacity(0.85)
+                            : Color.white.opacity(0.10)))
+                        .foregroundStyle(vm.metronomeOn ? Color.black : Color.white)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(vm.metronomeOn ? "Metronome on" : "Metronome off")
                 // "?" button — re-opens the first-launch onboarding tour for
                 // returning users who want a refresher or want to show a
                 // friend what the app does.
@@ -559,6 +601,47 @@ struct ControlsOverlay: View {
             // higher layoutPriority so they always render fully on the
             // right edge, never crowded by the scrolling pill row.
             HStack(spacing: 6) {
+            // Compact BPM picker — same as the portrait header BPM menu,
+            // smaller glyph for the iPhone-landscape compact icon row.
+            // Lifted from masterRow so it's always visible without
+            // scrolling past four oscillator strips.
+            Menu {
+                Section("Tempo") {
+                    ForEach(DroneViewModel.bpmChoices, id: \.self) { val in
+                        Button {
+                            vm.setBPM(val)
+                        } label: {
+                            if abs(vm.bpm - val) < 0.5 {
+                                Label("\(Int(val)) BPM", systemImage: "checkmark")
+                            } else {
+                                Text("\(Int(val)) BPM")
+                            }
+                        }
+                    }
+                }
+            } label: {
+                Text("\(Int(vm.bpm))")
+                    .font(.system(size: 11, weight: .heavy, design: .monospaced))
+                    .frame(width: 32, height: 28)
+                    .background(Capsule().fill(Color.white.opacity(0.10)))
+                    .foregroundStyle(.white)
+            }
+            .menuStyle(.borderlessButton)
+            .accessibilityLabel("Tempo: \(Int(vm.bpm)) BPM")
+            // Compact metronome toggle — same behaviour as portrait header.
+            Button {
+                vm.setMetronomeOn(!vm.metronomeOn)
+            } label: {
+                Image(systemName: vm.metronomeOn ? "metronome.fill" : "metronome")
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(width: 28, height: 28)
+                    .background(Circle().fill(vm.metronomeOn
+                        ? Color(red: 0.81, green: 0.71, blue: 0.92).opacity(0.85)
+                        : Color.white.opacity(0.10)))
+                    .foregroundStyle(vm.metronomeOn ? Color.black : Color.white)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(vm.metronomeOn ? "Metronome on" : "Metronome off")
             // Compact "?" — re-opens onboarding tour. Same notification
             // post pattern as the portrait header, just smaller glyph.
             Button {
@@ -650,54 +733,11 @@ struct ControlsOverlay: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 32, alignment: .trailing)
 
-            // Global BPM picker (v1.1). Drives every voice's delay-time
-            // when its timing is set to a musical division (½, ¼, etc.).
-            // Free-mode delays are unaffected. Hidden behind a Menu to
-            // keep the master row uncluttered for users who never sync.
-            Menu {
-                Section("Tempo") {
-                    ForEach(DroneViewModel.bpmChoices, id: \.self) { val in
-                        Button {
-                            vm.setBPM(val)
-                        } label: {
-                            if abs(vm.bpm - val) < 0.5 {
-                                Label("\(Int(val)) BPM", systemImage: "checkmark")
-                            } else {
-                                Text("\(Int(val)) BPM")
-                            }
-                        }
-                    }
-                }
-            } label: {
-                Text("\(Int(vm.bpm))")
-                    .font(.system(size: 11, weight: .heavy, design: .monospaced))
-                    .frame(width: 32, height: 28)
-                    .background(
-                        Capsule().fill(Color.white.opacity(0.10))
-                    )
-                    .foregroundStyle(.white)
-            }
-            .menuStyle(.borderlessButton)
-            .accessibilityLabel("Tempo: \(Int(vm.bpm)) BPM")
-
-            // v1 metronome toggle. Sample-accurate quarter-note click
-            // at the current BPM with an accent on beat 1 of 4. Useful
-            // for verifying BPM-quantized grain density + delay sync
-            // by ear. Lights up while active.
-            Button {
-                vm.setMetronomeOn(!vm.metronomeOn)
-            } label: {
-                Image(systemName: vm.metronomeOn ? "metronome.fill" : "metronome")
-                    .font(.system(size: 13, weight: .semibold))
-                    .frame(width: 28, height: 28)
-                    .background(
-                        Circle().fill(vm.metronomeOn
-                            ? Color(red: 0.81, green: 0.71, blue: 0.92).opacity(0.85)
-                            : Color.white.opacity(0.10))
-                    )
-                    .foregroundStyle(vm.metronomeOn ? Color.black : Color.white)
-            }
-            .accessibilityLabel(vm.metronomeOn ? "Metronome on" : "Metronome off")
+            // BPM picker + metronome toggle were here originally but were
+            // moved up into the always-visible header icon row — they were
+            // buried below four oscillator strips and effectively
+            // undiscoverable on iPhone landscape. See header HStacks
+            // around lines ~245 (portrait) and ~565 (compact landscape).
 
             // Haptics intensity cycle — Off → Light → Heavy → Off. Each
             // tap rotates to the next mode. Taps fire in time with the
