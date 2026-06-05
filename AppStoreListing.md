@@ -60,10 +60,12 @@ SOUNDS YOU CAN SIT WITH FOR HOURS
 • Per-voice filter (LP / HP / BP), drive, cross-osc FM, stereo
   chorus, three-mode delay with musical timing, stereo Schroeder
   reverb
-• Sixteen multi-target LFOs per patch (four per voice). Each LFO
-  drives amplitude, pan, cutoff, Q, pitch, FM index, and the
-  FX-Mix macro simultaneously. Each can lock its rate to a musical
-  subdivision of the global tempo.
+• Twenty multi-target modulators per patch (five LFOs per voice).
+  LFOs 1–4 drive amplitude, pan, cutoff, Q, pitch, FM index, and
+  the FX-Mix macro. LFO 5 has its own dedicated row of granular +
+  FX targets (grain size / density / jitter / spread, delay
+  subdivisions / feedback / mix, reverb decay / mix). Each can
+  lock its rate to a musical subdivision of the global tempo.
 • Per-voice timing envelopes — fade in over minutes, fade out
   later, repeat N times or forever. Rotate harmonically across
   20 minutes without touching a slider.
@@ -150,6 +152,48 @@ phrases waste characters.)
 
 ## 6. What's New in This Version (4000 char max)
 
+For 1.1:
+```
+v1.1 — LFO 5
+
+A fifth LFO per voice, with a dedicated row of nine targets your
+existing four LFOs can't reach:
+
+• Granular — grain size, grain density, grain timing jitter, grain
+  pan spread. Pair an S&H shape on grain density at 1/8 with the
+  density-quantize chip on, and you get instant rhythmic grain
+  pulses. Slow sine on size = breathing texture. Two voices each
+  with a square LFO on density at slightly different rates =
+  Steve Reich-style grain-cloud phasing.
+• Delay — delay tap length, delay feedback, delay wet mix. Slow
+  triangle on dTime is chorus-y shimmer; LFO on dFB breathes the
+  tail in and out without touching the slider.
+• Reverb — reverb decay seconds, reverb wet mix. Independent from
+  the existing FX-Mix macro, so you can sweep JUST reverb while
+  another LFO sweeps the whole bus.
+
+LFO 5 shares the same five shapes (sine / triangle / sawtooth /
+square / S&H) and the same BPM-syncable rate as the four LFOs you
+already know. Sits in its own row right below LFO 4 with a two-row
+chip grid — grain on top, FX on the bottom.
+
+Bumps the modulator count from 16 to 20 per patch.
+
+Plus:
+
+• Smoother Pause and Stop. The atmospheric reverb-bloom on Stop is
+  gentler now — the wet wash drifts in and out instead of swelling
+  hard, with a lower peak and briefer plateau. Pause = audible
+  1.4 s exponential fade.
+• Several click-and-tail fixes in the FX bus when LFOs are touching
+  reverb decay or delay feedback at high depth.
+
+Your existing presets stay fully compatible — older 4-LFO patches
+load with LFO 5 disabled. Save a new patch and LFO 5 round-trips
+through .dronepreset files just like the other LFOs.
+```
+(~1,750 chars — well under the 4,000 limit.)
+
 For 1.0 (initial release):
 ```
 Welcome to Drone Meditations.
@@ -163,9 +207,11 @@ What's in the box:
 • Four oscillators with real synthesis (sine through pink noise,
   plus granular + loaded samples) and full per-voice FX — filter,
   drive, FM, chorus, three-mode delay, stereo reverb.
-• Sixteen multi-target LFOs across the four voices. Each LFO can
+• Twenty multi-target modulators across the four voices. LFOs 1–4
   drive amplitude, pan, filter cutoff, Q, pitch, FM index, or the
-  FX-Mix macro — all at once.
+  FX-Mix macro — all at once. The new LFO 5 has a dedicated row of
+  granular + FX targets (grain size / density / jitter / spread,
+  delay subdivisions / feedback / mix, reverb decay / mix).
 • 80+ presets: Drone Artists tributes, Modal chords, Developer
   Patches, Solfeggio, Natural Resonance, Cymatics, Mystic & Composers
   — plus an INIT preset pinned at the top for building from scratch.

@@ -387,7 +387,7 @@
     <li><a href="#presets">Presets &amp; voice presets</a> · <a href="./preset-reference.html">Full preset reference →</a></li>
     <li><a href="#waveforms">Waveforms (sine, sawtooth, white/pink noise, granular, sample…)</a></li>
     <li><a href="#fx">Per-voice FX (filter, drive, FM, chorus, delay, reverb)</a></li>
-    <li><a href="#lfos">The 4 LFOs</a></li>
+    <li><a href="#lfos">The 5 LFOs</a></li>
     <li><a href="#samples">Samples (upload + bundled)</a></li>
     <li><a href="#pills">Drift · Listen · Perform · Journey · Morph · Gallery</a></li>
     <li><a href="#chladni">Chladni visualization</a></li>
@@ -485,7 +485,7 @@
     <figcaption>The full controls panel. Note the <strong>🎲 dice</strong> and faint <strong>↶ undo</strong> at the right end of the OSC pill row (top-of-strip global randomize / undo), and the LFO target row where multiple destinations can be enabled simultaneously.</figcaption>
   </figure>
 
-  <p>From top to bottom: <strong>header</strong> (app name, tuning + chord summary, spectrum / camera / cymatics-style toggles) → <strong>pill row</strong> (CHORD · PRESET · DRIFT · LISTEN · PERFORM · JOURNEY · MORPH · GALLERY) → <strong>oscillator strips</strong> (one per voice, each carrying waveform + frequency + pan + level + filter + FX + 4 LFOs) → <strong>transport</strong> (Play / Stop / Record + session timer) → <strong>copyright + Manual link</strong> (the slim row at the very bottom).</p>
+  <p>From top to bottom: <strong>header</strong> (app name, tuning + chord summary, spectrum / camera / cymatics-style toggles) → <strong>pill row</strong> (CHORD · PRESET · DRIFT · LISTEN · PERFORM · JOURNEY · MORPH · GALLERY) → <strong>oscillator strips</strong> (one per voice, each carrying waveform + frequency + pan + level + filter + FX + 5 LFOs) → <strong>transport</strong> (Play / Stop / Record + session timer) → <strong>copyright + Manual link</strong> (the slim row at the very bottom).</p>
 
   <p>Tap or click <strong>anywhere outside</strong> a control to dismiss the panel and reveal the visualization full-screen. Tap again to bring it back. A slim "Tap to show controls" hint appears at the bottom when hidden, with mini freq + S/M controls so you can still adjust audio while watching the Chladni.</p>
 </section>
@@ -503,7 +503,7 @@
     <tr><td>Level</td><td>Per-voice volume, 0–100%.</td></tr>
     <tr><td><kbd>S</kbd></td><td>Solo. Any voice soloed silences the unsoloed ones.</td></tr>
     <tr><td><kbd>M</kbd></td><td>Mute.</td></tr>
-    <tr><td>🎲 Randomize (per strip)</td><td>Re-rolls just <em>this</em> oscillator. Everything <em>except level</em> changes: waveform, freq, filter, all 4 LFOs, reverb, delay, drift. One tap = a new world.</td></tr>
+    <tr><td>🎲 Randomize (per strip)</td><td>Re-rolls just <em>this</em> oscillator. Everything <em>except level</em> changes: waveform, freq, filter, all 5 LFOs, reverb, delay, drift. One tap = a new world.</td></tr>
     <tr><td>🎲 Randomize all (top OSC bar)</td><td>The dice button at the end of the OSC 1·2·3·4 pill row rolls <em>all four voices at once</em>, then picks a fresh chord — without disturbing your master volumes. The faint <strong>↶ undo</strong> button next to it restores the exact state you had before the last randomize, so you can A/B between "the patch you had" and "the patch the dice gave you."</td></tr>
     <tr><td>⭐ Voice presets</td><td>Save / load / delete <em>just this oscillator</em>'s settings. Great for keeping a favorite bass + cycling through pads above.</td></tr>
     <tr><td>👂 Tune to Room (per voice)</td><td>Opens a mic-pitch sheet scoped to <em>just this voice</em>. Sing or play a steady tone — the YIN detector locks on, and tapping <em>Set as Freq</em> snaps the voice's frequency to whatever pitch you held. Each voice can be tuned independently (so OSC 1 to a singing bowl, OSC 2 to your voice, OSC 3 to a tuning fork). Unlike the global <a href="#pills">LISTEN</a> pill which retunes the chord <em>root</em>, this only touches the freq slider on the strip you tapped — leaving the others alone.</td></tr>
@@ -585,7 +585,7 @@
   </div>
 
   <h3>Voice presets</h3>
-  <p>The <strong>⭐</strong> button on each oscillator strip opens a menu to <em>Save current</em>, <em>Load…</em>, or <em>Delete…</em> a single-voice snapshot — waveform, freq, level, pan, filter, all 4 LFOs, FX, drift. Useful for keeping a perfect bass and quickly swapping the pad above.</p>
+  <p>The <strong>⭐</strong> button on each oscillator strip opens a menu to <em>Save current</em>, <em>Load…</em>, or <em>Delete…</em> a single-voice snapshot — waveform, freq, level, pan, filter, all 5 LFOs, FX, drift. Useful for keeping a perfect bass and quickly swapping the pad above.</p>
 
   <h3>Sharing presets between devices <span class="lede" style="font-size:14px;font-weight:500;">— iPhone ↔ iPad ↔ browser ↔ a friend</span></h3>
   <p>Every saved user preset can be packed into a <strong>.dronepreset</strong> file — a single JSON envelope containing the full per-voice state plus any loaded sample audio inline. The receiving device reconstructs everything end-to-end, no extra copy of the audio needed.</p>
@@ -675,8 +675,8 @@
 
 <!-- ───────────────── LFOs ───────────────── -->
 <section id="lfos">
-  <h2><span class="num">9</span>The 4 LFOs per voice</h2>
-  <p class="lede">Each voice has four low-frequency oscillators that modulate a chosen target.</p>
+  <h2><span class="num">9</span>The 5 LFOs per voice</h2>
+  <p class="lede">Each voice has five low-frequency oscillators. LFOs 1–4 share a common pool of synth targets; LFO 5 has its own dedicated row of granular + delay + reverb targets — so a single patch carries up to <strong>20 multi-target modulators</strong>.</p>
 
   <table>
     <tr><th>LFO</th><th>Default target</th><th>Suggested use</th></tr>
@@ -684,15 +684,41 @@
     <tr><td>LFO 2</td><td>Filter cutoff</td><td>Vowel-like sweeps.</td></tr>
     <tr><td>LFO 3</td><td>Pan</td><td>Stereo wander, auto-pan.</td></tr>
     <tr><td>LFO 4</td><td>Pitch</td><td>Vibrato (small depth) or wobble (large).</td></tr>
+    <tr><td>LFO 5</td><td>Grain density</td><td>Stuttering grain pulses, rhythmic delay swing, breathing reverb decay.</td></tr>
   </table>
 
-  <p>For each LFO you control:</p>
+  <h3>Shared controls (all 5 LFOs)</h3>
   <ul>
     <li><strong>Shape</strong> — Sine, Triangle, Sawtooth, Ramp, Square, Sample &amp; Hold.</li>
-    <li><strong>Target(s)</strong> — Amplitude (VOL), Pan, Filter cutoff (CUT), Filter Q (resonance), Pitch, FM index, or <strong>FX Mix (FX)</strong>. Target buttons are toggleable: <strong>one LFO can drive multiple targets at once</strong> — tap PAN and CUT on the same LFO and a single triangle wave will sweep both stereo position and cutoff in lock-step. The <strong>FX</strong> target is a macro: it biases the voice's reverb, delay, and chorus mix amounts <em>together</em> (±0.5 around their base values), so a slow sine on FX produces a single coordinated wet/dry breathing swell across the whole effects rack — much more cohesive than independently modulating each wet-mix slider. Pair with a fast pitch-LFO or grain texture for dub-style "let it ring out, pull it back" gestures.</li>
-    <li><strong>Rate</strong> — 0.02 – 8 Hz (log).</li>
+    <li><strong>Rate</strong> — 0.02 – 8 Hz (log). Each LFO can also lock its rate to a musical subdivision of the global BPM (½ → 1/32T).</li>
     <li><strong>Depth</strong> — how strongly it modulates the target.</li>
+    <li><strong>Target(s)</strong> — toggleable chips: <strong>one LFO can drive multiple targets at once</strong>. Tap PAN and CUT on the same LFO and a single triangle wave will sweep both stereo position and cutoff in lock-step.</li>
   </ul>
+
+  <h3>LFOs 1–4 — synth targets</h3>
+  <p>Each of the first four LFOs picks from a shared <strong>seven-target</strong> pool:</p>
+  <ul>
+    <li><strong>VOL</strong> (amplitude), <strong>PAN</strong>, <strong>CUT</strong> (filter cutoff), <strong>Q</strong> (filter resonance), <strong>Pitch</strong>, <strong>FM</strong> (FM index), and <strong>FX</strong> (FX Mix macro).</li>
+    <li>The <strong>FX</strong> target is a macro: it biases the voice's reverb, delay, and chorus mix amounts <em>together</em> (±0.5 around their base values), so a slow sine on FX produces a single coordinated wet/dry breathing swell across the whole effects rack — much more cohesive than independently modulating each wet-mix slider. Pair with a fast pitch-LFO or grain texture for dub-style "let it ring out, pull it back" gestures.</li>
+  </ul>
+
+  <h3>LFO 5 — granular + FX targets (new in v1.1)</h3>
+  <p>LFO 5 sits in its own row right below LFO 4, with a <strong>two-row chip grid</strong> grouping its <strong>nine</strong> dedicated targets. None of LFOs 1–4 can reach these — they're reserved for LFO 5 so the lower LFOs stay focused on synth modulation and the rhythmic FX gestures live on their own line.</p>
+  <table>
+    <tr><th>Group</th><th>Chip</th><th>Effect</th></tr>
+    <tr><td rowspan="4"><strong>Grain</strong></td><td>gSize</td><td>Multiplicative ±50% on grain size (ms). Slow shapes = breathing texture, S&amp;H = grain-size stutter.</td></tr>
+    <tr><td>gDens</td><td>Multiplicative ±50% on grain density (Hz). With BPM-quantize on the density chip, S&amp;H gives Steve Reich-style rate phasing.</td></tr>
+    <tr><td>gJit</td><td>Additive ±0.5 on grain timing jitter. Loose grain field comes and goes.</td></tr>
+    <tr><td>gSpr</td><td>Additive ±0.5 on grain pan spread. Mono / wide breathing.</td></tr>
+    <tr><td rowspan="3"><strong>Delay</strong></td><td>dTime</td><td>Multiplicative ±15% on delay tap length. Chorus-y shimmer; intentionally small swing to keep clean at S&amp;H.</td></tr>
+    <tr><td>dFB <sup>†</sup></td><td>Additive ±0.10 on delay feedback. Tail length breathes. Clamped 0–0.95 to prevent runaway.</td></tr>
+    <tr><td>dMix <sup>†</sup></td><td>Additive ±0.5 on the delay wet mix. Stacks with the FX-Mix macro.</td></tr>
+    <tr><td rowspan="2"><strong>Reverb</strong></td><td>rDec <sup>†</sup></td><td>Multiplicative ±25% on reverb decay seconds. Subtle "room breathing" effect.</td></tr>
+    <tr><td>rMix</td><td>Additive ±0.5 on the reverb wet mix. Independent wet swell from the FX macro.</td></tr>
+  </table>
+  <p style="font-size:13px; color:#aaa; margin-top:-6px;"><sup>†</sup> iOS only. On the web app, <strong>dFB</strong>, <strong>dMix</strong>, and <strong>rDec</strong> chips are present and store correctly in <code>.dronepreset</code> files, but the underlying Web Audio nodes can't be modulated cleanly per-buffer the way the iOS DSP can, so they no-op at the audio layer. iOS presets sharing these targets remain compatible — they just sound a little simpler on web.</p>
+
+  <p><strong>Why LFO 5 exists.</strong> Bumps the modulator count from 16 to 20 per patch, but the bigger reason is texture: stuttering grain pulses, grain-rate accelerandos, two grain clouds at slightly different rates beating against each other, delay-time chorusing, breathing reverb decay — all things you couldn't do with LFOs 1–4. Try a square shape on LFO 5 at <strong>gDens</strong> with the density chip locked to 1/8 — instant rhythmic grain pulse without touching any sliders.</p>
 </section>
 
 <!-- ───────────────── Samples ───────────────── -->

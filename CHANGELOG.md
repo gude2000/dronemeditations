@@ -4,6 +4,33 @@ Release notes are a running record of what's shipped in each version. Each secti
 
 ---
 
+## v1.1 — LFO 5 + atmospheric polish
+
+The first feature update after launch. Headline feature is a fifth LFO per voice with its own dedicated target set (granular params, delay subdivisions, reverb decay/mix) — bumps the modulator count from 16 to 20 per patch. Plus several click-and-tail fixes in the FX bus that landed alongside it, and a gentler stop bloom.
+
+### New
+
+- **Fifth LFO per voice.** Same five shapes (sine / triangle / sawtooth / square / S&H), same BPM-syncable rate, but a dedicated nine-target set that none of LFOs 1–4 can reach: **grain size / density / jitter / spread** for stuttering pulse textures and grain-rate accelerandos; **delay time / feedback / mix** for chorus-y shimmer and breathing tail length; **reverb decay / mix** for room-size breathing and independent wet swells. LFO 5 lives in its own row right below LFO 4, with a two-row chip grid grouping the targets (grain on top, FX on the bottom). Older 4-LFO presets continue to load with LFO 5 disabled — no migration step required.
+- **20 multi-target modulators per patch** (4 LFOs × 7 shared synth targets + 1 LFO × 9 dedicated FX/granular targets, all across the 4 voices). The headline "Sixteen multi-target LFOs" copy in the App Store listing and the manual is updated accordingly.
+
+### Polish
+
+- **Smoother stop bloom.** The atmospheric reverb-bloom on Stop is gentler — the wet wash drifts in and out (Ken Perlin smootherstep curve, zero first AND second derivatives at the endpoints) instead of sliding, with a lower peak mix (0.30 → 0.20) and a briefer plateau (0.15 → 0.05). The 10 s master fade still carries the overall taper; the bloom inside it now reads more like a slow breath than a swell.
+
+### Bug fixes
+
+- **Pause and Stop fade out audibly again (iOS).** The June 1 "metronome before Play" feature accidentally regressed both Pause and Stop into hard cuts: the voice-silence guard added inside the source-node closure was firing the instant `engine.isAudible = false` (which Pause/Stop flip BEFORE kicking off their fade Tasks), zeroing voice output at the source — so the master fade was attenuating already-silent signal and the reverb bloom had no input to swell. Split the two concerns: the source-node guard now hooks off a separate `voicesMuted` flag that's only set during the metronome-pre-Play preview. Pause = audible 1.4 s exponential fade. Stop = audible 10 s atmospheric stop with full reverb bloom.
+- **No click or tail-loss on Pause/Stop when LFO 5 reverb/delay targets are at rest.** The buffer-rate smoothing on the LFO 5 FX mod accumulators was running even when no LFO 5 target was active, leaving residual drift on the smoothed values after any prior LFO 5 activity. During the master fade, that drift was changing `effReverbDecaySec` per buffer, which recomputes the comb-filter feedback coefficients per buffer — exactly the failure mode that the `startStopBloom` comment warned about. The smoothing now hard-snaps to identity when its LFO target is not active that buffer, guaranteeing bit-identical v1.0 behaviour on the FX path at rest.
+- **Click reduction on LFO 5 dTime / dFB / dMix at high depth.** Even before the snap-to-identity fix, the dTime / dFB / dMix targets were clicky at high LFO 5 depth with S&H or square shapes — the per-buffer mod was stepping the gain stages hard. Added a ~50 ms exponential smoothing on the mod accumulators and reduced the swing amounts so steps now roll in gradually rather than instantly.
+
+### Under the hood
+
+- iOS Voice.swift LFO arrays expanded from 4 → 5 entries across all six per-voice arrays (shape, targets, rate, depth, phase, hold). New `padLfosTo5(at:)` helper in `DroneViewModel` re-pads loaded presets so the iOS LFO setters can't no-op on a 4-element array.
+- Web `audio.js` mirrored: `for (let k = 0; k < 5; k++)` loop, nine target string handlers matching iOS raw values, `_padLfos(v)` helper, and a Promise-clean handler for the three iOS-only chips (no-op on web, present in the schema).
+- LFO 5 row UI: extracted `lfoTargetChip` helper in `OscillatorStrip.swift` and switched to a two-row `VStack` chip layout (grain on top, FX on the bottom) so iPhone landscape doesn't squeeze the nine chips off-screen.
+
+---
+
 ## v1.0 (build 10) — post-launch polish
 
 Bug fixes from public testing of build 9, plus two more Developer Patches. No new public-facing features.
