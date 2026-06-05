@@ -33,3 +33,13 @@ screenshots/
 .claude/settings.local.json
 .claude/cache/
 
+
+# Tarball snapshots from canonical-state tagging — git tags are the
+# authoritative version control; these are just a belt-and-suspenders
+# physical backup outside git, kept locally only.
+archive/
+
+# Recording / preview video files — outputs only, never source
+*.mov
+DroneMeditations-*-preview*.mp4
+DroneMeditations-AppPreview-*.mp4
