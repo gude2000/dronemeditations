@@ -550,6 +550,18 @@ export class AudioEngine {
     if (!isNoiseGran && !isSampleGran) return;
 
     const g = v.params.grain || { sizeMs: 80, densityHz: 8, jitter: 0.6, panSpread: 0.5 };
+    // v1.1 LFO 5 grain modulation. Effective values fold in the
+    // factors/biases the LFO loop wrote onto the voice (init 1.0 / 0
+    // identity when LFO5 isn't targeting grain, so no-op for old
+    // presets). Same clamps the engine enforces on the slider setters.
+    const gSizeF   = v._lfo5GrainSizeFactor    || 1;
+    const gDensF   = v._lfo5GrainDensityFactor || 1;
+    const gJitMod  = v._lfo5GrainJitterMod     || 0;
+    const gSprMod  = v._lfo5GrainSpreadMod     || 0;
+    const effGSize    = Math.max(5,   Math.min(500, (g.sizeMs    || 80) * gSizeF));
+    const effGDensity = Math.max(0.5, Math.min(50,  (g.densityHz || 8)  * gDensF));
+    const effGJitter  = Math.max(0,   Math.min(1,   (g.jitter    || 0)  + gJitMod));
+    const effGSpread  = Math.max(0,   Math.min(1,   (g.panSpread || 0)  + gSprMod));
     const LOOKAHEAD = 0.20;  // schedule grains starting within next 200 ms
     // Don't start grain trains until just before now if we've fallen behind
     // (e.g. after a long pause). Avoids piling up dozens of overdue grains.
@@ -557,7 +569,7 @@ export class AudioEngine {
 
     while (v._nextGrainTime < now + LOOKAHEAD) {
       const startT  = v._nextGrainTime;
-      const lenSec  = Math.max(0.005, Math.min(0.500, (g.sizeMs || 80) / 1000));
+      const lenSec  = Math.max(0.005, Math.min(0.500, effGSize / 1000));
       const halfLen = lenSec * 0.5;
       const endT    = startT + lenSec;
 
@@ -602,7 +614,7 @@ export class AudioEngine {
             // Per-grain pan, sampled at grain start, held for the
             // grain's life — matches the noise-granular semantics.
             const grainPanner = this.ctx.createStereoPanner();
-            const spread = Math.max(0, Math.min(1, g.panSpread || 0));
+            const spread = Math.max(0, Math.min(1, effGSpread));
             grainPanner.pan.value = (Math.random() * 2 - 1) * spread;
             grainSrc.connect(grainGain).connect(grainPanner).connect(v.sampleGain);
             // Pick an offset around the user's center pos, jittered.
@@ -629,7 +641,7 @@ export class AudioEngine {
       // handles its own per-grain pan inline above, since the shared
       // grainPan node only sits on the noise bus.
       if (isNoiseGran) {
-        const spread = Math.max(0, Math.min(1, g.panSpread || 0));
+        const spread = Math.max(0, Math.min(1, effGSpread));
         const panOffset = (Math.random() * 2 - 1) * spread;
         try {
           v.grainPan.pan.cancelScheduledValues(startT);
@@ -639,8 +651,8 @@ export class AudioEngine {
 
       // Schedule the next grain. Mean gap from density; jitter randomizes
       // multiplicatively so high-jitter sounds Poisson-y.
-      const meanGap = 1.0 / Math.max(0.5, g.densityHz || 1);
-      const jit = Math.max(0, Math.min(1, g.jitter || 0));
+      const meanGap = 1.0 / Math.max(0.5, effGDensity);
+      const jit = Math.max(0, Math.min(1, effGJitter));
       const lo = Math.max(0.05, 1 - jit * 0.7);
       const hi = 1 + jit * 1.5;
       const gap = meanGap * (lo + Math.random() * (hi - lo));
@@ -944,10 +956,24 @@ export class AudioEngine {
     let qOct = 0;            // additive octaves of filter Q modulation (v1.1)
     let fmIndexMod = 0;      // additive Hz of FM index modulation (v1.1)
     let fxMixMod = 0;        // v1 FX Mix macro — bias for reverb+delay+chorus mixes
+    // v1.1 LFO 5 accumulators. Multiplicative factors start at 1.0 so
+    // a depth-0 LFO5 vanishes; additive mods start at 0.
+    let grainSizeFactor    = 1.0;
+    let grainDensityFactor = 1.0;
+    let grainJitterMod     = 0;
+    let grainSpreadMod     = 0;
+    let delayTimeFactor    = 1.0;
+    let reverbMixMod       = 0;
+    // The other three LFO 5 targets (.reverbDecay, .delayFeedback,
+    // .delayMix) ship iOS-only for v1.1 — Web Audio would need an IR
+    // buffer rebuild or _applyDelayMode router rerun every render
+    // tick, both of which would crackle. Roadmap item to revisit
+    // with offline IR caching + persistent feedback-tap gain nodes.
     let anyPan = false, anyAmp = false, anyCutoff = false, anyPitch = false;
     let anyQ = false, anyFm = false, anyFxMix = false;
+    let anyGrainMod = false, anyDelayTime = false, anyReverbMix = false;
 
-    for (let k = 0; k < 4; k++) {
+    for (let k = 0; k < 5; k++) {
       const lfo = v.params.lfos[k];
       if (lfo.depth < 0.001) continue;
 
@@ -1022,6 +1048,32 @@ export class AudioEngine {
           // — one LFO modulates the entire wet bus together.
           fxMixMod += 0.5 * lfo.depth * lfoValue;
           anyFxMix = true;
+        // v1.1 LFO 5 targets. String IDs match iOS LfoState.Target raw
+        // values exactly so .dronepreset files round-trip without
+        // translation. The three iOS-only targets (.reverbDecay,
+        // .delayFeedback, .delayMix) are accepted silently so loading
+        // a cross-platform preset doesn't error — they just no-op on
+        // web for v1.1.
+        } else if (target === "grainSize") {
+          grainSizeFactor *= (1 + 0.5 * lfo.depth * lfoValue);
+          anyGrainMod = true;
+        } else if (target === "grainDensity") {
+          grainDensityFactor *= (1 + 0.5 * lfo.depth * lfoValue);
+          anyGrainMod = true;
+        } else if (target === "grainJitter") {
+          grainJitterMod += 0.5 * lfo.depth * lfoValue;
+          anyGrainMod = true;
+        } else if (target === "grainSpread") {
+          grainSpreadMod += 0.5 * lfo.depth * lfoValue;
+          anyGrainMod = true;
+        } else if (target === "delayTime") {
+          delayTimeFactor *= (1 + 0.5 * lfo.depth * lfoValue);
+          anyDelayTime = true;
+        } else if (target === "reverbMix") {
+          reverbMixMod += 0.5 * lfo.depth * lfoValue;
+          anyReverbMix = true;
+        } else if (target === "reverbDecay" || target === "delayFeedback" || target === "delayMix") {
+          // Cross-platform compat — preset can specify these, no-op on web.
         }
       }
     }
@@ -1139,6 +1191,47 @@ export class AudioEngine {
       v.chorusWetR.gain.cancelScheduledValues(now);
       v.chorusWetR.gain.setValueAtTime(effCh, now);
       v._fxMixWasActive = anyFxMix;
+    }
+    // v1.1 LFO 5 — grain mods are stored on the voice for the grain
+    // scheduler (_scheduleGrains) to read on the next tick. Clamps
+    // mirror the iOS engine's ranges (size 5..500ms, density 0.5..50,
+    // jitter+spread 0..1). When no LFO5 grain target is active these
+    // get reset to identity so a turn-off cleanly restores base values.
+    if (anyGrainMod || v._lfo5GrainWasActive) {
+      v._lfo5GrainSizeFactor    = anyGrainMod ? grainSizeFactor    : 1;
+      v._lfo5GrainDensityFactor = anyGrainMod ? grainDensityFactor : 1;
+      v._lfo5GrainJitterMod     = anyGrainMod ? grainJitterMod     : 0;
+      v._lfo5GrainSpreadMod     = anyGrainMod ? grainSpreadMod     : 0;
+      v._lfo5GrainWasActive = anyGrainMod;
+    }
+    // v1.1 LFO 5 — delay time direct AudioParam ramp. Per-buffer slew
+    // is short enough to track moderate-rate LFOs but smooth enough to
+    // avoid Doppler chirps. Same pattern as the chorus delayTime AudioParam.
+    if (anyDelayTime || v._lfo5DelayTimeWasActive) {
+      const baseDly = Math.max(0.001, v.params.delay.timeSec || 0.3);
+      const effDly = Math.max(0.001, Math.min(2.0, baseDly * (anyDelayTime ? delayTimeFactor : 1)));
+      if (v.delayL && v.delayL.delayTime) {
+        v.delayL.delayTime.cancelScheduledValues(now);
+        v.delayL.delayTime.setValueAtTime(v.delayL.delayTime.value, now);
+        v.delayL.delayTime.linearRampToValueAtTime(effDly, now + LFO_SMOOTH);
+      }
+      if (v.delayR && v.delayR.delayTime) {
+        v.delayR.delayTime.cancelScheduledValues(now);
+        v.delayR.delayTime.setValueAtTime(v.delayR.delayTime.value, now);
+        v.delayR.delayTime.linearRampToValueAtTime(effDly, now + LFO_SMOOTH);
+      }
+      v._lfo5DelayTimeWasActive = anyDelayTime;
+    }
+    // v1.1 LFO 5 — reverb mix direct ramp. Stacks with fxMix bias if
+    // both are active (LFO 5 can fade JUST reverb while another LFO
+    // sweeps the whole bus).
+    if (anyReverbMix || v._lfo5ReverbMixWasActive) {
+      const baseRev = v.params.reverb.mix || 0;
+      const effRev = Math.max(0, Math.min(1, baseRev + (anyReverbMix ? reverbMixMod : 0)));
+      v.reverbWet.gain.cancelScheduledValues(now);
+      v.reverbWet.gain.setValueAtTime(v.reverbWet.gain.value, now);
+      v.reverbWet.gain.linearRampToValueAtTime(effRev, now + LFO_SMOOTH);
+      v._lfo5ReverbMixWasActive = anyReverbMix;
     }
   }
 

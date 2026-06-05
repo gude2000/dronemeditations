@@ -9,20 +9,20 @@
 import {
   CHORDS, PRESETS, WAVEFORMS, JOURNEYS, journeyTotalSeconds, PITCH_CLASSES, TUNING_SYSTEMS,
   pitchToFrequency, chordFrequencies, FREQ_MIN, FREQ_MAX
-} from "./music.js?v=38";
-import { AudioEngine } from "./audio.js?v=38";
-import { initUI, renderAll } from "./ui.js?v=38";
+} from "./music.js?v=39";
+import { AudioEngine } from "./audio.js?v=39";
+import { initUI, renderAll } from "./ui.js?v=39";
 import {
   exportUserPresetDownload, importUserPresetFromFile
-} from "./preset-sharing.js?v=38";
-import { initVisualizations, setChladniVisible, setSpectrumVisible } from "./visualizations.js?v=38";
+} from "./preset-sharing.js?v=39";
+import { initVisualizations, setChladniVisible, setSpectrumVisible } from "./visualizations.js?v=39";
 import {
   loadUserPresets, saveUserPresets, newPresetId, newSampleId,
   loadVoicePresets, saveVoicePresets, newVoicePresetId,
   loadUserJourneys, saveUserJourneys, newUserJourneyId,
   loadLibrarySamples, saveLibrarySamples,
   putSample, getSample, deleteSample
-} from "./storage.js?v=38";
+} from "./storage.js?v=39";
 
 // ──────────────────────────────────────────────────
 // State.
