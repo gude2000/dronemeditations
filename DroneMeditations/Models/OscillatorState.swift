@@ -28,7 +28,15 @@ struct LfoState: Equatable, Codable {
         }
     }
     enum Target: String, Codable, CaseIterable, Identifiable {
+        // Core targets — available on LFOs 1-4.
         case pan, amplitude, cutoff, pitch, filterQ, fmIndex, fxMix
+        // v1.1 LFO 5 targets — granular + delay + reverb. Available
+        // only on LFO 5 (slot index 4). The UI filters target chips by
+        // slot; DSP applies whichever target a given LFO actually has,
+        // so no slot-based gating is needed at the engine layer.
+        case grainSize, grainDensity, grainJitter, grainSpread
+        case delayTime, delayFeedback, delayMix
+        case reverbDecay, reverbMix
         var id: String { rawValue }
         var shortLabel: String {
             switch self {
@@ -39,8 +47,29 @@ struct LfoState: Equatable, Codable {
             case .filterQ: return "Q"
             case .fmIndex: return "FM"
             case .fxMix: return "FX"
+            case .grainSize: return "gSize"
+            case .grainDensity: return "gDens"
+            case .grainJitter: return "gJit"
+            case .grainSpread: return "gSpr"
+            case .delayTime: return "dTime"
+            case .delayFeedback: return "dFB"
+            case .delayMix: return "dMix"
+            case .reverbDecay: return "rDec"
+            case .reverbMix: return "rMix"
             }
         }
+        /// Targets available on LFOs 1-4. The historical set.
+        static let coreTargets: [Target] = [
+            .pan, .amplitude, .cutoff, .pitch, .filterQ, .fmIndex, .fxMix
+        ]
+        /// Targets exclusive to LFO 5 (granular + delay + reverb).
+        /// LFO 5 in the UI shows only these chips; the engine routes
+        /// any LFO that picks one of these to the matching DSP read site.
+        static let lfo5Targets: [Target] = [
+            .grainSize, .grainDensity, .grainJitter, .grainSpread,
+            .delayTime, .delayFeedback, .delayMix,
+            .reverbDecay, .reverbMix
+        ]
     }
 
     var shape: Shape
@@ -90,10 +119,14 @@ struct LfoState: Equatable, Codable {
 
     static func defaults() -> [LfoState] {
         [
-            LfoState(shape: .sine,          targets: [.pan],       rateHz: 0.25, depth: 0),
-            LfoState(shape: .sampleAndHold, targets: [.amplitude], rateHz: 0.50, depth: 0),
-            LfoState(shape: .sine,          targets: [.cutoff],    rateHz: 0.30, depth: 0),
-            LfoState(shape: .sine,          targets: [.pitch],     rateHz: 0.30, depth: 0)
+            LfoState(shape: .sine,          targets: [.pan],          rateHz: 0.25, depth: 0),
+            LfoState(shape: .sampleAndHold, targets: [.amplitude],    rateHz: 0.50, depth: 0),
+            LfoState(shape: .sine,          targets: [.cutoff],       rateHz: 0.30, depth: 0),
+            LfoState(shape: .sine,          targets: [.pitch],        rateHz: 0.30, depth: 0),
+            // v1.1 LFO 5 — granular + delay + reverb. Defaults to grain
+            // density (a musical, immediately-audible target on granular
+            // voices) at zero depth so existing patches sound identical.
+            LfoState(shape: .sine,          targets: [.grainDensity], rateHz: 0.30, depth: 0)
         ]
     }
 

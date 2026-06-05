@@ -487,6 +487,14 @@ final class Voice {
                     // chorus mixes together). Applied additively to
                     // each FX mix at its read site, clamped 0..1.
                     fxMixMod += 0.5 * depth * value
+                // v1.1 LFO 5 targets — wired in commit 2 of the 5th-LFO
+                // series. Cases listed here for switch exhaustiveness;
+                // accumulators + read-site application land alongside
+                // the loop-bound bump from 0..<4 to 0..<5.
+                case .grainSize, .grainDensity, .grainJitter, .grainSpread,
+                     .delayTime, .delayFeedback, .delayMix,
+                     .reverbDecay, .reverbMix:
+                    break
                 }
             }
         }

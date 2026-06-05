@@ -1190,6 +1190,16 @@ final class DroneViewModel: ObservableObject {
             audioEngine.setReverbMix(o.reverb.mix, for: index)
             audioEngine.setDelayMix(o.delay.mix, for: index)
             audioEngine.setChorusMix(o.chorus.mix, for: index)
+        // v1.1 LFO 5 targets. These don't currently wire through
+        // setX→engine ramping paths (the per-buffer DSP reads the
+        // grain/delay/reverb fields directly from voice state). When
+        // an LFO5 target is removed, the next buffer's modulation
+        // accumulator drops back to zero on its own — no explicit
+        // restore needed. Cases listed for switch exhaustiveness.
+        case .grainSize, .grainDensity, .grainJitter, .grainSpread,
+             .delayTime, .delayFeedback, .delayMix,
+             .reverbDecay, .reverbMix:
+            break
         }
     }
 
