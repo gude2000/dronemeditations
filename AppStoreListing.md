@@ -68,7 +68,8 @@ SOUNDS YOU CAN SIT WITH FOR HOURS
   later, repeat N times or forever. Rotate harmonically across
   20 minutes without touching a slider.
 • Six tuning systems: 12-TET, just intonation, Pythagorean, Lou
-  Harrison Free JI, Wendy Carlos α/β/γ, Harry Partch 43-tone
+  Harrison Free JI, Wendy Carlos Alpha/Beta/Gamma, Harry Partch
+  43-tone
 
 DESIGNED FOR THE DRONE TRADITION
 • 110+ presets across Drone Artists, Developer Patches, Solfeggio,
@@ -104,14 +105,14 @@ GRANULAR + TEMPO
   with size, density, jitter, stereo spread, per-voice overlap
 • Granular sampling: same scheduler on any loaded sample —
   freeze a bansuri forever, smear a chord into a tape-decay cloud
-• BPM-quantized density (½ → 1/32T) locks grain spacing to the
-  global tempo. Per-LFO rate sync extends musical subdivisions
+• BPM-quantized density (1/2 to 1/32T) locks grain spacing to
+  the global tempo. Per-LFO rate sync extends musical subdivisions
   to LFO speed. Metronome click toggle for an audible reference.
 
 RECORD, SHARE, AND COMPOSE
 • Mastered session recording: 24-bit WAV + AAC M4A sidecar with
   loudness normalization, automatic fades, embedded metadata
-• Per-voice mic record (🎙) captures into a voice's sample slot
+• Per-voice mic record captures into a voice's sample slot
   — normalized, granular-ready, with the current frequency as
   the sample's reference pitch
 • 50+ bundled samples: bansuri, organ, piano, storm, tide,
