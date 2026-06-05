@@ -36,7 +36,7 @@ Drone synth · meditation tool       (29 — explicit "tool")
 ## 3. Promotional Text (170 char max — editable without re-submission)
 
 ```
-A deep four-oscillator drone synthesizer for meditation, sound healing, and ambient composition. 80+ presets, live cymatics, granular sampling, six tuning systems.
+A deep four-oscillator drone synthesizer for meditation, sound healing, and ambient composition. 110+ presets, live cymatics, granular sampling, six tuning systems.
 ```
 (166 chars.)
 
@@ -170,9 +170,10 @@ What's in the box:
   FX-Mix macro — all at once. LFO 5 has a dedicated row of
   granular + FX targets (grain size / density / jitter / spread,
   delay subdivisions / feedback / mix, reverb decay / mix).
-• 80+ presets: Drone Artists tributes, Modal chords, Developer
-  Patches, Solfeggio, Natural Resonance, Cymatics, Mystic & Composers
-  — plus an INIT preset pinned at the top for building from scratch.
+• 110+ presets across Drone Artists tributes, Modal chords,
+  Developer Patches, Solfeggio, Natural Resonance, Cymatics, and
+  Mystic & Composers — plus an INIT preset pinned at the top for
+  building from scratch.
 • 25 scripted meditation journeys (Deep Listening Lineage, Heavy
   Resonance, Minimalist Arc, Spiritual Path, plus 21 more), each a
   multi-stage timed sequence.
@@ -282,7 +283,7 @@ on the App Store listing — those are the most important.
 | # | Screen state | Overlay text suggestion |
 |---|---|---|
 | 1 | Fullscreen Chladni in Performance mode with sand particles, controls hidden | "A drone synthesizer with live cymatics" |
-| 2 | Main UI showing 4 osc strips + scrolling pill row + Preset highlighted | "80+ presets — pick your starting point" |
+| 2 | Main UI showing 4 osc strips + scrolling pill row + Preset highlighted | "110+ presets — pick your starting point" |
 | 3 | Preset picker open showing INIT at top + Developer Patches section visible | "JG Developer Patches — granular + BPM-locked" |
 | 4 | Oscillator strip with Granular Sample + BPM-quantized DENSITY chip selected | "BPM-quantized granular sampling" |
 | 5 | LFO row with FX target selected, sweeping a swell | "FX-Mix macro LFO — one knob, breathing reverb+delay+chorus" |
@@ -316,13 +317,75 @@ Up to 30 seconds. Massive lift for unknowns. Shot list:
 
 ---
 
-## 13. Pre-submission checklist
+## 13. App Review Information — Notes for Reviewer
+
+App Store Connect → App Review Information → Notes. Copy-paste:
+
+```
+Thank you for reviewing Drone Meditations.
+
+This is a four-voice drone synthesizer designed for long-form
+listening — meditation, sound healing, ambient composition, and
+study. There is no sign-in, no account, no analytics, no data
+collection. Everything runs locally on the device.
+
+Quick demo (~2 minutes):
+
+1. Open the app. The first launch shows a brief onboarding tour
+   you can skip with the X in the top-right.
+2. Tap the PRESET pill at the top → pick any preset (try "Pauline
+   Oliveros" under Drone Artists, or "Solfeggio · 432 Hz" under
+   Solfeggio) → tap the play button at the bottom.
+3. Tap the hexagonal-grid icon in the top-right header to show
+   the live cymatic Chladni pattern. Tap-and-hold the pattern to
+   enter fullscreen Performance mode with the sand-particle
+   simulation.
+4. Tap any oscillator strip's small ear icon (top-right of the
+   strip) → the LISTEN sheet opens. This is where mic permission
+   is requested. The mic is only used to detect ambient room
+   pitch and tune one voice to it. Nothing is recorded or sent
+   off-device.
+5. Tap any strip's small mic icon next to the ear → opens the
+   per-voice sample recorder. Mic permission is the same as
+   above; audio captured here stays in app storage unless you
+   explicitly share a .dronepreset file containing it.
+
+Permissions used:
+
+• Microphone (NSMicrophoneUsageDescription): only for the LISTEN
+  pitch detection and per-voice sample recording above. Audio
+  never transmits off-device.
+• Photos add (NSPhotoLibraryAddUsageDescription): only for saving
+  Chladni cymatic snapshots when you tap the camera icon in the
+  header. We use add-only access — we never read the user's
+  library.
+
+No login, no demo account needed.
+
+The Modal chord category quantizes pitch to the active mode (try
+chord "G Lydian" + a preset with a pitch LFO to hear all 7 mode
+degrees arpeggiate). The Journey pill plays multi-stage scripted
+meditations of 20-60 minutes.
+
+A free web version of the same engine runs at dronemeditations.com
+in case you want to compare the iOS build against the reference
+implementation.
+
+Questions: gude2000@gmail.com.
+
+Thanks for taking the time.
+```
+
+---
+
+## 14. Pre-submission checklist
 
 Things to verify in the build right before you submit:
 
-- [ ] Bundle version + version number set to 1.0 / 9
-  (build 9 — see CHANGELOG; previous TestFlight builds were 1.0(1)
-  through 1.0(8))
+- [ ] Bundle version + version number set to 1.0 / 11
+  (build 11 — see CHANGELOG. Build 10 was withdrawn from review
+  before going live; build 11 supersedes it with LFO 5 + the
+  pause/stop fade fix + header BPM/metronome lift on top)
 - [ ] App icon at all required sizes (1024×1024 marketing, all device sizes)
 - [ ] LaunchScreen looks clean (current LaunchScreen.storyboard or SwiftUI scene)
 - [ ] Info.plist `NSMicrophoneUsageDescription` is meaningful: "Used to
@@ -347,14 +410,19 @@ Things to verify in the build right before you submit:
 
 ---
 
-## 14. Submission day
+## 15. Submission day
 
-1. Archive build in Xcode (Product → Archive)
-2. Distribute App → App Store Connect → Upload
-3. In App Store Connect, attach uploaded build to v1.0 listing
-4. Fill in all fields from this document
-5. Submit for review
-6. **Typical review time: 24-48 hours.** Plan launch announcement for
+1. Remove the in-review build 10 from the v1.0 record (App Store
+   Connect → My Apps → Drone Meditations → 1.0 → "Remove this
+   version from review"). The record returns to *Prepare for
+   Submission*.
+2. Archive build 11 in Xcode (Product → Archive)
+3. Distribute App → App Store Connect → Upload
+4. Wait ~15-30 min for build 11 to finish processing
+5. In App Store Connect, attach uploaded build 11 to v1.0 listing
+6. Paste the Reviewer Notes (§13) into App Review Information
+7. Submit for review
+8. **Typical review time: 24-48 hours.** Plan launch announcement for
    2-3 days after submission to allow for any "Metadata Rejected" iterations.
 
 Good luck.
