@@ -1159,7 +1159,14 @@ struct OscillatorStrip: View {
         let availableTargets: [LfoState.Target] = (lfoIndex == 4)
             ? LfoState.Target.lfo5Targets
             : LfoState.Target.coreTargets
-        return HStack(spacing: isPad ? 5 : 3) {
+        // LFO 5's 9-chip row is wider than LFOs 1-4's 7 — on phones
+        // (where the strip is narrow), the 9-chip row would otherwise
+        // push the entire strip layout off the left edge of the screen.
+        // Wrap in a horizontal ScrollView ONLY for LFO 5 so the chip
+        // row scrolls inside its allotted strip width. LFOs 1-4 keep
+        // their original behavior since 7 chips fit comfortably.
+        let isLfo5 = (lfoIndex == 4)
+        let pillRow = HStack(spacing: isPad ? 5 : 3) {
             ForEach(availableTargets) { t in
                 let isOn = lfo.targets.contains(t)
                 Button {
@@ -1178,6 +1185,15 @@ struct OscillatorStrip: View {
                         .foregroundStyle(isOn ? .white : .white.opacity(0.75))
                 }
                 .buttonStyle(.plain)
+            }
+        }
+        return Group {
+            if isLfo5 {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    pillRow
+                }
+            } else {
+                pillRow
             }
         }
     }
