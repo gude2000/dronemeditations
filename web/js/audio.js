@@ -975,7 +975,10 @@ export class AudioEngine {
 
     for (let k = 0; k < 5; k++) {
       const lfo = v.params.lfos[k];
-      if (lfo.depth < 0.001) continue;
+      // v1.1: tolerate old 4-LFO presets — _padLfos pads on first
+      // setter touch but the LFO loop runs every render tick even
+      // before the user touches LFO 5. Treat missing as silent.
+      if (!lfo || lfo.depth < 0.001) continue;
 
       v._lfoPhase[k] += lfo.rateHz * dt;
       let stepped = false;
@@ -1561,18 +1564,40 @@ export class AudioEngine {
     this.master.gain.linearRampToValueAtTime(v, t + RAMP_TIME);
   }
 
+  // v1.1: ensure 5 LFOs exist on the voice before writing. Old
+  // presets / state coming from v1.0 .dronepreset files have only
+  // 4 entries; the 5th LFO is the new grain / delay / reverb
+  // modulator. Pads with a silent default (depth 0 + grainDensity
+  // target) so the audible state stays identical until the user
+  // dials it up. Also accepts `_lfoPhase` and `_lfoHold` ring
+  // buffers being shorter than 5; pads those too.
+  _padLfos(v) {
+    while (v.params.lfos.length < 5) {
+      v.params.lfos.push({ shape: "sine", targets: ["grainDensity"], rateHz: 0.30, depth: 0 });
+    }
+    if (v._lfoPhase && v._lfoPhase.length < 5) {
+      while (v._lfoPhase.length < 5) v._lfoPhase.push(0);
+    }
+    if (v._lfoHold && v._lfoHold.length < 5) {
+      while (v._lfoHold.length < 5) v._lfoHold.push(0);
+    }
+  }
+
   setLfoRate(voiceIndex, lfoIndex, rateHz) {
     const v = this.voices[voiceIndex]; if (!v) return;
+    this._padLfos(v);
     v.params.lfos[lfoIndex].rateHz = rateHz;
   }
 
   setLfoDepth(voiceIndex, lfoIndex, depth) {
     const v = this.voices[voiceIndex]; if (!v) return;
+    this._padLfos(v);
     v.params.lfos[lfoIndex].depth = depth;
   }
 
   setLfoShape(voiceIndex, lfoIndex, shape) {
     const v = this.voices[voiceIndex]; if (!v) return;
+    this._padLfos(v);
     v.params.lfos[lfoIndex].shape = shape;
   }
 
@@ -1583,6 +1608,7 @@ export class AudioEngine {
   /// v1.1 multi-target: replace the full targets array in one call.
   setLfoTargets(voiceIndex, lfoIndex, targets) {
     const v = this.voices[voiceIndex]; if (!v) return;
+    this._padLfos(v);
     v.params.lfos[lfoIndex].targets = Array.isArray(targets) ? targets : [targets];
     delete v.params.lfos[lfoIndex].target;
   }

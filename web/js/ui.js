@@ -9,12 +9,12 @@ import {
   CHORDS, CHORD_CATEGORIES, PRESETS, PRESET_CATEGORIES,
   JOURNEYS, journeyTotalSeconds,
   FREQ_MIN, FREQ_MAX, frequencyHue
-} from "./music.js?v=39";
-import { startListening, stopListening, freqToNote, listInputDevices, switchInputDevice } from "./pitch-detect.js?v=39";
-import { initMIDI, midiToKeyOctave } from "./midi.js?v=39";
+} from "./music.js?v=40";
+import { startListening, stopListening, freqToNote, listInputDevices, switchInputDevice } from "./pitch-detect.js?v=40";
+import { initMIDI, midiToKeyOctave } from "./midi.js?v=40";
 import {
   loadSnapshotMeta, saveSnapshotMeta, getSnapshotBlob, deleteSnapshotBlob
-} from "./storage.js?v=39";
+} from "./storage.js?v=40";
 
 const WAVEFORM_SVG = {
   sine:     '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12c3-7 7-7 10 0s7 7 10 0"/></svg>',
@@ -583,6 +583,25 @@ const LFO_TARGETS = [
   // through a per-mode router so it's not a single gain node).
   {id: "fxMix",  label: "FX"}
 ];
+// v1.1 LFO 5 — dedicated target set for the grain / delay / reverb
+// modulator. The chip IDs match the iOS LfoState.Target raw values
+// exactly so .dronepreset files round-trip without translation.
+// Three targets ship iOS-only for v1.1 (.reverbDecay /
+// .delayFeedback / .delayMix) — they need IR rebuilds / router
+// reruns on web that would crackle. We render the chips anyway so
+// the UI looks identical across platforms; tapping them sets the
+// target on the model (engine no-ops on web, full effect on iOS).
+const LFO5_TARGETS = [
+  {id: "grainSize",     label: "gSize"},
+  {id: "grainDensity",  label: "gDens"},
+  {id: "grainJitter",   label: "gJit"},
+  {id: "grainSpread",   label: "gSpr"},
+  {id: "delayTime",     label: "dTime"},
+  {id: "delayFeedback", label: "dFB"},
+  {id: "delayMix",      label: "dMix"},
+  {id: "reverbDecay",   label: "rDec"},
+  {id: "reverbMix",     label: "rMix"}
+];
 const FILTER_TYPES = [
   {id: "lowpass",  label: "LP"},
   {id: "highpass", label: "HP"},
@@ -832,14 +851,14 @@ function buildStrip(index) {
       </div>
     </div>
     <div class="lfo-rows">
-      ${[0, 1, 2, 3].map((k) => `
+      ${[0, 1, 2, 3, 4].map((k) => `
         <div class="lfo-control" data-lfo="${k}">
           <span class="lfo-label">LFO ${k + 1}</span>
           <div class="seg seg-tight" data-role="lfo-shape">
             ${LFO_SHAPES.map((s) => `<button type="button" data-shape="${s.id}" title="${s.label}">${LFO_ICON_SVG[s.id]}</button>`).join("")}
           </div>
           <div class="seg seg-tight" data-role="lfo-target">
-            ${LFO_TARGETS.map((t) => `<button type="button" data-target="${t.id}">${t.label}</button>`).join("")}
+            ${(k === 4 ? LFO5_TARGETS : LFO_TARGETS).map((t) => `<button type="button" data-target="${t.id}">${t.label}</button>`).join("")}
           </div>
           <div class="mini-control">
             <span class="mini-label" data-role="lfo-rate-label">RATE</span>
@@ -1471,7 +1490,12 @@ function syncStrip(index, root) {
   // LFO sliders (3 LFOs)
   root.querySelectorAll('.lfo-control').forEach((section) => {
     const lfoIdx = parseInt(section.dataset.lfo, 10);
-    const lfo = osc.lfos[lfoIdx];
+    // v1.1: tolerate old 4-LFO presets. The 5th LFO row exists in
+    // the DOM but the data may not yet — show a silent placeholder
+    // until either the user touches a control (engine's
+    // _padLfos kicks in) or a 5-LFO preset loads. Hidden via
+    // pointer-events so taps still work (which trigger padding).
+    const lfo = osc.lfos[lfoIdx] || { shape: "sine", targets: ["grainDensity"], rateHz: 0.30, depth: 0 };
     const lo = Math.log2(LFO_RATE_MIN), hi = Math.log2(LFO_RATE_MAX);
     const t = (Math.log2(Math.max(LFO_RATE_MIN, lfo.rateHz)) - lo) / (hi - lo);
     const rateSlider = section.querySelector('[data-role="lfo-rate"]');

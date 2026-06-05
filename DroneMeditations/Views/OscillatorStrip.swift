@@ -177,12 +177,14 @@ struct OscillatorStrip: View {
             delaySection
             reverbSection
 
-            // 4 LFO rows.
+            // 5 LFO rows. LFO 5 (v1.1) is the dedicated grain / delay /
+            // reverb modulator with its own target chip set.
             VStack(spacing: isPad ? 12 : 6) {
                 lfoSection(0)
                 lfoSection(1)
                 lfoSection(2)
                 lfoSection(3)
+                lfoSection(4)
             }
             .padding(.top, isPad ? 6 : 2)
         }
@@ -1070,6 +1072,14 @@ struct OscillatorStrip: View {
 
     @ViewBuilder
     private func lfoSection(_ lfoIndex: Int) -> some View {
+        // v1.1: tolerate old 4-LFO presets that decoded into
+        // osc.lfos with .count < 5. The engine slot 4 already has a
+        // silent default; we just skip rendering the LFO 5 row for
+        // those presets until the user saves (commit 5 will pad on
+        // save). Belt-and-suspenders to prevent index-out-of-range.
+        if !osc.lfos.indices.contains(lfoIndex) {
+            EmptyView()
+        } else {
         let lfo = osc.lfos[lfoIndex]
         let active = lfo.depth > 0.001
         // iPhone portrait: split into 2 rows so RATE + DEPTH sliders get
@@ -1111,6 +1121,7 @@ struct OscillatorStrip: View {
             }
             .opacity(active ? 1.0 : 0.55)
         }
+        }  // end of `else` from the lfoIndex-in-bounds guard above
     }
 
     // MARK: - LFO row pieces (factored for portrait vs landscape/iPad layouts)
@@ -1139,8 +1150,17 @@ struct OscillatorStrip: View {
 
     @ViewBuilder
     private func lfoTargetPills(lfo: LfoState, lfoIndex: Int) -> some View {
-        HStack(spacing: isPad ? 5 : 3) {
-            ForEach(LfoState.Target.allCases) { t in
+        // v1.1: LFOs 1-4 show the 7 core targets (pan / amp / cutoff /
+        // pitch / Q / FM / FX-mix). LFO 5 shows its dedicated 9-target
+        // set (grain {size/density/jitter/spread}, delay {time/feedback
+        // /mix}, reverb {decay/mix}). The DSP layer treats all targets
+        // uniformly — the gating here is purely a UI affordance so the
+        // chip row stays readable per LFO.
+        let availableTargets: [LfoState.Target] = (lfoIndex == 4)
+            ? LfoState.Target.lfo5Targets
+            : LfoState.Target.coreTargets
+        return HStack(spacing: isPad ? 5 : 3) {
+            ForEach(availableTargets) { t in
                 let isOn = lfo.targets.contains(t)
                 Button {
                     vm.toggleLfoTarget(t, for: index, lfoIndex: lfoIndex)
