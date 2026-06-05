@@ -82,11 +82,17 @@ final class DroneController: ObservableObject {
             // If the transport is stopped, mainMixer.outputVolume is
             // 0. Bump it to a fixed preview level (0.6) so the click
             // is audible. Save the prior value so we can restore on
-            // metronome-off or Play. Voices stay silent via the
-            // !isAudible zeroing in the render block.
+            // metronome-off or Play. Set voicesMuted=true so voices
+            // (which may have non-zero amps from a loaded preset) don't
+            // bleed through the bumped 0.6 gain. voicesMuted is the new
+            // narrow flag used specifically for this preview scenario;
+            // the older `!isAudible` check also caught pause/stop fade-
+            // out states and silenced voices BEFORE the fade ramp had a
+            // chance to run.
             if !engine.isAudible {
                 savedMainMixerVolumeBeforeMetronome = engine.engine.mainMixerNode.outputVolume
                 engine.engine.mainMixerNode.outputVolume = 0.6
+                engine.voicesMuted = true
             }
             engine.setMetronomeOn(true)
         } else if !on && metronomeOn {
@@ -94,6 +100,7 @@ final class DroneController: ObservableObject {
             // Restore the master volume override if we bumped it.
             if let saved = savedMainMixerVolumeBeforeMetronome, !engine.isAudible {
                 engine.engine.mainMixerNode.outputVolume = saved
+                engine.voicesMuted = false
             }
             savedMainMixerVolumeBeforeMetronome = nil
         }
@@ -157,6 +164,10 @@ final class DroneController: ObservableObject {
             // exactly as Play is tapped) goes through to live output
             // instead of being staged.
             engine.isAudible = true
+            // Clear the metronome-preview voice-mute (if Play was hit
+            // while the metronome was previewing pre-Play). Voices now
+            // need to render.
+            engine.voicesMuted = false
             // v1: clear the pre-Play metronome override now that
             // fadeInMaster is taking over the mainMixer volume.
             savedMainMixerVolumeBeforeMetronome = nil

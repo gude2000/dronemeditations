@@ -50,6 +50,18 @@ final class AudioEngine {
     /// (UI-disabled when state == .stopped) doesn't get stranded with
     /// audio bleeding out through a "stopped" transport.
     var isAudible: Bool = false
+    /// Separate concept from `isAudible`: hard-zero the voice buses in
+    /// the source-node closure. Only on during the metronome-pre-Play
+    /// preview, where mainMixer.outputVolume is bumped to 0.6 so the
+    /// click is audible — without zeroing, presets with non-zero voice
+    /// amps would bleed through that 0.6 gain. Pause/Stop intentionally
+    /// do NOT set this: the master fade-out needs voices to keep
+    /// rendering so the rampMaster ramp on mainMixerNode.outputVolume
+    /// is actually attenuating real signal. (Pre-fix, the guard hooked
+    /// off `!isAudible` which Pause/Stop flip BEFORE the fade Task
+    /// starts, so the fade and reverb bloom were hard-cutting at the
+    /// source node before the ramp could be heard.)
+    var voicesMuted: Bool = false
     private var fadeTimer: Timer?
     /// Bumped on every new rampMaster call so any in-flight async ramp
     /// loop bails out on its next tick rather than fighting the newer
@@ -203,12 +215,16 @@ final class AudioEngine {
                 }
             }
             // ───── Voice-silence guard ─────
-            // When the transport is NOT in an audible state (stopped /
-            // mid-Pause-fade-out), we still let the source node run so
-            // that the metronome can render — but the voices must be
-            // silent so toggling the metronome before Play doesn't
-            // bleed voice audio through.
-            if !self.isAudible {
+            // ONLY zero voices when explicitly muted via voicesMuted.
+            // That flag is set only during metronome-pre-Play preview
+            // (where mainMixer.outputVolume is bumped to 0.6 to make the
+            // click audible — voices would otherwise bleed through at
+            // that gain). Pause/Stop deliberately leave voicesMuted=false
+            // so the master fade-out on mainMixerNode.outputVolume has
+            // signal to attenuate (was previously `!isAudible`, which
+            // hard-cut at the source node before the ramp could be heard
+            // and starved the reverb bloom of input — clicks + no tail).
+            if self.voicesMuted {
                 for i in 0..<n { left[i] = 0; right[i] = 0 }
             }
 
