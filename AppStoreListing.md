@@ -60,12 +60,10 @@ SOUNDS YOU CAN SIT WITH FOR HOURS
 • Per-voice filter (LP / HP / BP), drive, cross-osc FM, stereo
   chorus, three-mode delay with musical timing, stereo Schroeder
   reverb
-• Twenty multi-target modulators per patch (five LFOs per voice).
-  LFOs 1–4 drive amplitude, pan, cutoff, Q, pitch, FM index, and
-  the FX-Mix macro. LFO 5 has its own dedicated row of granular +
-  FX targets (grain size / density / jitter / spread, delay
-  subdivisions / feedback / mix, reverb decay / mix). Each can
-  lock its rate to a musical subdivision of the global tempo.
+• Twenty multi-target LFOs per patch (five per voice). LFOs 1–4
+  hit amp / pan / cutoff / Q / pitch / FM / FX-Mix; LFO 5 has its
+  own row of granular + FX targets (grain, delay, reverb). Each
+  LFO's rate can lock to a musical subdivision of the tempo.
 • Per-voice timing envelopes — fade in over minutes, fade out
   later, repeat N times or forever. Rotate harmonically across
   20 minutes without touching a slider.
@@ -76,20 +74,19 @@ DESIGNED FOR THE DRONE TRADITION
 • 110+ presets across Drone Artists, Developer Patches, Solfeggio,
   Natural Resonance, Cymatics, Mystic & Composers, and Binaural
   categories — plus an INIT preset pinned at the top
-• 48 Drone Artists tributes capturing each artist's waveforms,
-  FX, and tuning — not just their pitches: Oliveros, Riley,
-  Radigue, Stars of the Lid, Sunn O))), Basinski, Niblock,
-  Palestine, Wada, Budd, Coltrane, Earth, Haino, NWW + more
+• 48 Drone Artists tributes — Oliveros, Riley, Radigue, Stars
+  of the Lid, Sunn O))), Basinski, Niblock, Palestine, Budd,
+  Coltrane, and more — capturing each artist's waveforms, FX,
+  and tuning, not just their pitches
 • 21 Developer Patches showcasing granular sampling, BPM-locked
   grain density, FX-Mix LFO swells, and the JG hybrid pad/groove
   series
-• Modal chord category — Ionian, Dorian, Phrygian, Lydian,
-  Mixolydian, Aeolian, Locrian, Harmonic Minor, Melodic Minor —
-  with quantize-to-scale so pitch-modulated voices arpeggiate
-  across all 7 mode degrees
+• Modal chord category — the 7 diatonic modes plus Harmonic
+  and Melodic Minor — with quantize-to-scale so pitch-modulated
+  voices arpeggiate across all 7 mode degrees
 • Auto-morph between any two presets over 30 s to 60 min
-• 25 scripted meditation journeys (Deep Listening Lineage,
-  Heavy Resonance, Minimalist Arc + 22 more)
+• 25 scripted meditation journeys (Deep Listening, Heavy
+  Resonance, Minimalist Arc, and 22 more)
 • Tune to Room — global LISTEN snaps the chord root to a pitch
   from the mic; per-strip ear icon snaps just one voice
 
@@ -105,9 +102,8 @@ LIVE CYMATICS THAT BREATHE WITH THE AUDIO
 GRANULAR + TEMPO
 • Granular waveform: pink noise chopped into Hann-windowed grains
   with size, density, jitter, stereo spread, per-voice overlap
-• Granular sampling: same scheduler applied to any loaded sample
-  — freeze a bansuri sustain forever, smear a Scriabin chord into
-  a tape-decay cloud
+• Granular sampling: same scheduler on any loaded sample —
+  freeze a bansuri forever, smear a chord into a tape-decay cloud
 • BPM-quantized density (½ → 1/32T) locks grain spacing to the
   global tempo. Per-LFO rate sync extends musical subdivisions
   to LFO speed. Metronome click toggle for an audible reference.
@@ -120,16 +116,15 @@ RECORD, SHARE, AND COMPOSE
   the sample's reference pitch
 • 50+ bundled samples: bansuri, organ, piano, storm, tide,
   forest, urban, cosmic
-• Cross-device preset sharing via .dronepreset files. AirDrop
-  a patch between web, iPhone, and iPad — same sound on each,
-  samples embedded inline. iCloud auto-syncs samples-free
-  presets between your iPhone and iPad.
+• Cross-device preset sharing via .dronepreset files — AirDrop
+  a patch between web, iPhone, and iPad, samples embedded
+  inline. iCloud auto-syncs samples-free presets across devices.
 
 One-time purchase. No subscription, no accounts, no tracking.
 Free web version: dronemeditations.com
 ```
 
-(About 3,950 chars — just under the 4,000 limit.)
+(~3,977 chars — fits the 4,000 limit.)
 
 ---
 
