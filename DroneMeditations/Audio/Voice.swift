@@ -526,25 +526,31 @@ final class Voice {
                     // Sweeps stereo width of the grain cloud.
                     grainSpreadMod += 0.5 * depth * value
                 case .delayTime:
-                    // Multiplicative ±50% on the delay tap length. With
-                    // the per-sample slew already in place (200 ms),
-                    // moderate-rate LFO modulation gives chorus-like
-                    // pitch shimmer rather than Doppler chirps.
-                    delayTimeFactor *= (1.0 + 0.5 * depth * value)
+                    // Multiplicative ±15% on the delay tap length —
+                    // intentionally small. Bigger swings + fast LFO
+                    // shapes (S&H, square) overrun the 200 ms tap
+                    // slew and produce audible Doppler chirps. ±15%
+                    // keeps the chorus-like shimmer without artifacts.
+                    delayTimeFactor *= (1.0 + 0.15 * depth * value)
                 case .delayFeedback:
-                    // Additive ±0.3 on feedback (range 0..0.95).
-                    // Clamped at the read site. Sweeps the delay from
-                    // a slap-back into a near-runaway repeat tail.
-                    delayFbMod += 0.3 * depth * value
+                    // Additive ±0.10 on feedback (range 0..0.95).
+                    // Smaller swing intentional — feedback rides a
+                    // recursive gain loop, so any per-buffer step gets
+                    // amplified through the tap. ±0.10 stays clean
+                    // even with S&H shapes; stack two LFO5 targets if
+                    // you need more drama.
+                    delayFbMod += 0.10 * depth * value
                 case .delayMix:
                     // Additive ±0.5 on the delay wet mix. Stacks with
                     // the FX-Mix macro if both target FX simultaneously.
                     delayMixMod += 0.5 * depth * value
                 case .reverbDecay:
-                    // Multiplicative ±50% on reverb decay seconds.
-                    // A slow sine here is the "breathing room" gesture
-                    // — the tail lengthens and shortens with the LFO.
-                    reverbDecayFactor *= (1.0 + 0.5 * depth * value)
+                    // Multiplicative ±25% on reverb decay seconds —
+                    // also intentionally moderate. Reverb comb gains
+                    // get recomputed per buffer; big jumps cause
+                    // audible breathing artifacts. ±25% is plenty for
+                    // the "breathing room" gesture without artifacts.
+                    reverbDecayFactor *= (1.0 + 0.25 * depth * value)
                 case .reverbMix:
                     // Additive ±0.5 on the reverb wet mix.
                     reverbMixMod += 0.5 * depth * value

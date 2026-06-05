@@ -1070,7 +1070,9 @@ export class AudioEngine {
           grainSpreadMod += 0.5 * lfo.depth * lfoValue;
           anyGrainMod = true;
         } else if (target === "delayTime") {
-          delayTimeFactor *= (1 + 0.5 * lfo.depth * lfoValue);
+          // ±15% (matches iOS). Bigger swings + fast LFO shapes
+          // overrun the AudioParam ramp and produce Doppler chirps.
+          delayTimeFactor *= (1 + 0.15 * lfo.depth * lfoValue);
           anyDelayTime = true;
         } else if (target === "reverbMix") {
           reverbMixMod += 0.5 * lfo.depth * lfoValue;
