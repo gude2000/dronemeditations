@@ -881,20 +881,20 @@ final class AudioEngine {
 
     func setLfoRate(_ hz: Double, for voiceIndex: Int, lfoIndex: Int) {
         guard voices.indices.contains(voiceIndex),
-              (0..<4).contains(lfoIndex) else { return }
+              (0..<5).contains(lfoIndex) else { return }
         let clamped = max(LfoState.rateMin, min(LfoState.rateMax, hz))
         voices[voiceIndex].lfoRatesHz[lfoIndex] = clamped
     }
 
     func setLfoDepth(_ depth: Double, for voiceIndex: Int, lfoIndex: Int) {
         guard voices.indices.contains(voiceIndex),
-              (0..<4).contains(lfoIndex) else { return }
+              (0..<5).contains(lfoIndex) else { return }
         voices[voiceIndex].lfoDepths[lfoIndex] = max(0, min(1, depth))
     }
 
     func setLfoShape(_ shape: LfoState.Shape, for voiceIndex: Int, lfoIndex: Int) {
         guard voices.indices.contains(voiceIndex),
-              (0..<4).contains(lfoIndex) else { return }
+              (0..<5).contains(lfoIndex) else { return }
         voices[voiceIndex].lfoShapes[lfoIndex] = shape
     }
 
@@ -907,7 +907,7 @@ final class AudioEngine {
 
     func setLfoTargets(_ targets: Set<LfoState.Target>, for voiceIndex: Int, lfoIndex: Int) {
         guard voices.indices.contains(voiceIndex),
-              (0..<4).contains(lfoIndex) else { return }
+              (0..<5).contains(lfoIndex) else { return }
         voices[voiceIndex].lfoTargets[lfoIndex] = targets
     }
 

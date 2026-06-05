@@ -23,17 +23,19 @@ final class Voice {
     /// after applying the global solo rule.
     var effectiveEnabled: Bool = true
 
-    // 4 LFOs with user-editable shape + target. Mirror of LfoState.
-    var lfoShapes: [LfoState.Shape]   = [.sine, .sampleAndHold, .sine, .sine]
+    // 5 LFOs with user-editable shape + target. Mirror of LfoState.
+    // v1.1 bumped from 4 → 5: slot 4 (LFO 5) is the dedicated grain /
+    // delay / reverb modulator with its own target set (Target.lfo5Targets).
+    var lfoShapes: [LfoState.Shape]   = [.sine, .sampleAndHold, .sine, .sine, .sine]
     /// v1.1 multi-target: each LFO drives a SET of destinations
     /// simultaneously. v1.0 was single-target (one LfoState.Target per
     /// LFO); now an LFO can route to e.g. {pan, pitch, cutoff} all
     /// at once. The render loop iterates each set.
-    var lfoTargets: [Set<LfoState.Target>] = [[.pan], [.amplitude], [.cutoff], [.pitch]]
-    var lfoRatesHz: [Double]          = [0.25, 0.50, 0.30, 0.30]
-    var lfoDepths: [Double]           = [0.0, 0.0, 0.0, 0.0]
-    private var lfoPhases: [Double]   = [0.0, 0.0, 0.0, 0.0]
-    private var lfoHolds: [Double]    = [0.0, 0.0, 0.0, 0.0]
+    var lfoTargets: [Set<LfoState.Target>] = [[.pan], [.amplitude], [.cutoff], [.pitch], [.grainDensity]]
+    var lfoRatesHz: [Double]          = [0.25, 0.50, 0.30, 0.30, 0.30]
+    var lfoDepths: [Double]           = [0.0, 0.0, 0.0, 0.0, 0.0]
+    private var lfoPhases: [Double]   = [0.0, 0.0, 0.0, 0.0, 0.0]
+    private var lfoHolds: [Double]    = [0.0, 0.0, 0.0, 0.0, 0.0]
 
     // Biquad filter (LP / HP / BP). UI-writable targets + coefficients computed per render.
     var filterType: FilterState.FilterType = .lowpass
@@ -419,7 +421,21 @@ final class Voice {
         // entire wet bus together. Full LFO depth swings each mix
         // ±0.5 (so a base mix of 0.5 swings the full 0..1 range).
         var fxMixMod: Double = 0
-        for k in 0..<4 {
+        // v1.1 LFO 5 accumulators. Granular targets and reverb/delay
+        // decay are multiplicative around 1.0 so a single LFO at depth
+        // 1.0 swings ±50%; the rest are additive bias values clamped at
+        // their read sites. Initial values are no-op identities (1.0
+        // for factors, 0.0 for additive) so a depth-0 LFO5 vanishes.
+        var grainSizeFactor: Double    = 1.0
+        var grainDensityFactor: Double = 1.0
+        var grainJitterMod: Double     = 0
+        var grainSpreadMod: Double     = 0
+        var delayTimeFactor: Double    = 1.0
+        var delayFbMod: Double         = 0
+        var delayMixMod: Double        = 0
+        var reverbDecayFactor: Double  = 1.0
+        var reverbMixMod: Double       = 0
+        for k in 0..<5 {
             let depth = lfoDepths[k]
             if depth < 0.001 { continue }
             lfoPhases[k] += lfoRatesHz[k] * bufferSeconds
@@ -487,14 +503,51 @@ final class Voice {
                     // chorus mixes together). Applied additively to
                     // each FX mix at its read site, clamped 0..1.
                     fxMixMod += 0.5 * depth * value
-                // v1.1 LFO 5 targets — wired in commit 2 of the 5th-LFO
-                // series. Cases listed here for switch exhaustiveness;
-                // accumulators + read-site application land alongside
-                // the loop-bound bump from 0..<4 to 0..<5.
-                case .grainSize, .grainDensity, .grainJitter, .grainSpread,
-                     .delayTime, .delayFeedback, .delayMix,
-                     .reverbDecay, .reverbMix:
-                    break
+                // v1.1 LFO 5 targets. Multiplicative factors stay near
+                // 1.0 when depth is low; additive mods stay near 0.
+                // Read sites apply the factors / clamps below.
+                case .grainSize:
+                    // Multiplicative ±50% swing at full depth around the
+                    // user's set grain size. Lower bound clamped to the
+                    // 5 ms minimum at the read site.
+                    grainSizeFactor *= (1.0 + 0.5 * depth * value)
+                case .grainDensity:
+                    // Multiplicative ±50% swing on grains per second.
+                    // The musical use case: S&H or triangle at slow
+                    // rate creates accelerating / decelerating clouds.
+                    grainDensityFactor *= (1.0 + 0.5 * depth * value)
+                case .grainJitter:
+                    // Additive ±0.5 on jitter (range 0..1). Clamped at
+                    // the read site. Lets you sweep from regular grain
+                    // grid into chaotic spray and back.
+                    grainJitterMod += 0.5 * depth * value
+                case .grainSpread:
+                    // Additive ±0.5 on the per-grain pan offset scale.
+                    // Sweeps stereo width of the grain cloud.
+                    grainSpreadMod += 0.5 * depth * value
+                case .delayTime:
+                    // Multiplicative ±50% on the delay tap length. With
+                    // the per-sample slew already in place (200 ms),
+                    // moderate-rate LFO modulation gives chorus-like
+                    // pitch shimmer rather than Doppler chirps.
+                    delayTimeFactor *= (1.0 + 0.5 * depth * value)
+                case .delayFeedback:
+                    // Additive ±0.3 on feedback (range 0..0.95).
+                    // Clamped at the read site. Sweeps the delay from
+                    // a slap-back into a near-runaway repeat tail.
+                    delayFbMod += 0.3 * depth * value
+                case .delayMix:
+                    // Additive ±0.5 on the delay wet mix. Stacks with
+                    // the FX-Mix macro if both target FX simultaneously.
+                    delayMixMod += 0.5 * depth * value
+                case .reverbDecay:
+                    // Multiplicative ±50% on reverb decay seconds.
+                    // A slow sine here is the "breathing room" gesture
+                    // — the tail lengthens and shortens with the LFO.
+                    reverbDecayFactor *= (1.0 + 0.5 * depth * value)
+                case .reverbMix:
+                    // Additive ±0.5 on the reverb wet mix.
+                    reverbMixMod += 0.5 * depth * value
                 }
             }
         }
@@ -545,15 +598,23 @@ final class Voice {
         // by a fraction of a percent — the stereo width comes from the
         // tail decorrelating in time, not from differing decay times.
         let ln10x3 = 3.0 * 2.302585092994046
-        let decayDenom = sampleRate * max(0.1, reverbDecaySec)
+        // v1.1: LFO 5 .reverbDecay target multiplies the effective decay
+        // seconds. Clamped to the valid 0.1..10 range so wild factors
+        // can't push us out of musical territory.
+        let effReverbDecaySec = max(0.1, min(10.0, reverbDecaySec * reverbDecayFactor))
+        let decayDenom = sampleRate * effReverbDecaySec
         for k in 0..<4 {
             combFb[k]  = exp(-ln10x3 * Double(Voice.combLengths[k])  / decayDenom)
             combFbR[k] = exp(-ln10x3 * Double(Voice.combLengthsR[k]) / decayDenom)
         }
         // Resolve delay tap length in samples (Double target). Per-sample
         // slew + fractional read below — see currentDelayTapSamples comment.
+        // v1.1: LFO 5 .delayTime target multiplies the effective tap
+        // length. The 200 ms per-sample slew below smooths any fast LFO
+        // moves into chorus-like pitch shimmer rather than Doppler chirps.
+        let effDelayTimeSec = max(0.001, delayTimeSec * delayTimeFactor)
         let delayTapSamplesTarget = max(1.0,
-            min(Double(delayBufferSize - 1), delayTimeSec * sampleRate))
+            min(Double(delayBufferSize - 1), effDelayTimeSec * sampleRate))
         if currentDelayTapSamples < 0 {
             // First buffer after init / reset — snap to target so the
             // very first sample doesn't think we slewed from 0 ms.
@@ -568,9 +629,23 @@ final class Voice {
         // mixes together. Clamped 0..1. When no LFO targets .fxMix,
         // fxMixMod is 0 and these read identically to before.
         let fxMixBias = Float(fxMixMod)
-        let revMix = max(0.0, min(1.0, reverbMix + fxMixBias))
-        let dlyMix = max(0.0, min(1.0, delayMix + fxMixBias))
-        let dlyFb = delayFeedback
+        // v1.1: LFO 5 .reverbMix / .delayMix bias adds to fxMixBias.
+        // Each is independent — LFO 5 can fade JUST reverb in while
+        // an LFO targeting fxMix sweeps the whole bus.
+        let revMix = max(0.0, min(1.0, reverbMix + fxMixBias + Float(reverbMixMod)))
+        let dlyMix = max(0.0, min(1.0, delayMix + fxMixBias + Float(delayMixMod)))
+        // v1.1: LFO 5 .delayFeedback bias. Hard upper limit at 0.95 to
+        // prevent runaway feedback.
+        let dlyFb = max(0.0, min(0.95, delayFeedback + Float(delayFbMod)))
+        // v1.1: LFO 5 granular targets. Effective values are stable
+        // across one buffer (LFO sampled once per buffer for grain
+        // params, same as for delay/reverb above). Clamped at the
+        // bounds the engine already enforces elsewhere: grain size
+        // 5..500 ms, density 0.5..50 Hz, jitter 0..1, spread 0..1.
+        let effGrainSizeMs      = max(5.0,  min(500.0, grainSizeMs    * grainSizeFactor))
+        let effGrainDensityHz   = max(0.5,  min(50.0,  grainDensityHz * grainDensityFactor))
+        let effGrainJitter      = max(0.0,  min(1.0,   grainJitter    + grainJitterMod))
+        let effGrainPanSpread   = max(0.0,  min(1.0,   grainPanSpread + grainSpreadMod))
         // ── CPU bypass guards (v1.1). When mix is effectively zero AND
         // the feedback isn't keeping the buffer alive, skip the entire
         // reverb / delay computation per sample. Typical presets have at
@@ -833,10 +908,10 @@ final class Voice {
                     // Start a new grain. Pick a sample read offset
                     // around the user's target position, jittered
                     // bipolarly (±) by grainSamplePosJitter.
-                    let lenSamples = max(8, Int(grainSizeMs * 0.001 * sampleRate))
+                    let lenSamples = max(8, Int(effGrainSizeMs * 0.001 * sampleRate))
                     grainCurrentLength = lenSamples
                     grainCurrentPos = 0
-                    grainCurrentPanOffset = Float(nextRandomBipolar() * grainPanSpread)
+                    grainCurrentPanOffset = Float(nextRandomBipolar() * effGrainPanSpread)
                     let posCenter = max(0.0, min(1.0, grainSamplePosFrac))
                     let posJit = max(0.0, min(1.0, grainSamplePosJitter))
                     let posFrac = max(0.0, min(1.0,
@@ -848,9 +923,9 @@ final class Voice {
                     grainSampleStartFrame = max(0, min(maxStart,
                         Int(Double(sampleCount) * posFrac)))
                     // Inter-grain gap (same math as pink-noise granular).
-                    let meanGap = sampleRate / max(0.5, grainDensityHz)
-                    let lo = max(0.05, 1.0 - grainJitter * 0.7)
-                    let hi = 1.0 + grainJitter * 1.5
+                    let meanGap = sampleRate / max(0.5, effGrainDensityHz)
+                    let lo = max(0.05, 1.0 - effGrainJitter * 0.7)
+                    let hi = 1.0 + effGrainJitter * 1.5
                     let r01 = nextRandomBipolar() * 0.5 + 0.5
                     let gap = meanGap * (lo + (hi - lo) * r01)
                     // When overlap is allowed, honor the gap literally —
@@ -959,17 +1034,17 @@ final class Voice {
                     if wave == .granular {
                         if grainSamplesUntilNext <= 0 {
                             // Start a new grain.
-                            let lenSamples = max(8, Int(grainSizeMs * 0.001 * sampleRate))
+                            let lenSamples = max(8, Int(effGrainSizeMs * 0.001 * sampleRate))
                             grainCurrentLength = lenSamples
                             grainCurrentPos = 0
-                            grainCurrentPanOffset = Float(nextRandomBipolar() * grainPanSpread)
+                            grainCurrentPanOffset = Float(nextRandomBipolar() * effGrainPanSpread)
                             // Mean inter-grain spacing from density. jitter
                             // randomizes the gap multiplicatively — at
                             // jitter=1 the gap varies 0.3×..2.5× the mean,
                             // producing markedly irregular grain trains.
-                            let meanGap = sampleRate / max(0.5, grainDensityHz)
-                            let lo = max(0.05, 1.0 - grainJitter * 0.7)
-                            let hi = 1.0 + grainJitter * 1.5
+                            let meanGap = sampleRate / max(0.5, effGrainDensityHz)
+                            let lo = max(0.05, 1.0 - effGrainJitter * 0.7)
+                            let hi = 1.0 + effGrainJitter * 1.5
                             // Random in [lo, hi]: (nextRandomBipolar*0.5+0.5) ∈ [0,1].
                             let r01 = nextRandomBipolar() * 0.5 + 0.5
                             let gap = meanGap * (lo + (hi - lo) * r01)
