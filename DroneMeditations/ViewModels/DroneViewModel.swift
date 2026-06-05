@@ -375,7 +375,27 @@ final class DroneViewModel: ObservableObject {
         audioEngine.setSolo(oscillators[index].isSoloed, for: index)
     }
 
+    /// v1.1: tolerate old 4-LFO presets. When the user taps the LFO 5
+    /// row (lfoIndex = 4) on a preset loaded with only 4 LFOs in its
+    /// `lfos` array, the historical `lfos.indices.contains(lfoIndex)`
+    /// guard would fail silently and the chip wouldn't activate. Pad
+    /// the array up to 5 entries with a default silent LFO 5 so the
+    /// setter has somewhere to write. Idempotent — no-op when already
+    /// at 5 entries.
+    private func padLfosTo5(at index: Int) {
+        guard oscillators.indices.contains(index) else { return }
+        while oscillators[index].lfos.count < 5 {
+            oscillators[index].lfos.append(LfoState(
+                shape: .sine,
+                targets: [.grainDensity],
+                rateHz: 0.30,
+                depth: 0
+            ))
+        }
+    }
+
     func setLfoRate(_ hz: Double, for index: Int, lfoIndex: Int) {
+        padLfosTo5(at: index)
         guard oscillators.indices.contains(index),
               oscillators[index].lfos.indices.contains(lfoIndex) else { return }
         let clamped = max(LfoState.rateMin, min(LfoState.rateMax, hz))
@@ -389,12 +409,14 @@ final class DroneViewModel: ObservableObject {
     /// effective Hz from project BPM × denomination instead of rateHz.
     /// Mirrors the grain-density sync pattern.
     func setLfoRateSync(_ on: Bool, for index: Int, lfoIndex: Int) {
+        padLfosTo5(at: index)
         guard oscillators.indices.contains(index),
               oscillators[index].lfos.indices.contains(lfoIndex) else { return }
         oscillators[index].lfos[lfoIndex].rateSyncEnabled = on
         pushEffectiveLfoRate(for: index, lfoIndex: lfoIndex)
     }
     func setLfoRateDenomination(_ d: GrainDenomination, for index: Int, lfoIndex: Int) {
+        padLfosTo5(at: index)
         guard oscillators.indices.contains(index),
               oscillators[index].lfos.indices.contains(lfoIndex) else { return }
         oscillators[index].lfos[lfoIndex].rateDenomination = d
@@ -420,6 +442,7 @@ final class DroneViewModel: ObservableObject {
     }
 
     func setLfoDepth(_ depth: Double, for index: Int, lfoIndex: Int) {
+        padLfosTo5(at: index)
         guard oscillators.indices.contains(index),
               oscillators[index].lfos.indices.contains(lfoIndex) else { return }
         let prevTarget = oscillators[index].lfos[lfoIndex].target
@@ -431,6 +454,7 @@ final class DroneViewModel: ObservableObject {
     }
 
     func setLfoShape(_ shape: LfoState.Shape, for index: Int, lfoIndex: Int) {
+        padLfosTo5(at: index)
         guard oscillators.indices.contains(index),
               oscillators[index].lfos.indices.contains(lfoIndex) else { return }
         oscillators[index].lfos[lfoIndex].shape = shape
@@ -442,6 +466,7 @@ final class DroneViewModel: ObservableObject {
     /// this voice, restore the slider's underlying value so the
     /// parameter doesn't get stuck wherever the LFO last left it.
     func toggleLfoTarget(_ target: LfoState.Target, for index: Int, lfoIndex: Int) {
+        padLfosTo5(at: index)
         guard oscillators.indices.contains(index),
               oscillators[index].lfos.indices.contains(lfoIndex) else { return }
         var set = oscillators[index].lfos[lfoIndex].targets
@@ -461,6 +486,7 @@ final class DroneViewModel: ObservableObject {
     /// treated as "set the target SET to {target}". Used by preset
     /// load + the randomize path.
     func setLfoTarget(_ target: LfoState.Target, for index: Int, lfoIndex: Int) {
+        padLfosTo5(at: index)
         guard oscillators.indices.contains(index),
               oscillators[index].lfos.indices.contains(lfoIndex) else { return }
         oscillators[index].lfos[lfoIndex].targets = [target]

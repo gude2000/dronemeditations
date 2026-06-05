@@ -9,20 +9,20 @@
 import {
   CHORDS, PRESETS, WAVEFORMS, JOURNEYS, journeyTotalSeconds, PITCH_CLASSES, TUNING_SYSTEMS,
   pitchToFrequency, chordFrequencies, FREQ_MIN, FREQ_MAX
-} from "./music.js?v=40";
-import { AudioEngine } from "./audio.js?v=40";
-import { initUI, renderAll } from "./ui.js?v=40";
+} from "./music.js?v=41";
+import { AudioEngine } from "./audio.js?v=41";
+import { initUI, renderAll } from "./ui.js?v=41";
 import {
   exportUserPresetDownload, importUserPresetFromFile
-} from "./preset-sharing.js?v=40";
-import { initVisualizations, setChladniVisible, setSpectrumVisible } from "./visualizations.js?v=40";
+} from "./preset-sharing.js?v=41";
+import { initVisualizations, setChladniVisible, setSpectrumVisible } from "./visualizations.js?v=41";
 import {
   loadUserPresets, saveUserPresets, newPresetId, newSampleId,
   loadVoicePresets, saveVoicePresets, newVoicePresetId,
   loadUserJourneys, saveUserJourneys, newUserJourneyId,
   loadLibrarySamples, saveLibrarySamples,
   putSample, getSample, deleteSample
-} from "./storage.js?v=40";
+} from "./storage.js?v=41";
 
 // ──────────────────────────────────────────────────
 // State.
@@ -839,7 +839,13 @@ const actions = {
   /// target set. Restores the underlying slider value if removing the
   /// target left no other LFO on this voice still driving it.
   toggleLfoTarget(oscIndex, lfoIndex, target) {
-    const lfo = state.oscillators[oscIndex].lfos[lfoIndex];
+    // v1.1: pad state.oscillators[].lfos to 5 entries on first touch
+    // (old 4-LFO presets load shorter). Mirrors audio.js's _padLfos.
+    const osc = state.oscillators[oscIndex];
+    while (osc.lfos.length < 5) {
+      osc.lfos.push({ shape: "sine", targets: ["grainDensity"], rateHz: 0.30, depth: 0 });
+    }
+    const lfo = osc.lfos[lfoIndex];
     const set = new Set(currentTargets(lfo));
     const wasOn = set.has(target);
     if (wasOn) set.delete(target); else set.add(target);
