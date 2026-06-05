@@ -10,12 +10,16 @@ on the current version with an incremented build number (see
 
 ## Shipped
 
-### v1.1 — 5th LFO + atmospheric polish ✅
+### v1.0 launch (build 11) — 5th LFO + atmospheric polish ✅
 
 Fifth LFO per voice with a dedicated nine-target set (grain size /
 density / jitter / spread; delay time / feedback / mix; reverb decay /
-mix). 20 multi-target modulators per patch. Plus gentler stop bloom
-and several click-and-tail fixes in the FX bus.
+mix). 20 multi-target modulators per patch. Plus gentler stop bloom,
+the pause/stop fade hard-cut fix, and BPM + metronome lifted to the
+header (was buried below four oscillator strips). This was originally
+planned as v1.1 but rolled into v1.0 build 11 — build 10 was
+withdrawn from App Store review before going live, and these
+additions land on top in the new launch build.
 
 Final shape differed slightly from the original v1.1 plan below:
 

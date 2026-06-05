@@ -4,14 +4,15 @@ Release notes are a running record of what's shipped in each version. Each secti
 
 ---
 
-## v1.1 — LFO 5 + atmospheric polish
+## v1.0 (build 11) — App Store launch
 
-The first feature update after launch. Headline feature is a fifth LFO per voice with its own dedicated target set (granular params, delay subdivisions, reverb decay/mix) — bumps the modulator count from 16 to 20 per patch. Plus several click-and-tail fixes in the FX bus that landed alongside it, and a gentler stop bloom.
+The actual launch build. Build 10 was withdrawn from App Store review before going live; everything in 10 plus a feature pass on top folds into build 11. Headline addition is the fifth LFO per voice with its own dedicated target set (granular params, delay subdivisions, reverb decay/mix) — bumps the modulator count from 16 to 20 per patch.
 
 ### New
 
 - **Fifth LFO per voice.** Same five shapes (sine / triangle / sawtooth / square / S&H), same BPM-syncable rate, but a dedicated nine-target set that none of LFOs 1–4 can reach: **grain size / density / jitter / spread** for stuttering pulse textures and grain-rate accelerandos; **delay time / feedback / mix** for chorus-y shimmer and breathing tail length; **reverb decay / mix** for room-size breathing and independent wet swells. LFO 5 lives in its own row right below LFO 4, with a two-row chip grid grouping the targets (grain on top, FX on the bottom). Older 4-LFO presets continue to load with LFO 5 disabled — no migration step required.
 - **20 multi-target modulators per patch** (4 LFOs × 7 shared synth targets + 1 LFO × 9 dedicated FX/granular targets, all across the 4 voices). The headline "Sixteen multi-target LFOs" copy in the App Store listing and the manual is updated accordingly.
+- **BPM display + metronome icon lifted into the header.** Both were buried at the bottom of the controls scroll view (below all four oscillator strips). On iPhone landscape with a tall sample-mode strip they were effectively undiscoverable. Now always visible in the top-right icon row next to ?/📸/spectrum/Chladni. Same audio behaviour as before.
 
 ### Polish
 
@@ -20,40 +21,28 @@ The first feature update after launch. Headline feature is a fifth LFO per voice
 ### Bug fixes
 
 - **Pause and Stop fade out audibly again (iOS).** The June 1 "metronome before Play" feature accidentally regressed both Pause and Stop into hard cuts: the voice-silence guard added inside the source-node closure was firing the instant `engine.isAudible = false` (which Pause/Stop flip BEFORE kicking off their fade Tasks), zeroing voice output at the source — so the master fade was attenuating already-silent signal and the reverb bloom had no input to swell. Split the two concerns: the source-node guard now hooks off a separate `voicesMuted` flag that's only set during the metronome-pre-Play preview. Pause = audible 1.4 s exponential fade. Stop = audible 10 s atmospheric stop with full reverb bloom.
-- **No click or tail-loss on Pause/Stop when LFO 5 reverb/delay targets are at rest.** The buffer-rate smoothing on the LFO 5 FX mod accumulators was running even when no LFO 5 target was active, leaving residual drift on the smoothed values after any prior LFO 5 activity. During the master fade, that drift was changing `effReverbDecaySec` per buffer, which recomputes the comb-filter feedback coefficients per buffer — exactly the failure mode that the `startStopBloom` comment warned about. The smoothing now hard-snaps to identity when its LFO target is not active that buffer, guaranteeing bit-identical v1.0 behaviour on the FX path at rest.
+- **No click or tail-loss on Pause/Stop when LFO 5 reverb/delay targets are at rest.** The buffer-rate smoothing on the LFO 5 FX mod accumulators was running even when no LFO 5 target was active, leaving residual drift on the smoothed values after any prior LFO 5 activity. During the master fade, that drift was changing `effReverbDecaySec` per buffer, which recomputes the comb-filter feedback coefficients per buffer — exactly the failure mode that the `startStopBloom` comment warned about. The smoothing now hard-snaps to identity when its LFO target is not active that buffer, guaranteeing bit-identical pre-LFO-5 behaviour on the FX path at rest.
 - **Click reduction on LFO 5 dTime / dFB / dMix at high depth.** Even before the snap-to-identity fix, the dTime / dFB / dMix targets were clicky at high LFO 5 depth with S&H or square shapes — the per-buffer mod was stepping the gain stages hard. Added a ~50 ms exponential smoothing on the mod accumulators and reduced the swing amounts so steps now roll in gradually rather than instantly.
-
-### Under the hood
-
-- iOS Voice.swift LFO arrays expanded from 4 → 5 entries across all six per-voice arrays (shape, targets, rate, depth, phase, hold). New `padLfosTo5(at:)` helper in `DroneViewModel` re-pads loaded presets so the iOS LFO setters can't no-op on a 4-element array.
-- Web `audio.js` mirrored: `for (let k = 0; k < 5; k++)` loop, nine target string handlers matching iOS raw values, `_padLfos(v)` helper, and a Promise-clean handler for the three iOS-only chips (no-op on web, present in the schema).
-- LFO 5 row UI: extracted `lfoTargetChip` helper in `OscillatorStrip.swift` and switched to a two-row `VStack` chip layout (grain on top, FX on the bottom) so iPhone landscape doesn't squeeze the nine chips off-screen.
-
----
-
-## v1.0 (build 10) — post-launch polish
-
-Bug fixes from public testing of build 9, plus two more Developer Patches. No new public-facing features.
-
-### Bug fixes
-
 - **Quantize-to-scale now engages reliably on preset load and on Play.** Was intermittent on the web: when a preset with quantize-to-scale on was loaded, or when transport stopped and played again, the quantize flag could end up off on freshly-rebuilt voices. Now defensively re-pushed on every preset load and on every Play, on both iOS and web.
-- **Modal chords now arpeggiate across the full 7-note scale when quantize-to-scale is on.** Was snapping pitch-LFO output to only the 4 chord tones, which clustered S&H steps onto the root. Modal entries (Ionian / Dorian / Phrygian / Lydian / Mixolydian / Aeolian / Locrian + Harmonic & Melodic Minor) now carry their full 7-note mode and quantize uses all 7 degrees. Other chord categories (Triads, Extensions, Symmetric, Quartal, Microtonal) still quantize to chord tones — right behaviour for harmonic patches.
+- **Modal chords now arpeggiate across the full 7-note scale when quantize-to-scale is on.** Was snapping pitch-LFO output to only the 4 chord tones, which clustered S&H steps onto the root. Modal entries (Ionian / Dorian / Phrygian / Lydian / Mixolydian / Aeolian / Locrian + Harmonic & Melodic Minor) now carry their full 7-note mode and quantize uses all 7 degrees.
 - **LFO rate sync + grain density sync survive transport stop.** Web only: when Stop wiped the voice list, fresh voices came back without the LFO denomination → rate or grain denomination → density bindings that had been pushed when the preset loaded. Both now re-applied on every Play.
 
-### Presets
+### Presets (since build 9)
 
 - **JG Maybe Three** (Developer Patches) — quiet hybrid pad with all four voices feeding the chorus mix, S&H pitch with quantize on the lead, glacial drift on OSC 4.
 - **JG Low Intensity** (Developer Patches) — quiet meditative bed: 110 Hz triangle pad + two A3 granular voices + a 159 Hz sawtooth low drone that fades in at 60 s. S&H pitch syncs to 1/16 at preset BPM; quantize-to-scale keeps the steps inside the active mode.
 
 ### Under the hood
 
-- **gen_swift automation** — the JG-preset generator now emits both the Swift preset block (for `Preset.swift`) and the web JS entry (for `music.js`) in one pass, including LFO configs and drift configs. New presets go from `.dronepreset` file to bundled Swift + JS in one script run.
-- **RecordingSetup.md** — screen-recording workflow doc capturing what works for App Store previews (physical iPhone + QuickTime), what works for landing-page videos (OBS + ScreenCaptureKit on the web app), and what doesn't (iOS Simulator audio is silently dropped by both `simctl recordVideo` and ScreenCaptureKit).
+- iOS Voice.swift LFO arrays expanded from 4 → 5 entries across all six per-voice arrays (shape, targets, rate, depth, phase, hold). New `padLfosTo5(at:)` helper in `DroneViewModel` re-pads loaded presets so the iOS LFO setters can't no-op on a 4-element array.
+- Web `audio.js` mirrored: `for (let k = 0; k < 5; k++)` loop, nine target string handlers matching iOS raw values, `_padLfos(v)` helper, and a Promise-clean handler for the three iOS-only chips (no-op on web, present in the schema).
+- LFO 5 row UI: extracted `lfoTargetChip` helper in `OscillatorStrip.swift` and switched to a two-row `VStack` chip layout (grain on top, FX on the bottom) so iPhone landscape doesn't squeeze the nine chips off-screen.
+- **gen_swift automation** — the JG-preset generator now emits both the Swift preset block (for `Preset.swift`) and the web JS entry (for `music.js`) in one pass, including LFO configs and drift configs.
+- **RecordingSetup.md** — screen-recording workflow doc capturing what works for App Store previews (physical iPhone + QuickTime) and what doesn't (iOS Simulator audio is silently dropped by both `simctl recordVideo` and ScreenCaptureKit).
 
 ---
 
-## v1.0 (build 9) — launch
+## v1.0 (build 9) — earlier feature-complete TestFlight pass
 
 The public v1.0 release. Build 9 is the App Store launch build, consolidating everything from the previous TestFlight history (1.0 builds 1–6 → relabeled 1.1 builds 7–8 → folded back to 1.0 build 9 for launch) plus the final feature pass below.
 
