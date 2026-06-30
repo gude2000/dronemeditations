@@ -70,20 +70,20 @@ struct AutomationEventEditorView: View {
                     }
                 }
                 Section("Apply to") {
-                    // SwiftUI Picker .menu style is unreliable when tags
-                    // are enum cases with associated values — tap-to-select
-                    // sometimes never round-trips back through the binding,
-                    // so the selection appears stuck on the initial value.
-                    // Map the VoiceFilter enum onto an Int tag (-1 = all,
-                    // 0–3 = oscillator index) instead. The binding
-                    // translates back to the enum for the model.
+                    // navigationLink picker style — selection on a pushed
+                    // screen, immune to tap-region overlap and to the sheet
+                    // re-rendering mid-tap when the observed vm churns
+                    // @Published during playback. The Int-tag mapping
+                    // (-1 = all, 0–3 = oscillator) is still needed because
+                    // VoiceFilter is an enum with associated values, which
+                    // SwiftUI Picker tag-matching handles unreliably.
                     Picker("Voice", selection: voiceIndexBinding) {
                         Text("All voices").tag(-1)
                         ForEach(0..<4) { i in
                             Text("OSC \(i + 1)").tag(i)
                         }
                     }
-                    .pickerStyle(.menu)
+                    .pickerStyle(.navigationLink)
                 }
                 Section("Action") {
                     Picker("Type", selection: actionTypeBinding) {
@@ -96,7 +96,7 @@ struct AutomationEventEditorView: View {
                         Text("LFO rate").tag(ActionType.lfoRate)
                         Text("LFO depth").tag(ActionType.lfoDepth)
                     }
-                    .pickerStyle(.menu)
+                    .pickerStyle(.navigationLink)
                     actionFields
                 }
                 if isExisting {
@@ -170,6 +170,7 @@ struct AutomationEventEditorView: View {
                 Text(pc.displayName).tag(pc.rawValue)
             }
         }
+        .pickerStyle(.navigationLink)
         Picker("Chord", selection: chordIdBinding) {
             ForEach(ChordType.Category.allCases, id: \.self) { category in
                 Section(category.rawValue) {
@@ -179,6 +180,7 @@ struct AutomationEventEditorView: View {
                 }
             }
         }
+        .pickerStyle(.navigationLink)
     }
 
     private func fadeSlider(durationSec: Double, isFadeIn: Bool) -> some View {
@@ -322,6 +324,7 @@ struct AutomationEventEditorView: View {
                 Text(wf.displayName).tag(wf.rawValue)
             }
         }
+        .pickerStyle(.navigationLink)
         // Surface a sample picker only when the chosen waveform is .sample.
         // Without one the action would set the voice to sample-mode with
         // an empty buffer (= silence). The picker lists every
@@ -342,6 +345,7 @@ struct AutomationEventEditorView: View {
                     }
                 }
             }
+            .pickerStyle(.navigationLink)
             if (draft.sampleName ?? "").isEmpty {
                 Text("Pick a sample — the voice will load this file before the waveform flips to Sample mode at fire time.")
                     .font(.caption)
@@ -383,6 +387,7 @@ struct AutomationEventEditorView: View {
                 Text("LFO \(i + 1)").tag(i)
             }
         }
+        .pickerStyle(.navigationLink)
     }
 
     private var lfoRateSlider: some View {

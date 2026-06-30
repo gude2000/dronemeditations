@@ -111,12 +111,14 @@ struct AutomationSheetView: View {
 
     // MARK: - Subviews
 
-    // Bare Picker — no HStack/Spacer wrapper. A Menu wrapped in an HStack
-    // (the previous impl) created an overlapping tap region that swallowed
-    // most taps ("finicky duration dropdown"), and because the duration
-    // never got set, the Loop toggle stayed permanently disabled. Form
-    // lays out a bare Picker as a clean tappable row. Tag type is Double
-    // to match totalDurationSec; 0.0 = manual stop.
+    // navigationLink picker style: selection happens on a PUSHED screen,
+    // not an inline menu. This is immune to two failure modes that made
+    // earlier versions "finicky": (1) tap-region overlap with surrounding
+    // rows, and (2) the parent sheet re-rendering mid-tap when the
+    // observed `vm` fires a @Published update (transport elapsed ticks,
+    // drift/morph timers, etc. all churn vm while a sheet is open during
+    // playback). On the pushed screen the selection list is stable.
+    // Tag type is Double to match totalDurationSec; 0.0 = manual stop.
     private var durationPicker: some View {
         Picker("Duration", selection: Binding(
             get: { vm.automation.totalDurationSec },
@@ -127,6 +129,7 @@ struct AutomationSheetView: View {
                 Text(formatDuration(Double(sec))).tag(Double(sec))
             }
         }
+        .pickerStyle(.navigationLink)
     }
 
     private func eventRow(_ event: AutomationEvent) -> some View {
