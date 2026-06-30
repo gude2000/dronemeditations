@@ -18,12 +18,38 @@ struct AutomationEventEditorView: View {
     @State private var timeMinutes: Int
     @State private var timeSeconds: Int
 
+    // LFO rate/depth event fields live in local @State rather than packed
+    // into draft.action. Why: binding the LFO-index Picker through a
+    // computed binding that reassigns draft.action makes BOTH the LFO
+    // picker and the Type picker (which also reads draft.action) re-render
+    // on every LFO selection — janky, "finicky dropdown." Local @State
+    // decouples them; we fold these back into draft.action only on Save.
+    @State private var lfoIndex: Int
+    @State private var lfoRate: Double
+    @State private var lfoDepth: Double
+
     init(event: AutomationEvent, isExisting: Bool = true) {
         let totalSec = Int(event.timeSec.rounded(.down))
         _draft = State(initialValue: event)
         _timeMinutes = State(initialValue: totalSec / 60)
         _timeSeconds = State(initialValue: totalSec % 60)
         self.isExisting = isExisting
+        // Seed the LFO locals from the event's action if it's an LFO type;
+        // otherwise sensible defaults (LFO 4 = pitch LFO in most presets).
+        switch event.action {
+        case .lfoRate(let idx, let rate):
+            _lfoIndex = State(initialValue: idx)
+            _lfoRate = State(initialValue: rate)
+            _lfoDepth = State(initialValue: 0.5)
+        case .lfoDepth(let idx, let depth):
+            _lfoIndex = State(initialValue: idx)
+            _lfoRate = State(initialValue: 0.5)
+            _lfoDepth = State(initialValue: depth)
+        default:
+            _lfoIndex = State(initialValue: 3)
+            _lfoRate = State(initialValue: 0.5)
+            _lfoDepth = State(initialValue: 0.5)
+        }
     }
 
     var body: some View {
@@ -93,6 +119,7 @@ struct AutomationEventEditorView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         commitTime()
+                        commitLfoFields()
                         vm.upsertAutomationEvent(draft)
                         dismiss()
                     }
@@ -347,10 +374,11 @@ struct AutomationEventEditorView: View {
 
     // MARK: - LFO rate / depth fields
 
-    /// Which LFO (1–5) the rate/depth event targets. Bare Picker; Form
-    /// handles the row layout + tap routing.
+    /// Which LFO (1–5) the rate/depth event targets. Binds to the local
+    /// @State `lfoIndex` so changing it doesn't reassign draft.action and
+    /// disturb the Type picker. Folded into draft.action on Save.
     private var lfoIndexPicker: some View {
-        Picker("LFO", selection: lfoIndexBinding) {
+        Picker("LFO", selection: $lfoIndex) {
             ForEach(0..<5) { i in
                 Text("LFO \(i + 1)").tag(i)
             }
@@ -362,7 +390,7 @@ struct AutomationEventEditorView: View {
             HStack {
                 Text("Rate")
                 Spacer()
-                Text(String(format: "%.3f Hz", currentLfoRate))
+                Text(String(format: "%.3f Hz", lfoRate))
                     .font(.system(.subheadline, design: .monospaced))
                     .foregroundStyle(Color.accentColor)
             }
@@ -371,13 +399,8 @@ struct AutomationEventEditorView: View {
             // (where S&H pitch envelopes live) has fine resolution.
             Slider(
                 value: Binding(
-                    get: { lfoRateToSliderPos(currentLfoRate) },
-                    set: { pos in
-                        let hz = sliderPosToLfoRate(pos)
-                        if case .lfoRate(let idx, _) = draft.action {
-                            draft.action = .lfoRate(lfoIndex: idx, rateHz: hz)
-                        }
-                    }
+                    get: { lfoRateToSliderPos(lfoRate) },
+                    set: { pos in lfoRate = sliderPosToLfoRate(pos) }
                 ),
                 in: 0...1
             )
@@ -389,22 +412,11 @@ struct AutomationEventEditorView: View {
             HStack {
                 Text("Depth")
                 Spacer()
-                Text("\(Int(round(currentLfoDepth * 100)))%")
+                Text("\(Int(round(lfoDepth * 100)))%")
                     .font(.system(.subheadline, design: .monospaced))
                     .foregroundStyle(Color.accentColor)
             }
-            Slider(
-                value: Binding(
-                    get: { currentLfoDepth },
-                    set: { d in
-                        if case .lfoDepth(let idx, _) = draft.action {
-                            draft.action = .lfoDepth(lfoIndex: idx, depth: max(0, min(1, d)))
-                        }
-                    }
-                ),
-                in: 0...1,
-                step: 0.01
-            )
+            Slider(value: $lfoDepth, in: 0...1, step: 0.01)
         }
     }
 
@@ -421,36 +433,23 @@ struct AutomationEventEditorView: View {
         return exp(lo + (hi - lo) * max(0, min(1, pos)))
     }
 
-    private var lfoIndexBinding: Binding<Int> {
-        Binding(
-            get: {
-                switch draft.action {
-                case .lfoRate(let idx, _):  return idx
-                case .lfoDepth(let idx, _): return idx
-                default: return 3
-                }
-            },
-            set: { newIdx in
-                let clamped = max(0, min(4, newIdx))
-                switch draft.action {
-                case .lfoRate(_, let rate):
-                    draft.action = .lfoRate(lfoIndex: clamped, rateHz: rate)
-                case .lfoDepth(_, let depth):
-                    draft.action = .lfoDepth(lfoIndex: clamped, depth: depth)
-                default:
-                    break
-                }
-            }
-        )
-    }
-
-    private var currentLfoRate: Double {
-        if case .lfoRate(_, let rate) = draft.action { return rate }
-        return 0.5
-    }
-    private var currentLfoDepth: Double {
-        if case .lfoDepth(_, let depth) = draft.action { return depth }
-        return 0.5
+    /// Fold the LFO @State locals back into draft.action on Save. No-op
+    /// for non-LFO action types.
+    private func commitLfoFields() {
+        switch draft.action {
+        case .lfoRate:
+            draft.action = .lfoRate(
+                lfoIndex: max(0, min(4, lfoIndex)),
+                rateHz: max(LfoState.rateMin, min(LfoState.rateMax, lfoRate))
+            )
+        case .lfoDepth:
+            draft.action = .lfoDepth(
+                lfoIndex: max(0, min(4, lfoIndex)),
+                depth: max(0, min(1, lfoDepth))
+            )
+        default:
+            break
+        }
     }
 
     private var waveformBinding: Binding<String> {
