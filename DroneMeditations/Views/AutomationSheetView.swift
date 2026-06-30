@@ -153,14 +153,19 @@ struct AutomationSheetView: View {
         }
     }
 
-    /// Action summary, with the transpose direction appended for chord
-    /// changes that aren't using the default "nearest".
+    /// Action summary, with transpose direction + chord duration appended
+    /// for chord-change events that aren't using the defaults.
     private func rowTitle(_ event: AutomationEvent) -> String {
         var s = event.action.summary()
-        if case .chordChange = event.action,
-           let dir = event.transposeDirection, dir != .nearest {
-            s += " (\(dir.displayName.lowercased()))"
+        guard case .chordChange = event.action else { return s }
+        var tags: [String] = []
+        if let dir = event.transposeDirection, dir != .nearest {
+            tags.append(dir.displayName.lowercased())
         }
+        if let dur = event.chordDuration, dur != .hold {
+            tags.append(dur.shortLabel)
+        }
+        if !tags.isEmpty { s += " (\(tags.joined(separator: ", ")))" }
         return s
     }
 

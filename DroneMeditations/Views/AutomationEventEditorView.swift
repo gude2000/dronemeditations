@@ -192,6 +192,15 @@ struct AutomationEventEditorView: View {
             }
         }
         .pickerStyle(.navigationLink)
+        // How long the chord holds before auto-reverting to baseline,
+        // in bars at the session BPM. "Hold" = persist until the next
+        // event / Stop (the original behavior).
+        Picker("Duration", selection: chordDurationBinding) {
+            ForEach(ChordDuration.allCases) { d in
+                Text(d.displayName).tag(d)
+            }
+        }
+        .pickerStyle(.navigationLink)
     }
 
     private func fadeSlider(durationSec: Double, isFadeIn: Bool) -> some View {
@@ -328,6 +337,14 @@ struct AutomationEventEditorView: View {
         Binding(
             get: { draft.transposeDirection ?? .nearest },
             set: { draft.transposeDirection = $0 }
+        )
+    }
+
+    /// Chord duration (bars at session BPM). nil → .hold.
+    private var chordDurationBinding: Binding<ChordDuration> {
+        Binding(
+            get: { draft.chordDuration ?? .hold },
+            set: { draft.chordDuration = $0 }
         )
     }
 

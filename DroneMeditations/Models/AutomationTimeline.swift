@@ -38,6 +38,56 @@ enum TransposeDirection: String, Codable, Hashable, CaseIterable, Identifiable {
     }
 }
 
+// MARK: - ChordDuration
+
+/// How long a chord-change event holds before auto-reverting to the
+/// baseline (the patch state captured at first Play). Expressed in bars
+/// relative to the session BPM (4 beats per bar). `.hold` = infinite —
+/// the chord persists until the next explicit event or manual Stop (the
+/// pre-duration behavior).
+enum ChordDuration: String, Codable, Hashable, CaseIterable, Identifiable {
+    case sixteenth, eighth, quarter, half, one, two, four, eight, hold
+    var id: String { rawValue }
+
+    /// Length in bars, or nil for "hold forever".
+    var bars: Double? {
+        switch self {
+        case .sixteenth: return 1.0 / 16
+        case .eighth:    return 1.0 / 8
+        case .quarter:   return 1.0 / 4
+        case .half:      return 1.0 / 2
+        case .one:       return 1
+        case .two:       return 2
+        case .four:      return 4
+        case .eight:     return 8
+        case .hold:      return nil
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .sixteenth: return "1/16 bar"
+        case .eighth:    return "1/8 bar"
+        case .quarter:   return "1/4 bar"
+        case .half:      return "1/2 bar"
+        case .one:       return "1 bar"
+        case .two:       return "2 bars"
+        case .four:      return "4 bars"
+        case .eight:     return "8 bars"
+        case .hold:      return "Hold"
+        }
+    }
+
+    /// Short label for the event-list row.
+    var shortLabel: String {
+        switch self {
+        case .hold: return "hold"
+        default:    return displayName.replacingOccurrences(of: " bar", with: "b")
+                                       .replacingOccurrences(of: "s", with: "")
+        }
+    }
+}
+
 // MARK: - Action
 
 /// What an automation event does when it fires. Phase A ships the two
@@ -122,19 +172,25 @@ struct AutomationEvent: Identifiable, Codable, Equatable, Hashable {
     /// `.nearest` (decodes cleanly on older events that predate this
     /// field, same pattern as sampleName).
     var transposeDirection: TransposeDirection?
+    /// Only meaningful for `chordChange`. How long the chord holds before
+    /// auto-reverting to the baseline, in bars at the session BPM. nil =
+    /// `.hold` (persist until the next event / manual Stop).
+    var chordDuration: ChordDuration?
 
     init(id: UUID = UUID(),
          timeSec: Double,
          voice: VoiceFilter,
          action: AutomationAction,
          sampleName: String? = nil,
-         transposeDirection: TransposeDirection? = nil) {
+         transposeDirection: TransposeDirection? = nil,
+         chordDuration: ChordDuration? = nil) {
         self.id = id
         self.timeSec = max(0, timeSec)
         self.voice = voice
         self.action = action
         self.sampleName = sampleName
         self.transposeDirection = transposeDirection
+        self.chordDuration = chordDuration
     }
 }
 

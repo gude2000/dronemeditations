@@ -2751,10 +2751,12 @@ final class DroneViewModel: ObservableObject {
                 }
             }
             // Snapshot the current timeline at Play; subsequent UI edits
-            // don't shift the cursor mid-playback. Sorted-by-time happens
-            // inside the dispatcher.
+            // don't shift the cursor mid-playback. Expand finite-duration
+            // chord changes into change + auto-revert pairs (see
+            // expandedAutomationEvents). Sorted-by-time happens inside the
+            // dispatcher.
             automationDispatcher?.start(
-                events: automation.sortedEvents,
+                events: expandedAutomationEvents(),
                 totalDurationSec: automation.totalDurationSec,
                 loop: automation.loop
             )
@@ -2768,6 +2770,34 @@ final class DroneViewModel: ObservableObject {
             // Baseline is intentionally preserved across Stop — it gets
             // restored on the next Play so the replay starts fresh.
         }
+    }
+
+    /// The timeline expanded for playback: each chord-change event with a
+    /// finite `chordDuration` gets a synthesized REVERT event appended at
+    /// `time + duration`, transposing the same voice(s) back to the
+    /// baseline key/chord. Building these as real events (rather than a
+    /// wall-clock Task) means pause / stop / loop / replay all handle them
+    /// automatically — they're driven by transportElapsed like every other
+    /// event. Bar→seconds uses the session BPM at Play time (4 beats/bar).
+    private func expandedAutomationEvents() -> [AutomationEvent] {
+        var out = automation.sortedEvents
+        let baseKeyRaw = (automationBaseline?.key ?? currentKey).rawValue
+        let baseChordId = (automationBaseline?.chord ?? currentChord).id
+        let secPerBar = (4.0 * 60.0) / max(1.0, bpm)
+        for event in automation.sortedEvents {
+            guard case .chordChange = event.action,
+                  let dur = event.chordDuration,
+                  let bars = dur.bars, bars > 0 else { continue }
+            let revertAt = event.timeSec + bars * secPerBar
+            out.append(AutomationEvent(
+                timeSec: revertAt,
+                voice: event.voice,
+                action: .chordChange(keyRaw: baseKeyRaw, chordId: baseChordId),
+                transposeDirection: .nearest,   // base→base = 0 steps = ratio 1.0
+                chordDuration: .hold             // the revert itself doesn't re-revert
+            ))
+        }
+        return out.sorted { $0.timeSec < $1.timeSec }
     }
 
     /// Fan-out for events fired by the dispatcher. Runs on the main actor.
