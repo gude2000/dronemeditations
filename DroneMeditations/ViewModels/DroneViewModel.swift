@@ -2799,27 +2799,31 @@ final class DroneViewModel: ObservableObject {
             let isPatchWide: Bool = { if case .all = event.voice { return true }; return false }()
             let affected = voiceIndicesForFilter(event.voice)
             if let newKey = PitchClass(rawValue: keyRaw) {
-                // Reference key/octave from the baseline (captured at
-                // Play). Fall back to the live currentKey/Octave if no
-                // baseline yet (shouldn't happen during playback, but
-                // safe).
-                let refOctave = automationBaseline?.octave ?? currentOctave
+                // Reference key from the baseline (captured at Play); fall
+                // back to live currentKey if no baseline yet.
                 let baseKey = automationBaseline?.key ?? currentKey
-                let baseRoot = Pitch(baseKey, octave: refOctave).frequencyEqual12()
-                let targetRoot = Pitch(newKey, octave: refOctave).frequencyEqual12()
-                if baseRoot > 0 {
-                    let ratio = targetRoot / baseRoot
-                    for i in affected {
-                        // Use the voice's baseline frequency as the anchor
-                        // so transposition doesn't compound across events.
-                        let anchorHz: Double = {
-                            if let b = automationBaseline, b.voices.indices.contains(i) {
-                                return b.voices[i].frequencyHz
-                            }
-                            return oscillators[i].frequencyHz
-                        }()
-                        setFrequency(anchorHz * ratio, for: i)
-                    }
+                // Compute the transpose interval in SEMITONES, honoring the
+                // event's direction. A→C is +3 (up to the C above) or −9
+                // (down to the C below). `.nearest` picks the smaller |Δ|.
+                let upSteps = ((newKey.rawValue - baseKey.rawValue) % 12 + 12) % 12   // 0…11
+                let downSteps = upSteps == 0 ? 0 : upSteps - 12                       // −11…0
+                let steps: Int
+                switch event.transposeDirection ?? .nearest {
+                case .up:      steps = upSteps
+                case .down:    steps = downSteps
+                case .nearest: steps = abs(upSteps) <= abs(downSteps) ? upSteps : downSteps
+                }
+                let ratio = pow(2.0, Double(steps) / 12.0)
+                for i in affected {
+                    // Anchor to the voice's baseline frequency so repeated
+                    // transposes don't compound or drift.
+                    let anchorHz: Double = {
+                        if let b = automationBaseline, b.voices.indices.contains(i) {
+                            return b.voices[i].frequencyHz
+                        }
+                        return oscillators[i].frequencyHz
+                    }()
+                    setFrequency(anchorHz * ratio, for: i)
                 }
                 // Patch key metadata updates ONLY on a patch-wide change.
                 if isPatchWide { currentKey = newKey }

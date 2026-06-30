@@ -171,6 +171,17 @@ struct AutomationEventEditorView: View {
             }
         }
         .pickerStyle(.navigationLink)
+        // Transpose direction — controls whether the move to the new key
+        // goes up, down, or by the nearest interval. Segmented control so
+        // all 3 options are visible at a glance (it's a quick toggle, not
+        // a long list). Inline controls like this are robust to re-renders
+        // unlike menu pickers.
+        Picker("Direction", selection: directionBinding) {
+            ForEach(TransposeDirection.allCases) { d in
+                Text(d.displayName).tag(d)
+            }
+        }
+        .pickerStyle(.segmented)
         Picker("Chord", selection: chordIdBinding) {
             ForEach(ChordType.Category.allCases, id: \.self) { category in
                 Section(category.rawValue) {
@@ -308,6 +319,15 @@ struct AutomationEventEditorView: View {
                     draft.action = .chordChange(keyRaw: keyRaw, chordId: newId)
                 }
             }
+        )
+    }
+
+    /// Transpose direction for the chord-change event. Stored on the event
+    /// (not the action). nil → .nearest.
+    private var directionBinding: Binding<TransposeDirection> {
+        Binding(
+            get: { draft.transposeDirection ?? .nearest },
+            set: { draft.transposeDirection = $0 }
         )
     }
 

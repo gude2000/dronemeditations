@@ -139,7 +139,7 @@ struct AutomationSheetView: View {
                 .foregroundStyle(Color.accentColor)
                 .frame(width: 56, alignment: .leading)
             VStack(alignment: .leading, spacing: 2) {
-                Text(event.action.summary())
+                Text(rowTitle(event))
                     .font(.subheadline)
                     .foregroundStyle(.primary)
                 Text(event.voice.displayName)
@@ -151,6 +151,17 @@ struct AutomationSheetView: View {
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
         }
+    }
+
+    /// Action summary, with the transpose direction appended for chord
+    /// changes that aren't using the default "nearest".
+    private func rowTitle(_ event: AutomationEvent) -> String {
+        var s = event.action.summary()
+        if case .chordChange = event.action,
+           let dir = event.transposeDirection, dir != .nearest {
+            s += " (\(dir.displayName.lowercased()))"
+        }
+        return s
     }
 
     // MARK: - Helpers

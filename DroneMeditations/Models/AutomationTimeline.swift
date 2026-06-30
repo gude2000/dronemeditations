@@ -20,6 +20,24 @@ enum VoiceFilter: Hashable, Codable {
     }
 }
 
+// MARK: - TransposeDirection
+
+/// Which direction a chord-change event transposes toward the new key.
+/// A→C, for example, is 3 semitones UP (to the C above A) or 9 semitones
+/// DOWN (to the C below). `.nearest` picks the smaller interval (here:
+/// up); `.up` / `.down` force the direction.
+enum TransposeDirection: String, Codable, Hashable, CaseIterable, Identifiable {
+    case nearest, up, down
+    var id: String { rawValue }
+    var displayName: String {
+        switch self {
+        case .nearest: return "Nearest"
+        case .up:      return "Up"
+        case .down:    return "Down"
+        }
+    }
+}
+
 // MARK: - Action
 
 /// What an automation event does when it fires. Phase A ships the two
@@ -99,17 +117,24 @@ struct AutomationEvent: Identifiable, Codable, Equatable, Hashable {
     var voice: VoiceFilter
     var action: AutomationAction
     var sampleName: String?
+    /// Only meaningful for `chordChange`. Controls whether the transpose
+    /// to the new key goes up, down, or by the nearest interval. nil =
+    /// `.nearest` (decodes cleanly on older events that predate this
+    /// field, same pattern as sampleName).
+    var transposeDirection: TransposeDirection?
 
     init(id: UUID = UUID(),
          timeSec: Double,
          voice: VoiceFilter,
          action: AutomationAction,
-         sampleName: String? = nil) {
+         sampleName: String? = nil,
+         transposeDirection: TransposeDirection? = nil) {
         self.id = id
         self.timeSec = max(0, timeSec)
         self.voice = voice
         self.action = action
         self.sampleName = sampleName
+        self.transposeDirection = transposeDirection
     }
 }
 
