@@ -376,6 +376,10 @@ const actions = {
 
   applyPreset(id) {
     const p = PRESETS.find((x) => x.id === id); if (!p) return;
+    // Built-in presets carry no automation timeline — clear any imported
+    // one and reset the baseline so it doesn't bleed into this patch.
+    delete state._automation;
+    automationPlayer.invalidate();
     for (let i = 0; i < 4; i++) {
       const v = p.voices[i];
       const hz = Math.max(FREQ_MIN, Math.min(FREQ_MAX, v.hz));
@@ -594,6 +598,7 @@ const actions = {
       setTimeout(() => engine.suspend(), 500);
       state.transportState = "paused";
       stopTicker();
+      automationPlayer.pause();   // freeze the timeline at its current phase
     } else {
       // Resume from "stopped" gets a full 3s meditation-fade; resume from
       // "paused" gets a snappier 1s ramp.
@@ -681,6 +686,10 @@ const actions = {
       if (typeof recomputeQuantizeScale === "function") recomputeQuantizeScale();
       state.transportState = "playing";
       startTicker();
+      // v1.2: drive the Automation Timeline. fromStopped → fresh start
+      // (restore/capture baseline + reset cursor); resume from pause keeps
+      // the timeline position.
+      automationPlayer.onPlay(fromStopped);
     }
     renderAll();
   },
@@ -701,6 +710,7 @@ const actions = {
     // playing — that's the master fade-out's job).
     if (engine.ctx) engine.transportElapsed = NaN;
     stopTicker();
+    automationPlayer.reset();   // clear cursor; baseline restored on next Play
     // Stop a journey if one is running so it doesn't keep advancing
     // through preset changes while transport is silent.
     if (state.activeJourneyId) stopJourney();
@@ -1485,6 +1495,8 @@ const actions = {
     } else {
       delete state._automation;
     }
+    // New patch → next Play snapshots a fresh automation baseline.
+    automationPlayer.invalidate();
     if (preset.masterVolume != null) actions.setMasterVolume(preset.masterVolume);
     for (let i = 0; i < 4; i++) {
       const o = preset.oscillators[i]; if (!o) continue;
@@ -2474,6 +2486,346 @@ function stopTicker() {
 }
 
 function clamp01(v) { return Math.max(0, Math.min(1, v)); }
+
+// ══════════════════════════════════════════════════
+// Automation Timeline playback — iOS parity.
+// ══════════════════════════════════════════════════
+// Mirrors the native DroneViewModel.dispatchAutomation +
+// AutomationDispatcher. A patch's `_automation` timeline (chord changes,
+// fades, waveform/sample, level, mute, LFO rate/depth) animates on the
+// web exactly as it does on iOS, so a preset shared from the app plays
+// its automation here too.
+//
+// Design notes:
+//  • Runs on its OWN ~30 Hz clock (not the coarse 250 ms UI ticker) so
+//    beat-precise events land. Elapsed is accumulated from
+//    performance.now() deltas and only advances while playing, so pause
+//    freezes it cleanly.
+//  • Positions are tempo-relative: each event's gridSixteenth (1/16-bar
+//    steps) is resolved to seconds at the LIVE BPM at Play, so changing
+//    tempo keeps the structure in proportion (same fix as iOS).
+//  • Chord changes TRANSPOSE each voice relative to the captured baseline
+//    (preserving non-triadic voicings) rather than respelling a triad.
+//  • A baseline of the patch state is captured on first Play and restored
+//    on every replay so loops/replays start clean.
+
+const SEC_PER_BAR_4_4 = (bpm) => 4 * 60 / Math.max(1, bpm);
+function secPerSixteenthNow() { return SEC_PER_BAR_4_4(state.bpm) / 16; }
+
+/// Both encodings of VoiceFilter are tolerated: "all" / {all:{}} and
+/// {oscillator:{_0:i}}.
+function parseVoiceFilter(v) {
+  if (v === "all") return { all: true };
+  if (v && typeof v === "object") {
+    if ("all" in v) return { all: true };
+    if (v.oscillator && typeof v.oscillator === "object") {
+      const idx = v.oscillator._0;
+      return { osc: typeof idx === "number" ? idx : 0 };
+    }
+  }
+  return { all: true };
+}
+
+/// Swift's synthesized enum Codable encodes a no-payload case either as a
+/// bare string ("muteToggle") or as {muteToggle:{}}; payload cases as
+/// {caseName:{...}}. Handle all forms.
+function parseAutomationAction(a) {
+  if (a == null) return null;
+  if (typeof a === "string") return { type: a };
+  const key = Object.keys(a)[0];
+  const p = a[key] || {};
+  switch (key) {
+    case "chordChange": return { type: "chordChange", keyRaw: p.keyRaw, chordId: p.chordId };
+    case "fadeIn":      return { type: "fadeIn",  durationSec: p.durationSec };
+    case "fadeOut":     return { type: "fadeOut", durationSec: p.durationSec };
+    case "waveformSet": return { type: "waveformSet", waveformRaw: p.waveformRaw };
+    case "levelSet":    return { type: "levelSet", level: p.level };
+    case "muteToggle":  return { type: "muteToggle" };
+    case "lfoRate":     return { type: "lfoRate",  lfoIndex: p.lfoIndex, rateHz: p.rateHz };
+    case "lfoDepth":    return { type: "lfoDepth", lfoIndex: p.lfoIndex, depth: p.depth };
+    default: return null;
+  }
+}
+
+function voiceIndicesFor(filter) {
+  if (filter.all) return [0, 1, 2, 3];
+  if (filter.osc != null && filter.osc >= 0 && filter.osc < state.oscillators.length) {
+    return [filter.osc];
+  }
+  return [];
+}
+
+function captureAutomationBaseline() {
+  return {
+    keyId: state.keyId,
+    octave: state.octave,
+    chordId: state.chordId,
+    voices: state.oscillators.map((o) => ({
+      frequencyHz: o.frequencyHz,
+      waveform: o.waveform,
+      amplitude: o.amplitude,
+      isMuted: o.isMuted,
+      lfoRates: (o.lfos || []).map((l) => l.rateHz),
+      lfoDepths: (o.lfos || []).map((l) => l.depth),
+    })),
+  };
+}
+
+/// Direct-assign restore (no applyChord — that would overwrite the per-
+/// voice voicing with the chord template). Mirrors applyAutomationBaseline.
+function restoreAutomationBaseline(b) {
+  if (!b) return;
+  state.keyId = b.keyId;
+  state.octave = b.octave;
+  state.chordId = b.chordId;
+  for (let i = 0; i < state.oscillators.length; i++) {
+    const v = b.voices[i];
+    if (!v) continue;
+    const o = state.oscillators[i];
+    o.frequencyHz = v.frequencyHz; engine.setFrequency(i, v.frequencyHz);
+    o.amplitude = v.amplitude;     engine.setAmplitude(i, v.amplitude);
+    if (o.waveform !== v.waveform) { o.waveform = v.waveform; engine.setWaveform(i, v.waveform); }
+    if (o.isMuted !== v.isMuted)   { o.isMuted = v.isMuted;   engine.setMute(i, v.isMuted); }
+    const lfos = o.lfos || [];
+    for (let k = 0; k < lfos.length; k++) {
+      if (v.lfoRates[k]  != null) lfos[k].rateHz = v.lfoRates[k];
+      if (v.lfoDepths[k] != null) { lfos[k].depth = v.lfoDepths[k]; engine.setLfoDepth(i, k, v.lfoDepths[k]); }
+    }
+    for (let k = 0; k < lfos.length; k++) pushEffectiveLfoRate(i, k);
+  }
+  if (typeof recomputeQuantizeScale === "function") recomputeQuantizeScale();
+}
+
+let _autoSampleManifest = null;
+async function loadAutomationSample(oscIndex, name) {
+  try {
+    if (!_autoSampleManifest) {
+      const resp = await fetch("./samples/index.json", { cache: "no-cache" });
+      const data = resp.ok ? await resp.json() : { samples: [] };
+      _autoSampleManifest = Array.isArray(data.samples) ? data.samples : [];
+    }
+    const entry = _autoSampleManifest.find((s) => s.name === name);
+    if (entry) await actions.loadBundledSample(oscIndex, entry);
+    else actions.setWaveform(oscIndex, "sample");   // best-effort: flip mode
+  } catch (_e) {
+    actions.setWaveform(oscIndex, "sample");
+  }
+}
+
+/// Fire one event. `fades` is the active-fade map; `elapsedNow` is the
+/// player's clock at fire time (fade start anchor).
+function dispatchAutomationEvent(ev, fades, elapsedNow) {
+  const a = ev.action;
+  const affected = voiceIndicesFor(ev.voice);
+  switch (a.type) {
+    case "chordChange": {
+      const isPatchWide = !!ev.voice.all;
+      const baseKey = automationPlayer.baseline ? automationPlayer.baseline.keyId : state.keyId;
+      if (a.keyRaw != null) {
+        const up = (((a.keyRaw - baseKey) % 12) + 12) % 12;   // 0…11
+        const down = up === 0 ? 0 : up - 12;                  // −11…0
+        let steps;
+        if (ev.direction === "up") steps = up;
+        else if (ev.direction === "down") steps = down;
+        else steps = Math.abs(up) <= Math.abs(down) ? up : down;
+        const ratio = Math.pow(2, steps / 12);
+        affected.forEach((i) => {
+          const anchor = (automationPlayer.baseline && automationPlayer.baseline.voices[i])
+            ? automationPlayer.baseline.voices[i].frequencyHz
+            : state.oscillators[i].frequencyHz;
+          actions.setFrequency(i, anchor * ratio);
+        });
+        if (isPatchWide) state.keyId = a.keyRaw;
+      }
+      if (isPatchWide) {
+        // iOS ChordType.id is the chord NAME; web CHORDS use slugs. Match
+        // either. Chord is cosmetic (pitch came from the transpose above).
+        const chord = CHORDS.find((c) => c.id === a.chordId || c.name === a.chordId);
+        if (chord) state.chordId = chord.id;
+        if (typeof recomputeQuantizeScale === "function") recomputeQuantizeScale();
+      }
+      break;
+    }
+    case "fadeIn":
+    case "fadeOut": {
+      const dur = Math.max(0, Math.min(15, a.durationSec || 0));
+      affected.forEach((i) => {
+        const startAmp = state.oscillators[i].amplitude;
+        if (a.type === "fadeIn") {
+          const target = Math.max(startAmp, 0.0001);
+          state.oscillators[i].amplitude = 0; engine.setAmplitude(i, 0);   // snap to 0 first
+          if (dur <= 0) { state.oscillators[i].amplitude = target; engine.setAmplitude(i, target); delete fades[i]; }
+          else fades[i] = { from: 0, to: target, start: elapsedNow, dur };
+        } else {
+          if (dur <= 0) { state.oscillators[i].amplitude = 0; engine.setAmplitude(i, 0); delete fades[i]; }
+          else fades[i] = { from: startAmp, to: 0, start: elapsedNow, dur };
+        }
+      });
+      break;
+    }
+    case "waveformSet": {
+      const wf = a.waveformRaw;
+      affected.forEach((i) => {
+        if (wf === "sample" && ev.sampleName) loadAutomationSample(i, ev.sampleName);
+        else actions.setWaveform(i, wf);
+      });
+      break;
+    }
+    case "levelSet": {
+      const lvl = clamp01(a.level);
+      affected.forEach((i) => { delete fades[i]; actions.setAmplitude(i, lvl); });
+      break;
+    }
+    case "muteToggle":
+      affected.forEach((i) => actions.toggleMute(i));
+      break;
+    case "lfoRate":
+      affected.forEach((i) => actions.setLfoRate(i, a.lfoIndex, a.rateHz));
+      break;
+    case "lfoDepth":
+      affected.forEach((i) => actions.setLfoDepth(i, a.lfoIndex, a.depth));
+      break;
+  }
+}
+
+/// Advance any in-flight amplitude fades. Returns true while any is active.
+function tickAutomationFades(fades, elapsedNow) {
+  const keys = Object.keys(fades);
+  if (keys.length === 0) return false;
+  let active = false;
+  keys.forEach((k) => {
+    const i = +k;
+    const f = fades[k];
+    const t = f.dur > 0 ? (elapsedNow - f.start) / f.dur : 1;
+    if (t >= 1) {
+      state.oscillators[i].amplitude = f.to; engine.setAmplitude(i, f.to);
+      delete fades[k];
+    } else {
+      const amp = f.from + (f.to - f.from) * Math.max(0, t);
+      state.oscillators[i].amplitude = amp; engine.setAmplitude(i, amp);
+      active = true;
+    }
+  });
+  return active;
+}
+
+const automationPlayer = {
+  timer: null,
+  events: [],
+  nextIndex: 0,
+  elapsed: 0,
+  lastNow: 0,
+  cycleSec: 0,
+  loop: false,
+  loopCount: 0,
+  currentCycle: 0,
+  loopOffset: 0,
+  baseline: null,
+  fades: {},
+
+  /// Drop the captured baseline — call on preset load / timeline change so
+  /// the next Play snapshots fresh patch state.
+  invalidate() { this.baseline = null; },
+
+  _resolveEvents() {
+    const tl = state._automation;
+    if (!tl || !Array.isArray(tl.events)) return [];
+    const sps = secPerSixteenthNow();
+    return tl.events
+      .map((ev) => {
+        const grid = ev.gridSixteenth != null ? Math.max(0, ev.gridSixteenth) : null;
+        const timeSec = grid != null ? grid * sps : Math.max(0, ev.timeSec || 0);
+        return {
+          timeSec,
+          voice: parseVoiceFilter(ev.voice),
+          action: parseAutomationAction(ev.action),
+          sampleName: ev.sampleName || null,
+          direction: ev.transposeDirection || "nearest",
+        };
+      })
+      .filter((e) => e.action)
+      .sort((x, y) => x.timeSec - y.timeSec);
+  },
+
+  /// Called from togglePlay. fromStopped=true → fresh start (restore/capture
+  /// baseline, reset cursor); false → resume from pause (keep position).
+  onPlay(fromStopped) {
+    const tl = state._automation;
+    const hasEvents = tl && Array.isArray(tl.events) && tl.events.length > 0;
+    if (!hasEvents) { this._stopTimer(); return; }
+    if (!fromStopped) {                       // resume from pause
+      this.lastNow = performance.now();
+      this._startTimer();
+      return;
+    }
+    if (this.baseline) restoreAutomationBaseline(this.baseline);
+    else this.baseline = captureAutomationBaseline();
+    this.events = this._resolveEvents();
+    this.nextIndex = 0;
+    this.elapsed = 0;
+    this.loopOffset = 0;
+    this.currentCycle = 0;
+    this.fades = {};
+    this.cycleSec = (tl.totalBars != null ? tl.totalBars : 0) * SEC_PER_BAR_4_4(state.bpm);
+    this.loop = this.cycleSec > 0;
+    this.loopCount = tl.loopCount || 0;
+    this.lastNow = performance.now();
+    this._startTimer();
+    renderAll();
+  },
+
+  pause() { this._stopTimer(); },
+
+  reset() {
+    this._stopTimer();
+    this.events = [];
+    this.nextIndex = 0;
+    this.elapsed = 0;
+    this.loopOffset = 0;
+    this.currentCycle = 0;
+    this.fades = {};
+    // Baseline is preserved across Stop (restored on next Play), like iOS.
+  },
+
+  _startTimer() {
+    this._stopTimer();
+    this.timer = setInterval(() => this._tick(), 30);   // ~33 Hz
+  },
+  _stopTimer() {
+    if (this.timer) { clearInterval(this.timer); this.timer = null; }
+  },
+
+  _tick() {
+    const now = performance.now();
+    this.elapsed += (now - this.lastNow) / 1000;
+    this.lastNow = now;
+    // Loop wrap — same accounting as the native dispatcher (subtract whole
+    // cycles via loopOffset rather than rewinding the clock).
+    if (this.loop && this.cycleSec > 0) {
+      while (this.elapsed - this.loopOffset >= this.cycleSec) {
+        if (this.loopCount > 0 && this.currentCycle + 1 >= this.loopCount) {
+          this._stopTimer();
+          return;
+        }
+        this.loopOffset += this.cycleSec;
+        this.currentCycle += 1;
+        this.nextIndex = 0;
+      }
+    }
+    const phase = this.elapsed - this.loopOffset;
+    let didFire = false;
+    while (this.nextIndex < this.events.length && this.events[this.nextIndex].timeSec <= phase) {
+      dispatchAutomationEvent(this.events[this.nextIndex], this.fades, this.elapsed);
+      this.nextIndex += 1;
+      didFire = true;
+    }
+    const stillFading = tickAutomationFades(this.fades, this.elapsed);
+    if (this.nextIndex >= this.events.length && !this.loop && !stillFading) {
+      this._stopTimer();
+    }
+    if (didFire || stillFading) renderAll();
+  },
+};
 
 // ──────────────────────────────────────────────────
 // Boot.

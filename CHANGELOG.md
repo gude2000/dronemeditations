@@ -4,6 +4,27 @@ Release notes are a running record of what's shipped in each version. Each secti
 
 ---
 
+## Unreleased — Web automation playback (iOS↔web parity)
+
+The web app (dronemeditations.com) now **plays** the Automation Timeline, not just stores it. A patch shared from iOS animates its scheduled events — chord progressions, fades, level/mute, waveform/sample switches, and LFO rate/depth envelopes — exactly as it does in the app.
+
+### New
+
+- **Web Automation playback.** `web/js/main.js` gains an `automationPlayer` that mirrors the native `AutomationDispatcher` + `DroneViewModel.dispatchAutomation`:
+  - Runs on its own ~33 Hz clock (independent of the coarse 250 ms UI ticker) so beat-precise events land.
+  - **Tempo-relative**: each event's `gridSixteenth` resolves to seconds at the live BPM at Play, so changing tempo keeps the structure in proportion (same fix as iOS).
+  - Chord changes **transpose** each voice relative to a captured baseline (preserving non-triadic voicings) rather than respelling a triad; honours the Up / Down / Nearest direction.
+  - Captures a baseline of the patch on first Play and restores it on every replay / Stop→Play so loops start clean.
+  - Loop length (`totalBars × secPerBar`) + repeat count (`loopCount`) with the same offset-accumulation wrap as the dispatcher.
+- Tolerant parsing of the Swift-Codable timeline shape (both `"all"`/`{all:{}}` and `{oscillator:{_0:i}}` voice forms; string and object no-payload action encodings). iOS chord IDs (names) are matched against web slugs by id-or-name.
+
+### Notes
+
+- Sample-waveform events resolve the named bundled sample from `./samples/index.json` (best-effort; falls back to flipping waveform mode if the name isn't found in the web library).
+- A web **editor** UI for building timelines is still iOS-only; the web side plays imported/shared timelines. `index.html` cache-bust bumped to `main.js?v=46`.
+
+---
+
 ## v1.1 — Automation Timeline (iOS)
 
 The first post-launch feature update. Adds per-patch time-based event automation. Behind a new **AUTOMATION** pill in the top control row (right after PRESET), tap to open a sheet that lists scheduled events by time and lets you edit, add, or delete them.
