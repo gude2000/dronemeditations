@@ -417,6 +417,8 @@
                 font-size: 12px;
                 margin-bottom: 10px;">Feature highlights</div>
     <ul style="margin: 12px 0 4px 0;">
+      <li><strong>Automation Timeline (AUTOMATION pill)</strong> — a per-patch sequencer. Schedule chord progressions, fades, waveform/sample switches, level/mute, and LFO rate/depth moves at bar+beat positions; loop a phrase or run once. Chord changes transpose (voicings stay intact), positions are tempo-relative, and the web now plays shared timelines too. See <a href="#pills">§11 → AUTOMATION</a>.</li>
+      <li><strong>BPM &amp; metronome in the header</strong> — the tempo readout and metronome toggle now live in the always-visible top icon row (no more hunting in the master strip, especially in iPhone landscape). See <a href="#transport">§15</a>.</li>
       <li><strong>Per-oscillator Tune to Room (👂)</strong> — every strip now has an ear icon that opens a mic-pitch sheet and snaps <em>just that voice's</em> frequency to whatever you sing or play. See <a href="#oscillators">§3</a>.</li>
       <li><strong>Per-oscillator Record sample (🎙)</strong> — capture a sample directly from the mic into a voice without ever opening Files; reference-pitch is the voice's current frequency at record time. See <a href="#oscillators">§3</a>.</li>
       <li><strong>BPM-quantized grain density</strong> — sync the grain scheduler to the global BPM at musical subdivisions (½ → 1/32T). Locks granular textures to your tempo. See <a href="#waveforms">§7 → Granular synthesis</a>.</li>
@@ -880,15 +882,16 @@ SUBTITLES = {
     <strong>Scrollable.</strong> The pill row is <em>horizontally scrollable</em> on iPhone (and any narrow viewport) — all 8 pills won't fit in portrait, so swipe left/right on the row itself to reach the ones that scroll off-screen. Look for the subtle fade at the row's right edge that indicates "more pills this way." On iPad and wide browser windows the entire row fits without scrolling.
   </div>
 
-  <h3>AUTOMATION — scheduled events <span style="font-size:14px;font-weight:500;color:#aaa;">(iOS, v1.1)</span></h3>
-  <p>Time-based event automation inside a single patch. Schedule chord changes, fades, waveform switches, and per-voice level / mute events at specific time markers; the dispatcher fires them as transport elapsed time passes each one.</p>
-  <p>Tap the <strong>AUTOMATION</strong> pill (right after PRESET) to open a sheet listing scheduled events in time order. Tap <strong>+</strong> to add an event, tap a row to edit it, swipe left to delete. Each event has three fields:</p>
+  <h3>AUTOMATION — scheduled events <span style="font-size:14px;font-weight:500;color:#aaa;">(iOS edit · web + iOS playback, v1.1)</span></h3>
+  <p>A per-patch sequencer. Schedule chord changes, fades, waveform / sample switches, level / mute changes, and LFO rate / depth moves at musical positions; the dispatcher fires each one as the transport reaches it.</p>
+  <p>Tap the <strong>AUTOMATION</strong> pill (right after PRESET) to open a sheet listing scheduled events in time order. Tap <strong>+</strong> to add an event, tap a row to edit it, swipe left to delete. Each event has these fields:</p>
   <ul>
-    <li><strong>Time</strong> — when it fires, in minutes + seconds.</li>
-    <li><strong>Apply to</strong> — <em>All voices</em> or <em>OSC 1-4</em>. <em>All voices</em> fires for every voice regardless of fade or mute state at the time.</li>
-    <li><strong>Action</strong> — one of: <em>Chord change</em> (Key + Chord), <em>Fade in</em> / <em>Fade out</em> (0-15 s ramp), <em>Waveform</em> (discrete switch), <em>Level</em> (0-100% set), <em>Mute toggle</em> (invert).</li>
+    <li><strong>Position</strong> — when it fires, entered in <em>bars + beats</em> at the session BPM (e.g. "Bar 2, Beat 2.5" = the upbeat of beat 2 in the second bar), snapped to a 1/16-bar grid. Positions are <strong>tempo-relative</strong>: change the BPM and the whole timeline rescales in proportion, so the structure holds at any tempo.</li>
+    <li><strong>Apply to</strong> — <em>All voices</em> or <em>OSC 1-4</em>. <em>All voices</em> fires for every voice regardless of fade / mute state. A per-voice chord change transposes just that voice; <em>All voices</em> also updates the patch's key + chord pill.</li>
+    <li><strong>Action</strong> — one of eight: <em>Chord change</em>, <em>Fade in</em> / <em>Fade out</em> (0-15 s ramp), <em>Waveform</em> (including picking a bundled <em>sample</em>), <em>Level</em> (0-100% set), <em>Mute toggle</em>, plus <em>LFO rate</em> and <em>LFO depth</em> — target any of the 5 LFOs to, say, ramp an S&amp;H pitch envelope from a whisper to a storm across a session.</li>
   </ul>
-  <p>The <strong>Duration</strong> menu at the top of the sheet defaults to <em>Manual stop</em> — events fire once when their time passes, then the timeline ends when you tap Stop. Setting a positive duration (1 min through 60 min presets) enables the <strong>Loop</strong> toggle: when on, the timeline wraps back to event #1 at the end and runs again. Loop wraps don't reset the engine's elapsed clock — the dispatcher tracks an internal offset, so the visual timer keeps climbing past one loop boundary.</p>
+  <p><strong>Chord changes transpose, they don't respell.</strong> A chord event shifts each affected voice's pitch by an interval relative to the patch's starting state, so non-triadic voicings — Sunn O))) power chords, Solfeggio frequency stacks — keep their shape; only the root moves. A <strong>Direction</strong> toggle (Up / Down / Nearest) picks whether the move climbs, falls, or takes the shortest path. Each chord holds until the next chord event. The <strong>Duration</strong> picker is an editing convenience — it auto-positions the <em>next</em> event you add (so "1 bar" drops the next chord one bar later), letting you lay down a flowing progression in a few taps.</p>
+  <p>The <strong>Timeline</strong> section at the top sets <strong>Length</strong> (<em>Manual stop</em>, or 1-64 bars) and <strong>Repeat</strong> (Once → 16× → Forever). Manual stop = events fire once and the last state holds until you tap Stop. A bar length loops the phrase back to the start; Repeat caps how many times it runs. Every replay restores the patch's captured baseline first, so loops and Stop→Play always start clean — no drift across cycles.</p>
 
   <div class="callout note">
     <strong>Automation vs Journey.</strong> Two separate features with separate use cases.
@@ -899,8 +902,8 @@ SUBTITLES = {
     Use Journey for "I want a 30-min meditation that morphs through five drone-artist sounds." Use Automation for "this single patch should shift from A minor to D dorian at 5 minutes, fade OSC 1 out at 8 minutes, and switch OSC 3 to a square at 12."
   </div>
 
-  <div class="callout warn">
-    <strong>iOS only in v1.1.</strong> The Automation pill, sheet, and event editor are present on the iPhone / iPad app. The web app at <code>dronemeditations.com</code> reads and writes the <code>automation</code> field inside <code>.dronepreset</code> files — so an iOS-edited timeline survives a save-on-web → share-back-to-iOS round trip — but doesn't run a dispatcher yet, and doesn't surface a pill or editor. Full web parity (editor + playback) is on the v1.x roadmap.
+  <div class="callout note">
+    <strong>Now plays on the web too.</strong> As of v1.1, <code>dronemeditations.com</code> runs the same automation engine — a patch with a timeline, shared from the app, animates its events in the browser at the live BPM, with the same chord transposition, fades, and LFO moves. The visual <em>editor</em> for building timelines is still iOS-only; the web side plays imported / shared timelines and round-trips the <code>automation</code> field inside <code>.dronepreset</code> files intact.
   </div>
 
   <h3>DRIFT — generative slow motion</h3>
@@ -1111,6 +1114,10 @@ SUBTITLES = {
 
   <h3>Session timer</h3>
   <p>Default 30 min. Tap the timer readout to change the duration. The app fades out gently in the last few seconds. Useful when you're using Drone Meditations as a sleep aid — set 20 min and trust it to fade itself.</p>
+
+  <h3>BPM &amp; metronome</h3>
+  <p>The tempo readout and the metronome toggle live in the <strong>top icon row</strong>, always visible (they used to be buried in the master strip — awkward to reach in iPhone landscape). Tap the BPM to set the session tempo; tap the metronome icon for an audible click locked to the transport's downbeat.</p>
+  <p>BPM is the master clock for everything tempo-aware: delay-time sync, LFO rate-sync, granular density sync, and the <a href="#pills">Automation Timeline</a> (bar/beat positions resolve at the live BPM, so changing tempo rescales a whole automated phrase in proportion).</p>
 
   <h3>Recording (web + iOS)</h3>
   <p>The record button writes the master output to a file:</p>

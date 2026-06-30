@@ -39,27 +39,37 @@ Final shape differed slightly from the original v1.1 plan below:
 
 See `CHANGELOG.md` for the full v1.1 release notes.
 
-### v1.1 — Automation Timeline (iOS) ✅ Phase A + B + C complete
+### v1.1 (build 12) — Automation Timeline ✅ SHIPPED — iOS edit + web playback
 
-Per-patch time-based event automation. iOS feature, behind the new
-`AUTOMATION` pill in the top control row (right after PRESET).
-Six event types: chord change, fade in, fade out, waveform set,
-level set, mute toggle. Per-event `Voice` filter (All / OSC 1-4)
-applies events to a specific voice or the whole patch. Duration
-defaults to "manual stop" (0); set a positive duration with the
-Loop toggle for looping timelines. Persisted in `.dronepreset` as
-an optional `automation` field — older saves load with an empty
-timeline; web app preserves the field on round-trip (no editor on
-web in v1.1 — Phase D / v1.2).
+Per-patch time-based event automation, behind the new `AUTOMATION`
+pill in the top control row (right after PRESET).
 
-Spec frozen in commit `4a75462`. Built across three phases:
-Phase A (`98673b6` — data model + dispatcher + sheet UI + chord
-+ fade events + persistence), Phase B (waveform / level / mute
-event types), Phase C (loop wrap, web schema round-trip, manual
-update, CHANGELOG entry).
+**Final shape (post Phase C refinements):**
+- **8 event types**: chord change, fade in, fade out, waveform set
+  (incl. bundled sample), level set, mute toggle, **LFO rate**,
+  **LFO depth** (target any of the 5 LFOs).
+- Per-event `Voice` filter (All / OSC 1-4). Per-voice chord changes
+  transpose just that voice; All also updates patch key + chord.
+- **Bar + beat entry** on a 1/16 grid; positions stored as a tempo-
+  relative `gridSixteenth` and resolved to seconds at the live BPM,
+  so changing tempo rescales the whole timeline in proportion.
+- Chord changes **transpose** voices relative to a captured baseline
+  (preserves non-triadic voicings) with a **Direction** toggle
+  (Up/Down/Nearest) and a **Duration** auto-advance for fast entry.
+- **Length** (Manual stop, or 1-64 bars) + **Repeat** count replace
+  the seconds-based duration/loop. Baseline restored on every replay.
+- Persisted in `.dronepreset` as an optional `automation` field
+  (back-compat: older saves load empty).
 
-Tasks #205, #206, #207. See `CHANGELOG.md` v1.1 entry for the full
-notes.
+**Web playback (iOS↔web parity):** `dronemeditations.com` now PLAYS
+shared timelines via `automationPlayer` in `web/js/main.js` — its own
+~33 Hz clock, the same transpose / fade / LFO semantics, tempo-relative
+resolution, baseline restore, and loop wrap. The visual editor stays
+iOS-only; web plays imported/shared timelines.
+
+Built across Phase A (`98673b6`), Phase B, Phase C, plus the tempo-
+relative + beat-entry + LFO-event refinements and the web player.
+Tasks #205–208. See `CHANGELOG.md` v1.1 entry for full notes.
 
 ---
 

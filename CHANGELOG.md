@@ -4,11 +4,24 @@ Release notes are a running record of what's shipped in each version. Each secti
 
 ---
 
-## Unreleased — Web automation playback (iOS↔web parity)
+## v1.1 (build 12) — Automation Timeline
 
-The web app (dronemeditations.com) now **plays** the Automation Timeline, not just stores it. A patch shared from iOS animates its scheduled events — chord progressions, fades, level/mute, waveform/sample switches, and LFO rate/depth envelopes — exactly as it does in the app.
+*The first post-launch feature update. A per-patch, time-based event sequencer on iOS — plus full automation playback on the web.*
 
-### New
+### What's New in This Version  *(App Store copy)*
+
+- **Automation Timeline.** A new AUTOMATION pill opens a per-patch sequencer. Schedule chord progressions, fades, waveform/sample switches, level and mute changes, and LFO rate/depth moves at bar + beat positions. Chord changes transpose your voicing — so layered drones keep their character — and positions are tempo-relative, so changing the BPM rescales the whole phrase in proportion. Loop a passage a set number of times, or let it hold until you stop.
+- **BPM & metronome in the header.** The tempo readout and metronome toggle now live in the always-visible top row — no more hunting through the master strip, especially in iPhone landscape.
+- **The web app plays shared timelines.** A patch automated on iOS now animates in the browser at dronemeditations.com.
+- Stability and polish fixes.
+
+---
+
+### Web — automation playback (iOS↔web parity)
+
+The web app now **plays** the Automation Timeline, not just stores it. A patch shared from iOS animates its scheduled events — chord progressions, fades, level/mute, waveform/sample switches, and LFO rate/depth envelopes — exactly as it does in the app.
+
+#### Detail
 
 - **Web Automation playback.** `web/js/main.js` gains an `automationPlayer` that mirrors the native `AutomationDispatcher` + `DroneViewModel.dispatchAutomation`:
   - Runs on its own ~33 Hz clock (independent of the coarse 250 ms UI ticker) so beat-precise events land.
@@ -25,9 +38,11 @@ The web app (dronemeditations.com) now **plays** the Automation Timeline, not ju
 
 ---
 
-## v1.1 — Automation Timeline (iOS)
+### iOS — Automation Timeline (implementation detail)
 
-The first post-launch feature update. Adds per-patch time-based event automation. Behind a new **AUTOMATION** pill in the top control row (right after PRESET), tap to open a sheet that lists scheduled events by time and lets you edit, add, or delete them.
+Per-patch time-based event automation. Behind a new **AUTOMATION** pill in the top control row (right after PRESET), tap to open a sheet that lists scheduled events by time and lets you edit, add, or delete them.
+
+> Note: the original spec below shipped with later refinements — 8 event types (adds **LFO rate** and **LFO depth**), **bar + beat** entry on a 1/16 grid, **tempo-relative** positions (events resolve to seconds at the live BPM via `gridSixteenth`, so changing tempo rescales the timeline), chord-change **Direction** (Up/Down/Nearest) and **Duration** auto-advance, and **Length** (bars) + **Repeat** count replacing the seconds-based duration/loop. Chord changes **transpose** voices relative to a captured baseline rather than respelling a triad.
 
 ### New
 

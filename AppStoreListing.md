@@ -148,6 +148,34 @@ phrases waste characters.)
 
 ## 6. What's New in This Version (4000 char max)
 
+For 1.1 (build 12) — **this is the text to paste for the current update:**
+```
+New in this version:
+
+• Automation Timeline. A new AUTOMATION pill opens a per-patch
+  sequencer. Schedule chord progressions, fades, waveform and sample
+  switches, level and mute changes, and LFO rate/depth moves at
+  bar + beat positions. Chord changes transpose your voicing — so
+  layered drones keep their character — and positions are tempo-
+  relative, so changing the BPM rescales the whole phrase in
+  proportion. Loop a passage a set number of times, or let it hold
+  until you stop.
+
+• BPM and metronome moved to the always-visible top row — no more
+  hunting through the master strip, especially in iPhone landscape.
+
+• The free web app at dronemeditations.com now plays shared
+  automation timelines too.
+
+• Stability and polish.
+
+Thanks for listening.
+```
+
+(~620 chars.)
+
+---
+
 For 1.0 (initial release):
 ```
 Welcome to Drone Meditations.
