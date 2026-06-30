@@ -133,11 +133,17 @@ struct AutomationSheetView: View {
     }
 
     private func eventRow(_ event: AutomationEvent) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Text(formatTime(event.timeSec))
-                .font(.system(.subheadline, design: .monospaced).weight(.semibold))
-                .foregroundStyle(Color.accentColor)
-                .frame(width: 56, alignment: .leading)
+        let (bar, sub) = barAndSub(event.timeSec)
+        return HStack(alignment: .firstTextBaseline, spacing: 12) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Bar \(bar)")
+                    .font(.system(.subheadline, design: .monospaced).weight(.semibold))
+                    .foregroundStyle(Color.accentColor)
+                Text(sub == "start" ? formatTime(event.timeSec) : sub)
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
+            .frame(width: 64, alignment: .leading)
             VStack(alignment: .leading, spacing: 2) {
                 Text(rowTitle(event))
                     .font(.subheadline)
@@ -151,6 +157,20 @@ struct AutomationSheetView: View {
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
         }
+    }
+
+    /// Convert an absolute time to (1-indexed bar, 1/16-grid sub-position
+    /// as a reduced fraction or "start") using the session BPM.
+    private func barAndSub(_ sec: Double) -> (Int, String) {
+        let secPerBar = (4.0 * 60.0) / max(1.0, vm.bpm)
+        let sixteenth = Int((sec / (secPerBar / 16.0)).rounded())
+        let bar = sixteenth / 16 + 1
+        let s = sixteenth % 16
+        if s == 0 { return (bar, "start") }
+        var g = s, h = 16
+        while h != 0 { (g, h) = (h, g % h) }
+        g = max(1, g)
+        return (bar, "\(s / g)/\(16 / g)")
     }
 
     /// Action summary, with transpose direction + chord duration appended
@@ -184,14 +204,33 @@ struct AutomationSheetView: View {
         // Default to a chord change at the timeline's current "next slot":
         // 30s after the latest event, or 0 if empty. Same key/chord as
         // patch state — user can change before saving.
-        let nextTime = (vm.automation.events.map(\.timeSec).max() ?? -30) + 30
+        //
+        // AUTO-ADVANCE: a new event starts where the LAST event's chord
+        // ends — its time + (chord duration in bars × secPerBar at the
+        // session BPM). This turns the timeline into a flowing chord
+        // sequencer: add a chord + duration, tap +, and the next event
+        // is already positioned at the downbeat after it. No manual time
+        // math. Falls back to the last event's own time (for non-chord
+        // or Hold events) so + always advances at least to the latest
+        // event, and to 0 for an empty timeline.
+        let secPerBar = (4.0 * 60.0) / max(1.0, vm.bpm)
+        let sorted = vm.automation.events.sorted { $0.timeSec < $1.timeSec }
+        var nextTime = 0.0
+        if let last = sorted.last {
+            nextTime = last.timeSec
+            if case .chordChange = last.action,
+               let bars = last.chordDuration?.bars, bars > 0 {
+                nextTime += bars * secPerBar
+            }
+        }
         return AutomationEvent(
             timeSec: max(0, nextTime),
             voice: .all,
             action: .chordChange(
                 keyRaw: vm.currentKey.rawValue,
                 chordId: vm.currentChord.id
-            )
+            ),
+            chordDuration: .one   // sensible default: 1 bar per chord
         )
     }
 

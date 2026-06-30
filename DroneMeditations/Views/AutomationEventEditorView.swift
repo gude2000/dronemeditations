@@ -15,9 +15,6 @@ struct AutomationEventEditorView: View {
     /// + button (new event). Controls Delete-button visibility.
     private let isExisting: Bool
 
-    @State private var timeMinutes: Int
-    @State private var timeSeconds: Int
-
     // LFO rate/depth event fields live in local @State rather than packed
     // into draft.action. Why: binding the LFO-index Picker through a
     // computed binding that reassigns draft.action makes BOTH the LFO
@@ -29,10 +26,7 @@ struct AutomationEventEditorView: View {
     @State private var lfoDepth: Double
 
     init(event: AutomationEvent, isExisting: Bool = true) {
-        let totalSec = Int(event.timeSec.rounded(.down))
         _draft = State(initialValue: event)
-        _timeMinutes = State(initialValue: totalSec / 60)
-        _timeSeconds = State(initialValue: totalSec % 60)
         self.isExisting = isExisting
         // Seed the LFO locals from the event's action if it's an LFO type;
         // otherwise sensible defaults (LFO 4 = pitch LFO in most presets).
@@ -56,18 +50,23 @@ struct AutomationEventEditorView: View {
         NavigationStack {
             Form {
                 Section("Time") {
-                    HStack {
-                        Stepper(value: $timeMinutes, in: 0...120) {
-                            Text("\(timeMinutes) min")
-                                .font(.system(.body, design: .monospaced))
-                        }
+                    // Bar + position entry, snapped to a 1/16-bar grid via
+                    // the session BPM. Composing a progression at 87 BPM in
+                    // raw seconds is impossible by hand; bars make it
+                    // trivial. The underlying storage is still timeSec (the
+                    // dispatcher is tempo-agnostic); these steppers just
+                    // convert through the live BPM.
+                    Stepper(value: barBinding, in: 0...512) {
+                        Text("Bar \(barBinding.wrappedValue + 1)")
+                            .font(.system(.body, design: .monospaced))
                     }
-                    HStack {
-                        Stepper(value: $timeSeconds, in: 0...59) {
-                            Text("\(timeSeconds) sec")
-                                .font(.system(.body, design: .monospaced))
-                        }
+                    Stepper(value: sixteenthBinding, in: 0...15) {
+                        Text("Position: \(sixteenthLabel)")
+                            .font(.system(.body, design: .monospaced))
                     }
+                    Text("= \(clockLabel) · \(Int(vm.bpm)) BPM")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
                 Section("Apply to") {
                     // navigationLink picker style — selection on a pushed
@@ -118,7 +117,8 @@ struct AutomationEventEditorView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        commitTime()
+                        // time is bound directly to draft.timeSec via the
+                        // bar/beat steppers — no commit needed.
                         commitLfoFields()
                         vm.upsertAutomationEvent(draft)
                         dismiss()
@@ -348,8 +348,56 @@ struct AutomationEventEditorView: View {
         )
     }
 
-    private func commitTime() {
-        draft.timeSec = Double(timeMinutes * 60 + timeSeconds)
+    // MARK: - Bar / beat time entry
+
+    private var secPerBar: Double { 4.0 * 60.0 / max(1.0, vm.bpm) }
+    private var secPerSixteenth: Double { secPerBar / 16.0 }
+
+    /// draft.timeSec quantized to whole 1/16-bar steps. This is the
+    /// canonical grid value the bar/position steppers operate on, so they
+    /// never drift.
+    private var totalSixteenths: Int { Int((draft.timeSec / secPerSixteenth).rounded()) }
+    private func setTotalSixteenths(_ n: Int) {
+        draft.timeSec = Double(max(0, n)) * secPerSixteenth
+    }
+
+    private var barBinding: Binding<Int> {
+        Binding(
+            get: { totalSixteenths / 16 },
+            set: { newBar in
+                setTotalSixteenths(max(0, newBar) * 16 + (totalSixteenths % 16))
+            }
+        )
+    }
+    private var sixteenthBinding: Binding<Int> {
+        Binding(
+            get: { totalSixteenths % 16 },
+            set: { newSix in
+                let clamped = max(0, min(15, newSix))
+                setTotalSixteenths((totalSixteenths / 16) * 16 + clamped)
+            }
+        )
+    }
+
+    /// 1/16-grid position within the bar as a reduced fraction:
+    /// 0→"start", 2→"1/8", 4→"1/4", 8→"1/2", 12→"3/4", etc.
+    private var sixteenthLabel: String {
+        let s = totalSixteenths % 16
+        if s == 0 { return "start" }
+        let g = gcd(s, 16)
+        return "\(s / g)/\(16 / g)"
+    }
+
+    /// Equivalent clock time (so the user can still see real seconds).
+    private var clockLabel: String {
+        let sec = Int(draft.timeSec.rounded())
+        return String(format: "%d:%02d", sec / 60, sec % 60)
+    }
+
+    private func gcd(_ a: Int, _ b: Int) -> Int {
+        var x = a, y = b
+        while y != 0 { (x, y) = (y, x % y) }
+        return max(1, x)
     }
 
     // MARK: - Phase B fields
