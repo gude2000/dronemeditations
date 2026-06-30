@@ -12,7 +12,7 @@
        styles.css / main.js / ui.js so users don't get stale JS + new
        HTML (or vice versa), which had caused the slider fills to
        freeze visually on the SAMPLE GR / WINDOW / GRAIN rows. -->
-  <link rel="stylesheet" href="./styles.css?v=13" />
+  <link rel="stylesheet" href="./styles.css?v=14" />
 </head>
 <body>
   <canvas id="bg-canvas" aria-hidden="true"></canvas>
@@ -78,6 +78,10 @@
       <button id="preset-pill" class="pill" type="button">
         <span class="pill-label">PRESET</span>
         <span id="preset-pill-value" class="pill-value">—</span>
+      </button>
+      <button id="automation-pill" class="pill" type="button" title="Automation Timeline — schedule chord changes, fades, level/mute, waveform, and LFO moves at bar+beat positions; loop a phrase or run once">
+        <span class="pill-label">AUTOMATION</span>
+        <span id="automation-pill-value" class="pill-value">Off</span>
       </button>
       <button id="drift-pill" class="pill" type="button" title="Generative slow-drift mode — voices wander gently around their current settings over minutes">
         <span class="pill-label">DRIFT</span>
@@ -265,6 +269,49 @@
     </div>
   </div>
 
+  <!-- Automation Timeline — per-patch event sequencer (web editor, v1.1). -->
+  <div id="automation-sheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="automation-sheet-title" hidden>
+    <div class="sheet-panel">
+      <header class="sheet-header">
+        <h2 id="automation-sheet-title">Automation</h2>
+        <button class="sheet-done" data-close="automation-sheet" type="button">Done</button>
+      </header>
+      <div class="sheet-scroll">
+        <section class="sheet-section">
+          <div class="automation-config">
+            <label>Length
+              <select id="automation-length"></select>
+            </label>
+            <label>Repeat
+              <select id="automation-repeat"></select>
+            </label>
+          </div>
+          <p id="automation-footer" class="preset-disclaimer"></p>
+        </section>
+        <section class="sheet-section">
+          <div class="automation-list-header">
+            <span id="automation-count">Events</span>
+            <button id="automation-add" class="sheet-save" type="button">+ Add event</button>
+          </div>
+          <div id="automation-list" class="automation-list"></div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- Automation event editor — body built dynamically per event type. -->
+  <div id="automation-editor-sheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="automation-editor-title" hidden>
+    <div class="sheet-panel">
+      <header class="sheet-header">
+        <h2 id="automation-editor-title">Event</h2>
+        <button class="sheet-done" data-close="automation-editor-sheet" type="button">Cancel</button>
+      </header>
+      <div class="sheet-scroll">
+        <div id="automation-editor-body"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Morph sheet — pick two presets + drag the slider to interpolate. -->
   <div id="morph-sheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="morph-sheet-title" hidden>
     <div class="sheet-panel morph-panel">
@@ -428,6 +475,6 @@
     </div>
   </div>
 
-  <script type="module" src="./js/main.js?v=46"></script>
+  <script type="module" src="./js/main.js?v=47"></script>
 </body>
 </html>

@@ -11,7 +11,7 @@ import {
   pitchToFrequency, chordFrequencies, FREQ_MIN, FREQ_MAX
 } from "./music.js?v=43";
 import { AudioEngine } from "./audio.js?v=43";
-import { initUI, renderAll } from "./ui.js?v=43";
+import { initUI, renderAll } from "./ui.js?v=44";
 import {
   exportUserPresetDownload, importUserPresetFromFile
 } from "./preset-sharing.js?v=43";
@@ -822,6 +822,37 @@ const actions = {
     if (wasActive && d === 0) restoreLfoTargetBase(oscIndex, state.oscillators[oscIndex].lfos[lfoIndex].target);
     renderAll();
   },
+  // ── Automation Timeline editing (web editor, v1.1) ──
+  // These mutate state._automation in the iOS-Codable shape so timelines
+  // round-trip through .dronepreset. Each edit invalidates the player's
+  // baseline so the next Play captures fresh patch state.
+  setAutomationBars(barsOrNull) {
+    const tl = ensureAutomation();
+    tl.totalBars = (barsOrNull == null) ? null : Math.max(0, barsOrNull);
+    tl.loop = tl.totalBars != null && tl.totalBars > 0;
+    automationPlayer.invalidate();
+    renderAll();
+  },
+  setAutomationLoopCount(n) {
+    const tl = ensureAutomation();
+    tl.loopCount = Math.max(0, n | 0);
+    automationPlayer.invalidate();
+    renderAll();
+  },
+  upsertAutomationEvent(ev) {
+    const tl = ensureAutomation();
+    const i = tl.events.findIndex((e) => e.id === ev.id);
+    if (i >= 0) tl.events[i] = ev; else tl.events.push(ev);
+    automationPlayer.invalidate();
+    renderAll();
+  },
+  deleteAutomationEvent(id) {
+    const tl = ensureAutomation();
+    tl.events = tl.events.filter((e) => e.id !== id);
+    automationPlayer.invalidate();
+    renderAll();
+  },
+
   setLfoShape(oscIndex, lfoIndex, shape) {
     state.oscillators[oscIndex].lfos[lfoIndex].shape = shape;
     engine.setLfoShape(oscIndex, lfoIndex, shape);
@@ -2707,6 +2738,20 @@ function tickAutomationFades(fades, elapsedNow) {
     }
   });
   return active;
+}
+
+/// Lazily create a default (empty) timeline on state._automation. Used by
+/// the web editor's first edit. Shape matches the iOS Codable timeline so
+/// it round-trips through .dronepreset.
+function ensureAutomation() {
+  if (!state._automation || typeof state._automation !== "object") {
+    state._automation = {
+      schemaVersion: 1, totalDurationSec: 0,
+      loop: false, totalBars: null, loopCount: 0, events: [],
+    };
+  }
+  if (!Array.isArray(state._automation.events)) state._automation.events = [];
+  return state._automation;
 }
 
 const automationPlayer = {

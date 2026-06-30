@@ -61,11 +61,14 @@ pill in the top control row (right after PRESET).
 - Persisted in `.dronepreset` as an optional `automation` field
   (back-compat: older saves load empty).
 
-**Web playback (iOS↔web parity):** `dronemeditations.com` now PLAYS
+**Web parity (full edit + playback):** `dronemeditations.com` PLAYS
 shared timelines via `automationPlayer` in `web/js/main.js` — its own
 ~33 Hz clock, the same transpose / fade / LFO semantics, tempo-relative
-resolution, baseline restore, and loop wrap. The visual editor stays
-iOS-only; web plays imported/shared timelines.
+resolution, baseline restore, and loop wrap. It also has the full
+EDITOR: the AUTOMATION pill, event-list sheet, and bar/beat event editor
+(all 8 action types) in `web/js/ui.js`, writing events in the
+iOS-Codable shape so they round-trip through `.dronepreset`. Web and iOS
+are now at complete parity for the Automation Timeline.
 
 Built across Phase A (`98673b6`), Phase B, Phase C, plus the tempo-
 relative + beat-entry + LFO-event refinements and the web player.
@@ -222,14 +225,9 @@ Ship A+B+C together as v1.1.
 
 ## v1.x ideas (unscheduled)
 
-- **Automation Timeline — web editor + dispatcher.** v1.1 ships
-  automation as iOS-only at the edit/playback level. The web app
-  preserves the `automation` field in the `.dronepreset` envelope
-  on round-trip (iOS-edited timelines survive a save-on-web →
-  share-back-to-iOS cycle), but doesn't surface an editor pill or
-  dispatch events at play time. v1.2 should mirror the iOS
-  `AutomationDispatcher` in JS (≈150 lines) and add an Automation
-  pill + sheet + event editor to the web UI (≈500 lines).
+- ~~**Automation Timeline — web editor + dispatcher.**~~ ✅ DONE in
+  v1.1. Web now has the JS `automationPlayer` (dispatcher mirror) and
+  the full AUTOMATION pill + sheet + event editor. Web ↔ iOS parity.
 - **LFO 5 sample-granular targets** — Position, Scan range, and per-
   voice Overlap on/off as additional LFO 5 chips (originally part of
   the v1.1 plan, deferred). Would unlock scanning-over-time textures

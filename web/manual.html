@@ -417,7 +417,7 @@
                 font-size: 12px;
                 margin-bottom: 10px;">Feature highlights</div>
     <ul style="margin: 12px 0 4px 0;">
-      <li><strong>Automation Timeline (AUTOMATION pill)</strong> — a per-patch sequencer. Schedule chord progressions, fades, waveform/sample switches, level/mute, and LFO rate/depth moves at bar+beat positions; loop a phrase or run once. Chord changes transpose (voicings stay intact), positions are tempo-relative, and the web now plays shared timelines too. See <a href="#pills">§11 → AUTOMATION</a>.</li>
+      <li><strong>Automation Timeline (AUTOMATION pill)</strong> — a per-patch sequencer. Schedule chord progressions, fades, waveform/sample switches, level/mute, and LFO rate/depth moves at bar+beat positions; loop a phrase or run once. Chord changes transpose (voicings stay intact), positions are tempo-relative, and it's fully cross-platform — build, edit, and play on both web and iOS. See <a href="#pills">§11 → AUTOMATION</a>.</li>
       <li><strong>BPM &amp; metronome in the header</strong> — the tempo readout and metronome toggle now live in the always-visible top icon row (no more hunting in the master strip, especially in iPhone landscape). See <a href="#transport">§15</a>.</li>
       <li><strong>Per-oscillator Tune to Room (👂)</strong> — every strip now has an ear icon that opens a mic-pitch sheet and snaps <em>just that voice's</em> frequency to whatever you sing or play. See <a href="#oscillators">§3</a>.</li>
       <li><strong>Per-oscillator Record sample (🎙)</strong> — capture a sample directly from the mic into a voice without ever opening Files; reference-pitch is the voice's current frequency at record time. See <a href="#oscillators">§3</a>.</li>
@@ -882,7 +882,7 @@ SUBTITLES = {
     <strong>Scrollable.</strong> The pill row is <em>horizontally scrollable</em> on iPhone (and any narrow viewport) — all 8 pills won't fit in portrait, so swipe left/right on the row itself to reach the ones that scroll off-screen. Look for the subtle fade at the row's right edge that indicates "more pills this way." On iPad and wide browser windows the entire row fits without scrolling.
   </div>
 
-  <h3>AUTOMATION — scheduled events <span style="font-size:14px;font-weight:500;color:#aaa;">(iOS edit · web + iOS playback, v1.1)</span></h3>
+  <h3>AUTOMATION — scheduled events <span style="font-size:14px;font-weight:500;color:#aaa;">(web + iOS, v1.1)</span></h3>
   <p>A per-patch sequencer. Schedule chord changes, fades, waveform / sample switches, level / mute changes, and LFO rate / depth moves at musical positions; the dispatcher fires each one as the transport reaches it.</p>
   <p>Tap the <strong>AUTOMATION</strong> pill (right after PRESET) to open a sheet listing scheduled events in time order. Tap <strong>+</strong> to add an event, tap a row to edit it, swipe left to delete. Each event has these fields:</p>
   <ul>
@@ -903,7 +903,7 @@ SUBTITLES = {
   </div>
 
   <div class="callout note">
-    <strong>Now plays on the web too.</strong> As of v1.1, <code>dronemeditations.com</code> runs the same automation engine — a patch with a timeline, shared from the app, animates its events in the browser at the live BPM, with the same chord transposition, fades, and LFO moves. The visual <em>editor</em> for building timelines is still iOS-only; the web side plays imported / shared timelines and round-trips the <code>automation</code> field inside <code>.dronepreset</code> files intact.
+    <strong>Full parity on the web.</strong> As of v1.1, <code>dronemeditations.com</code> has the same AUTOMATION pill, event-list sheet, and bar/beat editor as the app — build and edit timelines in the browser, and they play with the same chord transposition, fades, and LFO moves at the live BPM. Timelines round-trip through the <code>automation</code> field inside <code>.dronepreset</code> files, so a patch authored on either platform animates identically on the other.
   </div>
 
   <h3>DRIFT — generative slow motion</h3>

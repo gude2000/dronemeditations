@@ -142,6 +142,7 @@ export function initUI(state, actions) {
   // Wire static event handlers.
   document.getElementById("chord-pill").addEventListener("click", () => openSheet("chord-sheet"));
   document.getElementById("preset-pill").addEventListener("click", () => openSheet("preset-sheet"));
+  document.getElementById("automation-pill").addEventListener("click", openAutomationSheet);
   document.getElementById("drift-pill").addEventListener("click", openDriftMenu);
   document.getElementById("listen-pill").addEventListener("click", openListenSheet);
   document.getElementById("performance-pill").addEventListener("click", enterPerformance);
@@ -242,6 +243,13 @@ export function renderAll() {
   document.getElementById("chord-pill-value").textContent =
     `${PITCH_CLASSES[s.keyId].name} ${CHORDS.find((c) => c.id === s.chordId).name}`;
   document.getElementById("preset-pill-value").textContent = s.activePresetName || "—";
+  const autoPill = document.getElementById("automation-pill");
+  if (autoPill) {
+    const n = (s._automation?.events || []).length;
+    document.getElementById("automation-pill-value").textContent =
+      n ? `${n} event${n === 1 ? "" : "s"}` : "Off";
+    autoPill.classList.toggle("active", n > 0);
+  }
   const driftPill = document.getElementById("drift-pill");
   let sceneLabel = (window.__drone?.DRIFT_SCENES || []).find((sc) => sc.id === s.driftSceneId)?.name;
   if (!sceneLabel) sceneLabel = s.driftSceneId === "custom" ? "Custom" : "Off";
@@ -1537,6 +1545,440 @@ function syncStrip(index, root) {
 }
 
 // ───────── modal sheets ─────────
+
+// ══════════════════════════════════════════════════
+// Automation Timeline editor (web, v1.1) — full iOS parity.
+// ══════════════════════════════════════════════════
+// Mirrors AutomationSheetView + AutomationEventEditorView. Reads/writes
+// state._automation in the iOS-Codable shape (so timelines round-trip via
+// .dronepreset), through dispatch.{setAutomationBars, setAutomationLoopCount,
+// upsertAutomationEvent, deleteAutomationEvent}. The automationPlayer in
+// main.js plays whatever this writes.
+
+const AUTO_ACTION_TYPES = [
+  { id: "chordChange", label: "Chord change" },
+  { id: "fadeIn",      label: "Fade in" },
+  { id: "fadeOut",     label: "Fade out" },
+  { id: "waveformSet", label: "Waveform" },
+  { id: "levelSet",    label: "Level" },
+  { id: "muteToggle",  label: "Mute toggle" },
+  { id: "lfoRate",     label: "LFO rate" },
+  { id: "lfoDepth",    label: "LFO depth" },
+];
+// iOS ChordDuration rawValues + bar lengths (editor auto-advance only).
+const AUTO_CHORD_DURATIONS = [
+  { id: "sixteenth", label: "1/16 bar", bars: 1 / 16 },
+  { id: "eighth",    label: "1/8 bar",  bars: 1 / 8 },
+  { id: "quarter",   label: "1/4 bar",  bars: 1 / 4 },
+  { id: "half",      label: "1/2 bar",  bars: 1 / 2 },
+  { id: "one",       label: "1 bar",    bars: 1 },
+  { id: "two",       label: "2 bars",   bars: 2 },
+  { id: "four",      label: "4 bars",   bars: 4 },
+  { id: "eight",     label: "8 bars",   bars: 8 },
+  { id: "hold",      label: "Hold",     bars: null },
+];
+const AUTO_LFO_RATE_MIN = 0.02, AUTO_LFO_RATE_MAX = 8;
+
+let automationDraft = null;          // event being edited
+let automationDraftExisting = false; // edit (true) vs new (false)
+
+// ── shape helpers (parse the iOS-Codable action/voice) ──
+function autoActionType(action) {
+  if (typeof action === "string") return action;
+  return action ? Object.keys(action)[0] : "chordChange";
+}
+function autoActionPayload(action) {
+  if (typeof action === "string") return {};
+  const k = action ? Object.keys(action)[0] : null;
+  return (k && action[k]) || {};
+}
+function autoVoiceIndex(v) {
+  if (v === "all" || (v && v.all)) return -1;
+  if (v && v.oscillator) return (v.oscillator._0 | 0);
+  return -1;
+}
+function autoVoiceLabel(v) {
+  const i = autoVoiceIndex(v);
+  return i < 0 ? "All voices" : `OSC ${i + 1}`;
+}
+function autoGridOf(ev) {
+  if (ev.gridSixteenth != null) return Math.max(0, ev.gridSixteenth);
+  const sps = (4 * 60 / Math.max(1, getState().bpm)) / 16;
+  return Math.max(0, Math.round((ev.timeSec || 0) / sps));
+}
+function autoBarBeat(grid) {
+  const bar = Math.floor(grid / 16) + 1;
+  const beat = 1 + (grid % 16) / 4;
+  const bs = (beat === Math.round(beat)) ? String(beat)
+    : beat.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+  return { bar, beat: bs };
+}
+function autoFmtSec(s) { s = s || 0; return (s === Math.floor(s)) ? `${s}s` : `${s.toFixed(1)}s`; }
+function autoChordNameForId(id) {
+  const c = CHORDS.find((x) => x.id === id);
+  return c ? c.name : id;   // store the iOS-style NAME for cross-platform round-trip
+}
+function autoLfoRateToPos(hz) {
+  const lo = Math.log(AUTO_LFO_RATE_MIN), hi = Math.log(AUTO_LFO_RATE_MAX);
+  return (Math.log(Math.max(AUTO_LFO_RATE_MIN, Math.min(AUTO_LFO_RATE_MAX, hz))) - lo) / (hi - lo);
+}
+function autoPosToLfoRate(pos) {
+  const lo = Math.log(AUTO_LFO_RATE_MIN), hi = Math.log(AUTO_LFO_RATE_MAX);
+  return Math.exp(lo + (hi - lo) * Math.max(0, Math.min(1, pos)));
+}
+
+function autoActionSummary(ev) {
+  const t = autoActionType(ev.action), p = autoActionPayload(ev.action);
+  switch (t) {
+    case "chordChange": {
+      const key = PITCH_CLASSES[p.keyRaw]?.name ?? "?";
+      return `Chord: ${key} ${p.chordId ?? ""}`.trim();
+    }
+    case "fadeIn":  return `Fade in (${autoFmtSec(p.durationSec)})`;
+    case "fadeOut": return `Fade out (${autoFmtSec(p.durationSec)})`;
+    case "waveformSet": {
+      const w = WAVEFORMS.find((x) => x.id === p.waveformRaw);
+      return `Waveform: ${w ? w.name : (p.waveformRaw || "?")}`;
+    }
+    case "levelSet": return `Level: ${Math.round((p.level || 0) * 100)}%`;
+    case "muteToggle": return "Mute toggle";
+    case "lfoRate":  return `LFO ${(p.lfoIndex | 0) + 1} rate: ${(p.rateHz || 0).toFixed(p.rateHz >= 1 ? 2 : 3)} Hz`;
+    case "lfoDepth": return `LFO ${(p.lfoIndex | 0) + 1} depth: ${Math.round((p.depth || 0) * 100)}%`;
+    default: return t;
+  }
+}
+
+// ── the events-list sheet ──
+function openAutomationSheet() {
+  buildAutomationSheet();
+  openSheet("automation-sheet");
+}
+
+function automationFooterText(tl) {
+  if (tl.totalBars == null || tl.totalBars <= 0) {
+    return "Events fire once when their time passes. Manual stop: the last state holds until you tap Stop. Set a bar length to loop.";
+  }
+  const n = tl.loopCount || 0;
+  if (n === 0) return `Loops the first ${Math.round(tl.totalBars)} bars forever (until Stop).`;
+  return `Plays the first ${Math.round(tl.totalBars)} bars ${n === 1 ? "once" : n + " times"}, then holds the last chord.`;
+}
+
+function buildAutomationSheet() {
+  const tl = getState()._automation || { events: [], totalBars: null, loopCount: 0 };
+
+  const lenSel = document.getElementById("automation-length");
+  lenSel.innerHTML = `<option value="-1">Manual stop</option>` +
+    [1, 2, 4, 8, 12, 16, 24, 32, 48, 64].map((b) => `<option value="${b}">${b} bars</option>`).join("");
+  lenSel.value = String(tl.totalBars != null ? tl.totalBars : -1);
+  lenSel.onchange = () => {
+    dispatch.setAutomationBars(lenSel.value === "-1" ? null : parseInt(lenSel.value, 10));
+    buildAutomationSheet();
+  };
+
+  const repSel = document.getElementById("automation-repeat");
+  repSel.innerHTML = `<option value="0">Forever</option>` +
+    [1, 2, 3, 4, 6, 8, 12, 16].map((n) => `<option value="${n}">${n === 1 ? "Once" : n + "×"}</option>`).join("");
+  repSel.value = String(tl.loopCount || 0);
+  repSel.disabled = tl.totalBars == null;
+  repSel.onchange = () => dispatch.setAutomationLoopCount(parseInt(repSel.value, 10));
+
+  document.getElementById("automation-footer").textContent = automationFooterText(tl);
+
+  const events = [...(tl.events || [])].sort((a, b) => autoGridOf(a) - autoGridOf(b));
+  document.getElementById("automation-count").textContent = `Events (${events.length})`;
+  const list = document.getElementById("automation-list");
+  if (!events.length) {
+    list.innerHTML = `<div class="automation-empty">No events yet. Tap + to add a chord change or fade.</div>`;
+  } else {
+    list.innerHTML = events.map((ev) => {
+      const { bar, beat } = autoBarBeat(autoGridOf(ev));
+      return `<div class="automation-row" data-id="${escapeHtml(ev.id)}">
+        <button class="automation-row-main" type="button">
+          <span class="automation-row-pos"><span class="bar">Bar ${bar}</span><span class="beat">Beat ${beat}</span></span>
+          <span class="automation-row-body">
+            <span class="automation-row-title">${escapeHtml(autoActionSummary(ev))}</span>
+            <span class="automation-row-sub">${escapeHtml(autoVoiceLabel(ev.voice))}</span>
+          </span>
+        </button>
+        <button class="automation-del" type="button" title="Delete">✕</button>
+      </div>`;
+    }).join("");
+    list.querySelectorAll(".automation-row").forEach((row) => {
+      const id = row.dataset.id;
+      row.querySelector(".automation-row-main").onclick = () => {
+        const ev = (getState()._automation?.events || []).find((e) => e.id === id);
+        if (ev) openAutomationEditor(ev);
+      };
+      row.querySelector(".automation-del").onclick = () => {
+        dispatch.deleteAutomationEvent(id);
+        buildAutomationSheet();
+      };
+    });
+  }
+  document.getElementById("automation-add").onclick = () => openAutomationEditor(null);
+}
+
+// ── the per-event editor ──
+function autoNewId() {
+  return "ev_" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+}
+function autoDefaultActionFor(type) {
+  const s = getState();
+  switch (type) {
+    case "fadeIn":      return { fadeIn: { durationSec: 3 } };
+    case "fadeOut":     return { fadeOut: { durationSec: 5 } };
+    case "waveformSet": return { waveformSet: { waveformRaw: "sine" } };
+    case "levelSet":    return { levelSet: { level: 0.5 } };
+    case "muteToggle":  return { muteToggle: {} };
+    case "lfoRate":     return { lfoRate: { lfoIndex: 3, rateHz: 0.5 } };
+    case "lfoDepth":    return { lfoDepth: { lfoIndex: 3, depth: 0.5 } };
+    default:            return { chordChange: { keyRaw: s.keyId, chordId: autoChordNameForId(s.chordId) } };
+  }
+}
+function autoDefaultEvent() {
+  const s = getState();
+  const sps = (4 * 60 / Math.max(1, s.bpm)) / 16;
+  const evs = [...((s._automation && s._automation.events) || [])].sort((a, b) => autoGridOf(a) - autoGridOf(b));
+  let nextGrid = 0;
+  const last = evs[evs.length - 1];
+  if (last) {
+    nextGrid = autoGridOf(last);
+    if (autoActionType(last.action) === "chordChange" && last.chordDuration) {
+      const d = AUTO_CHORD_DURATIONS.find((x) => x.id === last.chordDuration);
+      if (d && d.bars) nextGrid += Math.round(d.bars * 16);
+    }
+  }
+  return {
+    id: autoNewId(),
+    gridSixteenth: nextGrid,
+    timeSec: nextGrid * sps,
+    voice: "all",
+    action: { chordChange: { keyRaw: s.keyId, chordId: autoChordNameForId(s.chordId) } },
+    transposeDirection: "nearest",
+    chordDuration: "one",
+  };
+}
+
+function openAutomationEditor(ev) {
+  automationDraftExisting = !!ev;
+  automationDraft = ev ? JSON.parse(JSON.stringify(ev)) : autoDefaultEvent();
+  renderAutomationEditor();
+  openSheet("automation-editor-sheet");
+}
+
+function autoActionFieldsHtml(d) {
+  const t = autoActionType(d.action), p = autoActionPayload(d.action);
+  switch (t) {
+    case "chordChange": {
+      const keyOpts = PITCH_CLASSES.map((pc) =>
+        `<option value="${pc.id}" ${pc.id === p.keyRaw ? "selected" : ""}>${pc.name}</option>`).join("");
+      const chordOpts = CHORD_CATEGORIES.map((cat) => {
+        const items = CHORDS.filter((c) => c.category === cat);
+        if (!items.length) return "";
+        return `<optgroup label="${escapeHtml(cat)}">${items.map((c) =>
+          `<option value="${escapeHtml(c.name)}" ${c.name === p.chordId ? "selected" : ""}>${escapeHtml(c.name)}</option>`).join("")}</optgroup>`;
+      }).join("");
+      const dir = d.transposeDirection || "nearest";
+      const durOpts = AUTO_CHORD_DURATIONS.map((x) =>
+        `<option value="${x.id}" ${x.id === (d.chordDuration || "hold") ? "selected" : ""}>${x.label}</option>`).join("");
+      return `
+        <div class="automation-field"><label>Key</label><select id="auto-key">${keyOpts}</select></div>
+        <div class="automation-field"><label>Direction</label><select id="auto-dir">
+          <option value="nearest" ${dir === "nearest" ? "selected" : ""}>Nearest</option>
+          <option value="up" ${dir === "up" ? "selected" : ""}>Up</option>
+          <option value="down" ${dir === "down" ? "selected" : ""}>Down</option>
+        </select></div>
+        <div class="automation-field"><label>Chord</label><select id="auto-chord">${chordOpts}</select></div>
+        <div class="automation-field"><label>Duration (auto-advance)</label><select id="auto-dur">${durOpts}</select>
+          <div class="field-help">Positions the next event you add — playback holds each chord until the next.</div></div>`;
+    }
+    case "fadeIn":
+    case "fadeOut": {
+      const dur = p.durationSec != null ? p.durationSec : (t === "fadeIn" ? 3 : 5);
+      return `<div class="automation-field"><label>Duration</label>
+        <div class="automation-slider-row"><input id="auto-fadedur" type="range" min="0" max="15" step="0.5" value="${dur}"><span class="val" id="auto-fadedur-val">${dur.toFixed(1)} s</span></div></div>`;
+    }
+    case "waveformSet": {
+      const wf = p.waveformRaw || "sine";
+      const wfOpts = WAVEFORMS.map((w) => `<option value="${w.id}" ${w.id === wf ? "selected" : ""}>${w.name}</option>`).join("");
+      const sampleField = wf === "sample"
+        ? `<div class="automation-field"><label>Sample</label><select id="auto-sample"><option value="">— choose —</option></select>
+             <div class="field-help">Loaded from the bundled library at fire time.</div></div>`
+        : "";
+      return `<div class="automation-field"><label>Waveform</label><select id="auto-wave">${wfOpts}</select></div>${sampleField}`;
+    }
+    case "levelSet": {
+      const lvl = p.level != null ? p.level : 0.5;
+      return `<div class="automation-field"><label>Level</label>
+        <div class="automation-slider-row"><input id="auto-level" type="range" min="0" max="1" step="0.01" value="${lvl}"><span class="val" id="auto-level-val">${Math.round(lvl * 100)}%</span></div></div>`;
+    }
+    case "muteToggle":
+      return `<div class="automation-field"><div class="field-help">Inverts the mute state of the selected voice(s) when fired.</div></div>`;
+    case "lfoRate": {
+      const idx = p.lfoIndex != null ? p.lfoIndex : 3;
+      const rate = p.rateHz != null ? p.rateHz : 0.5;
+      return `${autoLfoIndexHtml(idx)}<div class="automation-field"><label>Rate</label>
+        <div class="automation-slider-row"><input id="auto-lforate" type="range" min="0" max="1" step="0.001" value="${autoLfoRateToPos(rate)}"><span class="val" id="auto-lforate-val">${rate.toFixed(3)} Hz</span></div></div>`;
+    }
+    case "lfoDepth": {
+      const idx = p.lfoIndex != null ? p.lfoIndex : 3;
+      const depth = p.depth != null ? p.depth : 0.5;
+      return `${autoLfoIndexHtml(idx)}<div class="automation-field"><label>Depth</label>
+        <div class="automation-slider-row"><input id="auto-lfodepth" type="range" min="0" max="1" step="0.01" value="${depth}"><span class="val" id="auto-lfodepth-val">${Math.round(depth * 100)}%</span></div></div>`;
+    }
+    default: return "";
+  }
+}
+function autoLfoIndexHtml(idx) {
+  return `<div class="automation-field"><label>LFO</label><select id="auto-lfoidx">${
+    [0, 1, 2, 3, 4].map((i) => `<option value="${i}" ${i === idx ? "selected" : ""}>LFO ${i + 1}</option>`).join("")
+  }</select></div>`;
+}
+
+function renderAutomationEditor() {
+  const d = automationDraft;
+  const bpm = getState().bpm;
+  const sps = (4 * 60 / Math.max(1, bpm)) / 16;
+  const grid = d.gridSixteenth != null ? d.gridSixteenth : 0;
+  const bar = Math.floor(grid / 16) + 1;
+  const sixInBar = grid % 16;
+  const actionType = autoActionType(d.action);
+  const voiceVal = autoVoiceIndex(d.voice);
+
+  const beatOpts = Array.from({ length: 16 }, (_, i) =>
+    `<option value="${i}" ${i === sixInBar ? "selected" : ""}>${1 + i / 4}</option>`).join("");
+
+  document.getElementById("automation-editor-title").textContent = automationDraftExisting ? "Edit event" : "New event";
+  const clockOf = (g) => { const cs = Math.round(g * sps); return `${Math.floor(cs / 60)}:${String(cs % 60).padStart(2, "0")}`; };
+
+  const body = document.getElementById("automation-editor-body");
+  body.innerHTML = `
+    <div class="automation-field"><label>Position</label>
+      <div class="automation-pos-row">
+        <div><label class="field-help">Bar</label><input id="auto-bar" type="number" min="1" max="512" value="${bar}"></div>
+        <div><label class="field-help">Beat</label><select id="auto-beat">${beatOpts}</select></div>
+      </div>
+      <div class="field-help" id="auto-clock">= ${clockOf(grid)} · ${Math.round(bpm)} BPM · 1/16 grid</div>
+    </div>
+    <div class="automation-field"><label>Apply to</label>
+      <select id="auto-voice">
+        <option value="-1" ${voiceVal === -1 ? "selected" : ""}>All voices</option>
+        ${[0, 1, 2, 3].map((i) => `<option value="${i}" ${voiceVal === i ? "selected" : ""}>OSC ${i + 1}</option>`).join("")}
+      </select></div>
+    <div class="automation-field"><label>Action</label>
+      <select id="auto-type">${AUTO_ACTION_TYPES.map((a) => `<option value="${a.id}" ${a.id === actionType ? "selected" : ""}>${a.label}</option>`).join("")}</select></div>
+    <div id="auto-action-fields">${autoActionFieldsHtml(d)}</div>
+    <div class="automation-editor-actions">
+      ${automationDraftExisting ? `<button id="auto-delete" class="automation-delete-btn" type="button">Delete</button>` : ""}
+      <button id="auto-save" class="automation-save-btn" type="button">Save</button>
+    </div>`;
+
+  const barEl = document.getElementById("auto-bar");
+  const beatEl = document.getElementById("auto-beat");
+  const applyPos = () => {
+    const b = Math.max(1, parseInt(barEl.value || "1", 10));
+    const six = parseInt(beatEl.value || "0", 10);
+    d.gridSixteenth = (b - 1) * 16 + six;
+    d.timeSec = d.gridSixteenth * sps;
+    document.getElementById("auto-clock").textContent = `= ${clockOf(d.gridSixteenth)} · ${Math.round(bpm)} BPM · 1/16 grid`;
+  };
+  barEl.onchange = applyPos;
+  beatEl.onchange = applyPos;
+
+  document.getElementById("auto-voice").onchange = (e) => {
+    const i = parseInt(e.target.value, 10);
+    d.voice = (i < 0) ? "all" : { oscillator: { _0: i } };
+  };
+  document.getElementById("auto-type").onchange = (e) => {
+    applyPos();
+    d.action = autoDefaultActionFor(e.target.value);
+    renderAutomationEditor();
+  };
+
+  wireAutoActionFields(d);
+
+  document.getElementById("auto-save").onclick = () => {
+    applyPos();
+    dispatch.upsertAutomationEvent(JSON.parse(JSON.stringify(d)));
+    closeSheet("automation-editor-sheet");
+    buildAutomationSheet();
+  };
+  if (automationDraftExisting) {
+    document.getElementById("auto-delete").onclick = () => {
+      dispatch.deleteAutomationEvent(d.id);
+      closeSheet("automation-editor-sheet");
+      buildAutomationSheet();
+    };
+  }
+}
+
+function wireAutoActionFields(d) {
+  const t = autoActionType(d.action);
+  if (t === "chordChange") {
+    const keyEl = document.getElementById("auto-key");
+    const chordEl = document.getElementById("auto-chord");
+    const sync = () => { d.action = { chordChange: { keyRaw: parseInt(keyEl.value, 10), chordId: chordEl.value } }; };
+    keyEl.onchange = sync;
+    chordEl.onchange = sync;
+    document.getElementById("auto-dir").onchange = (e) => { d.transposeDirection = e.target.value; };
+    document.getElementById("auto-dur").onchange = (e) => { d.chordDuration = e.target.value; };
+  } else if (t === "fadeIn" || t === "fadeOut") {
+    const el = document.getElementById("auto-fadedur");
+    const val = document.getElementById("auto-fadedur-val");
+    el.oninput = () => {
+      const v = parseFloat(el.value);
+      val.textContent = v.toFixed(1) + " s";
+      d.action = (t === "fadeIn") ? { fadeIn: { durationSec: v } } : { fadeOut: { durationSec: v } };
+    };
+  } else if (t === "waveformSet") {
+    const wEl = document.getElementById("auto-wave");
+    wEl.onchange = () => {
+      const wf = wEl.value;
+      d.action = { waveformSet: { waveformRaw: wf } };
+      if (wf !== "sample") d.sampleName = null;
+      renderAutomationEditor();   // show/hide the sample picker
+    };
+    const sEl = document.getElementById("auto-sample");
+    if (sEl) {
+      loadBundledSampleManifest().then((samples) => {
+        const groups = {};
+        samples.forEach((s) => { (groups[s.category || "Samples"] = groups[s.category || "Samples"] || []).push(s); });
+        sEl.innerHTML = `<option value="">— choose —</option>` + Object.keys(groups).sort().map((cat) =>
+          `<optgroup label="${escapeHtml(cat)}">${groups[cat].map((s) =>
+            `<option value="${escapeHtml(s.name)}" ${s.name === d.sampleName ? "selected" : ""}>${escapeHtml(s.name)}</option>`).join("")}</optgroup>`).join("");
+      });
+      sEl.onchange = () => { d.sampleName = sEl.value || null; };
+    }
+  } else if (t === "levelSet") {
+    const el = document.getElementById("auto-level");
+    const val = document.getElementById("auto-level-val");
+    el.oninput = () => { const v = parseFloat(el.value); val.textContent = Math.round(v * 100) + "%"; d.action = { levelSet: { level: v } }; };
+  } else if (t === "muteToggle") {
+    d.action = { muteToggle: {} };
+  } else if (t === "lfoRate") {
+    const idxEl = document.getElementById("auto-lfoidx");
+    const el = document.getElementById("auto-lforate");
+    const val = document.getElementById("auto-lforate-val");
+    const sync = () => {
+      const hz = autoPosToLfoRate(parseFloat(el.value));
+      val.textContent = hz.toFixed(3) + " Hz";
+      d.action = { lfoRate: { lfoIndex: parseInt(idxEl.value, 10), rateHz: hz } };
+    };
+    idxEl.onchange = sync;
+    el.oninput = sync;
+  } else if (t === "lfoDepth") {
+    const idxEl = document.getElementById("auto-lfoidx");
+    const el = document.getElementById("auto-lfodepth");
+    const val = document.getElementById("auto-lfodepth-val");
+    const sync = () => {
+      const dep = parseFloat(el.value);
+      val.textContent = Math.round(dep * 100) + "%";
+      d.action = { lfoDepth: { lfoIndex: parseInt(idxEl.value, 10), depth: dep } };
+    };
+    idxEl.onchange = sync;
+    el.oninput = sync;
+  }
+}
 
 function openSheet(id) {
   document.getElementById(id).hidden = false;
