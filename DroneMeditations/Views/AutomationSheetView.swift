@@ -27,14 +27,9 @@ struct AutomationSheetView: View {
         NavigationStack {
             Form {
                 Section {
-                    durationPicker
-                    Toggle(isOn: Binding(
-                        get: { vm.automation.loop },
-                        set: { vm.setAutomationLoop($0) }
-                    )) {
-                        Text("Loop").font(.subheadline)
-                    }
-                    .disabled(vm.automation.totalDurationSec <= 0)
+                    lengthPicker
+                    repeatPicker
+                        .disabled(vm.automation.totalBars == nil)
                 } header: {
                     Text("Timeline").font(.caption)
                 } footer: {
@@ -111,22 +106,33 @@ struct AutomationSheetView: View {
 
     // MARK: - Subviews
 
-    // navigationLink picker style: selection happens on a PUSHED screen,
-    // not an inline menu. This is immune to two failure modes that made
-    // earlier versions "finicky": (1) tap-region overlap with surrounding
-    // rows, and (2) the parent sheet re-rendering mid-tap when the
-    // observed `vm` fires a @Published update (transport elapsed ticks,
-    // drift/morph timers, etc. all churn vm while a sheet is open during
-    // playback). On the pushed screen the selection list is stable.
-    // Tag type is Double to match totalDurationSec; 0.0 = manual stop.
-    private var durationPicker: some View {
-        Picker("Duration", selection: Binding(
-            get: { vm.automation.totalDurationSec },
-            set: { vm.setAutomationDuration($0) }
+    // Loop LENGTH in bars (tempo-accurate). navigationLink style for the
+    // same re-render/tap-region robustness as the editor pickers. A bar
+    // length defines one cycle; the Repeat picker below controls how many
+    // times it plays. Tag -1 = "Manual stop" (no loop, last state holds).
+    private var lengthPicker: some View {
+        Picker("Length", selection: Binding<Int>(
+            get: { vm.automation.totalBars.map { Int($0) } ?? -1 },
+            set: { vm.setAutomationBars($0 < 0 ? nil : Double($0)) }
         )) {
-            Text("Manual stop").tag(0.0)
-            ForEach([60, 180, 300, 600, 900, 1200, 1800, 3600], id: \.self) { sec in
-                Text(formatDuration(Double(sec))).tag(Double(sec))
+            Text("Manual stop").tag(-1)
+            ForEach([1, 2, 4, 8, 12, 16, 24, 32, 48, 64], id: \.self) { bars in
+                Text("\(bars) bars").tag(bars)
+            }
+        }
+        .pickerStyle(.navigationLink)
+    }
+
+    // How many times the loop plays. 0 = forever. Disabled when Length is
+    // manual stop (nothing to loop).
+    private var repeatPicker: some View {
+        Picker("Repeat", selection: Binding<Int>(
+            get: { vm.automation.loopCount },
+            set: { vm.setAutomationLoopCount($0) }
+        )) {
+            Text("Forever").tag(0)
+            ForEach([1, 2, 3, 4, 6, 8, 12, 16], id: \.self) { n in
+                Text(n == 1 ? "Once" : "\(n)×").tag(n)
             }
         }
         .pickerStyle(.navigationLink)
@@ -192,12 +198,15 @@ struct AutomationSheetView: View {
     // MARK: - Helpers
 
     private var footerText: String {
-        if vm.automation.totalDurationSec <= 0 {
-            return "Events fire once when their time passes during playback. The timeline ends when you tap Stop."
+        guard let bars = vm.automation.totalBars, bars > 0 else {
+            return "Events fire once when their time passes. Manual stop: the last state holds until you tap Stop. Set a bar length to loop."
         }
-        return vm.automation.loop
-            ? "Timeline wraps every \(formatDuration(vm.automation.totalDurationSec))."
-            : "Events fire once. Timeline ends at \(formatDuration(vm.automation.totalDurationSec)) or on manual Stop."
+        let barsInt = Int(bars)
+        let count = vm.automation.loopCount
+        if count == 0 {
+            return "Loops the first \(barsInt) bars forever (until Stop)."
+        }
+        return "Plays the first \(barsInt) bars \(count == 1 ? "once" : "\(count) times"), then holds the last chord."
     }
 
     private func defaultNewEvent() -> AutomationEvent {
@@ -236,14 +245,6 @@ struct AutomationSheetView: View {
 
     private func formatTime(_ sec: Double) -> String {
         let s = Int(sec.rounded(.down))
-        return String(format: "%d:%02d", s / 60, s % 60)
-    }
-
-    private func formatDuration(_ sec: Double) -> String {
-        let s = Int(sec.rounded(.down))
-        if s % 60 == 0 {
-            return "\(s / 60) min"
-        }
         return String(format: "%d:%02d", s / 60, s % 60)
     }
 }

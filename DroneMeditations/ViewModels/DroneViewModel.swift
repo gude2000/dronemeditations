@@ -2755,10 +2755,15 @@ final class DroneViewModel: ObservableObject {
             // chord changes into change + auto-revert pairs (see
             // expandedAutomationEvents). Sorted-by-time happens inside the
             // dispatcher.
+            // Loop length from totalBars (tempo-accurate, converted at
+            // Play). loop is on whenever a finite bar length is set.
+            let secPerBar = (4.0 * 60.0) / max(1.0, bpm)
+            let cycleSec = (automation.totalBars ?? 0) * secPerBar
             automationDispatcher?.start(
                 events: expandedAutomationEvents(),
-                totalDurationSec: automation.totalDurationSec,
-                loop: automation.loop
+                totalDurationSec: cycleSec,
+                loop: cycleSec > 0,
+                loopCount: automation.loopCount
             )
         case .paused:
             automationDispatcher?.pause()
@@ -2780,49 +2785,16 @@ final class DroneViewModel: ObservableObject {
     /// automatically — they're driven by transportElapsed like every other
     /// event. Bar→seconds uses the session BPM at Play time (4 beats/bar).
     private func expandedAutomationEvents() -> [AutomationEvent] {
-        var out = automation.sortedEvents
-        let baseKeyRaw = (automationBaseline?.key ?? currentKey).rawValue
-        let baseChordId = (automationBaseline?.chord ?? currentChord).id
-        let secPerBar = (4.0 * 60.0) / max(1.0, bpm)
-        let eps = 0.001
-        let sorted = automation.sortedEvents
-        for event in sorted {
-            guard case .chordChange = event.action,
-                  let dur = event.chordDuration,
-                  let bars = dur.bars, bars > 0 else { continue }
-            let revertAt = event.timeSec + bars * secPerBar
-            // In a PROGRESSION the next chord takes over when this one ends
-            // (auto-advance places it exactly at revertAt). Only revert to
-            // baseline if NO following chord change supersedes this one
-            // within its duration window — i.e. a lone "excursion" returns
-            // home, but a flowing progression keeps moving. "Supersede"
-            // requires overlapping voice scope (same OSC, or either .all).
-            let hasFollower = sorted.contains { other in
-                guard other.id != event.id,
-                      case .chordChange = other.action,
-                      other.timeSec > event.timeSec + eps,
-                      other.timeSec <= revertAt + eps else { return false }
-                return voicesOverlap(event.voice, other.voice)
-            }
-            if hasFollower { continue }
-            out.append(AutomationEvent(
-                timeSec: revertAt,
-                voice: event.voice,
-                action: .chordChange(keyRaw: baseKeyRaw, chordId: baseChordId),
-                transposeDirection: .nearest,   // base→base = 0 steps = ratio 1.0
-                chordDuration: .hold             // the revert itself doesn't re-revert
-            ))
-        }
-        return out.sorted { $0.timeSec < $1.timeSec }
-    }
-
-    /// True when two voice filters affect at least one common voice (so one
-    /// chord change can supersede another). `.all` overlaps everything.
-    private func voicesOverlap(_ a: VoiceFilter, _ b: VoiceFilter) -> Bool {
-        switch (a, b) {
-        case (.all, _), (_, .all): return true
-        case (.oscillator(let i), .oscillator(let j)): return i == j
-        }
+        // A chord simply HOLDS until the next chord event (or the loop
+        // wrap / Stop). Chord `duration` is purely an editor convenience:
+        // it positions the NEXT auto-added event (see
+        // AutomationSheetView.defaultNewEvent), so "1/2 bar A" places the
+        // next chord 1/2 bar later, which makes A sound for 1/2 bar. No
+        // synthetic revert at playback — that was causing the harmony to
+        // bounce back to home between chords and before a loop wrap.
+        // If a user wants a chord to return home, they add an explicit
+        // "change to the home key" event (one tap with auto-advance).
+        return automation.sortedEvents
     }
 
     /// Fan-out for events fired by the dispatcher. Runs on the main actor.
@@ -3059,5 +3031,16 @@ final class DroneViewModel: ObservableObject {
 
     func setAutomationLoop(_ loop: Bool) {
         automation.loop = loop
+    }
+
+    /// Loop length in bars. nil = manual stop (no loop). Clamped >= 0.
+    func setAutomationBars(_ bars: Double?) {
+        if let b = bars { automation.totalBars = max(0, b) }
+        else { automation.totalBars = nil }
+    }
+
+    /// How many times to play the loop. 0 = forever; N>=1 = N times.
+    func setAutomationLoopCount(_ count: Int) {
+        automation.loopCount = max(0, count)
     }
 }

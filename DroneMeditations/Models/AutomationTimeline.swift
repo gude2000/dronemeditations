@@ -204,8 +204,20 @@ struct AutomationTimeline: Codable, Equatable {
     /// Schema version embedded in `.dronepreset` files for forward-compat.
     /// Bump only when the on-disk shape changes incompatibly.
     var schemaVersion: Int = 1
+    /// Legacy seconds-based length (v1.1 early builds). Kept for decode
+    /// back-compat. The current UI uses `totalBars` instead; the
+    /// dispatcher prefers totalBars when present.
     var totalDurationSec: Double = 0
     var loop: Bool = false
+    /// Loop length in BARS at the session BPM. nil = "manual stop" (events
+    /// fire once, the last state holds until Stop). When set, the timeline
+    /// repeats this many bars `loopCount` times. Tempo-accurate: bars are
+    /// converted to seconds at Play time, so changing BPM re-times the
+    /// loop correctly.
+    var totalBars: Double?
+    /// How many times to play the loop. 0 = forever; N>=1 = play N times
+    /// then stop firing. Only meaningful when totalBars is set.
+    var loopCount: Int = 0
     /// Stored unsorted (UI may insert at any time). Dispatcher sorts by
     /// timeSec at Play.
     var events: [AutomationEvent] = []

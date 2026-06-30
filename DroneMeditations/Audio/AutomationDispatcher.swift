@@ -35,6 +35,11 @@ final class AutomationDispatcher {
     /// until the next start().
     private var totalDurationSec: Double = 0
     private var loop: Bool = false
+    /// How many times to play the loop. 0 = forever; N>=1 = stop firing
+    /// after the Nth cycle completes.
+    private var loopCount: Int = 0
+    /// Which loop cycle we're currently in (0-based). Incremented on wrap.
+    private var currentCycle: Int = 0
     /// Cumulative time offset for loop wraps. We don't touch
     /// engine.transportElapsed (which would be invasive); instead the
     /// dispatcher tracks how many full loops have elapsed and subtracts
@@ -51,7 +56,7 @@ final class AutomationDispatcher {
 
     /// Begin scheduling. Resets index, starts the polling Timer.
     /// Call at the moment transport.play() resets engine.transportElapsed.
-    func start(events: [AutomationEvent], totalDurationSec: Double, loop: Bool) {
+    func start(events: [AutomationEvent], totalDurationSec: Double, loop: Bool, loopCount: Int = 0) {
         cancelTimer()
         generation &+= 1
         // Snapshot a sorted, deduplicated copy so UI edits during play
@@ -60,6 +65,8 @@ final class AutomationDispatcher {
         self.nextEventIndex = 0
         self.totalDurationSec = totalDurationSec
         self.loop = loop
+        self.loopCount = loopCount
+        self.currentCycle = 0
         self.loopOffsetSec = 0
         self.isPaused = false
         guard !self.events.isEmpty else { return }
@@ -87,6 +94,7 @@ final class AutomationDispatcher {
         events.removeAll(keepingCapacity: true)
         nextEventIndex = 0
         loopOffsetSec = 0
+        currentCycle = 0
         isPaused = false
         generation &+= 1
     }
@@ -128,9 +136,19 @@ final class AutomationDispatcher {
         // would be invasive); the dispatcher tracks how much of the
         // raw elapsed has been "consumed" by prior loops via
         // loopOffsetSec and works in phase-within-current-loop.
+        // loopCount == 0 → forever; N>=1 → stop after N cycles (we've
+        // played the last cycle once currentCycle reaches N-1 and the
+        // elapsed passes the cycle boundary again).
         if loop && totalDurationSec > 0 {
             while rawElapsed - loopOffsetSec >= totalDurationSec {
+                // Would this wrap start cycle (currentCycle+1)? If that
+                // exceeds the requested count, stop instead of wrapping.
+                if loopCount > 0 && currentCycle + 1 >= loopCount {
+                    cancelTimer()
+                    return
+                }
                 loopOffsetSec += totalDurationSec
+                currentCycle += 1
                 nextEventIndex = 0
             }
         }
