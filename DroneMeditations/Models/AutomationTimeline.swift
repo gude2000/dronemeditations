@@ -31,6 +31,10 @@ enum AutomationAction: Hashable, Codable {
     case chordChange(keyRaw: Int, chordId: String)
     case fadeIn(durationSec: Double)
     case fadeOut(durationSec: Double)
+    // Phase B additions:
+    case waveformSet(waveformRaw: String)
+    case levelSet(level: Double)               // 0…1
+    case muteToggle
 }
 
 extension AutomationAction {
@@ -44,6 +48,13 @@ extension AutomationAction {
             return "Fade in (\(formatSec(sec)))"
         case .fadeOut(let sec):
             return "Fade out (\(formatSec(sec)))"
+        case .waveformSet(let raw):
+            let name = Waveform(rawValue: raw)?.displayName ?? raw
+            return "Waveform: \(name)"
+        case .levelSet(let lvl):
+            return "Level: \(Int(round(lvl * 100)))%"
+        case .muteToggle:
+            return "Mute toggle"
         }
     }
 

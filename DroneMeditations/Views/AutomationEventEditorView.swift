@@ -10,26 +10,20 @@ struct AutomationEventEditorView: View {
 
     /// Local copy of the event so cancellation discards edits.
     @State private var draft: AutomationEvent
-    /// Whether this id existed when we opened (controls Delete button).
+    /// Set by the parent (AutomationSheetView) — true when the editor was
+    /// opened from a row tap (existing event), false when opened from the
+    /// + button (new event). Controls Delete-button visibility.
     private let isExisting: Bool
 
     @State private var timeMinutes: Int
     @State private var timeSeconds: Int
 
-    init(event: AutomationEvent) {
+    init(event: AutomationEvent, isExisting: Bool = true) {
         let totalSec = Int(event.timeSec.rounded(.down))
         _draft = State(initialValue: event)
         _timeMinutes = State(initialValue: totalSec / 60)
         _timeSeconds = State(initialValue: totalSec % 60)
-        // "Existing" if the event id already lives on the VM's timeline at
-        // the moment the sheet opens — but we don't have VM here yet, so
-        // we infer "new" by the heuristic that brand-new events from the
-        // sheet's "+" path haven't been inserted yet. Since AutomationSheet
-        // upserts on save in both cases, this only affects the Delete
-        // button visibility. We default to true so the Delete button shows
-        // on most opens; new events won't have a row to delete from so the
-        // tap is a no-op anyway.
-        isExisting = true
+        self.isExisting = isExisting
     }
 
     var body: some View {
@@ -63,16 +57,21 @@ struct AutomationEventEditorView: View {
                         Text("Chord change").tag(ActionType.chord)
                         Text("Fade in").tag(ActionType.fadeIn)
                         Text("Fade out").tag(ActionType.fadeOut)
+                        Text("Waveform").tag(ActionType.waveform)
+                        Text("Level").tag(ActionType.level)
+                        Text("Mute toggle").tag(ActionType.muteToggle)
                     }
                     .pickerStyle(.menu)
                     actionFields
                 }
-                Section {
-                    Button(role: .destructive) {
-                        vm.deleteAutomationEvent(draft.id)
-                        dismiss()
-                    } label: {
-                        Label("Delete event", systemImage: "trash")
+                if isExisting {
+                    Section {
+                        Button(role: .destructive) {
+                            vm.deleteAutomationEvent(draft.id)
+                            dismiss()
+                        } label: {
+                            Label("Delete event", systemImage: "trash")
+                        }
                     }
                 }
             }
@@ -104,6 +103,14 @@ struct AutomationEventEditorView: View {
             fadeSlider(durationSec: dur, isFadeIn: true)
         case .fadeOut(let dur):
             fadeSlider(durationSec: dur, isFadeIn: false)
+        case .waveformSet:
+            waveformPicker
+        case .levelSet:
+            levelSlider
+        case .muteToggle:
+            Text("Inverts the mute state of the selected voice(s) when fired.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -170,7 +177,9 @@ struct AutomationEventEditorView: View {
         )
     }
 
-    private enum ActionType: String, Hashable { case chord, fadeIn, fadeOut }
+    private enum ActionType: String, Hashable {
+        case chord, fadeIn, fadeOut, waveform, level, muteToggle
+    }
 
     private var actionTypeBinding: Binding<ActionType> {
         Binding(
@@ -179,6 +188,9 @@ struct AutomationEventEditorView: View {
                 case .chordChange: return .chord
                 case .fadeIn:      return .fadeIn
                 case .fadeOut:     return .fadeOut
+                case .waveformSet: return .waveform
+                case .levelSet:    return .level
+                case .muteToggle:  return .muteToggle
                 }
             },
             set: { newType in
@@ -192,6 +204,14 @@ struct AutomationEventEditorView: View {
                     draft.action = .fadeIn(durationSec: 3.0)
                 case .fadeOut:
                     draft.action = .fadeOut(durationSec: 5.0)
+                case .waveform:
+                    // Default to sine — the closest analog to "no
+                    // particular waveform". User overrides via the picker.
+                    draft.action = .waveformSet(waveformRaw: Waveform.sine.rawValue)
+                case .level:
+                    draft.action = .levelSet(level: 0.5)
+                case .muteToggle:
+                    draft.action = .muteToggle
                 }
             }
         )
@@ -231,5 +251,59 @@ struct AutomationEventEditorView: View {
 
     private func commitTime() {
         draft.timeSec = Double(timeMinutes * 60 + timeSeconds)
+    }
+
+    // MARK: - Phase B fields
+
+    private var waveformPicker: some View {
+        HStack {
+            Text("Waveform").foregroundStyle(.secondary)
+            Spacer()
+            Picker("Waveform", selection: waveformBinding) {
+                ForEach(Waveform.allCases) { wf in
+                    Text(wf.displayName).tag(wf.rawValue)
+                }
+            }
+            .pickerStyle(.menu)
+        }
+    }
+
+    private var levelSlider: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text("Level")
+                Spacer()
+                Text("\(Int(round(currentLevel * 100)))%")
+                    .font(.system(.subheadline, design: .monospaced))
+                    .foregroundStyle(Color.accentColor)
+            }
+            Slider(
+                value: Binding(
+                    get: { currentLevel },
+                    set: { newVal in
+                        draft.action = .levelSet(level: max(0, min(1.0, newVal)))
+                    }
+                ),
+                in: 0...1,
+                step: 0.01
+            )
+        }
+    }
+
+    private var waveformBinding: Binding<String> {
+        Binding(
+            get: {
+                if case .waveformSet(let raw) = draft.action { return raw }
+                return Waveform.sine.rawValue
+            },
+            set: { newRaw in
+                draft.action = .waveformSet(waveformRaw: newRaw)
+            }
+        )
+    }
+
+    private var currentLevel: Double {
+        if case .levelSet(let lvl) = draft.action { return lvl }
+        return 0.5
     }
 }

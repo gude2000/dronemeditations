@@ -2614,6 +2614,27 @@ final class DroneViewModel: ObservableObject {
             applyAutomationFade(targetAmpFactor: 0.0,
                                 durationSec: dur,
                                 voice: event.voice)
+        case .waveformSet(let raw):
+            guard let wave = Waveform(rawValue: raw) else { return }
+            for i in voiceIndicesForFilter(event.voice) {
+                setWaveform(wave, for: i)
+            }
+        case .levelSet(let level):
+            let clamped = max(0.0, min(1.0, level))
+            for i in voiceIndicesForFilter(event.voice) {
+                // Cancel any in-flight fade for this voice — a hard level
+                // set is more recent than a ramp and shouldn't get
+                // overwritten by a stale ramp Task on the next tick.
+                if fadeGenerations.indices.contains(i) {
+                    fadeGenerations[i] &+= 1
+                }
+                setAmplitude(clamped, for: i)
+            }
+        case .muteToggle:
+            for i in voiceIndicesForFilter(event.voice) {
+                guard oscillators.indices.contains(i) else { continue }
+                toggleMute(i)
+            }
         }
     }
 

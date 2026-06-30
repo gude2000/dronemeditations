@@ -867,6 +867,7 @@ SUBTITLES = {
   <div class="pill-row">
     <span class="pill"><span class="swatch"></span>CHORD</span>
     <span class="pill"><span class="swatch"></span>PRESET</span>
+    <span class="pill"><span class="swatch"></span>AUTOMATION <span style="font-size:11px;color:#aaa;">(iOS)</span></span>
     <span class="pill"><span class="swatch"></span>DRIFT</span>
     <span class="pill hot"><span class="swatch"></span>LISTEN</span>
     <span class="pill pur"><span class="swatch"></span>PERFORM</span>
@@ -877,6 +878,29 @@ SUBTITLES = {
 
   <div class="callout note">
     <strong>Scrollable.</strong> The pill row is <em>horizontally scrollable</em> on iPhone (and any narrow viewport) — all 8 pills won't fit in portrait, so swipe left/right on the row itself to reach the ones that scroll off-screen. Look for the subtle fade at the row's right edge that indicates "more pills this way." On iPad and wide browser windows the entire row fits without scrolling.
+  </div>
+
+  <h3>AUTOMATION — scheduled events <span style="font-size:14px;font-weight:500;color:#aaa;">(iOS, v1.1)</span></h3>
+  <p>Time-based event automation inside a single patch. Schedule chord changes, fades, waveform switches, and per-voice level / mute events at specific time markers; the dispatcher fires them as transport elapsed time passes each one.</p>
+  <p>Tap the <strong>AUTOMATION</strong> pill (right after PRESET) to open a sheet listing scheduled events in time order. Tap <strong>+</strong> to add an event, tap a row to edit it, swipe left to delete. Each event has three fields:</p>
+  <ul>
+    <li><strong>Time</strong> — when it fires, in minutes + seconds.</li>
+    <li><strong>Apply to</strong> — <em>All voices</em> or <em>OSC 1-4</em>. <em>All voices</em> fires for every voice regardless of fade or mute state at the time.</li>
+    <li><strong>Action</strong> — one of: <em>Chord change</em> (Key + Chord), <em>Fade in</em> / <em>Fade out</em> (0-15 s ramp), <em>Waveform</em> (discrete switch), <em>Level</em> (0-100% set), <em>Mute toggle</em> (invert).</li>
+  </ul>
+  <p>The <strong>Duration</strong> menu at the top of the sheet defaults to <em>Manual stop</em> — events fire once when their time passes, then the timeline ends when you tap Stop. Setting a positive duration (1 min through 60 min presets) enables the <strong>Loop</strong> toggle: when on, the timeline wraps back to event #1 at the end and runs again. Loop wraps don't reset the engine's elapsed clock — the dispatcher tracks an internal offset, so the visual timer keeps climbing past one loop boundary.</p>
+
+  <div class="callout note">
+    <strong>Automation vs Journey.</strong> Two separate features with separate use cases.
+    <ul>
+      <li><strong>Journey</strong> scripts a sequence of <em>whole-preset swaps</em> — multi-stage arcs of 20-60 minutes that fade between completely different patches (e.g. Pauline Oliveros → Stars of the Lid → Basinski Tape Decay). Pick a Journey, hit Play, the app drives the whole patch state through the script.</li>
+      <li><strong>Automation</strong> modifies a <em>single preset</em> over its own playback. The patch's voices, FX, and LFOs stay as you saved them; the timeline just changes chord, voice levels, waveforms, etc. at the times you scheduled. Save the automation along with the patch so the schedule travels via <code>.dronepreset</code>.</li>
+    </ul>
+    Use Journey for "I want a 30-min meditation that morphs through five drone-artist sounds." Use Automation for "this single patch should shift from A minor to D dorian at 5 minutes, fade OSC 1 out at 8 minutes, and switch OSC 3 to a square at 12."
+  </div>
+
+  <div class="callout warn">
+    <strong>iOS only in v1.1.</strong> The Automation pill, sheet, and event editor are present on the iPhone / iPad app. The web app at <code>dronemeditations.com</code> reads and writes the <code>automation</code> field inside <code>.dronepreset</code> files — so an iOS-edited timeline survives a save-on-web → share-back-to-iOS round trip — but doesn't run a dispatcher yet, and doesn't surface a pill or editor. Full web parity (editor + playback) is on the v1.x roadmap.
   </div>
 
   <h3>DRIFT — generative slow motion</h3>

@@ -39,6 +39,28 @@ Final shape differed slightly from the original v1.1 plan below:
 
 See `CHANGELOG.md` for the full v1.1 release notes.
 
+### v1.1 — Automation Timeline (iOS) ✅ Phase A + B + C complete
+
+Per-patch time-based event automation. iOS feature, behind the new
+`AUTOMATION` pill in the top control row (right after PRESET).
+Six event types: chord change, fade in, fade out, waveform set,
+level set, mute toggle. Per-event `Voice` filter (All / OSC 1-4)
+applies events to a specific voice or the whole patch. Duration
+defaults to "manual stop" (0); set a positive duration with the
+Loop toggle for looping timelines. Persisted in `.dronepreset` as
+an optional `automation` field — older saves load with an empty
+timeline; web app preserves the field on round-trip (no editor on
+web in v1.1 — Phase D / v1.2).
+
+Spec frozen in commit `4a75462`. Built across three phases:
+Phase A (`98673b6` — data model + dispatcher + sheet UI + chord
++ fade events + persistence), Phase B (waveform / level / mute
+event types), Phase C (loop wrap, web schema round-trip, manual
+update, CHANGELOG entry).
+
+Tasks #205, #206, #207. See `CHANGELOG.md` v1.1 entry for the full
+notes.
+
 ---
 
 ## v1.1 — Automation Timeline (in design)
@@ -190,6 +212,14 @@ Ship A+B+C together as v1.1.
 
 ## v1.x ideas (unscheduled)
 
+- **Automation Timeline — web editor + dispatcher.** v1.1 ships
+  automation as iOS-only at the edit/playback level. The web app
+  preserves the `automation` field in the `.dronepreset` envelope
+  on round-trip (iOS-edited timelines survive a save-on-web →
+  share-back-to-iOS cycle), but doesn't surface an editor pill or
+  dispatch events at play time. v1.2 should mirror the iOS
+  `AutomationDispatcher` in JS (≈150 lines) and add an Automation
+  pill + sheet + event editor to the web UI (≈500 lines).
 - **LFO 5 sample-granular targets** — Position, Scan range, and per-
   voice Overlap on/off as additional LFO 5 chips (originally part of
   the v1.1 plan, deferred). Would unlock scanning-over-time textures

@@ -1451,7 +1451,14 @@ const actions = {
       id: newPresetId(), name: trimmed, createdAt: new Date().toISOString(),
       keyId: state.keyId, octave: state.octave, chordId: state.chordId,
       tuningId: state.tuningId, masterVolume: state.masterVolume,
-      oscillators
+      oscillators,
+      // v1.1 Automation Timeline. Preserved from whatever was last
+      // loaded — web v1.1 doesn't expose a UI to edit timelines, so we
+      // just round-trip the field. iOS users can save patches with
+      // automation and share them via .dronepreset; if a web user opens
+      // and resaves such a patch, the timeline stays intact for the
+      // next iOS recipient. Phase D / v1.2 will add a web editor.
+      ...(state._automation ? { automation: state._automation } : {}),
     };
     state.userPresets = [preset, ...state.userPresets];
     saveUserPresets(state.userPresets);
@@ -1468,6 +1475,16 @@ const actions = {
     state.octave = preset.octave ?? state.octave;
     state.chordId = preset.chordId ?? state.chordId;
     state.tuningId = preset.tuningId ?? state.tuningId;
+    // v1.1 Automation Timeline. iOS-edited timelines round-trip through
+    // .dronepreset and are preserved by the web app for cross-device
+    // continuity. Full automation playback + UI on web lands in v1.2;
+    // for v1.1 the field is just stored so it's not lost when a web
+    // user saves a patch they got from iOS.
+    if (preset.automation) {
+      state._automation = preset.automation;
+    } else {
+      delete state._automation;
+    }
     if (preset.masterVolume != null) actions.setMasterVolume(preset.masterVolume);
     for (let i = 0; i < 4; i++) {
       const o = preset.oscillators[i]; if (!o) continue;

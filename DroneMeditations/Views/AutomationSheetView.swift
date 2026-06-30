@@ -86,11 +86,11 @@ struct AutomationSheetView: View {
                 }
             }
             .sheet(item: $editingEvent) { event in
-                AutomationEventEditorView(event: event)
+                AutomationEventEditorView(event: event, isExisting: true)
                     .environmentObject(vm)
             }
             .sheet(isPresented: $showingNewEvent) {
-                AutomationEventEditorView(event: defaultNewEvent())
+                AutomationEventEditorView(event: defaultNewEvent(), isExisting: false)
                     .environmentObject(vm)
             }
         }

@@ -4,6 +4,58 @@ Release notes are a running record of what's shipped in each version. Each secti
 
 ---
 
+## v1.1 — Automation Timeline (iOS)
+
+The first post-launch feature update. Adds per-patch time-based event automation. Behind a new **AUTOMATION** pill in the top control row (right after PRESET), tap to open a sheet that lists scheduled events by time and lets you edit, add, or delete them.
+
+### New
+
+- **Automation Timeline.** Schedule events at time markers within a patch. Six event types:
+  - **Chord change** — switch key + chord (e.g. A min7 → D dorian at 5:00). Patch-wide.
+  - **Fade in** / **Fade out** — 0–15 s amplitude ramp on the selected voice(s). Overrides the existing per-voice timing envelope when both are present (locked decision #4).
+  - **Waveform** — discrete sine / triangle / sawtooth / square / noise / granular / sample switch.
+  - **Level** — set voice amplitude to a specific value (0–100%).
+  - **Mute toggle** — invert mute state.
+  
+  Each event has a **Voice** filter: `All voices` or `OSC 1-4`. `All voices` events affect every voice regardless of fade/mute state (locked decision #3).
+  
+- **Manual stop default.** Timeline duration defaults to 0 = "until manual stop" (locked decision #2) — events fire once and the timeline ends when you tap Stop. Setting a positive duration enables the **Loop** toggle, which wraps back to event 0 at the end. Dispatcher uses an internal offset to wrap without resetting the engine's `transportElapsed`.
+- **Journey vs Automation.** Two separate features with separate use cases (locked decision #5). **Journey** scripts a sequence of whole-preset swaps over multi-stage arcs; **Automation** modifies a single preset's parameters over time. The manual section documents both.
+
+### Architecture
+
+- **`Models/AutomationTimeline.swift`** — `AutomationEvent` (id, timeSec, voice, action), `VoiceFilter` (.all / .oscillator(i)), `AutomationAction` (six cases), `AutomationTimeline` (totalDurationSec, loop, events). Schema version 1, soft cap 50 events, hard cap 200.
+- **`Audio/AutomationDispatcher.swift`** — `@MainActor` Timer-based scheduler polling `engine.transportElapsed` at ~30 Hz on `.common` run-loop mode. Snapshots a sorted event list at `start()`, walks the index forward as elapsed passes each `timeSec`. `pause()` freezes; `reset()` clears. Loop wrap via `loopOffsetSec` accumulation.
+- **`ViewModels/DroneViewModel.swift`** — `@Published var automation` + `private automationDispatcher`. `controller.$state` Combine sink calls `handleAutomationStateChange` → `start` / `pause` / `reset`. `dispatchAutomation(_:)` fans out actions to existing setters: chord events call `setKey` + `setChord`, fade events kick off per-voice async amplitude ramp Tasks with a generation counter (cancels stale ramps on Stop or new event pre-emption), waveform / level / mute call `setWaveform` / `setAmplitude` / `toggleMute`.
+
+### UI
+
+- **`Views/AutomationSheetView.swift`** — top-level sheet. Duration menu (manual-stop through 60 min presets). Loop toggle (disabled when duration is 0). Event list with monospace time + action summary + voice filter. Swipe to delete. **+** button creates new events. Soft-cap warning banner past 50 events.
+- **`Views/AutomationEventEditorView.swift`** — per-event sheet. Min + sec Steppers. Voice picker (All / OSC 1-4). Action type picker (six choices). Type-specific fields below: chord (Key + Chord menus sectioned by category), fade (0-15s Slider), waveform (Waveform menu), level (0-100% Slider), mute toggle (no fields, just a footnote). Delete button only on existing events.
+- **`Views/ControlsOverlay.swift`** — new `AUTOMATION` pill inserted right after PRESET in both portrait + compact-landscape header paths (locked decision #1). Pill shows "Off" or "N events".
+
+### Persistence
+
+- **`Models/UserPreset.swift`** — optional `automation: AutomationTimeline?` field. Emitted on save only when timeline is non-empty (older readers see no field for patches without it). nil on load → empty timeline.
+- **`.dronepreset` round-trip.** Field is preserved through file sharing on both iOS and web. iOS-edited automation survives a save-on-web → share-back-to-iOS round trip even though the web doesn't surface an editor in v1.1.
+- **iCloud sync.** Automation rides the existing NSUbiquitousKeyValueStore mirror; no extra wiring.
+
+### Web
+
+- **Schema preservation only.** `web/js/main.js` reads + writes the `automation` field in the `.dronepreset` envelope so iOS-edited timelines survive a round-trip through the web library. No editor pill, no dispatcher — full web parity (UI + playback) lands in v1.2 (logged in ROADMAP `v1.x ideas`). The deferred scope: ~150 lines for a JS `AutomationDispatcher` mirror + ~500 lines for the editor sheet + pill UI. Cache-bust bumped (`main.js?v=45`).
+
+### Documentation
+
+- **Manual.** New §10b documenting the automation feature, the editor flow, and the Journey-vs-Automation distinction.
+- **ROADMAP.** Spec under "Shipped" with the five locked design decisions referenced back to commit `4a75462`. Web editor / dispatcher logged under "v1.x ideas (unscheduled)" with an effort estimate.
+
+### Tagged
+
+- `v1.0-build11` (annotated tag, points at `d7ef33c`) marks the App Store launch commit — the safe revert point if v1.1 needs a rollback.
+- `web-launch-v1.0` (annotated tag, same commit) marks the live-deployed web state at launch.
+
+---
+
 ## v1.0 (build 11) — App Store launch
 
 The actual launch build. Build 10 was withdrawn from App Store review before going live; everything in 10 plus a feature pass on top folds into build 11. Headline addition is the fifth LFO per voice with its own dedicated target set (granular params, delay subdivisions, reverb decay/mix) — bumps the modulator count from 16 to 20 per patch.

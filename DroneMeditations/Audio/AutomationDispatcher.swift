@@ -35,6 +35,12 @@ final class AutomationDispatcher {
     /// until the next start().
     private var totalDurationSec: Double = 0
     private var loop: Bool = false
+    /// Cumulative time offset for loop wraps. We don't touch
+    /// engine.transportElapsed (which would be invasive); instead the
+    /// dispatcher tracks how many full loops have elapsed and subtracts
+    /// to get the "phase within current loop." Updated when a loop wrap
+    /// is detected, NOT every tick.
+    private var loopOffsetSec: Double = 0
 
     init(engine: AudioEngine, onFire: @escaping (AutomationEvent) -> Void) {
         self.engine = engine
@@ -54,6 +60,7 @@ final class AutomationDispatcher {
         self.nextEventIndex = 0
         self.totalDurationSec = totalDurationSec
         self.loop = loop
+        self.loopOffsetSec = 0
         self.isPaused = false
         guard !self.events.isEmpty else { return }
         scheduleTimer()
@@ -79,6 +86,7 @@ final class AutomationDispatcher {
         cancelTimer()
         events.removeAll(keepingCapacity: true)
         nextEventIndex = 0
+        loopOffsetSec = 0
         isPaused = false
         generation &+= 1
     }
@@ -113,18 +121,20 @@ final class AutomationDispatcher {
         // engine.transportElapsed is Double seconds since last Play, or
         // .nan when stopped. NaN comparisons always return false, so
         // this naturally pauses when stopped.
-        let elapsed = engine.transportElapsed
-        guard elapsed.isFinite else { return }
+        let rawElapsed = engine.transportElapsed
+        guard rawElapsed.isFinite else { return }
 
-        // Loop wrap. We compare against totalDurationSec > 0 first because
-        // totalDurationSec = 0 (the v1.1 default) disables the loop logic
-        // entirely.
-        if loop && totalDurationSec > 0 && elapsed >= totalDurationSec {
-            // Reset index — the engine's transport handles its own elapsed
-            // reset elsewhere when looping. For now we just rewind the
-            // dispatcher to start of the next pass.
-            nextEventIndex = 0
+        // Loop wrap. We don't reset engine.transportElapsed (which
+        // would be invasive); the dispatcher tracks how much of the
+        // raw elapsed has been "consumed" by prior loops via
+        // loopOffsetSec and works in phase-within-current-loop.
+        if loop && totalDurationSec > 0 {
+            while rawElapsed - loopOffsetSec >= totalDurationSec {
+                loopOffsetSec += totalDurationSec
+                nextEventIndex = 0
+            }
         }
+        let elapsed = rawElapsed - loopOffsetSec
 
         // Fire any events whose time has passed since the last tick.
         // Loop instead of single-fire so a chunk of fast events at the
