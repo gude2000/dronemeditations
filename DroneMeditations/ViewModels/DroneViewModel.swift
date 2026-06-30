@@ -2784,11 +2784,27 @@ final class DroneViewModel: ObservableObject {
         let baseKeyRaw = (automationBaseline?.key ?? currentKey).rawValue
         let baseChordId = (automationBaseline?.chord ?? currentChord).id
         let secPerBar = (4.0 * 60.0) / max(1.0, bpm)
-        for event in automation.sortedEvents {
+        let eps = 0.001
+        let sorted = automation.sortedEvents
+        for event in sorted {
             guard case .chordChange = event.action,
                   let dur = event.chordDuration,
                   let bars = dur.bars, bars > 0 else { continue }
             let revertAt = event.timeSec + bars * secPerBar
+            // In a PROGRESSION the next chord takes over when this one ends
+            // (auto-advance places it exactly at revertAt). Only revert to
+            // baseline if NO following chord change supersedes this one
+            // within its duration window — i.e. a lone "excursion" returns
+            // home, but a flowing progression keeps moving. "Supersede"
+            // requires overlapping voice scope (same OSC, or either .all).
+            let hasFollower = sorted.contains { other in
+                guard other.id != event.id,
+                      case .chordChange = other.action,
+                      other.timeSec > event.timeSec + eps,
+                      other.timeSec <= revertAt + eps else { return false }
+                return voicesOverlap(event.voice, other.voice)
+            }
+            if hasFollower { continue }
             out.append(AutomationEvent(
                 timeSec: revertAt,
                 voice: event.voice,
@@ -2798,6 +2814,15 @@ final class DroneViewModel: ObservableObject {
             ))
         }
         return out.sorted { $0.timeSec < $1.timeSec }
+    }
+
+    /// True when two voice filters affect at least one common voice (so one
+    /// chord change can supersede another). `.all` overlaps everything.
+    private func voicesOverlap(_ a: VoiceFilter, _ b: VoiceFilter) -> Bool {
+        switch (a, b) {
+        case (.all, _), (_, .all): return true
+        case (.oscillator(let i), .oscillator(let j)): return i == j
+        }
     }
 
     /// Fan-out for events fired by the dispatcher. Runs on the main actor.
