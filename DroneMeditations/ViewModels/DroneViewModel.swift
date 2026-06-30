@@ -1521,22 +1521,31 @@ final class DroneViewModel: ObservableObject {
             }
         }
         activePresetName = preset.name
-        // v1.1: derive the chord-pill KEY from OSC 1's Hz on every bundled
-        // preset load. Older bundled presets (Solfeggio, Drone Artists,
-        // Cymatics, etc.) define voices as raw frequencies without an
-        // explicit key field — without this, the chord pill kept showing
-        // whatever the user last picked, even after switching to a preset
-        // in a different key. Now that v1.1 chord-change automation events
-        // re-tune voices against `currentKey + currentChord`, the chord
-        // pill needs to reflect the loaded preset's actual key so the
-        // first scheduled chord change doesn't unexpectedly snap voices
-        // away from the preset's tuned frequencies. Chord *template* is
-        // intentionally left alone — picking it correctly from interval
-        // analysis is a v1.x follow-up; for now the user can manually pick
-        // a chord type if a chord-change event needs a specific starting
-        // template.
+        // v1.1: derive the chord-pill KEY AND OCTAVE from OSC 1's Hz on
+        // every bundled preset load. Older bundled presets (Solfeggio,
+        // Drone Artists, Cymatics, etc.) define voices as raw
+        // frequencies without explicit key + octave fields — without
+        // this, the chord pill kept showing whatever the user last
+        // picked, even after switching to a preset in a different key.
+        //
+        // Octave is essential, not optional: applyCurrentChord (which
+        // every later chord-change automation event triggers) derives
+        // the chord root from `Pitch(currentKey, octave: currentOctave)
+        // .frequencyEqual12()`. If currentOctave is stale (e.g. left at
+        // 3 from a previous preset but the new preset's voices are at
+        // E2 ≈ 82 Hz), the first chord change jumps voices to D3 ≈
+        // 147 Hz — nearly an octave above the preset's actual pitch.
+        // User-reported as "key change goes to D major but an octave
+        // higher."
+        //
+        // Chord *template* is intentionally left alone — picking it
+        // correctly from interval analysis is a v1.x follow-up; for now
+        // the user can manually pick a chord type if a chord-change
+        // event needs a specific starting template.
         if let firstHz = preset.voices.first?.hz {
-            currentKey = PitchClass.nearestPitchClass(forHz: firstHz)
+            let p = Pitch.nearestPitch(forHz: firstHz)
+            currentKey = p.pitchClass
+            currentOctave = max(0, min(7, p.octave))
         }
         // Bundled preset load is a new "canonical state" event — clear
         // the automation baseline so the next Play snapshots the just-
@@ -2608,6 +2617,7 @@ final class DroneViewModel: ObservableObject {
     /// state becomes the next baseline.
     private struct AutomationBaseline {
         let key: PitchClass
+        let octave: Int
         let chord: ChordType
         let voices: [VoiceState]
         struct VoiceState {
@@ -2621,6 +2631,7 @@ final class DroneViewModel: ObservableObject {
     private func captureAutomationBaseline() -> AutomationBaseline {
         return AutomationBaseline(
             key: currentKey,
+            octave: currentOctave,
             chord: currentChord,
             voices: oscillators.map { o in
                 AutomationBaseline.VoiceState(
@@ -2633,7 +2644,13 @@ final class DroneViewModel: ObservableObject {
     }
 
     private func applyAutomationBaseline(_ b: AutomationBaseline) {
-        setKey(b.key)
+        // setKeyAndOctave is the single-pass form — avoids two back-to-back
+        // applyCurrentChord calls (each of which publishes 4 freqs + a
+        // quantize-scale recompute + 4 voice-strip re-renders). Important
+        // for the baseline-restore case where we're snapping the entire
+        // patch back to its captured state on the audio thread's main
+        // actor.
+        setKeyAndOctave(b.key, octave: b.octave)
         setChord(b.chord)
         for (i, vs) in b.voices.enumerated() where oscillators.indices.contains(i) {
             // Cancel any in-flight fade ramp for this voice — restoring

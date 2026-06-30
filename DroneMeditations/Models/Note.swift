@@ -75,4 +75,25 @@ struct Pitch: Hashable, Codable {
     static func allKeys(at octave: Int) -> [Pitch] {
         return PitchClass.allCases.map { Pitch($0, octave: octave) }
     }
+
+    /// Nearest 12-TET pitch (class + octave) for a given frequency. Used
+    /// by bundled-preset load so the chord-pill key AND octave both match
+    /// the preset's actual voice frequencies. Without both, a chord change
+    /// later in playback derives the new root in the wrong octave (e.g.
+    /// preset was E2 ≈ 82 Hz, chord change to D in stale octave 3 jumps
+    /// voices to D3 ≈ 147 Hz — nearly an octave up).
+    static func nearestPitch(forHz hz: Double, referenceA4: Double = 440.0) -> Pitch {
+        guard hz > 0 else { return Pitch(.a, octave: 4) }
+        // MIDI 69 == A4. semitones-from-A4 can be negative (below A4).
+        let semisFromA4 = Int((12.0 * log2(hz / referenceA4)).rounded())
+        let midi = 69 + semisFromA4
+        // Scientific pitch: MIDI 60 = C4 → octave = midi/12 - 1.
+        // Use floor-div to handle negative MIDI cleanly (e.g. very low Hz).
+        let octave = Int((Double(midi) / 12.0).rounded(.down)) - 1
+        // Pitch class within the chromatic ring: MIDI mod 12 maps to
+        // C..B (0..11) — same as PitchClass.rawValue.
+        let pcRaw = ((midi % 12) + 12) % 12
+        let pc = PitchClass(rawValue: pcRaw) ?? .a
+        return Pitch(pc, octave: octave)
+    }
 }
