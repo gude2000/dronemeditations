@@ -44,10 +44,17 @@ struct AutomationEventEditorView: View {
                     }
                 }
                 Section("Apply to") {
-                    Picker("Voice", selection: voiceBinding) {
-                        Text("All voices").tag(VoiceFilter.all)
+                    // SwiftUI Picker .menu style is unreliable when tags
+                    // are enum cases with associated values — tap-to-select
+                    // sometimes never round-trips back through the binding,
+                    // so the selection appears stuck on the initial value.
+                    // Map the VoiceFilter enum onto an Int tag (-1 = all,
+                    // 0–3 = oscillator index) instead. The binding
+                    // translates back to the enum for the model.
+                    Picker("Voice", selection: voiceIndexBinding) {
+                        Text("All voices").tag(-1)
                         ForEach(0..<4) { i in
-                            Text("OSC \(i + 1)").tag(VoiceFilter.oscillator(i))
+                            Text("OSC \(i + 1)").tag(i)
                         }
                     }
                     .pickerStyle(.menu)
@@ -170,10 +177,23 @@ struct AutomationEventEditorView: View {
 
     // MARK: - Bindings
 
-    private var voiceBinding: Binding<VoiceFilter> {
+    /// Maps `draft.voice` onto Int for SwiftUI Picker tag matching.
+    /// -1 = .all; 0–3 = .oscillator(i). See picker comment above for why.
+    private var voiceIndexBinding: Binding<Int> {
         Binding(
-            get: { draft.voice },
-            set: { draft.voice = $0 }
+            get: {
+                switch draft.voice {
+                case .all: return -1
+                case .oscillator(let i): return i
+                }
+            },
+            set: { newIdx in
+                if newIdx == -1 {
+                    draft.voice = .all
+                } else {
+                    draft.voice = .oscillator(max(0, min(3, newIdx)))
+                }
+            }
         )
     }
 
