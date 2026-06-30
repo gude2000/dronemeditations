@@ -1085,11 +1085,14 @@ final class DroneViewModel: ObservableObject {
         let storedNames = preset.oscillators.compactMap { $0.sampleStoredFilename }
         userPresets.removeAll { $0.id == id }
         UserPresetStore.save(userPresets)
-        // v1.1: mirror the new shorter list to iCloud. Note: cloud
-        // sync's merge logic is additive, so this delete WON'T wipe
-        // the preset off a paired device — by design. User deletes
-        // per device. The push exists so OTHER local changes
-        // (recently-saved presets) flow up alongside the deletion.
+        // v1.1 fix: record a tombstone BEFORE the push. Previously the
+        // cloud sync's additive merge re-appended the just-deleted preset
+        // from the cloud copy, so it resurrected on next launch. The
+        // tombstone makes pushSync suppress it (and propagates the delete
+        // to paired devices). recordDeletion persists the tombstone to
+        // local UserDefaults immediately, so even an offline delete sticks
+        // across relaunch.
+        UserPresetCloudSync.shared.recordDeletion(ids: [id])
         UserPresetCloudSync.shared.push(userPresets)
         for n in storedNames { UserPresetStore.deleteSampleIfUnused(n, presets: userPresets) }
         if activePresetName == preset.name { activePresetName = nil }
@@ -1187,8 +1190,21 @@ final class DroneViewModel: ObservableObject {
     /// to cloud on the next save anyway, via the union logic in
     /// UserPresetCloudSync.push.
     private func mergeCloudPresets(_ cloud: [UserPreset]) {
+        // Drop any LOCAL preset that another device tombstoned (so a
+        // delete on the iPad removes it from the iPhone on next sync).
+        // The incoming `cloud` is already tombstone-filtered by
+        // loadFromCloud, but our local list might still hold a
+        // since-deleted preset, so apply the suppression set here too.
+        let deleted = UserPresetCloudSync.shared.deletedIds()
+        if !deleted.isEmpty {
+            let before = userPresets.count
+            userPresets.removeAll { deleted.contains($0.id) }
+            if userPresets.count != before {
+                UserPresetStore.save(userPresets)
+            }
+        }
         let localIds = Set(userPresets.map(\.id))
-        let toAdd = cloud.filter { !localIds.contains($0.id) }
+        let toAdd = cloud.filter { !localIds.contains($0.id) && !deleted.contains($0.id) }
         guard !toAdd.isEmpty else { return }
         // Insert at the head (newest-first) sorted by createdAt so the
         // most recently authored cloud preset appears at the top.

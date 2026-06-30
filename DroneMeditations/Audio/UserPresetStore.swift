@@ -439,11 +439,23 @@ final class UserPresetCloudSync {
     private init() {}
 
     private static let kvsKey = "userPresets"
+    /// Tombstone set — preset ids the user deleted. Without this, the
+    /// additive merge in pushSync re-appends a just-deleted preset from
+    /// the cloud copy, so it resurrects on next launch. Tombstones are
+    /// stored both in cloud (so deletes propagate to paired devices) and
+    /// in local UserDefaults (so a delete survives relaunch even before
+    /// the cloud round-trips).
+    private static let tombstoneKvsKey = "userPresetTombstones"
+    private static let tombstoneDefaultsKey = "userPresetTombstones.local"
     /// Cap on entries we mirror. KVS limit is 1 MB total per app and
     /// presets aren't tiny (LFO arrays, drift config, all FX state).
     /// 50 keeps us well inside the budget and still covers active
     /// users — heavy users routinely sit at 20-30 saved presets.
     private static let maxPresets = 50
+    /// Cap tombstones too — old deletions don't need to live forever.
+    /// Once a deleted id has aged out of every device's cloud preset
+    /// list there's nothing left to resurrect, so a generous cap is safe.
+    private static let maxTombstones = 200
 
     private var onIncoming: (([UserPreset]) -> Void)?
     private var observer: NSObjectProtocol?
@@ -487,15 +499,18 @@ final class UserPresetCloudSync {
     }
 
     private func pushSync(_ local: [UserPreset]) async {
-        let cloud = loadFromCloud()
-        let cloudById = Dictionary(uniqueKeysWithValues: cloud.map { ($0.id, $0) })
+        let cloud = loadFromCloudRaw()
+        let tombstones = currentTombstones()
         // Local wins on collision (user just edited / saved that id).
-        var merged = local
-        let localIds = Set(local.map(\.id))
-        for cp in cloud where !localIds.contains(cp.id) {
+        var merged = local.filter { !tombstones.contains($0.id) }
+        let localIds = Set(merged.map(\.id))
+        // Re-include only cloud presets that are NOT in local AND NOT
+        // tombstoned. A just-deleted preset is in cloud but tombstoned,
+        // so it stays dropped — fixing the "deleted preset resurrects on
+        // relaunch" bug.
+        for cp in cloud where !localIds.contains(cp.id) && !tombstones.contains(cp.id) {
             merged.append(cp)
         }
-        _ = cloudById   // silence unused — kept in case we add LWW later
         // Sort newest-first so the top-N we keep are the most recent.
         merged.sort { $0.createdAt > $1.createdAt }
         let trimmed = Array(merged.prefix(Self.maxPresets))
@@ -514,16 +529,68 @@ final class UserPresetCloudSync {
         }
         let store = NSUbiquitousKeyValueStore.default
         store.set(payload, forKey: Self.kvsKey)
+        // Mirror the merged tombstone set to cloud so deletions propagate.
+        if let tData = try? JSONEncoder().encode(Array(tombstones.prefix(Self.maxTombstones))) {
+            store.set(tData, forKey: Self.tombstoneKvsKey)
+        }
         store.synchronize()
     }
 
-    /// Synchronously read the cloud preset list. Returns [] when KVS
-    /// is unavailable (no entitlement, no signed-in account, no
-    /// network on first launch).
+    /// Record a deletion. Adds the id to the local tombstone set (persisted
+    /// immediately so it survives relaunch) and mirrors the merged set to
+    /// cloud. Call from DroneViewModel.deleteUserPreset BEFORE the push.
+    func recordDeletion(ids: [String]) {
+        guard !ids.isEmpty else { return }
+        var t = currentTombstones()
+        for id in ids { t.insert(id) }
+        saveLocalTombstones(t)
+        let store = NSUbiquitousKeyValueStore.default
+        if let tData = try? JSONEncoder().encode(Array(t.prefix(Self.maxTombstones))) {
+            store.set(tData, forKey: Self.tombstoneKvsKey)
+            store.synchronize()
+        }
+    }
+
+    /// The set of deleted ids the consumer should suppress when merging
+    /// incoming cloud presets, exposed so DroneViewModel.mergeCloudPresets
+    /// can also drop any LOCAL preset that another device tombstoned.
+    func deletedIds() -> Set<String> { currentTombstones() }
+
+    /// Cloud preset list with tombstoned entries filtered out. This is
+    /// what callers should use — a deleted preset never surfaces here.
     func loadFromCloud() -> [UserPreset] {
+        let tombstones = currentTombstones()
+        return loadFromCloudRaw().filter { !tombstones.contains($0.id) }
+    }
+
+    /// Unfiltered cloud read. Internal — only pushSync needs the raw list
+    /// (it applies tombstone filtering itself with the merged set).
+    private func loadFromCloudRaw() -> [UserPreset] {
         guard let data = NSUbiquitousKeyValueStore.default.data(forKey: Self.kvsKey)
         else { return [] }
         return (try? JSONDecoder().decode([UserPreset].self, from: data)) ?? []
+    }
+
+    // MARK: - Tombstone storage
+
+    /// Union of local (UserDefaults) + cloud (KVS) tombstones.
+    private func currentTombstones() -> Set<String> {
+        var t = loadLocalTombstones()
+        if let data = NSUbiquitousKeyValueStore.default.data(forKey: Self.tombstoneKvsKey),
+           let cloudIds = try? JSONDecoder().decode([String].self, from: data) {
+            t.formUnion(cloudIds)
+        }
+        return t
+    }
+
+    private func loadLocalTombstones() -> Set<String> {
+        let arr = UserDefaults.standard.stringArray(forKey: Self.tombstoneDefaultsKey) ?? []
+        return Set(arr)
+    }
+
+    private func saveLocalTombstones(_ t: Set<String>) {
+        UserDefaults.standard.set(Array(t.prefix(Self.maxTombstones)),
+                                  forKey: Self.tombstoneDefaultsKey)
     }
 }
 
