@@ -27,7 +27,7 @@ struct AutomationSheetView: View {
         NavigationStack {
             Form {
                 Section {
-                    durationRow
+                    durationPicker
                     Toggle(isOn: Binding(
                         get: { vm.automation.loop },
                         set: { vm.setAutomationLoop($0) }
@@ -111,24 +111,20 @@ struct AutomationSheetView: View {
 
     // MARK: - Subviews
 
-    private var durationRow: some View {
-        HStack {
-            Text("Duration").font(.subheadline)
-            Spacer()
-            Menu {
-                Button("Manual stop (0)") { vm.setAutomationDuration(0) }
-                Divider()
-                ForEach([60, 180, 300, 600, 900, 1200, 1800, 3600], id: \.self) { sec in
-                    Button(formatDuration(Double(sec))) {
-                        vm.setAutomationDuration(Double(sec))
-                    }
-                }
-            } label: {
-                Text(vm.automation.totalDurationSec == 0
-                     ? "Manual stop"
-                     : formatDuration(vm.automation.totalDurationSec))
-                    .font(.system(.subheadline, design: .monospaced))
-                    .foregroundStyle(Color.accentColor)
+    // Bare Picker — no HStack/Spacer wrapper. A Menu wrapped in an HStack
+    // (the previous impl) created an overlapping tap region that swallowed
+    // most taps ("finicky duration dropdown"), and because the duration
+    // never got set, the Loop toggle stayed permanently disabled. Form
+    // lays out a bare Picker as a clean tappable row. Tag type is Double
+    // to match totalDurationSec; 0.0 = manual stop.
+    private var durationPicker: some View {
+        Picker("Duration", selection: Binding(
+            get: { vm.automation.totalDurationSec },
+            set: { vm.setAutomationDuration($0) }
+        )) {
+            Text("Manual stop").tag(0.0)
+            ForEach([60, 180, 300, 600, 900, 1200, 1800, 3600], id: \.self) { sec in
+                Text(formatDuration(Double(sec))).tag(Double(sec))
             }
         }
     }
