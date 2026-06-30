@@ -2741,17 +2741,54 @@ final class DroneViewModel: ObservableObject {
     private func dispatchAutomation(_ event: AutomationEvent) {
         switch event.action {
         case .chordChange(let keyRaw, let chordId):
-            // Voice filter is intentionally ignored for chord changes —
-            // chord is a patch-level concept. The locked decision is
-            // "Voice: All affects every voice regardless"; per-voice
-            // chord change is meaningless for now (a future polyphonic
-            // mode could revisit this).
-            if let key = PitchClass(rawValue: keyRaw) {
-                setKey(key)
+            // v1.1 TRANSPOSE semantics. Voice filter is intentionally
+            // ignored — key change is a patch-level concept.
+            //
+            // Why transpose instead of chord respell: presets often use
+            // voicings that AREN'T standard chord triads — Sunn O)))
+            // uses doubled-root + octave + 5th power chords (41/41/82/123
+            // Hz), Solfeggio presets use frequency-ratio stacks
+            // (174/285/396/528 Hz), Drone Artists tributes use specific
+            // microtonal arrangements. Calling setKey + setChord would
+            // overwrite every voice's frequency with the chord template's
+            // generic triad intervals, destroying the preset's character.
+            //
+            // Transpose preserves the voicing: compute the ratio between
+            // the new key's root Hz and the old key's root Hz, then
+            // multiply every voice's frequency by that ratio. A power
+            // chord stays a power chord; a Major triad stays a Major
+            // triad; an open-fifth voicing stays an open fifth. Only the
+            // base pitch shifts. This is what most musicians intuit when
+            // they say "key change" (= modulation).
+            //
+            // currentChord (the chord-template metadata) is still updated
+            // so the chord pill reflects the user's chosen template —
+            // it's used by Quantize-to-Scale and as the starting point
+            // for the next chord-template change the user makes from the
+            // pill. The voice freqs come from transposition, not the
+            // template.
+            if let newKey = PitchClass(rawValue: keyRaw),
+               newKey != currentKey {
+                let oldRoot = Pitch(currentKey, octave: currentOctave).frequencyEqual12()
+                let newRoot = Pitch(newKey, octave: currentOctave).frequencyEqual12()
+                if oldRoot > 0 {
+                    let ratio = newRoot / oldRoot
+                    for i in oscillators.indices {
+                        let newFreq = oscillators[i].frequencyHz * ratio
+                        setFrequency(newFreq, for: i)
+                    }
+                }
+                currentKey = newKey
             }
-            if let chord = ChordType.all.first(where: { $0.id == chordId }) {
-                setChord(chord)
+            // Update the chord-template metadata WITHOUT triggering
+            // applyCurrentChord (which would re-derive voice freqs and
+            // overwrite the transposition above).
+            if let chord = ChordType.all.first(where: { $0.id == chordId }),
+               chord.id != currentChord.id {
+                currentChord = chord
             }
+            // Refresh quantize-to-scale cache against the new key + chord.
+            recomputeQuantizeScale()
         case .fadeIn(let dur):
             applyAutomationFade(targetAmpFactor: 1.0,
                                 durationSec: dur,
