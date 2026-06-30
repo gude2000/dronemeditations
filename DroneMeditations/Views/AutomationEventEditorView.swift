@@ -121,31 +121,27 @@ struct AutomationEventEditorView: View {
         }
     }
 
+    // Bare Pickers — no surrounding HStack/Spacer/manual labels.
+    // Form lays out a `Picker(title, selection:)` as a row with the
+    // title on the left and the current value on the right, and routes
+    // taps directly to the Picker's menu. Wrapping in HStack creates an
+    // overlapping tap region that swallows ~half the picker taps —
+    // which the user reported as "I have to click 10 times before it
+    // switches options."
+    @ViewBuilder
     private var chordFields: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Key").foregroundStyle(.secondary)
-                Spacer()
-                Picker("Key", selection: keyBinding) {
-                    ForEach(PitchClass.allCases) { pc in
-                        Text(pc.displayName).tag(pc.rawValue)
-                    }
-                }
-                .pickerStyle(.menu)
+        Picker("Key", selection: keyBinding) {
+            ForEach(PitchClass.allCases) { pc in
+                Text(pc.displayName).tag(pc.rawValue)
             }
-            HStack {
-                Text("Chord").foregroundStyle(.secondary)
-                Spacer()
-                Picker("Chord", selection: chordIdBinding) {
-                    ForEach(ChordType.Category.allCases, id: \.self) { category in
-                        Section(category.rawValue) {
-                            ForEach(ChordType.all.filter { $0.category == category }, id: \.id) { c in
-                                Text(c.name).tag(c.id)
-                            }
-                        }
+        }
+        Picker("Chord", selection: chordIdBinding) {
+            ForEach(ChordType.Category.allCases, id: \.self) { category in
+                Section(category.rawValue) {
+                    ForEach(ChordType.all.filter { $0.category == category }, id: \.id) { c in
+                        Text(c.name).tag(c.id)
                     }
                 }
-                .pickerStyle(.menu)
             }
         }
     }
@@ -277,15 +273,10 @@ struct AutomationEventEditorView: View {
 
     @ViewBuilder
     private var waveformPicker: some View {
-        HStack {
-            Text("Waveform").foregroundStyle(.secondary)
-            Spacer()
-            Picker("Waveform", selection: waveformBinding) {
-                ForEach(Waveform.allCases) { wf in
-                    Text(wf.displayName).tag(wf.rawValue)
-                }
+        Picker("Waveform", selection: waveformBinding) {
+            ForEach(Waveform.allCases) { wf in
+                Text(wf.displayName).tag(wf.rawValue)
             }
-            .pickerStyle(.menu)
         }
         // Surface a sample picker only when the chosen waveform is .sample.
         // Without one the action would set the voice to sample-mode with
@@ -293,24 +284,19 @@ struct AutomationEventEditorView: View {
         // BundledSampleStore.Entry (bundle + user Documents/User samples)
         // grouped by category.
         if currentWaveformRaw == Waveform.sample.rawValue {
-            HStack {
-                Text("Sample").foregroundStyle(.secondary)
-                Spacer()
-                Picker("Sample", selection: sampleNameBinding) {
-                    Text("— Choose —").tag("")
-                    let groups = Dictionary(grouping: BundledSampleStore.all) { $0.category }
-                    ForEach(groups.keys.sorted(), id: \.self) { category in
-                        Section(category) {
-                            ForEach(
-                                groups[category]?.sorted { $0.name.lowercased() < $1.name.lowercased() } ?? [],
-                                id: \.id
-                            ) { entry in
-                                Text(entry.name).tag(entry.name)
-                            }
+            Picker("Sample", selection: sampleNameBinding) {
+                Text("— Choose —").tag("")
+                let groups = Dictionary(grouping: BundledSampleStore.all) { $0.category }
+                ForEach(groups.keys.sorted(), id: \.self) { category in
+                    Section(category) {
+                        ForEach(
+                            groups[category]?.sorted { $0.name.lowercased() < $1.name.lowercased() } ?? [],
+                            id: \.id
+                        ) { entry in
+                            Text(entry.name).tag(entry.name)
                         }
                     }
                 }
-                .pickerStyle(.menu)
             }
             if (draft.sampleName ?? "").isEmpty {
                 Text("Pick a sample — the voice will load this file before the waveform flips to Sample mode at fire time.")
