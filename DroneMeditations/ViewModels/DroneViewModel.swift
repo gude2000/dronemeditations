@@ -905,6 +905,10 @@ final class DroneViewModel: ObservableObject {
         // next foreground (no-op without the iCloud entitlement).
         UserPresetCloudSync.shared.push(userPresets)
         activePresetName = preset.name
+        // v1.1 Automation: a Save is a "this is canonical now" act —
+        // clear the baseline so the next Play snapshots the just-saved
+        // state as the new baseline.
+        invalidateAutomationBaseline()
     }
 
     func loadUserPreset(id: String) {
@@ -917,6 +921,10 @@ final class DroneViewModel: ObservableObject {
         // decode as nil — we replace with an empty timeline so the UI
         // reads "Off" and the dispatcher has no events to fire.
         automation = preset.automation ?? AutomationTimeline()
+        // Clear the automation baseline so the next Play captures the
+        // newly-loaded preset's state as the fresh baseline — instead of
+        // restoring the previous patch's state on top of this one.
+        invalidateAutomationBaseline()
         setMasterVolume(preset.masterVolume)
         for (i, v) in preset.oscillators.enumerated() where i < 4 {
             setFrequency(v.frequencyHz, for: i)
@@ -2569,9 +2577,79 @@ final class DroneViewModel: ObservableObject {
     /// a Stop).
     private var fadeGenerations: [Int] = [0, 0, 0, 0]
 
+    /// Snapshot of the patch state captured at the *first* Play after a
+    /// preset load / app boot. Subsequent Plays restore from this snapshot
+    /// before starting the dispatcher, so each replay starts from the same
+    /// state and events fire fresh on top. Without this, replaying a
+    /// timeline left every parameter modified by the previous run (e.g.
+    /// OSC 4 stuck on .sample with the buffer mid-playback). Cleared on
+    /// preset load / save / .dronepreset import so the new "canonical"
+    /// state becomes the next baseline.
+    private struct AutomationBaseline {
+        let key: PitchClass
+        let chord: ChordType
+        let voices: [VoiceState]
+        struct VoiceState {
+            let waveform: Waveform
+            let amplitude: Double
+            let isMuted: Bool
+        }
+    }
+    private var automationBaseline: AutomationBaseline?
+
+    private func captureAutomationBaseline() -> AutomationBaseline {
+        return AutomationBaseline(
+            key: currentKey,
+            chord: currentChord,
+            voices: oscillators.map { o in
+                AutomationBaseline.VoiceState(
+                    waveform: o.waveform,
+                    amplitude: o.amplitude,
+                    isMuted: o.isMuted
+                )
+            }
+        )
+    }
+
+    private func applyAutomationBaseline(_ b: AutomationBaseline) {
+        setKey(b.key)
+        setChord(b.chord)
+        for (i, vs) in b.voices.enumerated() where oscillators.indices.contains(i) {
+            // Cancel any in-flight fade ramp for this voice — restoring
+            // amplitude shouldn't get trampled by a stale ramp Task.
+            if fadeGenerations.indices.contains(i) {
+                fadeGenerations[i] &+= 1
+            }
+            setWaveform(vs.waveform, for: i)
+            setAmplitude(vs.amplitude, for: i)
+            if oscillators[i].isMuted != vs.isMuted {
+                toggleMute(i)
+            }
+        }
+    }
+
+    /// Called when a new preset / state is established. Forces the next
+    /// Play to recapture a fresh baseline reflecting the new state.
+    private func invalidateAutomationBaseline() {
+        automationBaseline = nil
+    }
+
     private func handleAutomationStateChange(_ newState: DroneController.State) {
         switch newState {
         case .playing:
+            // Baseline restore/capture. First Play after preset load
+            // snapshots the current state; every subsequent Play restores
+            // from that snapshot so replays start clean and events fire
+            // fresh on top. Without this, a Stop-then-Play would carry
+            // over every modification the previous run made (e.g. OSC 4
+            // stuck on .sample because event 4 last fired).
+            if !automation.events.isEmpty {
+                if let baseline = automationBaseline {
+                    applyAutomationBaseline(baseline)
+                } else {
+                    automationBaseline = captureAutomationBaseline()
+                }
+            }
             // Snapshot the current timeline at Play; subsequent UI edits
             // don't shift the cursor mid-playback. Sorted-by-time happens
             // inside the dispatcher.
@@ -2587,6 +2665,8 @@ final class DroneViewModel: ObservableObject {
             // Bump every voice's fade generation so any in-flight fade
             // Tasks bail before doing more work.
             for i in 0..<fadeGenerations.count { fadeGenerations[i] &+= 1 }
+            // Baseline is intentionally preserved across Stop — it gets
+            // restored on the next Play so the replay starts fresh.
         }
     }
 
