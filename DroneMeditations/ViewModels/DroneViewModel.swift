@@ -2616,7 +2616,20 @@ final class DroneViewModel: ObservableObject {
                                 voice: event.voice)
         case .waveformSet(let raw):
             guard let wave = Waveform(rawValue: raw) else { return }
+            // Sample waveform with an automation-attached sample name:
+            // load the sample first so the per-voice slot is populated,
+            // then flip the waveform mode. Order matters — the engine
+            // reads the loaded sample buffer the moment a Voice's
+            // waveform is set to .sample, so loading after would leave
+            // the voice silent until the next sample-load tick.
+            let resolvedEntry: BundledSampleStore.Entry? = {
+                guard wave == .sample, let name = event.sampleName, !name.isEmpty else { return nil }
+                return BundledSampleStore.all.first(where: { $0.name == name })
+            }()
             for i in voiceIndicesForFilter(event.voice) {
+                if let entry = resolvedEntry {
+                    loadBundledSample(entry, for: i)
+                }
                 setWaveform(wave, for: i)
             }
         case .levelSet(let level):

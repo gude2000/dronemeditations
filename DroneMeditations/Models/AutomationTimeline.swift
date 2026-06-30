@@ -67,17 +67,33 @@ extension AutomationAction {
 // MARK: - AutomationEvent
 
 /// One scheduled action at a single point in time.
+///
+/// Note on `sampleName`: only meaningful when `action` is
+/// `.waveformSet(.sample)`. Carried on the event (not the action) so the
+/// `AutomationAction` enum can stay schema-clean and so older saves that
+/// predate this field decode as nil via Swift's synthesized Codable
+/// optional handling (no custom decoder needed). When the dispatcher
+/// fires a Waveform-Sample event with a non-nil `sampleName`, it loads
+/// the matching `BundledSampleStore` entry before switching the voice's
+/// waveform — so the swap actually plays back a file rather than landing
+/// on an empty sample slot.
 struct AutomationEvent: Identifiable, Codable, Equatable, Hashable {
     let id: UUID
     var timeSec: Double
     var voice: VoiceFilter
     var action: AutomationAction
+    var sampleName: String?
 
-    init(id: UUID = UUID(), timeSec: Double, voice: VoiceFilter, action: AutomationAction) {
+    init(id: UUID = UUID(),
+         timeSec: Double,
+         voice: VoiceFilter,
+         action: AutomationAction,
+         sampleName: String? = nil) {
         self.id = id
         self.timeSec = max(0, timeSec)
         self.voice = voice
         self.action = action
+        self.sampleName = sampleName
     }
 }
 

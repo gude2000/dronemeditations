@@ -275,6 +275,7 @@ struct AutomationEventEditorView: View {
 
     // MARK: - Phase B fields
 
+    @ViewBuilder
     private var waveformPicker: some View {
         HStack {
             Text("Waveform").foregroundStyle(.secondary)
@@ -285,6 +286,37 @@ struct AutomationEventEditorView: View {
                 }
             }
             .pickerStyle(.menu)
+        }
+        // Surface a sample picker only when the chosen waveform is .sample.
+        // Without one the action would set the voice to sample-mode with
+        // an empty buffer (= silence). The picker lists every
+        // BundledSampleStore.Entry (bundle + user Documents/User samples)
+        // grouped by category.
+        if currentWaveformRaw == Waveform.sample.rawValue {
+            HStack {
+                Text("Sample").foregroundStyle(.secondary)
+                Spacer()
+                Picker("Sample", selection: sampleNameBinding) {
+                    Text("— Choose —").tag("")
+                    let groups = Dictionary(grouping: BundledSampleStore.all) { $0.category }
+                    ForEach(groups.keys.sorted(), id: \.self) { category in
+                        Section(category) {
+                            ForEach(
+                                groups[category]?.sorted { $0.name.lowercased() < $1.name.lowercased() } ?? [],
+                                id: \.id
+                            ) { entry in
+                                Text(entry.name).tag(entry.name)
+                            }
+                        }
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+            if (draft.sampleName ?? "").isEmpty {
+                Text("Pick a sample — the voice will load this file before the waveform flips to Sample mode at fire time.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 
@@ -318,8 +350,30 @@ struct AutomationEventEditorView: View {
             },
             set: { newRaw in
                 draft.action = .waveformSet(waveformRaw: newRaw)
+                // Clear stale sample selection when switching AWAY from
+                // sample — keeps the model honest and avoids round-
+                // tripping a sample name that's no longer relevant.
+                if newRaw != Waveform.sample.rawValue {
+                    draft.sampleName = nil
+                }
             }
         )
+    }
+
+    /// Binding for the sample-name picker (only visible when waveform is
+    /// .sample). Empty string ↔ nil so the Picker's "— Choose —" sentinel
+    /// can be selected without falling out of the Hashable tag space.
+    private var sampleNameBinding: Binding<String> {
+        Binding(
+            get: { draft.sampleName ?? "" },
+            set: { draft.sampleName = $0.isEmpty ? nil : $0 }
+        )
+    }
+
+    /// Convenience accessor for the conditional sample row in waveformPicker.
+    private var currentWaveformRaw: String {
+        if case .waveformSet(let raw) = draft.action { return raw }
+        return ""
     }
 
     private var currentLevel: Double {
