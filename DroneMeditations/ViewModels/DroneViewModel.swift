@@ -2621,6 +2621,7 @@ final class DroneViewModel: ObservableObject {
         let chord: ChordType
         let voices: [VoiceState]
         struct VoiceState {
+            let frequencyHz: Double
             let waveform: Waveform
             let amplitude: Double
             let isMuted: Bool
@@ -2629,12 +2630,27 @@ final class DroneViewModel: ObservableObject {
     private var automationBaseline: AutomationBaseline?
 
     private func captureAutomationBaseline() -> AutomationBaseline {
+        // Derive key + octave from voice 1's *actual* frequency rather
+        // than from currentKey / currentOctave. The metadata vars can be
+        // stale at capture time:
+        //   - bundled presets used to skip them entirely (pre-fix
+        //     applyPreset only set per-voice Hz)
+        //   - user-saved presets carry a saved keyId/octave that may not
+        //     match the actual voice freqs the user dialed in
+        //   - manual frequency-slider tweaks don't update currentKey or
+        //     currentOctave
+        // The audible pitch is what matters for "what should replay
+        // restore to." Deriving from voice 1 Hz makes the baseline
+        // self-correcting against any stale metadata.
+        let firstHz = oscillators.first?.frequencyHz ?? 110.0
+        let derived = Pitch.nearestPitch(forHz: firstHz)
         return AutomationBaseline(
-            key: currentKey,
-            octave: currentOctave,
+            key: derived.pitchClass,
+            octave: max(0, min(7, derived.octave)),
             chord: currentChord,
             voices: oscillators.map { o in
                 AutomationBaseline.VoiceState(
+                    frequencyHz: o.frequencyHz,
                     waveform: o.waveform,
                     amplitude: o.amplitude,
                     isMuted: o.isMuted
@@ -2644,26 +2660,38 @@ final class DroneViewModel: ObservableObject {
     }
 
     private func applyAutomationBaseline(_ b: AutomationBaseline) {
-        // setKeyAndOctave is the single-pass form — avoids two back-to-back
-        // applyCurrentChord calls (each of which publishes 4 freqs + a
-        // quantize-scale recompute + 4 voice-strip re-renders). Important
-        // for the baseline-restore case where we're snapping the entire
-        // patch back to its captured state on the audio thread's main
-        // actor.
-        setKeyAndOctave(b.key, octave: b.octave)
-        setChord(b.chord)
+        // Restore the patch globals WITHOUT triggering applyCurrentChord
+        // (each setKey/setOctave/setChord call would otherwise recompute
+        // the 4 voice frequencies from the chord template — overwriting
+        // our captured per-voice Hz with a Major-triad-spaced layout that
+        // doesn't match how the preset was actually arranged). Direct
+        // @Published assignment is enough — the chord-pill UI mirrors
+        // them and the next chord-change automation event will read the
+        // restored values when computing its tuning.
+        currentKey = b.key
+        currentOctave = b.octave
+        currentChord = b.chord
+        // Now snap each voice back to its captured state. Frequency goes
+        // first so the voice plays the right pitch the moment it's not
+        // muted; waveform and amplitude follow.
         for (i, vs) in b.voices.enumerated() where oscillators.indices.contains(i) {
             // Cancel any in-flight fade ramp for this voice — restoring
             // amplitude shouldn't get trampled by a stale ramp Task.
             if fadeGenerations.indices.contains(i) {
                 fadeGenerations[i] &+= 1
             }
+            setFrequency(vs.frequencyHz, for: i)
             setWaveform(vs.waveform, for: i)
             setAmplitude(vs.amplitude, for: i)
             if oscillators[i].isMuted != vs.isMuted {
                 toggleMute(i)
             }
         }
+        // applyCurrentChord normally refreshes this cache; since we
+        // intentionally skipped it, refresh by hand so any voice with
+        // quantize-to-scale enabled snaps to the restored chord's notes
+        // on the next play.
+        recomputeQuantizeScale()
     }
 
     /// Called when a new preset / state is established. Forces the next
