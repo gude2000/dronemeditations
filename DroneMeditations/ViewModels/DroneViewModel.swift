@@ -127,6 +127,16 @@ final class DroneViewModel: ObservableObject {
     // ─── Morph between two presets ─────────────────────────────
     /// Pick a "From" preset and a "To" preset, then drag the slider to
     /// interpolate every per-voice parameter continuously between them.
+    /// v1.1 Automation Timeline. Empty by default; the AUTOMATION pill in
+    /// the top control row opens a sheet that edits this. The dispatcher
+    /// (private, lifecycle-tied to the transport state via the existing
+    /// controller.$state Combine sink) reads `sortedEvents` at Play and
+    /// fires them as transport elapsed time passes each one. Persisted in
+    /// .dronepreset / iCloud presets as an optional field (older saves
+    /// load with an empty timeline).
+    @Published var automation: AutomationTimeline = AutomationTimeline()
+    private var automationDispatcher: AutomationDispatcher?
+
     /// Lookups are by Preset.name (matches the picker UI). nil = no morph.
     @Published var morphFromName: String? = nil
     @Published var morphToName: String? = nil
@@ -276,6 +286,13 @@ final class DroneViewModel: ObservableObject {
         self.haptics = HapticsBridge(vm: self)
         self.spectrumTap = SpectrumTap(engine: engine)
 
+        // v1.1 Automation: dispatcher polls engine.transportElapsed and
+        // fires events. Closure captures `self` weakly so the dispatcher
+        // doesn't outlive us.
+        self.automationDispatcher = AutomationDispatcher(engine: engine) { [weak self] event in
+            self?.dispatchAutomation(event)
+        }
+
         // Mirror transport + preset changes into Now Playing, and stop
         // any running journey when transport stops.
         controller.$state.sink { [weak self] newState in
@@ -295,6 +312,10 @@ final class DroneViewModel: ObservableObject {
                 if newState == .playing {
                     self?.refreshQuantizeStateOnEngine()
                 }
+                // v1.1 Automation lifecycle. The dispatcher is opaque to
+                // the controller — we start/pause/reset it from here in
+                // response to transport state changes.
+                self?.handleAutomationStateChange(newState)
             }
         }.store(in: &cancellables)
         controller.$elapsed.sink { [weak self] _ in
@@ -871,7 +892,12 @@ final class DroneViewModel: ObservableObject {
             keyId: currentKey.rawValue, octave: currentOctave,
             chordId: currentChord.id, tuningId: currentTuning.id,
             masterVolume: masterVolume,
-            oscillators: voices
+            oscillators: voices,
+            // v1.1 Automation Timeline. Only emit when non-empty so older
+            // readers see no automation field on patches that don't use
+            // it — keeps the JSON tidy for round-trips through the web
+            // app (Phase C will teach the web side to read it).
+            automation: automation.isEmpty ? nil : automation
         )
         userPresets.insert(preset, at: 0)
         UserPresetStore.save(userPresets)
@@ -887,6 +913,10 @@ final class DroneViewModel: ObservableObject {
         currentOctave = preset.octave
         if let chord = ChordType.all.first(where: { $0.id == preset.chordId }) { currentChord = chord }
         if let tuning = TuningSystem(rawValue: preset.tuningId) { currentTuning = tuning }
+        // v1.1 Automation Timeline restore. Older saves with no field
+        // decode as nil — we replace with an empty timeline so the UI
+        // reads "Off" and the dispatcher has no events to fire.
+        automation = preset.automation ?? AutomationTimeline()
         setMasterVolume(preset.masterVolume)
         for (i, v) in preset.oscillators.enumerated() where i < 4 {
             setFrequency(v.frequencyHz, for: i)
@@ -2528,5 +2558,168 @@ final class DroneViewModel: ObservableObject {
         oscillators[i].pan = newPan
         audioEngine.setPan(newPan, for: i)
         driftVoices[i] = v
+    }
+
+    // MARK: - v1.1 Automation Timeline
+
+    /// Bumped on Play/Stop and per-voice fade kick-offs. Any in-flight fade
+    /// ramp Task checks this generation against the value it captured at
+    /// launch; if they differ, the Task bails. Prevents two overlapping
+    /// fades on the same voice (and an in-flight fade from continuing past
+    /// a Stop).
+    private var fadeGenerations: [Int] = [0, 0, 0, 0]
+
+    private func handleAutomationStateChange(_ newState: DroneController.State) {
+        switch newState {
+        case .playing:
+            // Snapshot the current timeline at Play; subsequent UI edits
+            // don't shift the cursor mid-playback. Sorted-by-time happens
+            // inside the dispatcher.
+            automationDispatcher?.start(
+                events: automation.sortedEvents,
+                totalDurationSec: automation.totalDurationSec,
+                loop: automation.loop
+            )
+        case .paused:
+            automationDispatcher?.pause()
+        case .stopped:
+            automationDispatcher?.reset()
+            // Bump every voice's fade generation so any in-flight fade
+            // Tasks bail before doing more work.
+            for i in 0..<fadeGenerations.count { fadeGenerations[i] &+= 1 }
+        }
+    }
+
+    /// Fan-out for events fired by the dispatcher. Runs on the main actor.
+    /// Action handlers stay tiny: they call the same setters the UI uses.
+    private func dispatchAutomation(_ event: AutomationEvent) {
+        switch event.action {
+        case .chordChange(let keyRaw, let chordId):
+            // Voice filter is intentionally ignored for chord changes —
+            // chord is a patch-level concept. The locked decision is
+            // "Voice: All affects every voice regardless"; per-voice
+            // chord change is meaningless for now (a future polyphonic
+            // mode could revisit this).
+            if let key = PitchClass(rawValue: keyRaw) {
+                setKey(key)
+            }
+            if let chord = ChordType.all.first(where: { $0.id == chordId }) {
+                setChord(chord)
+            }
+        case .fadeIn(let dur):
+            applyAutomationFade(targetAmpFactor: 1.0,
+                                durationSec: dur,
+                                voice: event.voice)
+        case .fadeOut(let dur):
+            applyAutomationFade(targetAmpFactor: 0.0,
+                                durationSec: dur,
+                                voice: event.voice)
+        }
+    }
+
+    /// Voice indices the filter resolves to right now.
+    private func voiceIndicesForFilter(_ filter: VoiceFilter) -> [Int] {
+        switch filter {
+        case .all:
+            return Array(0..<oscillators.count)
+        case .oscillator(let i):
+            return oscillators.indices.contains(i) ? [i] : []
+        }
+    }
+
+    /// Per-voice amplitude ramp. The "target amp factor" multiplies the
+    /// voice's current amplitude:
+    ///   - fadeIn  → factor 1.0: ramp from 0 → current amp
+    ///   - fadeOut → factor 0.0: ramp from current amp → 0
+    ///
+    /// We capture the voice's amplitude at the moment the event fires (NOT
+    /// at Play) so a fadeIn after an earlier slider drag still respects
+    /// the latest user-set level. A fadeOut leaves the per-voice `amplitude`
+    /// state at 0 so subsequent events / saves see the actual silenced
+    /// value; a fadeIn restores it to the snapshot.
+    private func applyAutomationFade(targetAmpFactor: Double,
+                                     durationSec: Double,
+                                     voice: VoiceFilter) {
+        let clampedDur = max(0, min(15.0, durationSec))
+        let indices = voiceIndicesForFilter(voice)
+        for i in indices {
+            // Capture starting amp + target amp.
+            let startAmp = oscillators[i].amplitude
+            let endAmp: Double
+            switch targetAmpFactor {
+            case 0.0:
+                // Fade-out: ramp from current amp down to 0.
+                endAmp = 0.0
+            default:
+                // Fade-in: ramp from 0 up to current amp. Snap the live
+                // amplitude to 0 immediately so we don't briefly emit at
+                // the starting volume before the ramp begins.
+                endAmp = max(startAmp, 0.0001)
+                setAmplitude(0.0, for: i)
+            }
+            startFadeRamp(voiceIndex: i,
+                          fromAmp: targetAmpFactor == 0.0 ? startAmp : 0.0,
+                          toAmp: endAmp,
+                          durationSec: clampedDur)
+        }
+    }
+
+    /// Single async ramp Task per voice. New ramps cancel prior ones via
+    /// the fadeGenerations counter.
+    private func startFadeRamp(voiceIndex: Int,
+                               fromAmp: Double,
+                               toAmp: Double,
+                               durationSec: Double) {
+        guard oscillators.indices.contains(voiceIndex) else { return }
+        fadeGenerations[voiceIndex] &+= 1
+        let myGen = fadeGenerations[voiceIndex]
+        guard durationSec > 0 else {
+            setAmplitude(toAmp, for: voiceIndex)
+            return
+        }
+        // ~60 Hz ticks, capped between 10 and 600 steps.
+        let stepCount = max(10, min(600, Int(durationSec * 60)))
+        let stepNanos = UInt64((durationSec / Double(stepCount)) * 1_000_000_000)
+        Task { @MainActor [weak self] in
+            for step in 1...stepCount {
+                guard let self else { return }
+                guard self.fadeGenerations.indices.contains(voiceIndex),
+                      self.fadeGenerations[voiceIndex] == myGen else { return }
+                let t = Double(step) / Double(stepCount)
+                let amp = fromAmp + (toAmp - fromAmp) * t
+                self.setAmplitude(amp, for: voiceIndex)
+                try? await Task.sleep(nanoseconds: stepNanos)
+            }
+            // Snap exact endpoint to avoid floating-point drift on long fades.
+            guard let self else { return }
+            guard self.fadeGenerations.indices.contains(voiceIndex),
+                  self.fadeGenerations[voiceIndex] == myGen else { return }
+            self.setAmplitude(toAmp, for: voiceIndex)
+        }
+    }
+
+    // MARK: Public mutators used by AutomationSheetView
+
+    /// Insert (or replace) an event by id, keeping the array sorted-by-time
+    /// for the UI. Dispatcher re-snapshots at next Play.
+    func upsertAutomationEvent(_ event: AutomationEvent) {
+        if let idx = automation.events.firstIndex(where: { $0.id == event.id }) {
+            automation.events[idx] = event
+        } else {
+            automation.events.append(event)
+        }
+        automation.events.sort { $0.timeSec < $1.timeSec }
+    }
+
+    func deleteAutomationEvent(_ id: UUID) {
+        automation.events.removeAll(where: { $0.id == id })
+    }
+
+    func setAutomationDuration(_ totalSec: Double) {
+        automation.totalDurationSec = max(0, totalSec)
+    }
+
+    func setAutomationLoop(_ loop: Bool) {
+        automation.loop = loop
     }
 }

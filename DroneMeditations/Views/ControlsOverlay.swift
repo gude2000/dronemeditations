@@ -9,6 +9,7 @@ struct ControlsOverlay: View {
     @State private var showingListenSheet = false
     @State private var showingJourneySheet = false
     @State private var showingMorphSheet = false
+    @State private var showingAutomationSheet = false
 
     /// Transient banner shown after a snapshot save attempt — "Saved to Photos"
     /// on success, error string on failure. Auto-clears after 2 seconds.
@@ -216,6 +217,10 @@ struct ControlsOverlay: View {
             MorphSheetView()
                 .environmentObject(vm)
         }
+        .sheet(isPresented: $showingAutomationSheet) {
+            AutomationSheetView()
+                .environmentObject(vm)
+        }
         .modifier(SnapshotToastModifier(
             toast: $snapshotToast,
             isError: $snapshotToastIsError,
@@ -343,6 +348,21 @@ struct ControlsOverlay: View {
                         showingPresetSheet = true
                     } label: {
                         pillLabel(title: "Preset", value: vm.activePresetName ?? "—", system: "sparkles")
+                    }
+                    .buttonStyle(.plain)
+
+                    // v1.1 Automation Timeline pill — right after PRESET per
+                    // the locked v1.1 design. Shows event count when non-empty.
+                    Button {
+                        showingAutomationSheet = true
+                    } label: {
+                        pillLabel(
+                            title: "Auto",
+                            value: vm.automation.events.isEmpty
+                                ? "Off"
+                                : "\(vm.automation.events.count) events",
+                            system: "clock.arrow.2.circlepath"
+                        )
                     }
                     .buttonStyle(.plain)
 
@@ -551,6 +571,15 @@ struct ControlsOverlay: View {
 
                     Button { showingPresetSheet = true } label: {
                         pillLabel(title: "Preset", value: vm.activePresetName ?? "—", system: "sparkles")
+                    }
+                    Button { showingAutomationSheet = true } label: {
+                        pillLabel(
+                            title: "Auto",
+                            value: vm.automation.events.isEmpty
+                                ? "Off"
+                                : "\(vm.automation.events.count) events",
+                            system: "clock.arrow.2.circlepath"
+                        )
                     }
                     .buttonStyle(.plain)
 

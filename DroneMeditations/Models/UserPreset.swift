@@ -16,6 +16,13 @@ struct UserPreset: Identifiable, Codable, Equatable {
 
     var oscillators: [Voice]
 
+    /// v1.1 Automation Timeline. Optional for backward-compat with older
+    /// saves that predate the feature. Old `.dronepreset` files without
+    /// this field decode cleanly and load with `automation = nil`; the
+    /// VM treats nil as "empty timeline" on load. New saves emit the
+    /// field whenever the user has events in their timeline.
+    var automation: AutomationTimeline?
+
     /// Per-osc snapshot. Mirrors the runtime OscillatorState plus the filename
     /// of any loaded sample (relative to Documents/DroneSamples/).
     struct Voice: Codable, Equatable {
