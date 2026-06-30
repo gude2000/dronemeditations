@@ -2625,6 +2625,11 @@ final class DroneViewModel: ObservableObject {
             let waveform: Waveform
             let amplitude: Double
             let isMuted: Bool
+            /// Per-LFO (rate, depth) captured so lfoRate / lfoDepth
+            /// automation events get reset on replay. Index = LFO slot
+            /// (0…4 for LFOs 1–5).
+            let lfoRates: [Double]
+            let lfoDepths: [Double]
         }
     }
     private var automationBaseline: AutomationBaseline?
@@ -2653,7 +2658,9 @@ final class DroneViewModel: ObservableObject {
                     frequencyHz: o.frequencyHz,
                     waveform: o.waveform,
                     amplitude: o.amplitude,
-                    isMuted: o.isMuted
+                    isMuted: o.isMuted,
+                    lfoRates: o.lfos.map { $0.rateHz },
+                    lfoDepths: o.lfos.map { $0.depth }
                 )
             }
         )
@@ -2685,6 +2692,17 @@ final class DroneViewModel: ObservableObject {
             setAmplitude(vs.amplitude, for: i)
             if oscillators[i].isMuted != vs.isMuted {
                 toggleMute(i)
+            }
+            // Restore per-LFO rate + depth so lfoRate / lfoDepth
+            // automation events reset on replay. Guard the index against
+            // the live LFO count (padLfosTo5 may have changed it).
+            for (lfoIdx, rate) in vs.lfoRates.enumerated()
+            where oscillators[i].lfos.indices.contains(lfoIdx) {
+                setLfoRate(rate, for: i, lfoIndex: lfoIdx)
+            }
+            for (lfoIdx, depth) in vs.lfoDepths.enumerated()
+            where oscillators[i].lfos.indices.contains(lfoIdx) {
+                setLfoDepth(depth, for: i, lfoIndex: lfoIdx)
             }
         }
         // applyCurrentChord normally refreshes this cache; since we
@@ -2830,6 +2848,23 @@ final class DroneViewModel: ObservableObject {
             for i in voiceIndicesForFilter(event.voice) {
                 guard oscillators.indices.contains(i) else { continue }
                 toggleMute(i)
+            }
+        case .lfoRate(let lfoIndex, let rateHz):
+            // Hard-set the LFO rate on the targeted voice(s). The LFO
+            // itself smooths the audible result, so a step in rate isn't
+            // a click — it just changes how fast the modulation cycles.
+            // Common use: ramp an S&H pitch LFO from slow to fast across
+            // a series of timed events for a building-tension arc.
+            for i in voiceIndicesForFilter(event.voice) {
+                setLfoRate(rateHz, for: i, lfoIndex: lfoIndex)
+            }
+        case .lfoDepth(let lfoIndex, let depth):
+            // Hard-set the LFO depth on the targeted voice(s). Depth is
+            // a modulation-amount scalar (0…1); stepping it is musically
+            // clean. Pair with lfoRate events to "open up" an S&H pitch
+            // envelope over time.
+            for i in voiceIndicesForFilter(event.voice) {
+                setLfoDepth(depth, for: i, lfoIndex: lfoIndex)
             }
         }
     }

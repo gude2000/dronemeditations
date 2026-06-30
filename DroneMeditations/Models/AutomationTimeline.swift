@@ -35,6 +35,13 @@ enum AutomationAction: Hashable, Codable {
     case waveformSet(waveformRaw: String)
     case levelSet(level: Double)               // 0…1
     case muteToggle
+    // v1.1 LFO modulation events. lfoIndex 0…4 maps to LFOs 1–5 in the
+    // UI (LFO 5 is the dedicated FX/granular row added in v1.0(11)).
+    // Common use case: schedule a slow S&H pitch envelope that builds
+    // rate + depth over time — start barely audible at 0:00, drama by
+    // 5:00 by ramping both up via a series of timed events.
+    case lfoRate(lfoIndex: Int, rateHz: Double)    // LfoState.rateMin…rateMax
+    case lfoDepth(lfoIndex: Int, depth: Double)    // 0…1
 }
 
 extension AutomationAction {
@@ -55,12 +62,21 @@ extension AutomationAction {
             return "Level: \(Int(round(lvl * 100)))%"
         case .muteToggle:
             return "Mute toggle"
+        case .lfoRate(let lfoIndex, let rate):
+            return "LFO \(lfoIndex + 1) rate: \(formatRate(rate))"
+        case .lfoDepth(let lfoIndex, let depth):
+            return "LFO \(lfoIndex + 1) depth: \(Int(round(depth * 100)))%"
         }
     }
 
     private func formatSec(_ s: Double) -> String {
         if s == floor(s) { return "\(Int(s))s" }
         return String(format: "%.1fs", s)
+    }
+
+    private func formatRate(_ hz: Double) -> String {
+        if hz >= 1 { return String(format: "%.2f Hz", hz) }
+        return String(format: "%.3f Hz", hz)
     }
 }
 

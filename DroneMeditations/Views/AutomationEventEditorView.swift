@@ -67,6 +67,8 @@ struct AutomationEventEditorView: View {
                         Text("Waveform").tag(ActionType.waveform)
                         Text("Level").tag(ActionType.level)
                         Text("Mute toggle").tag(ActionType.muteToggle)
+                        Text("LFO rate").tag(ActionType.lfoRate)
+                        Text("LFO depth").tag(ActionType.lfoDepth)
                     }
                     .pickerStyle(.menu)
                     actionFields
@@ -118,6 +120,12 @@ struct AutomationEventEditorView: View {
             Text("Inverts the mute state of the selected voice(s) when fired.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+        case .lfoRate:
+            lfoIndexPicker
+            lfoRateSlider
+        case .lfoDepth:
+            lfoIndexPicker
+            lfoDepthSlider
         }
     }
 
@@ -194,7 +202,7 @@ struct AutomationEventEditorView: View {
     }
 
     private enum ActionType: String, Hashable {
-        case chord, fadeIn, fadeOut, waveform, level, muteToggle
+        case chord, fadeIn, fadeOut, waveform, level, muteToggle, lfoRate, lfoDepth
     }
 
     private var actionTypeBinding: Binding<ActionType> {
@@ -207,6 +215,8 @@ struct AutomationEventEditorView: View {
                 case .waveformSet: return .waveform
                 case .levelSet:    return .level
                 case .muteToggle:  return .muteToggle
+                case .lfoRate:     return .lfoRate
+                case .lfoDepth:    return .lfoDepth
                 }
             },
             set: { newType in
@@ -228,6 +238,13 @@ struct AutomationEventEditorView: View {
                     draft.action = .levelSet(level: 0.5)
                 case .muteToggle:
                     draft.action = .muteToggle
+                case .lfoRate:
+                    // Default to LFO 4 (the pitch LFO in most presets)
+                    // at a slow-ish 0.5 Hz. User adjusts both via the
+                    // pickers below.
+                    draft.action = .lfoRate(lfoIndex: 3, rateHz: 0.5)
+                case .lfoDepth:
+                    draft.action = .lfoDepth(lfoIndex: 3, depth: 0.5)
                 }
             }
         )
@@ -326,6 +343,114 @@ struct AutomationEventEditorView: View {
                 step: 0.01
             )
         }
+    }
+
+    // MARK: - LFO rate / depth fields
+
+    /// Which LFO (1–5) the rate/depth event targets. Bare Picker; Form
+    /// handles the row layout + tap routing.
+    private var lfoIndexPicker: some View {
+        Picker("LFO", selection: lfoIndexBinding) {
+            ForEach(0..<5) { i in
+                Text("LFO \(i + 1)").tag(i)
+            }
+        }
+    }
+
+    private var lfoRateSlider: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text("Rate")
+                Spacer()
+                Text(String(format: "%.3f Hz", currentLfoRate))
+                    .font(.system(.subheadline, design: .monospaced))
+                    .foregroundStyle(Color.accentColor)
+            }
+            // Log-spaced feel: a linear 0…1 slider mapped through the
+            // LFO's rateMin…rateMax range exponentially so the slow end
+            // (where S&H pitch envelopes live) has fine resolution.
+            Slider(
+                value: Binding(
+                    get: { lfoRateToSliderPos(currentLfoRate) },
+                    set: { pos in
+                        let hz = sliderPosToLfoRate(pos)
+                        if case .lfoRate(let idx, _) = draft.action {
+                            draft.action = .lfoRate(lfoIndex: idx, rateHz: hz)
+                        }
+                    }
+                ),
+                in: 0...1
+            )
+        }
+    }
+
+    private var lfoDepthSlider: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text("Depth")
+                Spacer()
+                Text("\(Int(round(currentLfoDepth * 100)))%")
+                    .font(.system(.subheadline, design: .monospaced))
+                    .foregroundStyle(Color.accentColor)
+            }
+            Slider(
+                value: Binding(
+                    get: { currentLfoDepth },
+                    set: { d in
+                        if case .lfoDepth(let idx, _) = draft.action {
+                            draft.action = .lfoDepth(lfoIndex: idx, depth: max(0, min(1, d)))
+                        }
+                    }
+                ),
+                in: 0...1,
+                step: 0.01
+            )
+        }
+    }
+
+    // Log mapping between a 0…1 slider position and the LFO rate range.
+    private func lfoRateToSliderPos(_ hz: Double) -> Double {
+        let lo = log(LfoState.rateMin)
+        let hi = log(LfoState.rateMax)
+        let clamped = max(LfoState.rateMin, min(LfoState.rateMax, hz))
+        return (log(clamped) - lo) / (hi - lo)
+    }
+    private func sliderPosToLfoRate(_ pos: Double) -> Double {
+        let lo = log(LfoState.rateMin)
+        let hi = log(LfoState.rateMax)
+        return exp(lo + (hi - lo) * max(0, min(1, pos)))
+    }
+
+    private var lfoIndexBinding: Binding<Int> {
+        Binding(
+            get: {
+                switch draft.action {
+                case .lfoRate(let idx, _):  return idx
+                case .lfoDepth(let idx, _): return idx
+                default: return 3
+                }
+            },
+            set: { newIdx in
+                let clamped = max(0, min(4, newIdx))
+                switch draft.action {
+                case .lfoRate(_, let rate):
+                    draft.action = .lfoRate(lfoIndex: clamped, rateHz: rate)
+                case .lfoDepth(_, let depth):
+                    draft.action = .lfoDepth(lfoIndex: clamped, depth: depth)
+                default:
+                    break
+                }
+            }
+        )
+    }
+
+    private var currentLfoRate: Double {
+        if case .lfoRate(_, let rate) = draft.action { return rate }
+        return 0.5
+    }
+    private var currentLfoDepth: Double {
+        if case .lfoDepth(_, let depth) = draft.action { return depth }
+        return 0.5
     }
 
     private var waveformBinding: Binding<String> {
