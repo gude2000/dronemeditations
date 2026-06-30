@@ -139,17 +139,17 @@ struct AutomationSheetView: View {
     }
 
     private func eventRow(_ event: AutomationEvent) -> some View {
-        let (bar, sub) = barAndSub(event.timeSec)
+        let (bar, beat) = barAndBeat(event.timeSec)
         return HStack(alignment: .firstTextBaseline, spacing: 12) {
             VStack(alignment: .leading, spacing: 1) {
                 Text("Bar \(bar)")
                     .font(.system(.subheadline, design: .monospaced).weight(.semibold))
                     .foregroundStyle(Color.accentColor)
-                Text(sub == "start" ? formatTime(event.timeSec) : sub)
+                Text("Beat \(beat)")
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundStyle(.secondary)
             }
-            .frame(width: 64, alignment: .leading)
+            .frame(width: 70, alignment: .leading)
             VStack(alignment: .leading, spacing: 2) {
                 Text(rowTitle(event))
                     .font(.subheadline)
@@ -165,18 +165,19 @@ struct AutomationSheetView: View {
         }
     }
 
-    /// Convert an absolute time to (1-indexed bar, 1/16-grid sub-position
-    /// as a reduced fraction or "start") using the session BPM.
-    private func barAndSub(_ sec: Double) -> (Int, String) {
+    /// Convert an absolute time to (1-indexed bar, beat-within-bar label)
+    /// using the session BPM. Beat is 1-indexed with quarter-beat
+    /// resolution from the 1/16 grid: "1", "1.5", "2.5"…
+    private func barAndBeat(_ sec: Double) -> (Int, String) {
         let secPerBar = (4.0 * 60.0) / max(1.0, vm.bpm)
         let sixteenth = Int((sec / (secPerBar / 16.0)).rounded())
         let bar = sixteenth / 16 + 1
-        let s = sixteenth % 16
-        if s == 0 { return (bar, "start") }
-        var g = s, h = 16
-        while h != 0 { (g, h) = (h, g % h) }
-        g = max(1, g)
-        return (bar, "\(s / g)/\(16 / g)")
+        let beat = 1.0 + Double(sixteenth % 16) / 4.0
+        if beat == beat.rounded() { return (bar, "\(Int(beat))") }
+        var str = String(format: "%.2f", beat)
+        while str.hasSuffix("0") { str.removeLast() }
+        if str.hasSuffix(".") { str.removeLast() }
+        return (bar, str)
     }
 
     /// Action summary, with transpose direction + chord duration appended

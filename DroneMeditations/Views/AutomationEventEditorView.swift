@@ -61,10 +61,10 @@ struct AutomationEventEditorView: View {
                             .font(.system(.body, design: .monospaced))
                     }
                     Stepper(value: sixteenthBinding, in: 0...15) {
-                        Text("Position: \(sixteenthLabel)")
+                        Text("Beat \(beatLabel)")
                             .font(.system(.body, design: .monospaced))
                     }
-                    Text("= \(clockLabel) · \(Int(vm.bpm)) BPM")
+                    Text("= \(clockLabel) · \(Int(vm.bpm)) BPM · 1/16 grid")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -379,25 +379,25 @@ struct AutomationEventEditorView: View {
         )
     }
 
-    /// 1/16-grid position within the bar as a reduced fraction:
-    /// 0→"start", 2→"1/8", 4→"1/4", 8→"1/2", 12→"3/4", etc.
-    private var sixteenthLabel: String {
-        let s = totalSixteenths % 16
-        if s == 0 { return "start" }
-        let g = gcd(s, 16)
-        return "\(s / g)/\(16 / g)"
+    /// Beat position within the bar (1-indexed, quarter-beat resolution
+    /// from the 1/16 grid). sixteenth 0 → "1", 2 → "1.5", 4 → "2",
+    /// 6 → "2.5", etc. This is how musicians count, so it matches the
+    /// way users describe progressions ("downbeat", "upbeat of beat 2").
+    private var beatLabel: String {
+        let s = totalSixteenths % 16          // 0…15
+        let beat = 1.0 + Double(s) / 4.0       // 1.0…4.75
+        if beat == beat.rounded() { return "\(Int(beat))" }
+        // Trim to the minimal decimal (1.5, 1.25, 2.75…).
+        var str = String(format: "%.2f", beat)
+        while str.hasSuffix("0") { str.removeLast() }
+        if str.hasSuffix(".") { str.removeLast() }
+        return str
     }
 
     /// Equivalent clock time (so the user can still see real seconds).
     private var clockLabel: String {
         let sec = Int(draft.timeSec.rounded())
         return String(format: "%d:%02d", sec / 60, sec % 60)
-    }
-
-    private func gcd(_ a: Int, _ b: Int) -> Int {
-        var x = a, y = b
-        while y != 0 { (x, y) = (y, x % y) }
-        return max(1, x)
     }
 
     // MARK: - Phase B fields
