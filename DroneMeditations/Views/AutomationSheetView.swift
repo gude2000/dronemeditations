@@ -9,8 +9,19 @@ struct AutomationSheetView: View {
     @EnvironmentObject var vm: DroneViewModel
     @Environment(\.dismiss) private var dismiss
 
-    @State private var editingEvent: AutomationEvent?
-    @State private var showingNewEvent = false
+    /// Single sheet presentation source. Two stacked `.sheet` modifiers on
+    /// the same view aren't reliably supported by SwiftUI — only one can
+    /// be presented at a time, and re-presenting the second one after the
+    /// first dismisses leaves the picker bindings in a stale state. We
+    /// fold both "edit existing" and "create new" into a single
+    /// `EditorTarget` and present it via `.sheet(item:)`.
+    @State private var editorTarget: EditorTarget?
+
+    private struct EditorTarget: Identifiable {
+        let event: AutomationEvent
+        let isExisting: Bool
+        var id: UUID { event.id }
+    }
 
     var body: some View {
         NavigationStack {
@@ -38,7 +49,7 @@ struct AutomationSheetView: View {
                     } else {
                         ForEach(vm.automation.events) { event in
                             Button {
-                                editingEvent = event
+                                editorTarget = EditorTarget(event: event, isExisting: true)
                             } label: {
                                 eventRow(event)
                             }
@@ -58,7 +69,10 @@ struct AutomationSheetView: View {
                             .font(.caption)
                         Spacer()
                         Button {
-                            showingNewEvent = true
+                            editorTarget = EditorTarget(
+                                event: defaultNewEvent(),
+                                isExisting: false
+                            )
                         } label: {
                             Image(systemName: "plus.circle.fill")
                                 .font(.system(size: 18))
@@ -85,13 +99,12 @@ struct AutomationSheetView: View {
                     Button("Done") { dismiss() }
                 }
             }
-            .sheet(item: $editingEvent) { event in
-                AutomationEventEditorView(event: event, isExisting: true)
-                    .environmentObject(vm)
-            }
-            .sheet(isPresented: $showingNewEvent) {
-                AutomationEventEditorView(event: defaultNewEvent(), isExisting: false)
-                    .environmentObject(vm)
+            .sheet(item: $editorTarget) { target in
+                AutomationEventEditorView(
+                    event: target.event,
+                    isExisting: target.isExisting
+                )
+                .environmentObject(vm)
             }
         }
     }
