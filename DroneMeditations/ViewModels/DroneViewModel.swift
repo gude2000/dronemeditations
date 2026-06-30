@@ -1521,6 +1521,27 @@ final class DroneViewModel: ObservableObject {
             }
         }
         activePresetName = preset.name
+        // v1.1: derive the chord-pill KEY from OSC 1's Hz on every bundled
+        // preset load. Older bundled presets (Solfeggio, Drone Artists,
+        // Cymatics, etc.) define voices as raw frequencies without an
+        // explicit key field — without this, the chord pill kept showing
+        // whatever the user last picked, even after switching to a preset
+        // in a different key. Now that v1.1 chord-change automation events
+        // re-tune voices against `currentKey + currentChord`, the chord
+        // pill needs to reflect the loaded preset's actual key so the
+        // first scheduled chord change doesn't unexpectedly snap voices
+        // away from the preset's tuned frequencies. Chord *template* is
+        // intentionally left alone — picking it correctly from interval
+        // analysis is a v1.x follow-up; for now the user can manually pick
+        // a chord type if a chord-change event needs a specific starting
+        // template.
+        if let firstHz = preset.voices.first?.hz {
+            currentKey = PitchClass.nearestPitchClass(forHz: firstHz)
+        }
+        // Bundled preset load is a new "canonical state" event — clear
+        // the automation baseline so the next Play snapshots the just-
+        // loaded preset as the new baseline (matching loadUserPreset).
+        invalidateAutomationBaseline()
     }
 
     // MARK: - Per-voice presets

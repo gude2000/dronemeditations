@@ -30,6 +30,21 @@ enum PitchClass: Int, CaseIterable, Identifiable, Codable {
         // Offset so A=0, A♯=1, B=2, C=3, ...
         return (rawValue - 9 + 12) % 12
     }
+
+    /// Nearest 12-TET pitch class for a given frequency. Used to derive the
+    /// chord-pill key from a bundled preset's per-voice Hz at load time —
+    /// older bundled presets define voices as raw frequencies without an
+    /// explicit key field, so the chord pill would otherwise keep showing
+    /// whatever the user last picked. Octave-agnostic (e.g. 110 Hz,
+    /// 220 Hz, 440 Hz all → A).
+    static func nearestPitchClass(forHz hz: Double) -> PitchClass {
+        guard hz > 0 else { return .a }
+        // Semitones above A4 (440 Hz), positive or negative, rounded
+        let semisFromA4 = (12.0 * log2(hz / 440.0)).rounded()
+        // Reduce to 0..11 representing semitones-from-A within an octave
+        let semisFromA = ((Int(semisFromA4) % 12) + 12) % 12
+        return PitchClass.allCases.first { $0.semitonesFromA == semisFromA } ?? .a
+    }
 }
 
 /// A pitch = (pitch class, octave). Octave uses scientific pitch notation, C4 = middle C.
