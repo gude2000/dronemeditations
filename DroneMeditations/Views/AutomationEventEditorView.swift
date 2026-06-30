@@ -53,9 +53,11 @@ struct AutomationEventEditorView: View {
                     // Bar + position entry, snapped to a 1/16-bar grid via
                     // the session BPM. Composing a progression at 87 BPM in
                     // raw seconds is impossible by hand; bars make it
-                    // trivial. The underlying storage is still timeSec (the
-                    // dispatcher is tempo-agnostic); these steppers just
-                    // convert through the live BPM.
+                    // trivial. The canonical storage is the tempo-relative
+                    // grid step (gridSixteenth); timeSec is a cached
+                    // convenience. The dispatcher re-derives seconds from
+                    // the grid at the LIVE BPM, so changing tempo keeps the
+                    // structure in proportion.
                     Stepper(value: barBinding, in: 0...512) {
                         Text("Bar \(barBinding.wrappedValue + 1)")
                             .font(.system(.body, design: .monospaced))
@@ -117,8 +119,10 @@ struct AutomationEventEditorView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        // time is bound directly to draft.timeSec via the
-                        // bar/beat steppers — no commit needed.
+                        // Pin the canonical grid position (and synced
+                        // seconds) so a never-touched event still commits a
+                        // tempo-relative position rather than a frozen one.
+                        setTotalSixteenths(totalSixteenths)
                         commitLfoFields()
                         vm.upsertAutomationEvent(draft)
                         dismiss()
@@ -353,12 +357,21 @@ struct AutomationEventEditorView: View {
     private var secPerBar: Double { 4.0 * 60.0 / max(1.0, vm.bpm) }
     private var secPerSixteenth: Double { secPerBar / 16.0 }
 
-    /// draft.timeSec quantized to whole 1/16-bar steps. This is the
-    /// canonical grid value the bar/position steppers operate on, so they
-    /// never drift.
-    private var totalSixteenths: Int { Int((draft.timeSec / secPerSixteenth).rounded()) }
+    /// The event's position in whole 1/16-bar steps — the canonical,
+    /// tempo-relative grid value the steppers operate on. Prefers the
+    /// stored `gridSixteenth`; for a legacy event that predates the field,
+    /// derives it from the frozen `timeSec` at the current BPM (the same
+    /// tempo the user is composing at). Never drifts.
+    private var totalSixteenths: Int {
+        draft.gridSixteenth ?? Int((draft.timeSec / secPerSixteenth).rounded())
+    }
+    /// Write BOTH the canonical grid position and the cached seconds.
+    /// gridSixteenth is what the dispatcher re-resolves at Play; timeSec is
+    /// kept in sync so older readers / display fall back sensibly.
     private func setTotalSixteenths(_ n: Int) {
-        draft.timeSec = Double(max(0, n)) * secPerSixteenth
+        let clamped = max(0, n)
+        draft.gridSixteenth = clamped
+        draft.timeSec = Double(clamped) * secPerSixteenth
     }
 
     private var barBinding: Binding<Int> {
@@ -395,8 +408,10 @@ struct AutomationEventEditorView: View {
     }
 
     /// Equivalent clock time (so the user can still see real seconds).
+    /// Derived from the canonical grid at the live BPM, so it stays correct
+    /// if the tempo changed since the event was last edited.
     private var clockLabel: String {
-        let sec = Int(draft.timeSec.rounded())
+        let sec = Int((Double(totalSixteenths) * secPerSixteenth).rounded())
         return String(format: "%d:%02d", sec / 60, sec % 60)
     }
 

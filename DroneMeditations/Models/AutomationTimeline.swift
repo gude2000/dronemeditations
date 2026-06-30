@@ -164,6 +164,16 @@ extension AutomationAction {
 struct AutomationEvent: Identifiable, Codable, Equatable, Hashable {
     let id: UUID
     var timeSec: Double
+    /// Tempo-relative position in 1/16-bar steps from the timeline start
+    /// (4 steps = 1 beat, 16 steps = 1 bar in 4/4). This is the CANONICAL
+    /// position; `timeSec` is a cached convenience equal to this resolved
+    /// at the authoring BPM. The dispatcher re-derives seconds from this at
+    /// Play using the LIVE BPM, so changing tempo rescales the whole
+    /// timeline proportionally (events and loop length stay in proportion).
+    /// nil = a legacy event authored before this field — playback falls
+    /// back to the frozen `timeSec`. Opening the Automation sheet backfills
+    /// it from `timeSec` at the current BPM.
+    var gridSixteenth: Int?
     var voice: VoiceFilter
     var action: AutomationAction
     var sampleName: String?
@@ -179,6 +189,7 @@ struct AutomationEvent: Identifiable, Codable, Equatable, Hashable {
 
     init(id: UUID = UUID(),
          timeSec: Double,
+         gridSixteenth: Int? = nil,
          voice: VoiceFilter,
          action: AutomationAction,
          sampleName: String? = nil,
@@ -186,6 +197,7 @@ struct AutomationEvent: Identifiable, Codable, Equatable, Hashable {
          chordDuration: ChordDuration? = nil) {
         self.id = id
         self.timeSec = max(0, timeSec)
+        self.gridSixteenth = gridSixteenth.map { max(0, $0) }
         self.voice = voice
         self.action = action
         self.sampleName = sampleName

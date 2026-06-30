@@ -2794,7 +2794,43 @@ final class DroneViewModel: ObservableObject {
         // bounce back to home between chords and before a loop wrap.
         // If a user wants a chord to return home, they add an explicit
         // "change to the home key" event (one tap with auto-advance).
-        return automation.sortedEvents
+        //
+        // TEMPO-RELATIVE RESOLUTION: each event's canonical position is its
+        // `gridSixteenth` (1/16-bar steps). Re-derive its firing time in
+        // seconds from the LIVE BPM here so events scale with tempo exactly
+        // like the loop length does (cycleSec = totalBars × secPerBar). An
+        // event placed at "Bar 2 Beat 1" lands one bar into the loop at any
+        // BPM. Legacy events with no gridSixteenth fall back to their frozen
+        // timeSec (no worse than before).
+        let secPerSixteenth = (4.0 * 60.0) / max(1.0, bpm) / 16.0
+        return automation.sortedEvents.map { ev in
+            guard let grid = ev.gridSixteenth else { return ev }
+            var resolved = ev
+            resolved.timeSec = Double(max(0, grid)) * secPerSixteenth
+            return resolved
+        }
+        .sorted { $0.timeSec < $1.timeSec }
+    }
+
+    /// Upgrade any legacy automation events (placed before the tempo-
+    /// relative grid existed) to carry a `gridSixteenth`, derived from their
+    /// frozen `timeSec` at the CURRENT BPM. Call when the Automation sheet
+    /// appears: the user is then composing at the same tempo the events were
+    /// authored at, so the snapped grid positions match what they intended.
+    /// After this, changing BPM rescales the whole timeline in proportion.
+    /// No-op once every event already has a grid position.
+    func backfillAutomationGrid() {
+        let secPerSixteenth = (4.0 * 60.0) / max(1.0, bpm) / 16.0
+        guard secPerSixteenth > 0,
+              automation.events.contains(where: { $0.gridSixteenth == nil })
+        else { return }
+        // One reassignment → one @Published publish (vs. per-element churn).
+        automation.events = automation.events.map { ev in
+            guard ev.gridSixteenth == nil else { return ev }
+            var upgraded = ev
+            upgraded.gridSixteenth = max(0, Int((ev.timeSec / secPerSixteenth).rounded()))
+            return upgraded
+        }
     }
 
     /// Fan-out for events fired by the dispatcher. Runs on the main actor.

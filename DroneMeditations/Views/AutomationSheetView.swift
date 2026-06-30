@@ -89,6 +89,12 @@ struct AutomationSheetView: View {
             }
             .navigationTitle("Automation")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                // Upgrade any legacy events to tempo-relative grid
+                // positions at the composing tempo, so changing BPM later
+                // rescales the timeline in proportion instead of drifting.
+                vm.backfillAutomationGrid()
+            }
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
@@ -139,7 +145,7 @@ struct AutomationSheetView: View {
     }
 
     private func eventRow(_ event: AutomationEvent) -> some View {
-        let (bar, beat) = barAndBeat(event.timeSec)
+        let (bar, beat) = barAndBeat(event)
         return HStack(alignment: .firstTextBaseline, spacing: 12) {
             VStack(alignment: .leading, spacing: 1) {
                 Text("Bar \(bar)")
@@ -165,12 +171,20 @@ struct AutomationSheetView: View {
         }
     }
 
-    /// Convert an absolute time to (1-indexed bar, beat-within-bar label)
-    /// using the session BPM. Beat is 1-indexed with quarter-beat
-    /// resolution from the 1/16 grid: "1", "1.5", "2.5"…
-    private func barAndBeat(_ sec: Double) -> (Int, String) {
-        let secPerBar = (4.0 * 60.0) / max(1.0, vm.bpm)
-        let sixteenth = Int((sec / (secPerBar / 16.0)).rounded())
+    /// (1-indexed bar, beat-within-bar label) for an event. Beat is
+    /// 1-indexed with quarter-beat resolution from the 1/16 grid:
+    /// "1", "1.5", "2.5"… Uses the event's canonical `gridSixteenth` when
+    /// present (tempo-stable — the row stays put when BPM changes), falling
+    /// back to deriving it from the frozen `timeSec` at the session BPM for
+    /// legacy events.
+    private func barAndBeat(_ event: AutomationEvent) -> (Int, String) {
+        let sixteenth: Int
+        if let grid = event.gridSixteenth {
+            sixteenth = max(0, grid)
+        } else {
+            let secPerSixteenth = (4.0 * 60.0) / max(1.0, vm.bpm) / 16.0
+            sixteenth = Int((event.timeSec / secPerSixteenth).rounded())
+        }
         let bar = sixteenth / 16 + 1
         let beat = 1.0 + Double(sixteenth % 16) / 4.0
         if beat == beat.rounded() { return (bar, "\(Int(beat))") }
@@ -216,25 +230,33 @@ struct AutomationSheetView: View {
         // patch state — user can change before saving.
         //
         // AUTO-ADVANCE: a new event starts where the LAST event's chord
-        // ends — its time + (chord duration in bars × secPerBar at the
-        // session BPM). This turns the timeline into a flowing chord
-        // sequencer: add a chord + duration, tap +, and the next event
-        // is already positioned at the downbeat after it. No manual time
-        // math. Falls back to the last event's own time (for non-chord
-        // or Hold events) so + always advances at least to the latest
-        // event, and to 0 for an empty timeline.
-        let secPerBar = (4.0 * 60.0) / max(1.0, vm.bpm)
-        let sorted = vm.automation.events.sorted { $0.timeSec < $1.timeSec }
-        var nextTime = 0.0
+        // ends — its grid position + (chord duration in bars × 16 steps).
+        // This turns the timeline into a flowing chord sequencer: add a
+        // chord + duration, tap +, and the next event is already positioned
+        // at the downbeat after it. No manual time math. Falls back to the
+        // last event's own position (for non-chord or Hold events) so +
+        // always advances at least to the latest event, and to 0 for an
+        // empty timeline.
+        //
+        // Works in the tempo-relative grid (1/16-bar steps) so the auto-
+        // advance spacing is correct at any BPM, and the new event carries
+        // a canonical gridSixteenth from creation.
+        let secPerSixteenth = (4.0 * 60.0) / max(1.0, vm.bpm) / 16.0
+        let sorted = vm.automation.events.sorted {
+            ($0.gridSixteenth ?? 0) < ($1.gridSixteenth ?? 0)
+        }
+        var nextGrid = 0
         if let last = sorted.last {
-            nextTime = last.timeSec
+            nextGrid = last.gridSixteenth
+                ?? Int((last.timeSec / secPerSixteenth).rounded())
             if case .chordChange = last.action,
                let bars = last.chordDuration?.bars, bars > 0 {
-                nextTime += bars * secPerBar
+                nextGrid += Int((bars * 16).rounded())
             }
         }
         return AutomationEvent(
-            timeSec: max(0, nextTime),
+            timeSec: Double(max(0, nextGrid)) * secPerSixteenth,
+            gridSixteenth: max(0, nextGrid),
             voice: .all,
             action: .chordChange(
                 keyRaw: vm.currentKey.rawValue,
@@ -242,10 +264,5 @@ struct AutomationSheetView: View {
             ),
             chordDuration: .one   // sensible default: 1 bar per chord
         )
-    }
-
-    private func formatTime(_ sec: Double) -> String {
-        let s = Int(sec.rounded(.down))
-        return String(format: "%d:%02d", s / 60, s % 60)
     }
 }
