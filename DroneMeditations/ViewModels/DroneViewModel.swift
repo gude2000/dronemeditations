@@ -2775,54 +2775,65 @@ final class DroneViewModel: ObservableObject {
     private func dispatchAutomation(_ event: AutomationEvent) {
         switch event.action {
         case .chordChange(let keyRaw, let chordId):
-            // v1.1 TRANSPOSE semantics. Voice filter is intentionally
-            // ignored — key change is a patch-level concept.
+            // v1.1 TRANSPOSE semantics, now respecting the event's Voice
+            // filter. "Apply to: All" transposes every voice + updates the
+            // patch key/chord metadata; "Apply to: OSC N" transposes ONLY
+            // that voice and leaves the patch metadata untouched.
             //
             // Why transpose instead of chord respell: presets often use
             // voicings that AREN'T standard chord triads — Sunn O)))
             // uses doubled-root + octave + 5th power chords (41/41/82/123
             // Hz), Solfeggio presets use frequency-ratio stacks
-            // (174/285/396/528 Hz), Drone Artists tributes use specific
-            // microtonal arrangements. Calling setKey + setChord would
+            // (174/285/396/528 Hz). Calling setKey + setChord would
             // overwrite every voice's frequency with the chord template's
             // generic triad intervals, destroying the preset's character.
+            // Transposition multiplies a voice's pitch by a ratio, so the
+            // voicing shape is preserved — only the base pitch shifts.
             //
-            // Transpose preserves the voicing: compute the ratio between
-            // the new key's root Hz and the old key's root Hz, then
-            // multiply every voice's frequency by that ratio. A power
-            // chord stays a power chord; a Major triad stays a Major
-            // triad; an open-fifth voicing stays an open fifth. Only the
-            // base pitch shifts. This is what most musicians intuit when
-            // they say "key change" (= modulation).
-            //
-            // currentChord (the chord-template metadata) is still updated
-            // so the chord pill reflects the user's chosen template —
-            // it's used by Quantize-to-Scale and as the starting point
-            // for the next chord-template change the user makes from the
-            // pill. The voice freqs come from transposition, not the
-            // template.
-            if let newKey = PitchClass(rawValue: keyRaw),
-               newKey != currentKey {
-                let oldRoot = Pitch(currentKey, octave: currentOctave).frequencyEqual12()
-                let newRoot = Pitch(newKey, octave: currentOctave).frequencyEqual12()
-                if oldRoot > 0 {
-                    let ratio = newRoot / oldRoot
-                    for i in oscillators.indices {
-                        let newFreq = oscillators[i].frequencyHz * ratio
-                        setFrequency(newFreq, for: i)
+            // Transposition is BASELINE-relative, not cumulative: each
+            // affected voice's new frequency = its baseline (first-Play)
+            // frequency × (targetRoot / baselineRoot). This makes a
+            // per-voice change round-trip cleanly — a "→ G at 0:30" then
+            // "→ E at 1:00" pair returns the voice to its exact original
+            // pitch, with no float-drift accumulation across events.
+            let isPatchWide: Bool = { if case .all = event.voice { return true }; return false }()
+            let affected = voiceIndicesForFilter(event.voice)
+            if let newKey = PitchClass(rawValue: keyRaw) {
+                // Reference key/octave from the baseline (captured at
+                // Play). Fall back to the live currentKey/Octave if no
+                // baseline yet (shouldn't happen during playback, but
+                // safe).
+                let refOctave = automationBaseline?.octave ?? currentOctave
+                let baseKey = automationBaseline?.key ?? currentKey
+                let baseRoot = Pitch(baseKey, octave: refOctave).frequencyEqual12()
+                let targetRoot = Pitch(newKey, octave: refOctave).frequencyEqual12()
+                if baseRoot > 0 {
+                    let ratio = targetRoot / baseRoot
+                    for i in affected {
+                        // Use the voice's baseline frequency as the anchor
+                        // so transposition doesn't compound across events.
+                        let anchorHz: Double = {
+                            if let b = automationBaseline, b.voices.indices.contains(i) {
+                                return b.voices[i].frequencyHz
+                            }
+                            return oscillators[i].frequencyHz
+                        }()
+                        setFrequency(anchorHz * ratio, for: i)
                     }
                 }
-                currentKey = newKey
+                // Patch key metadata updates ONLY on a patch-wide change.
+                if isPatchWide { currentKey = newKey }
             }
-            // Update the chord-template metadata WITHOUT triggering
-            // applyCurrentChord (which would re-derive voice freqs and
-            // overwrite the transposition above).
-            if let chord = ChordType.all.first(where: { $0.id == chordId }),
-               chord.id != currentChord.id {
-                currentChord = chord
+            // Chord template is a patch-level concept — update it (and the
+            // quantize cache) only for an "All voices" change. A per-voice
+            // chord change leaves the patch's chord pill as-is.
+            if isPatchWide {
+                if let chord = ChordType.all.first(where: { $0.id == chordId }),
+                   chord.id != currentChord.id {
+                    currentChord = chord
+                }
+                recomputeQuantizeScale()
             }
-            // Refresh quantize-to-scale cache against the new key + chord.
-            recomputeQuantizeScale()
         case .fadeIn(let dur):
             applyAutomationFade(targetAmpFactor: 1.0,
                                 durationSec: dur,
