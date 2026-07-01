@@ -640,12 +640,6 @@ function buildStrip(index) {
         <button class="sm-button" data-role="voice-tune" type="button"
                 title="Tune this oscillator from the mic — hum a note, snaps the voice's frequency to the detected pitch"
                 aria-label="Tune this oscillator from the mic">👂</button>
-        <!-- v1 per-osc Record: record up to 30 s of mic audio directly
-             into this voice's sample slot. Waveform auto-flips to
-             Sample so LFOs / FX / granular controls apply at once. -->
-        <button class="sm-button" data-role="voice-record" type="button"
-                title="Record up to 30 s from the mic directly into this oscillator's sample slot"
-                aria-label="Record into this oscillator">🎙</button>
         <button class="sm-button" data-role="voice-preset" type="button" title="Save / load presets for this single voice" aria-label="Voice presets">★</button>
         <button class="sm-button" data-role="voice-drift" type="button" title="Drift this voice independently — pitch + pan motion over the session" aria-label="Voice drift mode">∿</button>
         <button class="sm-button" data-role="voice-timing" type="button" title="Timing envelope — silence this voice for N seconds after play, then fade in; optionally fade out after N minutes" aria-label="Timing envelope">⏱</button>
@@ -675,6 +669,11 @@ function buildStrip(index) {
       <input type="file" accept="audio/*" data-role="sample-input" hidden />
       <button type="button" class="sample-button" data-role="sample-bundled" title="Pick from samples shipped with the app + your browser library">Bundled ▾</button>
       <button type="button" class="sample-button" data-role="sample-load" title="Browser picks the folder — use Bundled ▾ for shipped + saved samples">Load file…</button>
+      <!-- v1: per-osc Record — capture up to 30 s from the mic straight into
+           this voice's sample slot. Moved here from the icon header for
+           discoverability. data-role stays "voice-record" so the handler in
+           bindStripEvents keeps working. -->
+      <button type="button" class="sample-button" data-role="voice-record" title="Record up to 30 s from the mic directly into this oscillator's sample slot" aria-label="Record into this oscillator">🎙 Record Sample</button>
       <!-- Action buttons grouped together (Replace · Clear · Granular); the
            sample name label goes LAST since its flex:1 pushes trailing
            elements to the far right — keeping it last keeps the buttons tidy. -->
