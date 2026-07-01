@@ -675,7 +675,10 @@ function buildStrip(index) {
       <input type="file" accept="audio/*" data-role="sample-input" hidden />
       <button type="button" class="sample-button" data-role="sample-bundled" title="Pick from samples shipped with the app + your browser library">Bundled ▾</button>
       <button type="button" class="sample-button" data-role="sample-load" title="Browser picks the folder — use Bundled ▾ for shipped + saved samples">Load file…</button>
-      <span class="sample-name" data-role="sample-name" title="">—</span>
+      <!-- Action buttons grouped together (Replace · Clear · Granular); the
+           sample name label goes LAST since its flex:1 pushes trailing
+           elements to the far right — keeping it last keeps the buttons tidy. -->
+      <button type="button" class="sample-clear" data-role="sample-clear" hidden>Clear</button>
       <!-- v1: Grainy toggle. When on, the continuous sample loop is
            replaced by short Hann-windowed slices read from the
            buffer at jittered positions — Tibetan-bowl shimmer,
@@ -683,7 +686,7 @@ function buildStrip(index) {
            GRAIN row sliders (size/density/jitter/spread) apply. -->
       <button type="button" class="sample-button" data-role="sample-grainy" title="Granular sampling — replaces continuous loop with Hann-windowed slices from the sample buffer (uses the GRAIN row sliders below)">Granular</button>
       <button type="button" class="sample-bookmark" data-role="sample-save-library" title="Save to my browser library — appears in Bundled ▾ on next visit" hidden>🔖</button>
-      <button type="button" class="sample-clear" data-role="sample-clear" hidden>Clear</button>
+      <span class="sample-name" data-role="sample-name" title="">—</span>
     </div>
     <!-- v1 sample-granular position row. Shown only when waveform === "sample"
          AND sampleGranular is on. POS sets the center read offset inside
