@@ -14,7 +14,7 @@ import { AudioEngine } from "./audio.js?v=43";
 import { initUI, renderAll } from "./ui.js?v=46";
 import {
   exportUserPresetDownload, importUserPresetFromFile
-} from "./preset-sharing.js?v=45";
+} from "./preset-sharing.js?v=46";
 import { initVisualizations, setChladniVisible, setSpectrumVisible } from "./visualizations.js?v=43";
 import {
   loadUserPresets, saveUserPresets, newPresetId, newSampleId,

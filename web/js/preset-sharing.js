@@ -21,6 +21,7 @@ import {
   loadUserPresets, saveUserPresets, newPresetId, newSampleId,
   putSample, getSample
 } from "./storage.js?v=44";
+import { CHORDS } from "./music.js?v=43";
 
 const CURRENT_VERSION = 1;
 const FILE_EXTENSION = "dronepreset";
@@ -63,6 +64,23 @@ function makeUuid() {
     return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
   });
 }
+// Cross-platform chord id. The web stores chordId as a slug ("lydian",
+// "maj", "min7"); iOS resolves chords by NAME ("Lydian", "Major",
+// "Minor 7") — its ChordType.id IS the name. A slug that doesn't match any
+// iOS chord makes iOS fall back to the wrong chord, which changes the
+// quantize-to-scale notes (the base drone is fine — frequencies transfer
+// directly — but the snapped/drifting pitches follow the resolved chord's
+// scale). So: export slug→name (iOS reads it), import name→slug (web reads
+// it). Unknown ids pass through unchanged.
+function chordIdToName(id) {
+  const c = CHORDS.find((x) => x.id === id || x.name === id);
+  return c ? c.name : id;
+}
+function chordIdToSlug(id) {
+  const c = CHORDS.find((x) => x.id === id || x.name === id);
+  return c ? c.id : id;
+}
+
 function normalizeAutomationForExport(automation) {
   if (!automation || !Array.isArray(automation.events)) return automation;
   return {
@@ -139,6 +157,9 @@ export async function exportUserPresetDownload(presetId) {
   // without needing translateWebEnumStrings to fall back to sampleRef.
   const exportedPreset = {
     ...p,
+    // Chord id slug → NAME so iOS resolves the chord (fixes cross-platform
+    // quantize-to-scale notes).
+    chordId: chordIdToName(p.chordId),
     // Repair automation event ids (→ UUID) + voice "all" (→ {all:{}}) so
     // the payload decodes on iOS.
     ...(p.automation ? { automation: normalizeAutomationForExport(p.automation) } : {}),
@@ -245,7 +266,9 @@ export async function importUserPresetFromFile(file) {
     createdAt: orig.createdAt || new Date().toISOString(),
     keyId: orig.keyId,
     octave: orig.octave,
-    chordId: orig.chordId,
+    // Normalize an iOS-exported name (or an old slug) back to the web slug
+    // so applyChord() resolves it on this device.
+    chordId: chordIdToSlug(orig.chordId),
     tuningId: orig.tuningId,
     masterVolume: orig.masterVolume,
     oscillators: translatedOscs
