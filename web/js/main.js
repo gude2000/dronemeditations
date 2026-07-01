@@ -401,6 +401,20 @@ const actions = {
       engine.setPan(i, v.pan);
       engine.setMute(i, state.oscillators[i].isMuted);
 
+      // Clear sample + granular-sample state the preset doesn't specify, so it
+      // doesn't linger — INIT (and other sample-free presets) must not keep the
+      // previous patch's loaded sample or "Grainy" toggle. A preset that loads
+      // a bundled sample re-sets these in the blocks below.
+      actions.clearSample(i);
+      actions.setSampleGranular(i, false);
+      state.oscillators[i].sampleRef = null;
+      state.oscillators[i].sampleStartFrac = 0;
+      state.oscillators[i].sampleEndFrac = 1;
+      state.oscillators[i].sampleFadeInSec = 0;
+      state.oscillators[i].sampleFadeOutSec = 0;
+      state.oscillators[i].grainSamplePosFrac = 0.5;
+      state.oscillators[i].grainSamplePosJitter = 0.2;
+
       // ─── Optional rich-voice fields (used by Drone Artists presets) ───
       // Each block is no-op when the preset's voice didn't specify it,
       // so simple presets (just hz + pan) keep their old behavior of
