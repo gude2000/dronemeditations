@@ -36,8 +36,9 @@ struct ChladniView: View {
     @StateObject private var sand = SandSimulation(particleCount: 1500)
 
     var body: some View {
-        // 24 fps so vibrato (pitch-LFO mod) is visibly smooth in the pattern.
-        TimelineView(.animation(minimumInterval: 1.0 / 24.0)) { _ in
+        // 30 fps so vibrato (pitch-LFO mod) reads as more alive/active in the
+        // pattern (grid stays 140 to keep the audio render thread clear).
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { _ in
             Canvas { context, size in
                 let activeModes = drawChladni(in: context, size: size)
                 // v1: sand grains rendered on top of the Chladni
@@ -148,7 +149,10 @@ struct ChladniView: View {
                 }
 
                 let mag = abs(field)
-                var nodeStrength = max(0.0, 1.0 - mag * 6.0)
+                // Tighter threshold (was 6.0) → thinner, crisper nodal lines,
+                // matching the web shader's `mag * 9` and reducing the soft/
+                // muddy look. Free — same cost as before.
+                var nodeStrength = max(0.0, 1.0 - mag * 9.0)
 
                 // Center-driver bolt: ever-present small sand pile + thin
                 // nodal ring at small radius. Visible in every brusspup frame.
