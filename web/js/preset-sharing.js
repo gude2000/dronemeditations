@@ -21,7 +21,7 @@ import {
   loadUserPresets, saveUserPresets, newPresetId, newSampleId,
   putSample, getSample
 } from "./storage.js?v=44";
-import { CHORDS } from "./music.js?v=43";
+import { CHORDS } from "./music.js?v=44";
 
 const CURRENT_VERSION = 1;
 const FILE_EXTENSION = "dronepreset";

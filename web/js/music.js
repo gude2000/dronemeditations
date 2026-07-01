@@ -280,6 +280,10 @@ export const PRESETS = [
     id: "init_clean",
     name: "INIT — Clean state",
     category: "Setup",
+    // Snap the chord pill to Major on load — INIT's voicing (A·E·A·C♯) is
+    // A major, so the label should read "A Major", not inherit the previous
+    // patch's mode. applyPreset applies this when set; other presets omit it.
+    chordId: "maj",
     sub: "Reset every voice to neutral · 4 sine voices, dry, no LFO depth",
     voices: (() => {
       const neutralFilter = { type: "lowpass", cutoffHz: 4000, q: 0.7 };

@@ -9,7 +9,7 @@
 import {
   CHORDS, PRESETS, WAVEFORMS, JOURNEYS, journeyTotalSeconds, PITCH_CLASSES, TUNING_SYSTEMS,
   pitchToFrequency, chordFrequencies, FREQ_MIN, FREQ_MAX
-} from "./music.js?v=43";
+} from "./music.js?v=44";
 import { AudioEngine } from "./audio.js?v=43";
 import { initUI, renderAll } from "./ui.js?v=46";
 import {
@@ -513,6 +513,21 @@ const actions = {
         setVoicePanDrift(i, dr.panMode);
       }
     }
+    // Derive the chord-pill KEY + OCTAVE from OSC 1's Hz on every built-in
+    // preset load — mirrors iOS applyPreset. Without this the pill kept the
+    // previous patch's key (INIT after a G♯ Lydian patch stayed G♯ instead
+    // of snapping to A). Direct assignment (not setKey/setOctave) so we
+    // don't recompute/override the preset's explicit voice frequencies.
+    const firstHz = p.voices[0]?.hz;
+    if (firstHz != null && firstHz > 0) {
+      const midi = Math.round(69 + 12 * Math.log2(firstHz / 440));
+      state.keyId = ((midi % 12) + 12) % 12;
+      state.octave = Math.max(1, Math.min(6, Math.floor(midi / 12) - 1));
+    }
+    // If the preset names a chord template, snap the pill to it (INIT →
+    // "maj" so it reads A Major instead of inheriting the previous mode).
+    // Presets that don't specify one keep the current template, matching iOS.
+    if (p.chordId != null) state.chordId = p.chordId;
     state.activePresetName = p.name;
     renderAll();
   },

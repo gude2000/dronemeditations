@@ -7,7 +7,7 @@
 // live frequency, so vibrato breathes between physical modes instead of
 // snapping or sliding along arbitrary continuous-m curves.
 
-import { frequencyHue } from "./music.js?v=43";
+import { frequencyHue } from "./music.js?v=44";
 import { modePairForFreq, chladniField } from "./chladni-modes.js?v=43";
 
 let bgCanvas, chladniCanvas, sandCanvas, sandCtx, spectrumCanvas, bgCtx, spectrumCtx;

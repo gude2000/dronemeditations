@@ -9,7 +9,7 @@ import {
   CHORDS, CHORD_CATEGORIES, PRESETS, PRESET_CATEGORIES,
   JOURNEYS, journeyTotalSeconds,
   FREQ_MIN, FREQ_MAX, frequencyHue
-} from "./music.js?v=43";
+} from "./music.js?v=44";
 import { startListening, stopListening, freqToNote, listInputDevices, switchInputDevice } from "./pitch-detect.js?v=43";
 import { initMIDI, midiToKeyOctave } from "./midi.js?v=43";
 import {
