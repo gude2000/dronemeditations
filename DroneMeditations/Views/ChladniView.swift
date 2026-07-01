@@ -23,10 +23,6 @@ struct ChladniView: View {
     /// <1 shrinks the plate inside the viewport).
     var zoom: Double = 1.0
 
-    /// Resolution of the sampled grid (lower = faster, more abstract; higher = sharper lines).
-    /// 140 gives dense classic Chladni geometry on iPhone without dropping frames.
-    private let grid: Int = 140
-
     /// v1 sand-grain simulation. 1500 particles attracted to nodal
     /// lines, with damping + Brownian jitter, drawn over the Chladni
     /// field — same idea as the web pop-out, halved particle count so
@@ -36,18 +32,34 @@ struct ChladniView: View {
     @StateObject private var sand = SandSimulation(particleCount: 1500)
 
     var body: some View {
-        // 30 fps so vibrato (pitch-LFO mod) reads as more alive/active in the
-        // pattern (grid stays 140 to keep the audio render thread clear).
+        // ~30 fps so vibrato breathes. The Chladni FIELD is a GPU fragment
+        // shader (Chladni.metal, per-pixel + sharp) via .colorEffect; the
+        // sand grains overlay on a CPU Canvas on top.
         TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { _ in
-            Canvas { context, size in
-                let activeModes = drawChladni(in: context, size: size)
-                // v1: sand grains rendered on top of the Chladni
-                // pattern, sharing the same TimelineView tick so they
-                // animate at the same 24 fps. activeModes is mirrored
-                // back from drawChladni so we don't double-build the
-                // mode list.
-                sand.stepAndDraw(in: context, size: size,
-                                 modes: activeModes, zoom: zoom)
+            let modes = activeModes()
+            let p = packModes(modes)
+            let count = min(modes.count, 8)
+            GeometryReader { geo in
+                ZStack {
+                    Rectangle()
+                        .fill(.black)
+                        .colorEffect(ShaderLibrary.chladniField(
+                            .float2(Float(geo.size.width), Float(geo.size.height)),
+                            .float(Float(max(0.01, zoom))),
+                            .float(Float(count)),
+                            .float4(p[0].x, p[0].y, p[0].z, p[0].w),
+                            .float4(p[1].x, p[1].y, p[1].z, p[1].w),
+                            .float4(p[2].x, p[2].y, p[2].z, p[2].w),
+                            .float4(p[3].x, p[3].y, p[3].z, p[3].w),
+                            .float4(p[4].x, p[4].y, p[4].z, p[4].w),
+                            .float4(p[5].x, p[5].y, p[5].z, p[5].w),
+                            .float4(p[6].x, p[6].y, p[6].z, p[6].w),
+                            .float4(p[7].x, p[7].y, p[7].z, p[7].w)
+                        ))
+                    Canvas { context, size in
+                        sand.stepAndDraw(in: context, size: size, modes: modes, zoom: zoom)
+                    }
+                }
             }
             .blendMode(.plusLighter)
             .opacity(0.55)
@@ -56,11 +68,9 @@ struct ChladniView: View {
         }
     }
 
-    private func drawChladni(in context: GraphicsContext, size: CGSize) -> [ChladniActiveMode] {
-        // Build the active mode list: up to 4 voices × 2 crossfading modes each.
-        // Top-level type (see ChladniActiveMode at file scope) so the
-        // sand simulation can re-use the same struct from its
-        // stepAndDraw call.
+    /// Build the active mode list: up to 4 voices × 2 crossfading eigenmode
+    /// pairs each. Shared by the GPU field shader and the sand simulation.
+    private func activeModes() -> [ChladniActiveMode] {
         var modes: [ChladniActiveMode] = []
         for (i, osc) in vm.oscillators.enumerated() {
             guard !osc.isMuted else { continue }
@@ -77,112 +87,18 @@ struct ChladniView: View {
                 ))
             }
         }
-
-        let cell = CGSize(width: size.width / CGFloat(grid),
-                          height: size.height / CGFloat(grid))
-
-        let z = max(0.01, zoom)
-
-        // ── PRECOMPUTE per-axis cos LUTs (huge perf win). ────────────────
-        // The Chladni formula `cos(mπx)·cos(nπy) − cos(nπx)·cos(mπy)`
-        // factors cleanly: every cos depends on ONLY x or ONLY y. So we
-        // can precompute, per mode, 4 grid-sized arrays of cos values
-        // once per frame and reduce the per-cell inner loop to 4 array
-        // reads + 2 multiplies.
-        //
-        // Before: G² × M × 4 cos calls per frame
-        //   (140² × 8 modes × 4 = ~627k cos/frame at 24 fps = ~15M cos/s)
-        // After:  G × M × 4 cos calls per frame
-        //   (140 × 8 × 4 = 4,480 cos/frame at 24 fps = ~107k cos/s)
-        //
-        // ~140× reduction. This is the difference between starving the
-        // main thread (which knock-on-effects the audio render thread,
-        // causing crackling on busy presets) and idling at 5% CPU.
-        let G = grid
-        // x[i] and y[j] are post-zoom-transform coords — pre-cache them.
-        var xs = [Double](repeating: 0, count: G)
-        var ys = [Double](repeating: 0, count: G)
-        for i in 0..<G {
-            let screenX = (Double(i) + 0.5) / Double(G)
-            xs[i] = (screenX - 0.5) / z + 0.5
-        }
-        for j in 0..<G {
-            let screenY = (Double(j) + 0.5) / Double(G)
-            ys[j] = (screenY - 0.5) / z + 0.5
-        }
-        // Per-mode cos LUTs along X and Y. Flat row-major: index = mode*G + i.
-        let modeCount = modes.count
-        var cmx = [Double](repeating: 0, count: modeCount * G)
-        var cnx = [Double](repeating: 0, count: modeCount * G)
-        var cmy = [Double](repeating: 0, count: modeCount * G)
-        var cny = [Double](repeating: 0, count: modeCount * G)
-        for (k, v) in modes.enumerated() {
-            let mPi = Double(v.m) * .pi
-            let nPi = Double(v.n) * .pi
-            let base = k * G
-            for i in 0..<G {
-                cmx[base + i] = cos(mPi * xs[i])
-                cnx[base + i] = cos(nPi * xs[i])
-            }
-            for j in 0..<G {
-                cmy[base + j] = cos(mPi * ys[j])
-                cny[base + j] = cos(nPi * ys[j])
-            }
-        }
-
-        for j in 0..<G {
-            for i in 0..<G {
-                let x = xs[i]
-                let y = ys[j]
-
-                var field = 0.0
-                var hueAccum = 0.0
-                var weightAccum = 0.0
-                for (k, v) in modes.enumerated() {
-                    let base = k * G
-                    // Antisymmetric formula via LUT — no cos calls here.
-                    let term = 0.5 * (cmx[base + i] * cny[base + j]
-                                    - cnx[base + i] * cmy[base + j])
-                    field += term * v.weight
-                    hueAccum += v.hue * v.weight
-                    weightAccum += v.weight
-                }
-
-                let mag = abs(field)
-                // Tighter threshold (was 6.0) → thinner, crisper nodal lines,
-                // matching the web shader's `mag * 9` and reducing the soft/
-                // muddy look. Free — same cost as before.
-                var nodeStrength = max(0.0, 1.0 - mag * 9.0)
-
-                // Center-driver bolt: ever-present small sand pile + thin
-                // nodal ring at small radius. Visible in every brusspup frame.
-                let dx = x - 0.5
-                let dy = y - 0.5
-                let rCenter = sqrt(dx * dx + dy * dy)
-                let centerBlob = smoothstep(0.025, 0.015, rCenter)
-                let centerRing = smoothstep(0.012, 0.0, abs(rCenter - 0.075))
-                nodeStrength = max(nodeStrength,
-                                   max(centerBlob * 0.55, centerRing * 0.75))
-
-                guard nodeStrength > 0.04 else { continue }
-
-                let hue = weightAccum > 0 ? (hueAccum / weightAccum) : 0.5
-                let color = Color(
-                    hue: hue,
-                    saturation: 0.25,
-                    brightness: 0.95,
-                    opacity: nodeStrength * 0.85
-                )
-                let rect = CGRect(
-                    x: CGFloat(i) * cell.width,
-                    y: CGFloat(j) * cell.height,
-                    width: cell.width + 0.5,
-                    height: cell.height + 0.5
-                )
-                context.fill(Path(rect), with: .color(color))
-            }
-        }
         return modes
+    }
+
+    /// Pack up to 8 modes into 8 SIMD4 slots — (m, n, weight, hue) each —
+    /// for the fragment shader's eight float4 args. Padded with zeros.
+    private func packModes(_ modes: [ChladniActiveMode]) -> [SIMD4<Float>] {
+        var out = [SIMD4<Float>](repeating: SIMD4<Float>(repeating: 0), count: 8)
+        for (i, mode) in modes.prefix(8).enumerated() {
+            out[i] = SIMD4<Float>(Float(mode.m), Float(mode.n),
+                                  Float(mode.weight), Float(mode.hue))
+        }
+        return out
     }
 
     /// Same hue math as OscillatorState.hue but takes a raw Hz value so we
@@ -247,10 +163,6 @@ struct ChladniView: View {
         return [(a.m, a.n, 1 - t), (b.m, b.n, t)]
     }
 
-    private func smoothstep(_ edge0: Double, _ edge1: Double, _ x: Double) -> Double {
-        let t = max(0, min(1, (x - edge0) / (edge1 - edge0)))
-        return t * t * (3 - 2 * t)
-    }
 }
 
 // MARK: - Sand particle simulation (v1)
