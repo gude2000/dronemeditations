@@ -925,6 +925,11 @@ final class DroneViewModel: ObservableObject {
         // decode as nil — we replace with an empty timeline so the UI
         // reads "Off" and the dispatcher has no events to fire.
         automation = preset.automation ?? AutomationTimeline()
+        // Stop any dispatcher still firing the previous patch's timeline —
+        // otherwise switching presets mid-playback keeps sequencing the old
+        // events until the next Stop→Play. The new timeline (if any) starts
+        // fresh on the next Play.
+        automationDispatcher?.reset()
         // Clear the automation baseline so the next Play captures the
         // newly-loaded preset's state as the fresh baseline — instead of
         // restoring the previous patch's state on top of this one.
@@ -1679,6 +1684,15 @@ final class DroneViewModel: ObservableObject {
             currentKey = p.pitchClass
             currentOctave = max(0, min(7, p.octave))
         }
+        // Built-in presets carry NO automation timeline. Clear any timeline
+        // left over from the previous patch so it doesn't keep sequencing
+        // over this preset — INIT and the Solfeggio/binaural presets are
+        // meant to be static, but a leftover timeline would still fire its
+        // chord-changes/fades (overriding INIT's key + patch) on the next
+        // Play, and an already-running dispatcher would keep firing mid-
+        // playback. Reset both the data and the live dispatcher.
+        automation = AutomationTimeline()
+        automationDispatcher?.reset()
         // Bundled preset load is a new "canonical state" event — clear
         // the automation baseline so the next Play snapshots the just-
         // loaded preset as the new baseline (matching loadUserPreset).
