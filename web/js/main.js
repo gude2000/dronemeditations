@@ -401,10 +401,13 @@ const actions = {
       engine.setPan(i, v.pan);
       engine.setMute(i, state.oscillators[i].isMuted);
 
-      // Clear sample + granular-sample state the preset doesn't specify, so it
-      // doesn't linger — INIT (and other sample-free presets) must not keep the
-      // previous patch's loaded sample or "Grainy" toggle. A preset that loads
-      // a bundled sample re-sets these in the blocks below.
+      // Full clean slate BEFORE the preset's fields apply below (mirrors iOS
+      // resetVoiceForPresetLoad). Anything the incoming preset DOESN'T specify
+      // falls back to a default instead of inheriting the previous patch —
+      // sample, waveform, drive, filter, FM, chorus, reverb, delay feedback,
+      // grain, LFO depth, drift, timing. The `if`-blocks below then override
+      // only what THIS preset defines. The user's quantize-to-scale toggle is
+      // deliberately preserved.
       actions.clearSample(i);
       actions.setSampleGranular(i, false);
       state.oscillators[i].sampleRef = null;
@@ -414,6 +417,67 @@ const actions = {
       state.oscillators[i].sampleFadeOutSec = 0;
       state.oscillators[i].grainSamplePosFrac = 0.5;
       state.oscillators[i].grainSamplePosJitter = 0.2;
+      state.oscillators[i].waveform = "sine";
+      engine.setWaveform(i, "sine");
+      const _defAmp = [0.6, 0.6, 0.55, 0.5][i];
+      state.oscillators[i].amplitude = _defAmp;
+      engine.setAmplitude(i, _defAmp);
+      state.oscillators[i].drive = 1.0;
+      engine.setDrive(i, 1.0);
+      state.oscillators[i].startDelaySec = 0;
+      state.oscillators[i].playDurationSec = 0;
+      state.oscillators[i].replayCount = 1;
+      engine.setStartDelay(i, 0);
+      engine.setPlayDuration(i, 0);
+      engine.setReplayCount(i, 1);
+      {
+        const _f = defaultFilter();
+        state.oscillators[i].filter = _f;
+        engine.setFilterType(i, _f.type);
+        engine.setFilterCutoff(i, _f.cutoffHz);
+        engine.setFilterQ(i, _f.q);
+        const _fm = defaultFM();
+        state.oscillators[i].fm = _fm;
+        engine.setFMSource(i, _fm.sourceIndex);
+        engine.setFMIndex(i, _fm.index);
+        const _ch = defaultChorus();
+        state.oscillators[i].chorus = _ch;
+        engine.setChorusRate(i, _ch.rateHz);
+        engine.setChorusDepth(i, _ch.depth);
+        engine.setChorusWidth(i, _ch.width);
+        engine.setChorusMix(i, _ch.mix);
+        const _rv = defaultReverb();
+        state.oscillators[i].reverb = _rv;
+        engine.setReverbDecay(i, _rv.decaySec);
+        engine.setReverbMix(i, _rv.mix);
+        const _dl = defaultDelay();
+        state.oscillators[i].delay = _dl;
+        engine.setDelayTime(i, _dl.timeSec);
+        engine.setDelayFeedback(i, _dl.feedback);
+        engine.setDelayMix(i, _dl.mix);
+        engine.setDelayMode(i, _dl.mode);
+        const _gr = defaultGrain();
+        state.oscillators[i].grain = _gr;
+        engine.setGrainSize(i, _gr.sizeMs);
+        pushEffectiveGrainDensity(i);
+        engine.setGrainJitter(i, _gr.jitter);
+        engine.setGrainPanSpread(i, _gr.panSpread);
+        engine.setGrainAllowOverlap(i, !!_gr.allowOverlap);
+        state.oscillators[i].lfos = defaultLfos().map((l) => ({ ...l }));
+        for (let k = 0; k < 4 && k < state.oscillators[i].lfos.length; k++) {
+          const _lf = state.oscillators[i].lfos[k];
+          engine.setLfoShape(i, k, _lf.shape);
+          engine.setLfoTargets(i, k, _lf.targets);
+          pushEffectiveLfoRate(i, k);
+          engine.setLfoDepth(i, k, 0);   // depth 0 = inaudible, kills carryover
+        }
+        const _keepQ = state.oscillators[i].drift?.quantizeToScale ?? false;
+        const _dr = { ...defaultDrift(), quantizeToScale: _keepQ };
+        state.oscillators[i].drift = _dr;
+        if (engine.voices && engine.voices[i]) engine.voices[i].pitchQuantizeToScale = !!_keepQ;
+        setVoicePitchDrift(i, _dr.pitchMode);
+        setVoicePanDrift(i, _dr.panMode);
+      }
 
       // ─── Optional rich-voice fields (used by Drone Artists presets) ───
       // Each block is no-op when the preset's voice didn't specify it,
