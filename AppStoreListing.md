@@ -168,6 +168,9 @@ New in this version:
 • BPM and metronome moved to the always-visible top row — no more
   hunting through the master strip, especially in iPhone landscape.
 
+• Sharper cymatics. The Chladni visualizer now renders on the GPU —
+  crisper, smoother nodal patterns.
+
 • Fixes: imported presets now keep their automation, and
   preset-import messages are clearer.
 
