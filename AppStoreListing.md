@@ -148,7 +148,7 @@ phrases waste characters.)
 
 ## 6. What's New in This Version (4000 char max)
 
-For 1.1 (build 12) — **this is the text to paste for the current update:**
+For 1.1 (build 13) — **this is the text to paste for the current update:**
 ```
 New in this version:
 
@@ -161,18 +161,23 @@ New in this version:
   proportion. Loop a passage a set number of times, or let it hold
   until you stop.
 
+• Automation setups. Save a timeline under a name and load it onto
+  any patch later — a reusable library of your favorite progressions
+  and modulation builds.
+
 • BPM and metronome moved to the always-visible top row — no more
   hunting through the master strip, especially in iPhone landscape.
 
-• The free web app at dronemeditations.com now plays shared
-  automation timelines too.
+• Fixes: imported presets now keep their automation, and
+  preset-import messages are clearer.
 
-• Stability and polish.
+The free web app at dronemeditations.com has the full Automation
+Timeline too, so patches animate identically on the web.
 
 Thanks for listening.
 ```
 
-(~620 chars.)
+(~830 chars.)
 
 ---
 

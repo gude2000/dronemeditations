@@ -4,16 +4,17 @@ Release notes are a running record of what's shipped in each version. Each secti
 
 ---
 
-## v1.1 (build 12) — Automation Timeline
+## v1.1 (build 13) — Automation Timeline
 
-*The first post-launch feature update. A per-patch, time-based event sequencer on iOS — plus full automation playback on the web.*
+*The first post-launch feature update. A per-patch, time-based event sequencer on iOS — plus a reusable setups library, and full automation edit + playback on the web.*
 
 ### What's New in This Version  *(App Store copy)*
 
 - **Automation Timeline.** A new AUTOMATION pill opens a per-patch sequencer. Schedule chord progressions, fades, waveform/sample switches, level and mute changes, and LFO rate/depth moves at bar + beat positions. Chord changes transpose your voicing — so layered drones keep their character — and positions are tempo-relative, so changing the BPM rescales the whole phrase in proportion. Loop a passage a set number of times, or let it hold until you stop.
+- **Automation setups.** Save a timeline under a name and load it onto any patch later — a reusable library of favorite progressions and modulation builds.
 - **BPM & metronome in the header.** The tempo readout and metronome toggle now live in the always-visible top row — no more hunting through the master strip, especially in iPhone landscape.
-- **The web app plays shared timelines.** A patch automated on iOS now animates in the browser at dronemeditations.com.
-- Stability and polish fixes.
+- **Fixes:** imported presets keep their automation; preset-import messages are clearer.
+- The free web app at dronemeditations.com has the full Automation Timeline too, so patches animate identically on the web.
 
 ---
 
