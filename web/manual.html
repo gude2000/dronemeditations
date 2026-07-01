@@ -997,6 +997,8 @@ SUBTITLES = {
   <h2><span class="num">12</span>Chladni visualization</h2>
   <p class="lede">A physically-calibrated render of how each frequency would vibrate a square plate.</p>
 
+  <p>The field is drawn per-pixel on the <strong>GPU</strong> on both platforms — a WebGL fragment shader on the web and a Metal shader on iOS — so the nodal lines stay sharp and animate smoothly with vibrato at any zoom, at low CPU cost. Sand grains ride on top.</p>
+
   <p>The frequency → pattern mapping was fit from <strong>17 brusspup demo frames</strong> (345 Hz → 6051 Hz), where each frame was visually identified as a (m,n) antisymmetric eigenmode on a thin square plate:</p>
   <p style="text-align:center; font-family: ui-monospace,monospace; font-size:14px; color:var(--accent); padding: 8px 0;">
     f(m, n) ≈ K · (m² + n²),  K ≈ 18.6 ± 0.8 Hz
