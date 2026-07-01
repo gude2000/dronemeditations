@@ -681,7 +681,7 @@ function buildStrip(index) {
            buffer at jittered positions — Tibetan-bowl shimmer,
            Basinski tape-decay clouds, vowel sustains. The existing
            GRAIN row sliders (size/density/jitter/spread) apply. -->
-      <button type="button" class="sample-button" data-role="sample-grainy" title="Granular sampling — replaces continuous loop with Hann-windowed slices from the sample buffer (uses the GRAIN row sliders below)">Grainy</button>
+      <button type="button" class="sample-button" data-role="sample-grainy" title="Granular sampling — replaces continuous loop with Hann-windowed slices from the sample buffer (uses the GRAIN row sliders below)">Granular</button>
       <button type="button" class="sample-bookmark" data-role="sample-save-library" title="Save to my browser library — appears in Bundled ▾ on next visit" hidden>🔖</button>
       <button type="button" class="sample-clear" data-role="sample-clear" hidden>Clear</button>
     </div>
