@@ -1719,8 +1719,14 @@ function buildAutomationSheet() {
 }
 
 // ── the per-event editor ──
+// iOS AutomationEvent.id is a Swift UUID, so ids MUST be valid UUID strings
+// or the .dronepreset fails to decode on import. Use a real v4 UUID.
 function autoNewId() {
-  return "ev_" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+  });
 }
 function autoDefaultActionFor(type) {
   const s = getState();
@@ -1752,7 +1758,9 @@ function autoDefaultEvent() {
     id: autoNewId(),
     gridSixteenth: nextGrid,
     timeSec: nextGrid * sps,
-    voice: "all",
+    // iOS VoiceFilter.all encodes as {"all":{}} (keyed enum container), not
+    // the bare string "all" — match it so timelines decode on iOS.
+    voice: { all: {} },
     action: { chordChange: { keyRaw: s.keyId, chordId: autoChordNameForId(s.chordId) } },
     transposeDirection: "nearest",
     chordDuration: "one",
@@ -1887,7 +1895,7 @@ function renderAutomationEditor() {
 
   document.getElementById("auto-voice").onchange = (e) => {
     const i = parseInt(e.target.value, 10);
-    d.voice = (i < 0) ? "all" : { oscillator: { _0: i } };
+    d.voice = (i < 0) ? { all: {} } : { oscillator: { _0: i } };
   };
   document.getElementById("auto-type").onchange = (e) => {
     applyPos();

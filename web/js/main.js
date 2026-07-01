@@ -11,10 +11,10 @@ import {
   pitchToFrequency, chordFrequencies, FREQ_MIN, FREQ_MAX
 } from "./music.js?v=43";
 import { AudioEngine } from "./audio.js?v=43";
-import { initUI, renderAll } from "./ui.js?v=44";
+import { initUI, renderAll } from "./ui.js?v=45";
 import {
   exportUserPresetDownload, importUserPresetFromFile
-} from "./preset-sharing.js?v=43";
+} from "./preset-sharing.js?v=44";
 import { initVisualizations, setChladniVisible, setSpectrumVisible } from "./visualizations.js?v=43";
 import {
   loadUserPresets, saveUserPresets, newPresetId, newSampleId,

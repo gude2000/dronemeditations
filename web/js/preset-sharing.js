@@ -44,6 +44,38 @@ function ensureDecoderCtx() {
 // Pack a saved preset + every IndexedDB sample blob it references into
 // a single .dronepreset JSON file and trigger a browser download.
 // Returns true on success, false if the preset id wasn't found.
+// ── Automation cross-platform normalization ──
+// iOS decodes the `automation` payload with Swift's synthesized Codable,
+// which is stricter than the web's tolerant parser:
+//   • AutomationEvent.id is a `UUID` — a non-UUID string ("ev_x8k2…")
+//     fails with "Attempted to decode UUID from invalid UUID string."
+//   • VoiceFilter.all encodes as {"all":{}} (keyed enum container), NOT
+//     the bare string "all" — same synthesizer that yields
+//     {"oscillator":{"_0":i}}. A bare "all" fails to decode as VoiceFilter.
+// Older web-authored timelines (and the web editor before this fix) wrote
+// both bad shapes. Normalize at export so every .dronepreset is
+// iOS-decodable, repairing already-saved presets on the way out.
+const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+function makeUuid() {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+function normalizeAutomationForExport(automation) {
+  if (!automation || !Array.isArray(automation.events)) return automation;
+  return {
+    ...automation,
+    events: automation.events.map((ev) => {
+      const out = { ...ev };
+      if (!UUID_RE.test(out.id)) out.id = makeUuid();
+      if (out.voice === "all") out.voice = { all: {} };
+      return out;
+    }),
+  };
+}
+
 export async function exportUserPresetDownload(presetId) {
   const presets = loadUserPresets();
   const p = presets.find((x) => x.id === presetId);
@@ -107,6 +139,9 @@ export async function exportUserPresetDownload(presetId) {
   // without needing translateWebEnumStrings to fall back to sampleRef.
   const exportedPreset = {
     ...p,
+    // Repair automation event ids (→ UUID) + voice "all" (→ {all:{}}) so
+    // the payload decodes on iOS.
+    ...(p.automation ? { automation: normalizeAutomationForExport(p.automation) } : {}),
     oscillators: (p.oscillators || []).map((v) => {
       if (!v) return v;
       const newName = v.sampleRef && idRename.get(v.sampleRef.id);

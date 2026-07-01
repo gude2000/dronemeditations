@@ -34,7 +34,7 @@ The web app now **plays** the Automation Timeline, not just stores it. A patch s
 ### Notes
 
 - Sample-waveform events resolve the named bundled sample from `./samples/index.json` (best-effort; falls back to flipping waveform mode if the name isn't found in the web library).
-- **Full web editor.** The web app now also has the AUTOMATION pill, event-list sheet, and bar/beat event editor (all 8 action types) — build and edit timelines in the browser, not just play them. Events are written in the iOS-Codable shape (chord NAME as `chordId`) so they round-trip through `.dronepreset` and animate identically on either platform. Cache-bust bumped to `main.js?v=47`, `ui.js?v=44`, `styles.css?v=14`.
+- **Full web editor.** The web app now also has the AUTOMATION pill, event-list sheet, and bar/beat event editor (all 8 action types) — build and edit timelines in the browser, not just play them. Events are written in the iOS-Codable shape (event `id` as a real **UUID**, `VoiceFilter.all` as `{"all":{}}`, chord NAME as `chordId`) so they decode on iOS and round-trip through `.dronepreset` identically. The exporter also **normalizes older/legacy web timelines** (bad ids → UUID, `"all"` → `{"all":{}}`) so already-saved presets export iOS-valid. Cache-bust: `main.js?v=48`, `ui.js?v=45`, `preset-sharing.js?v=44`, `styles.css?v=14`.
 
 ---
 
