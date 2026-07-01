@@ -1684,12 +1684,14 @@ final class DroneViewModel: ObservableObject {
             currentKey = p.pitchClass
             currentOctave = max(0, min(7, p.octave))
         }
-        // If the preset names a chord template, snap the pill to it. INIT
-        // uses this to read "A Major" (matching its A-major voicing) instead
-        // of inheriting the previous patch's mode. Presets that don't specify
-        // one keep the current template unchanged.
-        if let cid = preset.chordId,
-           let chord = ChordType.all.first(where: { $0.id == cid }) {
+        // Snap the chord template: the preset's own chordId if it names one,
+        // else default to Major. Bundled presets are raw frequencies with no
+        // chord of their own, so without the fallback the previous patch's
+        // MODE carried over (e.g. Lydian Dream → Solfeggio kept "Lydian" — the
+        // key changed but the mode stuck). Defaulting to Major makes every load
+        // self-consistent. Matches the web app. (INIT sets "Major" explicitly.)
+        let cid = preset.chordId ?? "Major"
+        if let chord = ChordType.all.first(where: { $0.id == cid }) {
             currentChord = chord
         }
         // Built-in presets carry NO automation timeline. Clear any timeline

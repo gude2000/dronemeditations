@@ -4,11 +4,13 @@ Release notes are a running record of what's shipped in each version. Each secti
 
 ---
 
-## v1.1 (build 14) — Preset-load reliability
+## v1.1 (build 15) — Preset-load reliability
 
-*Supersedes build 13 (same 1.1 feature set + What's New). Two reliability fixes found in testing.*
+*Supersedes builds 13–14 (same 1.1 feature set + What's New). Reliability fixes found in testing.*
 
 ### Fixes
+
+- **Loading a preset resets the chord mode.** Bundled presets are raw frequencies with no chord of their own, so the previous patch's *mode* used to carry over — e.g. Lydian Dream → Solfeggio updated the key but stayed "Lydian." Every preset load now snaps the chord template to **Major** unless the preset names its own chord (INIT sets "Major" explicitly). Web + iOS.
 
 - **Loading a preset no longer inherits the previous patch's sound.** The built-in preset picker (`applyPreset`) applied each voice's effects with `if let`, so any parameter the incoming preset didn't specify — drive, FM, waveform, filter, delay feedback, granular — kept the value from the patch you were just on. Switching from a "driven"/distorted patch to a simpler one left the distortion stuck until the app was relaunched. Both load paths (`applyPreset` for bundled presets and `loadUserPreset` for saved/shared presets) now reset every voice's full DSP chain to defaults **before** applying the preset's own fields, so every load starts from a clean slate — matching a fresh launch. Your per-voice quantize-to-scale toggle is deliberately preserved.
 - **Automation timeline no longer carries over to presets that have none.** Loading a built-in preset (INIT, Solfeggio, binaural, …) left the previous patch's Automation Timeline in place — so its chord-changes/fades kept sequencing over the new preset (INIT would seem to load in the wrong key, not clean). `applyPreset` now clears the timeline and stops the live dispatcher; `loadUserPreset` also stops any dispatcher still firing the old timeline mid-playback. INIT is once again a true rescue gesture.
