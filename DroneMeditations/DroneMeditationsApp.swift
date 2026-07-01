@@ -57,11 +57,9 @@ struct DroneMeditationsApp: App {
                 // and bounces out without side effects. Same safety,
                 // works for every transport.
                 //
-                // Alert behavior: simple "Imported '<name>'" on
-                // success (everything the user needs — confirmation +
-                // preset name). Failures keep the verbose URL + JSON
-                // dump so we can diagnose on physical devices without
-                // attaching a debugger.
+                // Alert behavior: simple "Imported '<name>'" on success,
+                // and a clean "Couldn't import …" reason on failure — no
+                // raw URL / JSON dump in front of the user.
                 .onOpenURL { url in
                     let scoped = url.startAccessingSecurityScopedResource()
                     defer { if scoped { url.stopAccessingSecurityScopedResource() } }
@@ -77,50 +75,26 @@ struct DroneMeditationsApp: App {
                         return
                     }
 
-                    // Failure path — gather diagnostic detail. Same
-                    // shape as before so we can keep debugging
-                    // round-trips on physical devices.
-                    let basics = """
-                    URL fired:
-                    • lastPath: \(url.lastPathComponent)
-                    • ext: \(url.pathExtension.isEmpty ? "(none)" : url.pathExtension)
-                    • scheme: \(url.scheme ?? "(none)")
-                    • isFileURL: \(url.isFileURL)
-                    """
-                    let sizeLine: String
-                    var jsonHead: String = ""
-                    if let data = try? Data(contentsOf: url) {
-                        sizeLine = "• readable: yes (\(data.count) bytes)"
-                        if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                            let keys = obj.keys.sorted().joined(separator: ", ")
-                            jsonHead = "\n• top-level keys: [\(keys)]"
-                            if let v = obj["version"] {
-                                jsonHead += "\n• version: \(v)"
-                            }
-                            if let p = obj["preset"] as? [String: Any] {
-                                let pk = p.keys.sorted().prefix(8).joined(separator: ", ")
-                                jsonHead += "\n• preset keys (first 8): [\(pk)…]"
-                            }
-                            if let s = obj["samples"] as? [Any] {
-                                jsonHead += "\n• samples count: \(s.count)"
-                            }
-                        } else {
-                            jsonHead = "\n• JSON parse: NOT a top-level object"
-                        }
-                    } else {
-                        sizeLine = "• readable: NO (Data(contentsOf:) failed)"
-                    }
-                    // Re-try at this layer to capture the specific
-                    // ImportError (importUserPreset swallows it).
-                    var errLine = "IMPORT FAILED (unknown — importer returned nil)"
+                    // Failure path — a clean, user-facing message. We still
+                    // ask the importer for the underlying reason so a
+                    // version mismatch says something useful, but we no
+                    // longer show the raw URL / JSON / decode internals.
+                    var reason = "This file couldn't be read as a Drone Meditations preset."
                     do {
                         _ = try UserPresetSharing.importPreset(from: url)
                     } catch let e as UserPresetSharing.ImportError {
-                        errLine = "IMPORT FAILED: \(e.errorDescription ?? "ImportError")"
+                        switch e {
+                        case .unsupportedVersion:
+                            reason = e.errorDescription ?? reason
+                        case .readFailed:
+                            reason = "The file couldn't be opened. Try sharing it again."
+                        case .decodeFailed, .decodeFailedDetail:
+                            reason = "The file appears to be damaged, or was made with a newer version of the app."
+                        }
                     } catch {
-                        errLine = "IMPORT FAILED: \(error.localizedDescription)"
+                        reason = "Something went wrong reading the file."
                     }
-                    importDiagnostic = "\(basics)\n\(sizeLine)\(jsonHead)\n\n\(errLine)"
+                    importDiagnostic = "Couldn't import \"\(url.lastPathComponent)\".\n\n\(reason)"
                 }
                 .alert(
                     "Preset Import",

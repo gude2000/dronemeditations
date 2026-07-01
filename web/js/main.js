@@ -222,6 +222,10 @@ const state = {
   showChladni: true,
   showSpectrum: false,
   activePresetName: null,
+  // Id of the user-library preset currently loaded (null for built-ins or
+  // a fresh patch). When set, automation edits auto-sync back into this
+  // stored preset so Share/export always sends the current timeline.
+  activeUserPresetId: null,
 
   // Randomize-all snapshot (single-level undo). Captured by
   // actions.randomizeAll just before it rolls; consumed by
@@ -380,6 +384,7 @@ const actions = {
     // one and reset the baseline so it doesn't bleed into this patch.
     delete state._automation;
     automationPlayer.invalidate();
+    state.activeUserPresetId = null;   // no user-library preset is active now
     for (let i = 0; i < 4; i++) {
       const v = p.voices[i];
       const hz = Math.max(FREQ_MIN, Math.min(FREQ_MAX, v.hz));
@@ -831,12 +836,14 @@ const actions = {
     tl.totalBars = (barsOrNull == null) ? null : Math.max(0, barsOrNull);
     tl.loop = tl.totalBars != null && tl.totalBars > 0;
     automationPlayer.invalidate();
+    persistAutomationToActivePreset();
     renderAll();
   },
   setAutomationLoopCount(n) {
     const tl = ensureAutomation();
     tl.loopCount = Math.max(0, n | 0);
     automationPlayer.invalidate();
+    persistAutomationToActivePreset();
     renderAll();
   },
   upsertAutomationEvent(ev) {
@@ -844,12 +851,14 @@ const actions = {
     const i = tl.events.findIndex((e) => e.id === ev.id);
     if (i >= 0) tl.events[i] = ev; else tl.events.push(ev);
     automationPlayer.invalidate();
+    persistAutomationToActivePreset();
     renderAll();
   },
   deleteAutomationEvent(id) {
     const tl = ensureAutomation();
     tl.events = tl.events.filter((e) => e.id !== id);
     automationPlayer.invalidate();
+    persistAutomationToActivePreset();
     renderAll();
   },
 
@@ -1504,12 +1513,16 @@ const actions = {
     state.userPresets = [preset, ...state.userPresets];
     saveUserPresets(state.userPresets);
     state.activePresetName = preset.name;
+    // The just-saved preset is now active — later automation edits sync here.
+    state.activeUserPresetId = preset.id;
     renderAll();
   },
 
   async loadUserPreset(id) {
     const preset = state.userPresets.find((p) => p.id === id);
     if (!preset) return;
+    // This preset is now the active one — automation edits sync back here.
+    state.activeUserPresetId = id;
     engine.ensureStarted(state.oscillators);
     engine.resume();
     state.keyId = preset.keyId ?? state.keyId;
@@ -1522,7 +1535,9 @@ const actions = {
     // for v1.1 the field is just stored so it's not lost when a web
     // user saves a patch they got from iOS.
     if (preset.automation) {
-      state._automation = preset.automation;
+      // Deep-clone so live edits don't mutate the stored preset until the
+      // auto-sync writes them back explicitly.
+      state._automation = JSON.parse(JSON.stringify(preset.automation));
     } else {
       delete state._automation;
     }
@@ -2752,6 +2767,27 @@ function ensureAutomation() {
   }
   if (!Array.isArray(state._automation.events)) state._automation.events = [];
   return state._automation;
+}
+
+/// Auto-sync: when a user-library preset is loaded, write automation edits
+/// straight back into that stored preset (and localStorage) so Share/export
+/// always ships the current timeline — no manual "Save current…" needed.
+/// No-op for built-ins / fresh patches (no active user preset).
+function persistAutomationToActivePreset() {
+  const id = state.activeUserPresetId;
+  if (!id) return;
+  const list = state.userPresets || [];
+  const i = list.findIndex((p) => p.id === id);
+  if (i < 0) return;
+  const tl = state._automation;
+  if (tl && Array.isArray(tl.events) && tl.events.length > 0) {
+    list[i] = { ...list[i], automation: JSON.parse(JSON.stringify(tl)) };
+  } else {
+    const { automation, ...rest } = list[i];   // emptied timeline → drop the field
+    list[i] = rest;
+  }
+  state.userPresets = list;
+  saveUserPresets(list);
 }
 
 const automationPlayer = {

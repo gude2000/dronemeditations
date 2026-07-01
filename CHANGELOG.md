@@ -34,7 +34,10 @@ The web app now **plays** the Automation Timeline, not just stores it. A patch s
 ### Notes
 
 - Sample-waveform events resolve the named bundled sample from `./samples/index.json` (best-effort; falls back to flipping waveform mode if the name isn't found in the web library).
-- **Full web editor.** The web app now also has the AUTOMATION pill, event-list sheet, and bar/beat event editor (all 8 action types) — build and edit timelines in the browser, not just play them. Events are written in the iOS-Codable shape (event `id` as a real **UUID**, `VoiceFilter.all` as `{"all":{}}`, chord NAME as `chordId`) so they decode on iOS and round-trip through `.dronepreset` identically. The exporter also **normalizes older/legacy web timelines** (bad ids → UUID, `"all"` → `{"all":{}}`) so already-saved presets export iOS-valid. Cache-bust: `main.js?v=48`, `ui.js?v=45`, `preset-sharing.js?v=44`, `styles.css?v=14`.
+- **Full web editor.** The web app now also has the AUTOMATION pill, event-list sheet, and bar/beat event editor (all 8 action types) — build and edit timelines in the browser, not just play them. Events are written in the iOS-Codable shape (event `id` as a real **UUID**, `VoiceFilter.all` as `{"all":{}}`, chord NAME as `chordId`) so they decode on iOS and round-trip through `.dronepreset` identically. The exporter also **normalizes older/legacy web timelines** (bad ids → UUID, `"all"` → `{"all":{}}`) so already-saved presets export iOS-valid.
+- **Automation edits auto-sync to the loaded preset (web).** When a user-library preset is loaded, editing its timeline writes straight back into that stored preset — so Share/export always ships the *current* timeline with no manual "Save current…" first. Tracked via `state.activeUserPresetId`.
+- **Clean import result on iOS.** The `.dronepreset` import alert now shows a friendly "Couldn't import … — the file appears to be damaged, or was made with a newer version" (or the specific version-mismatch reason) instead of the raw URL / JSON-keys / decode-internals debug dump. (Rides the next iOS build.)
+- Cache-bust: `main.js?v=49`, `ui.js?v=45`, `preset-sharing.js?v=44`, `styles.css?v=14`.
 
 ---
 
