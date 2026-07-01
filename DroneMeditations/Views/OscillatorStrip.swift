@@ -256,7 +256,10 @@ struct OscillatorStrip: View {
 
     @ViewBuilder
     private var sampleSection: some View {
-        HStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
+          // Row 1 — pick a source: bundled library or a file. Record + the
+          // loaded-file name / Clear live on row 2 so nothing bunches up.
+          HStack(spacing: 10) {
             Text("SAMPLE")
                 .font(.system(size: isPad ? 12 : 9, weight: .heavy))
                 .foregroundStyle(.secondary)
@@ -305,9 +308,13 @@ struct OscillatorStrip: View {
             }
             .buttonStyle(.plain)
 
+            Spacer()
+          }
+
+          // Row 2 — record a new sample, plus the loaded file + Clear.
+          HStack(spacing: 10) {
             // Record straight into this voice's sample slot — moved here from
-            // the strip header and labeled (mirrors the web "Record Sample").
-            // Grouped with the other sample-source buttons.
+            // the strip header, labeled (mirrors the web "Record Sample").
             Button {
                 showingRecordSheet = true
             } label: {
@@ -339,13 +346,14 @@ struct OscillatorStrip: View {
             }
 
             // Sample name last: its maxWidth:.infinity fills the trailing
-            // space so the source buttons stay grouped on the left (empty = —).
+            // space so Record + Clear stay grouped on the left (empty = —).
             Text(osc.sampleName ?? "—")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .frame(maxWidth: .infinity, alignment: .leading)
+          }
         }
 
         // Play-window sub-row: only shown when a sample is actually loaded.
