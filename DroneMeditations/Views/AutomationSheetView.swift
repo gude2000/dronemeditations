@@ -23,6 +23,11 @@ struct AutomationSheetView: View {
         var id: UUID { event.id }
     }
 
+    // Automation-setups library state.
+    @State private var showSaveSetupAlert = false
+    @State private var setupName = ""
+    @State private var pendingLoad: AutomationSetup?
+
     var body: some View {
         NavigationStack {
             Form {
@@ -86,6 +91,39 @@ struct AutomationSheetView: View {
                         }
                     }
                 }
+
+                // Reusable setups library — save the current timeline under a
+                // name and load it onto any patch later.
+                Section {
+                    if vm.automationSetups.isEmpty {
+                        Text("No saved setups. Build a timeline, then Save to reuse it on any patch.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(vm.automationSetups) { setup in
+                            Button { pendingLoad = setup } label: { setupRow(setup) }
+                                .buttonStyle(.plain)
+                                .swipeActions {
+                                    Button(role: .destructive) {
+                                        vm.deleteAutomationSetup(id: setup.id)
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                }
+                        }
+                    }
+                } header: {
+                    HStack {
+                        Text("Saved setups").font(.caption)
+                        Spacer()
+                        Button("Save current…") {
+                            setupName = ""
+                            showSaveSetupAlert = true
+                        }
+                        .font(.caption)
+                        .disabled(vm.automation.events.isEmpty)
+                    }
+                }
             }
             .navigationTitle("Automation")
             .navigationBarTitleDisplayMode(.inline)
@@ -107,10 +145,52 @@ struct AutomationSheetView: View {
                 )
                 .environmentObject(vm)
             }
+            .alert("Save automation setup", isPresented: $showSaveSetupAlert) {
+                TextField("Name", text: $setupName)
+                Button("Cancel", role: .cancel) { }
+                Button("Save") { vm.saveAutomationSetup(name: setupName) }
+            } message: {
+                Text("Save the current timeline as a reusable setup you can load onto any patch.")
+            }
+            .alert(
+                "Load setup?",
+                isPresented: Binding(
+                    get: { pendingLoad != nil },
+                    set: { if !$0 { pendingLoad = nil } }
+                ),
+                presenting: pendingLoad
+            ) { setup in
+                Button("Cancel", role: .cancel) { pendingLoad = nil }
+                Button("Load") {
+                    vm.loadAutomationSetup(id: setup.id)
+                    pendingLoad = nil
+                }
+            } message: { setup in
+                Text(vm.automation.events.isEmpty
+                     ? "Load \u{201C}\(setup.name)\u{201D} onto this patch."
+                     : "Replace the current timeline with \u{201C}\(setup.name)\u{201D}?")
+            }
         }
     }
 
     // MARK: - Subviews
+
+    private func setupRow(_ setup: AutomationSetup) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(setup.name)
+                    .font(.subheadline)
+                    .foregroundStyle(.primary)
+                Text("\(setup.timeline.events.count) event\(setup.timeline.events.count == 1 ? "" : "s")")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Image(systemName: "arrow.down.circle")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+        }
+    }
 
     // Loop LENGTH in bars (tempo-accurate). navigationLink style for the
     // same re-render/tap-region robustness as the editor pickers. A bar

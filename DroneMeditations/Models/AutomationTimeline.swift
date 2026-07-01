@@ -247,6 +247,38 @@ struct AutomationTimeline: Codable, Equatable {
     }
 }
 
+// MARK: - AutomationSetup (reusable named timeline)
+
+/// A saved, reusable Automation Timeline — a local library entry the user
+/// can save the current timeline into and load onto any patch later,
+/// independent of the sound. Persisted as JSON in UserDefaults, mirroring
+/// `VoicePresetStore`. Per-device; a full preset's automation still
+/// round-trips cross-device via `.dronepreset`.
+struct AutomationSetup: Codable, Identifiable {
+    let id: String
+    var name: String
+    let createdAt: Date
+    var timeline: AutomationTimeline
+
+    static func newId() -> String {
+        "auto-\(UUID().uuidString.prefix(8).lowercased())"
+    }
+}
+
+enum AutomationSetupStore {
+    private static let key = "dronemeditations.automationSetups"
+
+    static func load() -> [AutomationSetup] {
+        guard let data = UserDefaults.standard.data(forKey: key) else { return [] }
+        return (try? JSONDecoder().decode([AutomationSetup].self, from: data)) ?? []
+    }
+
+    static func save(_ list: [AutomationSetup]) {
+        guard let data = try? JSONEncoder().encode(list) else { return }
+        UserDefaults.standard.set(data, forKey: key)
+    }
+}
+
 // MARK: - Codable shape note
 //
 // `AutomationAction` uses Swift's synthesized enum-with-associated-values

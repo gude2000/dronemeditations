@@ -14,7 +14,7 @@ import { startListening, stopListening, freqToNote, listInputDevices, switchInpu
 import { initMIDI, midiToKeyOctave } from "./midi.js?v=43";
 import {
   loadSnapshotMeta, saveSnapshotMeta, getSnapshotBlob, deleteSnapshotBlob
-} from "./storage.js?v=43";
+} from "./storage.js?v=44";
 
 const WAVEFORM_SVG = {
   sine:     '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12c3-7 7-7 10 0s7 7 10 0"/></svg>',
@@ -1716,6 +1716,56 @@ function buildAutomationSheet() {
     });
   }
   document.getElementById("automation-add").onclick = () => openAutomationEditor(null);
+
+  buildAutomationSetups();
+}
+
+/// Render the saved-setups library (reusable named timelines) + wire the
+/// "Save current…" button. Loading a setup replaces the current timeline.
+function buildAutomationSetups() {
+  const setups = getState().automationSetups || [];
+  const listEl = document.getElementById("automation-setups-list");
+  if (!setups.length) {
+    listEl.innerHTML = `<div class="automation-empty">No saved setups. Build a timeline, then “Save current…” to reuse it on any patch.</div>`;
+  } else {
+    listEl.innerHTML = setups.map((s) => {
+      const n = (s.timeline?.events || []).length;
+      return `<div class="automation-row" data-setup="${escapeHtml(s.id)}">
+        <button class="automation-row-main" type="button">
+          <span class="automation-row-body">
+            <span class="automation-row-title">${escapeHtml(s.name)}</span>
+            <span class="automation-row-sub">${n} event${n === 1 ? "" : "s"}</span>
+          </span>
+        </button>
+        <button class="automation-del" type="button" title="Delete setup">✕</button>
+      </div>`;
+    }).join("");
+    listEl.querySelectorAll(".automation-row").forEach((row) => {
+      const id = row.dataset.setup;
+      row.querySelector(".automation-row-main").onclick = () => {
+        const cur = (getState()._automation?.events || []).length;
+        if (cur > 0 && !confirm("Replace the current timeline with this saved setup?")) return;
+        dispatch.loadAutomationSetup(id);
+        buildAutomationSheet();
+      };
+      row.querySelector(".automation-del").onclick = () => {
+        dispatch.deleteAutomationSetup(id);
+        buildAutomationSetups();
+      };
+    });
+  }
+  document.getElementById("automation-save-setup").onclick = () => {
+    const cur = getState()._automation;
+    if (!cur || !(cur.events || []).length) {
+      alert("Add at least one event before saving a setup.");
+      return;
+    }
+    const name = prompt("Name this automation setup:");
+    if (name && name.trim()) {
+      dispatch.saveAutomationSetup(name.trim());
+      buildAutomationSetups();
+    }
+  };
 }
 
 // ── the per-event editor ──

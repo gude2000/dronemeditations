@@ -124,6 +124,31 @@ export function newVoicePresetId() {
   return `voice-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+// ─── automation setups (localStorage) ────────────────────────
+//
+// Reusable, named Automation Timelines — a local library you can save the
+// current timeline into and load onto any patch later, independent of the
+// sound. Schema: { id, name, createdAt, timeline: <AutomationTimeline in
+// the iOS-Codable shape> }. Per-device (like voice presets); a full
+// preset's automation still round-trips cross-device via .dronepreset.
+
+const AUTOMATION_SETUPS_KEY = "dronemeditations:automation-setups";
+
+export function loadAutomationSetups() {
+  try {
+    const raw = localStorage.getItem(AUTOMATION_SETUPS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+export function saveAutomationSetups(list) {
+  localStorage.setItem(AUTOMATION_SETUPS_KEY, JSON.stringify(list));
+}
+
+export function newAutomationSetupId() {
+  return `auto-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 // ─── user journeys (localStorage) ────────────────────────────
 //
 // Schema: { id, name, description, createdAt, stages: [{ durationSec,

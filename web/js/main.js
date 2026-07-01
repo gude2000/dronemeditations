@@ -11,18 +11,19 @@ import {
   pitchToFrequency, chordFrequencies, FREQ_MIN, FREQ_MAX
 } from "./music.js?v=43";
 import { AudioEngine } from "./audio.js?v=43";
-import { initUI, renderAll } from "./ui.js?v=45";
+import { initUI, renderAll } from "./ui.js?v=46";
 import {
   exportUserPresetDownload, importUserPresetFromFile
-} from "./preset-sharing.js?v=44";
+} from "./preset-sharing.js?v=45";
 import { initVisualizations, setChladniVisible, setSpectrumVisible } from "./visualizations.js?v=43";
 import {
   loadUserPresets, saveUserPresets, newPresetId, newSampleId,
   loadVoicePresets, saveVoicePresets, newVoicePresetId,
   loadUserJourneys, saveUserJourneys, newUserJourneyId,
   loadLibrarySamples, saveLibrarySamples,
+  loadAutomationSetups, saveAutomationSetups, newAutomationSetupId,
   putSample, getSample, deleteSample
-} from "./storage.js?v=43";
+} from "./storage.js?v=44";
 
 // ──────────────────────────────────────────────────
 // State.
@@ -260,6 +261,10 @@ const state = {
   // (freq, waveform, pan, amp, filter, reverb, delay, LFOs, drift) so the
   // user can mix-and-match favorite voices across slots.
   voicePresets: loadVoicePresets(),
+
+  // Reusable automation setups — a local library of named Automation
+  // Timelines you can save the current one into and load onto any patch.
+  automationSetups: loadAutomationSetups(),
 
   // User-defined journeys — scripted multi-stage meditation sessions the
   // user has composed. Same shape as built-in JOURNEYS but persisted in
@@ -859,6 +864,37 @@ const actions = {
     tl.events = tl.events.filter((e) => e.id !== id);
     automationPlayer.invalidate();
     persistAutomationToActivePreset();
+    renderAll();
+  },
+
+  // ── Automation setups library (reusable named timelines) ──
+  saveAutomationSetup(name) {
+    const trimmed = (name || "").trim();
+    if (!trimmed) return null;
+    const tl = state._automation;
+    if (!tl || !Array.isArray(tl.events) || tl.events.length === 0) return null;
+    const setup = {
+      id: newAutomationSetupId(),
+      name: trimmed,
+      createdAt: new Date().toISOString(),
+      timeline: JSON.parse(JSON.stringify(tl)),
+    };
+    state.automationSetups = [setup, ...(state.automationSetups || [])];
+    saveAutomationSetups(state.automationSetups);
+    renderAll();
+    return setup.id;
+  },
+  loadAutomationSetup(id) {
+    const s = (state.automationSetups || []).find((x) => x.id === id);
+    if (!s || !s.timeline) return;
+    state._automation = JSON.parse(JSON.stringify(s.timeline));
+    automationPlayer.invalidate();
+    persistAutomationToActivePreset();   // sync onto the loaded preset, if any
+    renderAll();
+  },
+  deleteAutomationSetup(id) {
+    state.automationSetups = (state.automationSetups || []).filter((x) => x.id !== id);
+    saveAutomationSetups(state.automationSetups);
     renderAll();
   },
 

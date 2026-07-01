@@ -119,6 +119,10 @@ final class DroneViewModel: ObservableObject {
     /// Per-voice presets — capture/restore a single oscillator's full state
     /// so favorite voices can be mixed and matched across the four slots.
     @Published var voicePresets: [VoicePreset] = VoicePresetStore.load()
+    /// Reusable automation setups — a local library of named Automation
+    /// Timelines the user can save the current one into and load onto any
+    /// patch, independent of the sound.
+    @Published var automationSetups: [AutomationSetup] = AutomationSetupStore.load()
     /// User-composed journeys — scripted multi-stage sessions saved in
     /// UserDefaults. Same shape as built-in `Journey`; resolved alongside
     /// `Journey.all` at startJourney lookup time.
@@ -3078,5 +3082,35 @@ final class DroneViewModel: ObservableObject {
     /// How many times to play the loop. 0 = forever; N>=1 = N times.
     func setAutomationLoopCount(_ count: Int) {
         automation.loopCount = max(0, count)
+    }
+
+    // MARK: - Automation setups library
+
+    /// Save the current timeline as a reusable named setup. No-op for an
+    /// empty timeline or a blank name.
+    func saveAutomationSetup(name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !automation.events.isEmpty else { return }
+        let setup = AutomationSetup(
+            id: AutomationSetup.newId(),
+            name: trimmed,
+            createdAt: Date(),
+            timeline: automation
+        )
+        automationSetups.insert(setup, at: 0)
+        AutomationSetupStore.save(automationSetups)
+    }
+
+    /// Replace the current timeline with a saved setup, and reset the
+    /// automation baseline so the next Play captures fresh patch state.
+    func loadAutomationSetup(id: String) {
+        guard let setup = automationSetups.first(where: { $0.id == id }) else { return }
+        automation = setup.timeline
+        invalidateAutomationBaseline()
+    }
+
+    func deleteAutomationSetup(id: String) {
+        automationSetups.removeAll { $0.id == id }
+        AutomationSetupStore.save(automationSetups)
     }
 }
