@@ -11,7 +11,7 @@ import {
   pitchToFrequency, chordFrequencies, FREQ_MIN, FREQ_MAX
 } from "./music.js?v=44";
 import { AudioEngine } from "./audio.js?v=43";
-import { initUI, renderAll } from "./ui.js?v=50";
+import { initUI, renderAll } from "./ui.js?v=51";
 import {
   exportUserPresetDownload, importUserPresetFromFile
 } from "./preset-sharing.js?v=46";
@@ -1569,10 +1569,11 @@ const actions = {
     engine.clearSample(oscIndex);
     state.oscillators[oscIndex].sampleName = null;
     sampleCache[oscIndex] = null;
-    if (state.oscillators[oscIndex].waveform === "sample") {
-      state.oscillators[oscIndex].waveform = "sine";
-      engine.setWaveform(oscIndex, "sine");
-    }
+    // Stay on the Sample waveform so the row stays open (Load file… + empty
+    // name) and the user can drop in a replacement without re-picking the
+    // waveform. Turn Granular off since there's no buffer to slice now.
+    state.oscillators[oscIndex].sampleGranular = false;
+    engine.setSampleGranular(oscIndex, false);
     renderAll();
   },
 

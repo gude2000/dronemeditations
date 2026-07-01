@@ -1193,7 +1193,7 @@ function syncStrip(index, root) {
   const sampleVisible = osc.waveform === "sample";
   sampleRow.hidden = !sampleVisible;
   if (sampleVisible) {
-    const name = osc.sampleName || "no file loaded";
+    const name = osc.sampleName || "—";   // empty placeholder when no sample loaded
     const nameEl = root.querySelector('[data-role="sample-name"]');
     nameEl.textContent = name;
     nameEl.title = name;
