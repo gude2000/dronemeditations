@@ -13,6 +13,13 @@ struct Preset: Identifiable, Hashable {
     let subtitle: String?
     /// (frequency Hz, pan -1..1) for each of 4 voices.
     let voices: [Voice]
+    /// Optional chord-template id (== `ChordType.id`, e.g. "Major"). When set,
+    /// applyPreset snaps the chord pill to it — INIT uses this so a "clean
+    /// state" load reads A **Major** instead of inheriting the previous
+    /// patch's mode. nil = leave the current chord template as-is (the default
+    /// for every other bundled preset; picking one from interval analysis is a
+    /// later follow-up).
+    let chordId: String?
 
     static func == (lhs: Preset, rhs: Preset) -> Bool { lhs.name == rhs.name }
     func hash(into hasher: inout Hasher) { hasher.combine(name) }
@@ -114,11 +121,13 @@ struct Preset: Identifiable, Hashable {
         case mysticComposers = "Mystic & Composers"
     }
 
-    init(_ name: String, _ category: Category, subtitle: String? = nil, _ voices: [Voice]) {
+    init(_ name: String, _ category: Category, subtitle: String? = nil,
+         chordId: String? = nil, _ voices: [Voice]) {
         precondition(voices.count == 4, "Preset requires exactly 4 voices (pad with silent voices if needed)")
         self.name = name
         self.category = category
         self.subtitle = subtitle
+        self.chordId = chordId
         self.voices = voices
     }
 }
@@ -148,6 +157,7 @@ extension Preset {
 
         Preset("INIT — Clean state", .setup,
                subtitle: "Reset every voice to neutral · 4 sine voices, dry, no LFO depth",
+               chordId: "Major",
                {
                    let neutralFilter = FilterState(type: .lowpass, cutoffHz: 4000, q: 0.7)
                    let neutralReverb = ReverbState(decaySec: 2.0, mix: 0.0)

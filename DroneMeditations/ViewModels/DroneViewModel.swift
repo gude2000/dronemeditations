@@ -1684,6 +1684,14 @@ final class DroneViewModel: ObservableObject {
             currentKey = p.pitchClass
             currentOctave = max(0, min(7, p.octave))
         }
+        // If the preset names a chord template, snap the pill to it. INIT
+        // uses this to read "A Major" (matching its A-major voicing) instead
+        // of inheriting the previous patch's mode. Presets that don't specify
+        // one keep the current template unchanged.
+        if let cid = preset.chordId,
+           let chord = ChordType.all.first(where: { $0.id == cid }) {
+            currentChord = chord
+        }
         // Built-in presets carry NO automation timeline. Clear any timeline
         // left over from the previous patch so it doesn't keep sequencing
         // over this preset — INIT and the Solfeggio/binaural presets are
