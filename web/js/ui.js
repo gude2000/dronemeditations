@@ -755,7 +755,7 @@ function buildStrip(index) {
              before the next. On honors the requested density gap
              literally — large grains overlap themselves and the trigger
              rate stays locked to BPM. -->
-        <button type="button" class="sample-button" data-role="grain-overlap" title="Allow grain overlap — when on, big grains stack on top of each other instead of slowing the trigger rate. Useful for thick clouds at BPM-locked subdivisions.">OVL</button>
+        <button type="button" class="sample-button" data-role="grain-overlap" title="Allow grain overlap — when on, big grains stack on top of each other instead of slowing the trigger rate. Useful for thick clouds at BPM-locked subdivisions.">Grain Overlap</button>
       </div>
       <div class="mini-control">
         <span class="mini-label" data-role="grain-jitter-label">JITTER</span>

@@ -11,7 +11,7 @@ import {
   pitchToFrequency, chordFrequencies, FREQ_MIN, FREQ_MAX
 } from "./music.js?v=44";
 import { AudioEngine } from "./audio.js?v=43";
-import { initUI, renderAll } from "./ui.js?v=46";
+import { initUI, renderAll } from "./ui.js?v=47";
 import {
   exportUserPresetDownload, importUserPresetFromFile
 } from "./preset-sharing.js?v=46";
