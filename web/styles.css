@@ -1224,11 +1224,17 @@ body.performance:hover { cursor: default; }
    visual change so the user couldn't tell whether granular sampling was
    engaged. Tinted to match the app's accent so it reads as "active". */
 .sample-button.selected {
-  background: rgba(143, 185, 217, 0.30);   /* accent at 30% */
-  color: #d8e8f4;
-  box-shadow: inset 0 0 0 1px rgba(143, 185, 217, 0.60);
+  /* Bright, lit-up "ON" chip — a solid light-accent fill with dark text and a
+     soft outer glow so the engaged state is unmistakable vs the dim off state
+     (previously a 30% tint that was too easy to miss on the OVL / Grainy
+     buttons). */
+  background: rgba(143, 185, 217, 0.92);
+  color: #0b1c28;
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px rgba(184, 214, 236, 0.9),
+              0 0 9px rgba(143, 185, 217, 0.55);
 }
-.sample-button.selected:hover { background: rgba(143, 185, 217, 0.42); }
+.sample-button.selected:hover { background: rgba(165, 201, 229, 1); }
 .sample-clear {
   background: rgba(224, 82, 74, 0.15);
   color: #f3a8a3;
