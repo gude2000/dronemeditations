@@ -914,7 +914,15 @@ final class Voice {
         // For sample mode: precompute per-buffer pitch ratio + sample-frame increment.
         // 220 Hz = unity playback; chord intervals translate to pitch shifts of the sample.
         // Uses the effective (pitch-LFO-modulated) freq so vibrato applies to samples too.
-        let isSampleMode = (wave == .sample) && (sampleData?.isEmpty == false)
+        // Capture the optional sample buffer ONCE per render block. It's read
+        // here on the audio (IO) thread but mutated on the main thread (load /
+        // clear / record). Re-reading `sampleData!` at each sample read races
+        // with a main-thread clear that nils it → "Unexpectedly found nil
+        // while unwrapping an Optional" crash on AURemoteIO::IOThread (seen
+        // after recording a sample, then stopping). A local strong copy is
+        // COW-cheap and can't be nil'd out from under us mid-buffer.
+        let sampleBuffer = sampleData
+        let isSampleMode = (wave == .sample) && (sampleBuffer?.isEmpty == false)
         // v1: sampleNativeBaseFreq replaces the hardcoded 220 — defaults
         // to 220 for bundled / file uploads (back-compat) and is
         // overridden to the record-time freq for recordings.
@@ -923,7 +931,7 @@ final class Voice {
             ? max(0.05, min(20.0, effectiveFreqTarget / baseFreq)) * (sampleNativeRate / sampleRate)
             : 0
         // Snapshot the array's storage pointer outside the loop to avoid per-sample ARC.
-        let sampleCount = sampleData?.count ?? 0
+        let sampleCount = sampleBuffer?.count ?? 0
         // Precompute play-window in frames + fade lengths in samples once
         // per render block — these are user-set and stable across one
         // buffer. Clamp endFrac > startFrac and bound to [1, sampleCount].
@@ -1036,7 +1044,7 @@ final class Voice {
                     // grainCurrentLength + grainSampleStartFrame
                     // overshoots due to a parameter change mid-grain.
                     let readIdx = min(sampleCount - 1, grainSampleStartFrame + grainCurrentPos)
-                    let s = Double(sampleData![readIdx])
+                    let s = Double(sampleBuffer![readIdx])
                     // 1.6× boost — Hann's average power is ~0.5 and
                     // sample-grain duty cycle is ~0.5 at default density,
                     // so without a boost the sampled material sounds
@@ -1058,8 +1066,8 @@ final class Voice {
                 let i0 = Int(pos) % sampleCount
                 let i1 = (i0 + 1) % sampleCount
                 let frac = pos - floor(pos)
-                let s0 = Double(sampleData![i0])
-                let s1 = Double(sampleData![i1])
+                let s0 = Double(sampleBuffer![i0])
+                let s1 = Double(sampleBuffer![i1])
                 raw = s0 * (1.0 - frac) + s1 * frac
 
                 // Crossfade gain at loop boundaries — linear ramps.
