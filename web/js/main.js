@@ -602,10 +602,12 @@ const actions = {
       state.keyId = ((midi % 12) + 12) % 12;
       state.octave = Math.max(1, Math.min(6, Math.floor(midi / 12) - 1));
     }
-    // If the preset names a chord template, snap the pill to it (INIT →
-    // "maj" so it reads A Major instead of inheriting the previous mode).
-    // Presets that don't specify one keep the current template, matching iOS.
-    if (p.chordId != null) state.chordId = p.chordId;
+    // Snap the chord template: a preset's own chordId if it names one, else
+    // default to Major. Bundled presets are raw frequencies with no chord of
+    // their own, so without this the previous patch's MODE carried over — e.g.
+    // Lydian Dream → Solfeggio 417 kept "Lydian" (key changed, mode stuck).
+    // Defaulting to Major makes every load self-consistent (no carryover).
+    state.chordId = (p.chordId != null) ? p.chordId : "maj";
     state.activePresetName = p.name;
     renderAll();
   },
