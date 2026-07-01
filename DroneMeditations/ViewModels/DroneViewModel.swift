@@ -931,6 +931,12 @@ final class DroneViewModel: ObservableObject {
         invalidateAutomationBaseline()
         setMasterVolume(preset.masterVolume)
         for (i, v) in preset.oscillators.enumerated() where i < 4 {
+            // Clean slate first (same as applyPreset) so nothing from the
+            // previous patch survives fields this saved preset omits — old
+            // saves predate grain / sample-window / drift fields, which used
+            // to carry over. The sets below then restore exactly what THIS
+            // preset stored.
+            resetVoiceForPresetLoad(i)
             setFrequency(v.frequencyHz, for: i)
             setAmplitude(v.amplitude, for: i)
             setPan(v.pan, for: i)
@@ -1406,6 +1412,103 @@ final class DroneViewModel: ObservableObject {
 
     // MARK: - Preset
 
+    /// Reset voice `i`'s full DSP chain to canonical defaults so a bundled-
+    /// preset load starts from a clean slate — matching a fresh app launch
+    /// and the always-reset behavior `loadUserPreset()` already has.
+    ///
+    /// Fixes a reported carryover: switching from a "driven" preset (high
+    /// drive / FM index / harsh waveform / delay feedback / granular
+    /// texture) to a simpler preset that leaves those fields unspecified
+    /// used to keep the previous preset's tone stuck — audibly distorted /
+    /// over-driven — until the app was restarted. `applyPreset()` applies
+    /// its rich-voice fields with `if let`, so anything the incoming preset
+    /// OMITS was never cleared. Resetting here first, then letting
+    /// `applyPreset` override with whatever the preset DOES specify, makes
+    /// every load deterministic.
+    ///
+    /// The user's per-voice quantize-to-scale toggle is deliberately
+    /// preserved (an orthogonal post-process choice, same intent as the
+    /// drift-restore block in `applyPreset`).
+    private func resetVoiceForPresetLoad(_ i: Int) {
+        guard i >= 0 && i < 4 else { return }
+        let def = OscillatorState.defaults()[i]
+
+        // Sample source + waveform → clean sine.
+        clearSample(for: i)
+        setSampleGranular(false, for: i)
+        setGrainSamplePos(0.5, for: i)
+        setGrainSamplePosJitter(0.1, for: i)
+        setWaveform(def.waveform, for: i)        // .sine
+        setAmplitude(def.amplitude, for: i)
+        setDrive(1.0, for: i)                     // 1.0 = bypass soft-saturation
+
+        // Sample play-window + pitch baseline → whole sample, no fades.
+        setSampleStart(0.0, for: i)
+        setSampleEnd(1.0, for: i)
+        setSampleFadeIn(0.0, for: i)
+        setSampleFadeOut(0.0, for: i)
+        oscillators[i].sampleNativeBaseFreq = 220.0
+        audioEngine.setSampleNativeBaseFreq(220.0, for: i)
+
+        // Per-voice timing envelope → always-on (play immediately, forever).
+        setStartDelay(0, for: i)
+        setPlayDuration(0, for: i)
+        setReplayCount(1, for: i)
+
+        // Filter → gentle open low-pass.
+        let f = FilterState.defaults()
+        setFilterType(f.type, for: i)
+        setFilterCutoff(f.cutoffHz, for: i)
+        setFilterQ(f.q, for: i)
+
+        // FM off.
+        let fm = FMState.defaults()
+        setFMSource(fm.sourceIndex, for: i)
+        setFMIndex(fm.index, for: i)
+
+        // Chorus / reverb / delay → dry defaults (mix 0 = off).
+        let ch = ChorusState.defaults()
+        setChorusRate(ch.rateHz, for: i)
+        setChorusDepth(ch.depth, for: i)
+        setChorusWidth(ch.width, for: i)
+        setChorusMix(ch.mix, for: i)
+        let rv = ReverbState.defaults()
+        setReverbDecay(rv.decaySec, for: i)
+        setReverbMix(rv.mix, for: i)
+        let dl = DelayState.defaults()
+        setDelayTime(dl.timeSec, for: i)
+        setDelayFeedback(dl.feedback, for: i)
+        setDelayMix(dl.mix, for: i)
+        setDelayMode(dl.mode, for: i)
+
+        // Granular noise config → defaults.
+        let gr = GrainState.defaults()
+        oscillators[i].grain = gr
+        setGrainSize(gr.sizeMs, for: i)
+        pushEffectiveGrainDensity(for: i)
+        setGrainJitter(gr.jitter, for: i)
+        setGrainPanSpread(gr.panSpread, for: i)
+        setGrainAllowOverlap(gr.resolvedAllowOverlap, for: i)
+
+        // All 4 LFOs → default sine → pitch at depth 0 (inaudible), sync off.
+        let dLfo = LfoState(shape: .sine, targets: [.pitch], rateHz: 0.30, depth: 0)
+        for k in 0..<4 {
+            setLfoShape(dLfo.shape, for: i, lfoIndex: k)
+            setLfoTarget(dLfo.target, for: i, lfoIndex: k)
+            oscillators[i].lfos[k].rateSyncEnabled = dLfo.rateSyncEnabled
+            oscillators[i].lfos[k].rateDenomination = dLfo.rateDenomination
+            setLfoRate(dLfo.rateHz, for: i, lfoIndex: k)
+            setLfoDepth(dLfo.depth, for: i, lfoIndex: k)
+        }
+
+        // Drift → off, preserving the user's quantize-to-scale toggle.
+        var offDrift = DriftVoiceConfig.off
+        offDrift.quantizeToScale = oscillators[i].drift.quantizeToScale
+        oscillators[i].drift = offDrift
+        setVoicePitchDrift(i, mode: offDrift.pitchMode)
+        setVoicePanDrift(i, mode: offDrift.panMode)
+    }
+
     func applyPreset(_ preset: Preset) {
         for (i, voice) in preset.voices.enumerated() where i < 4 {
             let clamped = max(OscillatorState.minFrequency, min(OscillatorState.maxFrequency, voice.hz))
@@ -1420,6 +1523,15 @@ final class DroneViewModel: ObservableObject {
             audioEngine.setFrequency(clamped, for: i)
             audioEngine.setPan(voice.pan, for: i)
             audioEngine.setMute(isSilentSlot, for: i)
+
+            // Clean slate: reset this voice's DSP to defaults BEFORE applying
+            // the preset's fields below. Without this, any effect the incoming
+            // preset doesn't specify (drive / FM / waveform / filter / delay
+            // feedback / grain) kept the PREVIOUS preset's value — so a
+            // "driven"/distorted patch bled into the next, clean patch until
+            // an app restart. The `if let` blocks below then override only
+            // what this preset actually defines.
+            resetVoiceForPresetLoad(i)
 
             // ─── Optional rich-voice fields (Drone Artists presets) ───
             // Each block is no-op when the preset's voice didn't specify it,

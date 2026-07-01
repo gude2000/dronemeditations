@@ -4,6 +4,17 @@ Release notes are a running record of what's shipped in each version. Each secti
 
 ---
 
+## v1.1 (build 14) — Preset-load reliability
+
+*Supersedes build 13 (same 1.1 feature set + What's New). Two reliability fixes found in testing.*
+
+### Fixes
+
+- **Loading a preset no longer inherits the previous patch's sound.** The built-in preset picker (`applyPreset`) applied each voice's effects with `if let`, so any parameter the incoming preset didn't specify — drive, FM, waveform, filter, delay feedback, granular — kept the value from the patch you were just on. Switching from a "driven"/distorted patch to a simpler one left the distortion stuck until the app was relaunched. Both load paths (`applyPreset` for bundled presets and `loadUserPreset` for saved/shared presets) now reset every voice's full DSP chain to defaults **before** applying the preset's own fields, so every load starts from a clean slate — matching a fresh launch. Your per-voice quantize-to-scale toggle is deliberately preserved.
+- **Chord slug→name safety net for cross-platform presets (iOS import).** `.dronepreset` files exported by the web app before the slug→name export fix carried the chord *slug* (`"lydian"`), which iOS matched by *name* (`"Lydian"`) — so a G Lydian patch loaded as G Major (key right, mode lost). The iOS importer now translates web chord slugs to names for both the base chord and any automation chord-change events, so **any** web export — old or new — resolves the right key/mode without a re-export.
+
+---
+
 ## v1.1 (build 13) — Automation Timeline
 
 *The first post-launch feature update. A per-patch, time-based event sequencer on iOS — plus a reusable setups library, and full automation edit + playback on the web.*

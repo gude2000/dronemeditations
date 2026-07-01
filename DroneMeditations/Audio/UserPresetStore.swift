@@ -267,6 +267,29 @@ enum UserPresetSharing {
     /// byte-identical. Returns nil if the JSON isn't a top-level
     /// object; the caller will then try to decode the original bytes
     /// and let the user see the resulting error.
+    /// Web chord-template slug → iOS `ChordType.id` (which IS the display
+    /// name). The web app stores chord templates by slug ("lydian", "maj",
+    /// "m7b5"); iOS matches on the name ("Lydian", "Major",
+    /// "Half-Dim (m7♭5)"). A slug iOS can't match makes `loadUserPreset`
+    /// leave `currentChord` at its default (Major) — the "G Lydian loads as
+    /// G Major" bug. Source of truth: web/js/music.js CHORDS[].{id → name};
+    /// kept in sync by hand — add a slug here when a chord is added on web.
+    fileprivate static let chordSlugToName: [String: String] = [
+        "maj": "Major", "min": "Minor", "dim": "Diminished", "aug": "Augmented",
+        "sus2": "Sus2", "sus4": "Sus4", "maj7": "Major 7", "min7": "Minor 7",
+        "dom7": "Dominant 7", "dim7": "Diminished 7", "m7b5": "Half-Dim (m7♭5)",
+        "mMaj7": "Minor-Maj 7", "aug7": "Augmented 7", "add9": "Add 9",
+        "min_add9": "Minor Add 9", "6": "6 chord", "min6": "Minor 6",
+        "maj9no5": "Major 9 (no 5)", "7sus4": "7 sus4",
+        "ionian": "Ionian", "dorian": "Dorian", "phrygian": "Phrygian",
+        "lydian": "Lydian", "mixolydian": "Mixolydian", "aeolian": "Aeolian",
+        "locrian": "Locrian", "harmMin": "Harmonic Minor", "melMin": "Melodic Minor",
+        "wt": "Whole-Tone", "tt_stk": "Tritone Stack", "min3_stk": "Minor 3rd Stack",
+        "maj3_stk": "Major 3rd Stack", "chrom": "Chromatic Cluster",
+        "quartal": "Quartal", "quintal": "Quintal", "open5": "Open Fifth",
+        "octs": "Octaves", "drone": "Power Drone",
+    ]
+
     fileprivate static func translateWebEnumStrings(in data: Data) -> Data? {
         guard var root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
             return nil
@@ -358,6 +381,34 @@ enum UserPresetSharing {
             preset["oscillators"] = oscs
             root["preset"] = preset
         }
+
+        // Pass 3 — chord slug → canonical name. Rewrite the base chord and
+        // any automation chordChange events so iOS's name-based matching
+        // resolves them. Re-reads root["preset"] so it picks up the
+        // oscillator mutations above. Only exact web slugs are keys, so
+        // canonical names (iOS-authored envelopes) and unknown values pass
+        // through untouched — lossless for iOS-shaped presets.
+        if var preset = root["preset"] as? [String: Any] {
+            if let cid = preset["chordId"] as? String, let name = chordSlugToName[cid] {
+                preset["chordId"] = name
+            }
+            if var automation = preset["automation"] as? [String: Any],
+               var events = automation["events"] as? [[String: Any]] {
+                for i in 0..<events.count {
+                    guard var action = events[i]["action"] as? [String: Any],
+                          var cc = action["chordChange"] as? [String: Any],
+                          let cid = cc["chordId"] as? String,
+                          let name = chordSlugToName[cid] else { continue }
+                    cc["chordId"] = name
+                    action["chordChange"] = cc
+                    events[i]["action"] = action
+                }
+                automation["events"] = events
+                preset["automation"] = automation
+            }
+            root["preset"] = preset
+        }
+
         return try? JSONSerialization.data(withJSONObject: root)
     }
 
