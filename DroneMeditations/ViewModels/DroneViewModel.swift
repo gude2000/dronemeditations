@@ -848,10 +848,10 @@ final class DroneViewModel: ObservableObject {
         audioEngine.clearSample(for: index)
         oscillators[index].sampleName = nil
         oscillators[index].sampleStoredFilename = nil
-        if oscillators[index].waveform == .sample {
-            oscillators[index].waveform = .sine
-            audioEngine.setWaveform(.sine, for: index)
-        }
+        // Stay on the Sample waveform so the sample section stays open
+        // (Load file… + empty name) and the user can drop a replacement
+        // without re-picking the waveform. (Previously reverted to a sine
+        // oscillator, hiding the whole section.) Mirrors the web app.
     }
 
     // MARK: - User presets

@@ -64,25 +64,14 @@ struct OscillatorStrip: View {
 
                 Spacer()
 
-                // v1 per-osc mic actions. Tune (ear) snaps this voice's
-                // frequency to a captured pitch. Record (mic) captures
-                // up to 30 s of audio and auto-loads it as this voice's
-                // sample. Two separate icons rather than a combined
-                // long-press so the affordances are visible.
+                // v1 per-osc Tune (ear): snaps this voice's frequency to a
+                // captured pitch. The Record action moved into the SAMPLE row
+                // (labeled "Record Sample") for discoverability — it produces
+                // a sample, so it lives with the sample controls now.
                 Button {
                     showingTuneSheet = true
                 } label: {
                     Image(systemName: "ear")
-                        .font(.system(.caption, design: .rounded).weight(.heavy))
-                        .frame(width: 26, height: 26)
-                        .background(Circle().fill(Color.white.opacity(0.10)))
-                        .foregroundStyle(.white)
-                }
-                .buttonStyle(.plain)
-                Button {
-                    showingRecordSheet = true
-                } label: {
-                    Image(systemName: "mic.fill")
                         .font(.system(.caption, design: .rounded).weight(.heavy))
                         .frame(width: 26, height: 26)
                         .background(Circle().fill(Color.white.opacity(0.10)))
@@ -316,12 +305,22 @@ struct OscillatorStrip: View {
             }
             .buttonStyle(.plain)
 
-            Text(osc.sampleName ?? "no file loaded")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            // Record straight into this voice's sample slot — moved here from
+            // the strip header and labeled (mirrors the web "Record Sample").
+            // Grouped with the other sample-source buttons.
+            Button {
+                showingRecordSheet = true
+            } label: {
+                Label("Record Sample", systemImage: "mic.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                    .padding(.horizontal, 10).padding(.vertical, 6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 7)
+                            .fill(Color.white.opacity(0.12))
+                    )
+                    .foregroundStyle(.white)
+            }
+            .buttonStyle(.plain)
 
             if osc.sampleName != nil {
                 Button {
@@ -338,6 +337,15 @@ struct OscillatorStrip: View {
                 }
                 .buttonStyle(.plain)
             }
+
+            // Sample name last: its maxWidth:.infinity fills the trailing
+            // space so the source buttons stay grouped on the left (empty = —).
+            Text(osc.sampleName ?? "—")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
 
         // Play-window sub-row: only shown when a sample is actually loaded.

@@ -4,6 +4,19 @@ Release notes are a running record of what's shipped in each version. Each secti
 
 ---
 
+## v1.1 (build 16) — Sample controls reorg (iOS↔web parity)
+
+*Makes the per-voice sample controls more intuitive and identical across platforms.*
+
+### Changes
+
+- **"Record Sample" is now a labeled button in the SAMPLE row** — moved out of the anonymous mic icon in the strip header, grouped with Bundled / Load file… so it's discoverable.
+- **SAMPLE row regrouped** — Bundled · Load/Replace · Record Sample · Clear, with the sample name last (it no longer strands the Clear button on the far right).
+- **Clear keeps you on the Sample waveform** — the row stays open with "Load file…" and an empty name so you can drop in a replacement without re-selecting the waveform (previously it reverted the voice to a sine oscillator).
+- The web app already ships all of the above, plus a brighter "on" state for the Grain Overlap / Granular toggles and a fix so Grain Overlap actually toggles.
+
+---
+
 ## v1.1 (build 15) — Preset-load reliability
 
 *Supersedes builds 13–14 (same 1.1 feature set + What's New). Reliability fixes found in testing.*
