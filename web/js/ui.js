@@ -1065,7 +1065,7 @@ function buildStrip(index) {
   const grainOverlapBtn = root.querySelector('[data-role="grain-overlap"]');
   if (grainOverlapBtn) {
     grainOverlapBtn.addEventListener("click", () => {
-      const cur = !!(state.oscillators[index].grain && state.oscillators[index].grain.allowOverlap);
+      const cur = !!(getState().oscillators[index].grain && getState().oscillators[index].grain.allowOverlap);
       dispatch.setGrainAllowOverlap(index, !cur);
     });
   }
