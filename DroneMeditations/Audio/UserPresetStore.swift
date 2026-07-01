@@ -222,7 +222,12 @@ enum UserPresetSharing {
             chordId: p.chordId,
             tuningId: p.tuningId,
             masterVolume: p.masterVolume,
-            oscillators: p.oscillators
+            oscillators: p.oscillators,
+            // v1.1 fix: carry the Automation Timeline through import. The
+            // envelope decodes it into p.automation, but the re-id'd copy
+            // above previously omitted it — so imported presets silently
+            // lost their timeline.
+            automation: p.automation
         )
     }
 
